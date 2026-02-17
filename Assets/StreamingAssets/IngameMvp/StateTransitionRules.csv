@@ -1,0 +1,6 @@
+﻿from_state,to_state,entry_condition,exit_condition,guard,priority,enabled
+Plan,Drop,session_started=true,plan_ready=true,csv_loaded=true,1,true
+Drop,AutoNarrative,drop_not_processed,drop_done=true,drop_event_set_valid=true,1,true
+AutoNarrative,CaptainIntervention,auto_phase_open=true,intervention_window_open=true,autonomy_result_valid=true,1,true
+CaptainIntervention,NightDream,intervention_window_open=true,intervention_window_closed=true,queue_apply_ok=true,1,true
+NightDream,Resolve,dream_phase_open=true,dream_done=true,dream_rules_valid=true,1,true

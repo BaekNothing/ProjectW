@@ -1,0 +1,4 @@
+﻿character_id,trait_weights_json,stress,health,trauma_level,enabled
+char_001,{"brave":1},10,95,1,true
+char_002,{"calm":1},15,88,2,true
+char_003,{"focus":1},8,92,0,true

@@ -1,0 +1,2 @@
+﻿rule_id,condition_type,threshold_expr,result_code,enabled,priority
+term_001,ObjectiveComplete,tick_index>=8,OBJ_DONE,true,1
