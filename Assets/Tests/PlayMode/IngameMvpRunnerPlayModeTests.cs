@@ -11,19 +11,14 @@ namespace ProjectW.Tests.PlayMode
     public class IngameMvpRunnerPlayModeTests
     {
         [UnityTest]
-        public IEnumerator SampleScene_BootstrapsRunner_AndSpawnsCharacters()
+        public IEnumerator Runner_InitializesAndSpawnsCharacters_FromCsv()
         {
-            var load = SceneManager.LoadSceneAsync("SampleScene", LoadSceneMode.Single);
-            Assert.IsNotNull(load);
-            while (!load.isDone)
-            {
-                yield return null;
-            }
+            var go = new GameObject("IngameMvpRunner_PlayModeTest");
+            var runner = go.AddComponent<IngameMvpRunner>();
+            Assert.IsNotNull(runner);
 
-            yield return null;
-
-            var runner = Object.FindFirstObjectByType<IngameMvpRunner>();
-            Assert.IsNotNull(runner, "SampleScene should include an IngameMvpRunner.");
+            bool initialized = runner.InitializeAndRun();
+            Assert.IsTrue(initialized);
             Assert.AreEqual(string.Empty, runner.LastErrorCode, "Runner should initialize with default CSV set.");
 
             int characterCount = 0;
@@ -36,6 +31,8 @@ namespace ProjectW.Tests.PlayMode
             }
 
             Assert.GreaterOrEqual(characterCount, 1, "At least one character should be spawned from CharacterProfiles.csv.");
+            Object.Destroy(go);
+            yield return null;
         }
 
         [UnityTest]
