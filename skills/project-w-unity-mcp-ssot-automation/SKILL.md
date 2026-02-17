@@ -74,6 +74,13 @@ Commit message pattern:
 - `[Impl] <Feature or Rule> (Spec: <Doc or Section>)`
 - Optional follow-up: `[Test] <Coverage Scope> (Spec: <Doc or Section>)`
 
+After task completion, finish version-control flow unless the user explicitly says not to:
+1. `git add` implementation and paired test files
+2. `git commit` with `Spec Ref` in message
+3. `git push` current branch
+
+If push fails, report the exact error and required user action.
+
 ## Standard Output Format
 
 Return results in this order:

@@ -124,6 +124,13 @@ Require commit messages to include spec reference, e.g.:
 - `[Spec] Update Ingame Loop Definition v0.2`
 - `[Impl] Apply Loop State Transition Rule`
 
+After task completion, finish version-control flow unless the user explicitly says not to:
+1. `git add` relevant files
+2. `git commit` with Spec Ref in message
+3. `git push` current branch
+
+If push fails, report the exact failure and required user action.
+
 ## Operational Summary
 
 Always enforce:
