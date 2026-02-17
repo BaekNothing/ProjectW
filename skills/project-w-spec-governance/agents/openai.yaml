@@ -1,0 +1,4 @@
+interface:
+  display_name: "Project_W Spec Governance"
+  short_description: "Project_W 사양 우선 SSOT 규칙을 강제 적용"
+  default_prompt: "Project_W 요청을 /Specification SSOT 기준으로 검증하고, 사양-구현 순서와 영향 분석 규칙에 따라 처리해."
