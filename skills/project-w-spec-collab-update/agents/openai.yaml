@@ -1,0 +1,4 @@
+interface:
+  display_name: "Project_W Spec Collab Update"
+  short_description: "Collect user input and directly update Project_W SSOT docs"
+  default_prompt: "Collect the 5 required fields, update Assets/Specification in place, replace legacy Confluence/Jira assumptions with local SSOT rules, and report change summary, conflicts, impact matrix, applied sections, and spec-ref commit drafts."

@@ -33,7 +33,7 @@
 
 ## Evidence Principle
 
-- 사실 기록: Jira (Issue / Worklog)
+- 사실 기록: GitHub Commit/PR, Unity 테스트 로그, 빌드 아티팩트
 - 해석 및 관리 판단: PM Log
 
-관리 판단은 반드시 Jira 증거와 함께 남긴다.
+관리 판단은 반드시 추적 가능한 근거 링크(커밋, PR, 빌드, 문서 경로)와 함께 남긴다.
