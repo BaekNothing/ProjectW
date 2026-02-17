@@ -1,2 +1,0 @@
-﻿session_id,tick_seconds,max_decision_retry,max_persist_retry,persist_retry_backoff_ms
-mvp_session,2,3,3,500

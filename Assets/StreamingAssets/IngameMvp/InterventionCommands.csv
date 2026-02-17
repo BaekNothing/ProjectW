@@ -1,3 +1,0 @@
-﻿command_id,issued_tick,apply_tick,command_type,target_scope,payload_json,priority,supersedes_command_id
-cmd_001,0,1,ObjectPriority,global,{},1,
-cmd_002,2,3,ObjectPriority,global,{},2,
