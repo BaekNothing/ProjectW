@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using ProjectW.IngameMvp;
+using UnityEngine;
 
 namespace ProjectW.Tests.EditMode
 {
@@ -18,15 +19,24 @@ namespace ProjectW.Tests.EditMode
         }
 
         [Test]
-        public void AdvanceTick_UpdatesSnapshotAndMissionTicks()
+        public void AdvanceTick_CreatesCharacterUiAndMovesByIndependentNeeds()
         {
-            var mission = new UnityEngine.GameObject("MissionZone");
-            var cafe = new UnityEngine.GameObject("CafeteriaZone");
-            var sleep = new UnityEngine.GameObject("SleepZone");
-            var root = new UnityEngine.GameObject("Characters");
-            var c1 = new UnityEngine.GameObject("Character_A");
+            var mission = new GameObject("MissionZone");
+            mission.transform.position = new Vector3(-5f, 0f, 0f);
+            var cafe = new GameObject("CafeteriaZone");
+            cafe.transform.position = new Vector3(0f, 0f, 0f);
+            var sleep = new GameObject("SleepZone");
+            sleep.transform.position = new Vector3(5f, 0f, 0f);
+            var root = new GameObject("Characters");
+
+            var c1 = new GameObject("Character_A");
             c1.transform.SetParent(root.transform);
-            var go = new UnityEngine.GameObject("RoutineSession_EditMode");
+            var c2 = new GameObject("Character_B");
+            c2.transform.SetParent(root.transform);
+            var c3 = new GameObject("Character_C");
+            c3.transform.SetParent(root.transform);
+
+            var go = new GameObject("RoutineSession_EditMode");
             var session = go.AddComponent<RoutineObservationMvpSession>();
 
             var first = session.AdvanceOneTick();
@@ -35,20 +45,30 @@ namespace ProjectW.Tests.EditMode
             Assert.AreEqual(1, first.tickInHalfDay);
             Assert.AreEqual(RoutineActionType.Mission, first.action);
 
-            for (int i = 0; i < 5; i++)
-            {
-                session.AdvanceOneTick();
-            }
+            Assert.AreEqual(3, session.Characters.Count);
+            var a = session.Characters[0];
+            var b = session.Characters[1];
+            var c = session.Characters[2];
+            Assert.IsNotNull(a.actor.Find("RoutineStatusUI"));
+            Assert.IsNotNull(a.actor.Find("RoutineNameLabel"));
+            Assert.AreEqual("A", a.nameLabel.text);
 
-            var mealTick = session.AdvanceOneTick();
-            Assert.AreEqual(7, mealTick.tickInHalfDay);
-            Assert.AreEqual(RoutineActionType.Breakfast, RoutineSchedule.ResolveAction(6));
+            b.hunger = 0f;
+            c.sleep = 0f;
+            session.AdvanceOneTick();
 
-            UnityEngine.Object.DestroyImmediate(go);
-            UnityEngine.Object.DestroyImmediate(mission);
-            UnityEngine.Object.DestroyImmediate(cafe);
-            UnityEngine.Object.DestroyImmediate(sleep);
-            UnityEngine.Object.DestroyImmediate(root);
+            Assert.AreEqual(RoutineActionType.Mission, a.currentAction);
+            Assert.AreEqual(RoutineActionType.Eat, b.currentAction);
+            Assert.AreEqual(RoutineActionType.Sleep, c.currentAction);
+            Assert.AreNotEqual(a.targetPosition, b.targetPosition);
+            Assert.AreNotEqual(a.targetPosition, c.targetPosition);
+            Assert.Greater(a.missionTicks, 0);
+
+            Object.DestroyImmediate(go);
+            Object.DestroyImmediate(mission);
+            Object.DestroyImmediate(cafe);
+            Object.DestroyImmediate(sleep);
+            Object.DestroyImmediate(root);
         }
     }
 }
