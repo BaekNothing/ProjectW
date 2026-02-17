@@ -1,15 +1,17 @@
 ﻿# SSOT – Ingame
 
-본 문서는 Project_W의 Ingame 시스템에 대한 단일 진실원(Source of Truth) 이다.
+본 문서는 Project_W Ingame 영역의 상위 SSOT 인덱스다.
 
-이 문서는 다음을 정의한다.
+코어 루프 구현 규칙은 하위 문서로 분리되며,
+구현 판단은 반드시 본 문서와 링크된 하위 SSOT를 함께 참조한다.
 
-- 플레이 중 발생 가능한 시스템의 범위
-- 플레이어가 직접 개입할 수 있는 것과 불가능한 것
-- 캐릭터, 환경, 이벤트가 따르는 기본 규칙
+------
 
-본 문서는 규칙 문서이며,
-본 문서를 수정하지 않는 한 어떤 사례도 규칙으로 승격되지 않는다.
+## Authority
+
+- 본 문서는 Ingame 영역의 상위 진입점이다.
+- 세부 규칙은 `CoreLoop` 하위 문서에 위임된다.
+- 하위 문서 간 충돌 시 본 문서의 우선순위 규칙을 따른다.
 
 ------
 
@@ -19,6 +21,7 @@
 - 자율 루틴 / 정책 반영 방식
 - 위기 상황 및 저력 발현 조건
 - 누적 변화(퇴적)의 처리 방식
+- 코어 루프 상태 전이 및 종료 조건
 
 ------
 
@@ -27,3 +30,41 @@
 - 밸런스 수치의 미세 조정
 - 특정 사례의 결과 정당화
 - 서사적 해석의 일반화
+
+------
+
+## Core Loop Spec Map
+
+아래 문서는 코어 루프 구현 단위 SSOT다.
+
+1. `Assets/Specification/Ingame/CoreLoop/01 – Tick and Timebase.md`
+2. `Assets/Specification/Ingame/CoreLoop/02 – State Machine.md`
+3. `Assets/Specification/Ingame/CoreLoop/03 – Intervention Boundary.md`
+4. `Assets/Specification/Ingame/CoreLoop/04 – Autonomy Decision.md`
+5. `Assets/Specification/Ingame/CoreLoop/05 – Session End and Persistence.md`
+6. `Assets/Specification/Ingame/CoreLoop/06 – Prototype Gate.md`
+
+------
+
+## Ingame Decision Order
+
+Ingame 구현 판단은 아래 순서를 따른다.
+
+1. 본 문서(`SSOT – Ingame`)
+2. `CoreLoop/01..06` 세부 문서
+3. 상위 메타 규칙 문서(`SSOT – Workflow Local Spec × Unity × GitHub`)
+4. Unity 구현 코드
+
+------
+
+## Change Rationale
+
+- 단일 문서에 규칙이 과밀하면 구현 시 추적성이 급격히 낮아진다.
+- 구현 단위 분리는 작업 범위/검증 범위/책임 경계를 명확히 한다.
+
+------
+
+## Open TODO
+
+- TODO: 코어 루프 외 하위 도메인(Combat/Resource/Event)도 동일 포맷으로 분리.
+- TODO: Outgame/Metadata와의 교차 참조 표준 템플릿 정의.

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Project_W Unity MCP SSOT Automation"
+  short_description: "Unity MCP SSOT automation with required paired tests"
+  default_prompt: "Use Unity MCP to implement script and editor changes together, always grounded in Assets/Specification SSOT, and always generate a paired Unity Test Framework test for each new runtime script."
