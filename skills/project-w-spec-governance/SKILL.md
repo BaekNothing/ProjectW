@@ -124,6 +124,12 @@ Require commit messages to include spec reference, e.g.:
 - `[Spec] Update Ingame Loop Definition v0.2`
 - `[Impl] Apply Loop State Transition Rule`
 
+Run git preflight before any git write command:
+1. Check lock file: `.git/index.lock`
+2. If lock exists, check active git processes first.
+3. Remove `.git/index.lock` only when no git process is running.
+4. Continue with git commands only after lock is cleared.
+
 After task completion, finish version-control flow unless the user explicitly says not to:
 1. `git add` relevant files
 2. `git commit` with Spec Ref in message
