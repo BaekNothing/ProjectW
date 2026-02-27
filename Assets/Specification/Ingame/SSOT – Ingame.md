@@ -52,6 +52,7 @@
 9. `Assets/Specification/Ingame/CoreLoop/09 – Error Handling and Recovery.md`
 10. `Assets/Specification/Ingame/CoreLoop/10 – Observability and Replay.md`
 11. `Assets/Specification/Ingame/CoreLoop/11 – Test Matrix (MVP).md`
+12. `Assets/Specification/Ingame/CoreLoop/12 – Spatial Interaction and Entity Scaling.md`
 
 ------
 
@@ -60,7 +61,7 @@
 Ingame 구현 판단은 아래 순서를 따른다.
 
 1. 본 문서(`SSOT – Ingame`)
-2. CoreLoop 세부 문서(`01..11`)
+2. CoreLoop 세부 문서(`01..12`)
 3. `SSOT – Workflow Local Spec × Unity × GitHub`
 4. Unity 구현 코드
 
