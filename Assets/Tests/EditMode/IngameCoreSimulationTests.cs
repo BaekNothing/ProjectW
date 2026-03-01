@@ -30,7 +30,7 @@ namespace ProjectW.Tests.EditMode
                 new AgentRuntimeState("C", 6) { SubtaskWork = 0 }
             };
 
-            TaskAllocator.AssignWorkChunks(task, agents, new Random(42));
+            TaskAllocator.AssignWorkChunks(task, agents, new System.Random(42));
 
             Assert.AreEqual(20, agents[0].SubtaskWork);
             Assert.Greater(agents[1].SubtaskWork, 0);

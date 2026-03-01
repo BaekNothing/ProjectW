@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using ProjectW.IngameMvp;
+using System.Reflection;
 using UnityEngine;
 
 namespace ProjectW.Tests.EditMode
@@ -21,12 +22,10 @@ namespace ProjectW.Tests.EditMode
         [Test]
         public void AdvanceTick_CreatesCharacterUiAndMovesByIndependentNeeds()
         {
-            var mission = new GameObject("MissionZone");
-            mission.transform.position = new Vector3(-5f, 0f, 0f);
-            var cafe = new GameObject("CafeteriaZone");
-            cafe.transform.position = new Vector3(0f, 0f, 0f);
-            var sleep = new GameObject("SleepZone");
-            sleep.transform.position = new Vector3(5f, 0f, 0f);
+            var zones = new GameObject("Zones");
+            CreateZone(zones.transform, "Mission", "zone.mission.main", new[] { "zone.mission" }, new Vector3(-5f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            CreateZone(zones.transform, "Cafeteria", "zone.meal.main", new[] { "need.hunger" }, new Vector3(0f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            CreateZone(zones.transform, "Sleep", "zone.sleep.main", new[] { "need.sleep" }, new Vector3(5f, 0f, 0f), new Vector3(4f, 4f, 2f));
             var root = new GameObject("Characters");
 
             var c1 = new GameObject("Character_A");
@@ -54,21 +53,39 @@ namespace ProjectW.Tests.EditMode
             Assert.AreEqual("A", a.nameLabel.text);
 
             b.hunger = 0f;
-            c.sleep = 0f;
+            b.stress = 0f;
+            c.hunger = 0f;
+            c.stress = 90f;
+            SetPrivateField(session, "_absoluteTick", 5); // next tick => breakfast
             session.AdvanceOneTick();
 
-            Assert.AreEqual(RoutineActionType.Mission, a.currentAction);
-            Assert.AreEqual(RoutineActionType.Eat, b.currentAction);
-            Assert.AreEqual(RoutineActionType.Sleep, c.currentAction);
-            Assert.AreNotEqual(a.targetPosition, b.targetPosition);
-            Assert.AreNotEqual(a.targetPosition, c.targetPosition);
-            Assert.Greater(a.missionTicks, 0);
+            Assert.AreEqual(RoutineActionType.Mission, a.intendedAction);
+            Assert.AreEqual(RoutineActionType.Breakfast, b.intendedAction);
+            Assert.AreEqual(RoutineActionType.Mission, c.intendedAction);
+            Assert.AreEqual(RoutineActionType.Move, a.currentAction);
 
             Object.DestroyImmediate(go);
-            Object.DestroyImmediate(mission);
-            Object.DestroyImmediate(cafe);
-            Object.DestroyImmediate(sleep);
+            Object.DestroyImmediate(zones);
             Object.DestroyImmediate(root);
+        }
+
+        private static GameObject CreateZone(Transform parent, string objectName, string zoneId, string[] tags, Vector3 position, Vector3 boundarySize)
+        {
+            var zone = new GameObject(objectName);
+            zone.transform.SetParent(parent);
+            zone.transform.position = position;
+            var collider = zone.AddComponent<BoxCollider>();
+            collider.size = boundarySize;
+            var anchor = zone.AddComponent<RoutineZoneAnchor>();
+            anchor.SetZoneId(zoneId);
+            anchor.SetTags(tags);
+            return zone;
+        }
+
+        private static void SetPrivateField(object target, string fieldName, object value)
+        {
+            var field = target.GetType().GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
+            field.SetValue(target, value);
         }
     }
 }

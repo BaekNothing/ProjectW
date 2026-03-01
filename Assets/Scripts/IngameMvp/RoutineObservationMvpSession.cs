@@ -9,6 +9,7 @@ namespace ProjectW.IngameMvp
 {
     public enum RoutineActionType
     {
+        Move,
         Mission,
         Eat,
         Breakfast,
@@ -29,18 +30,26 @@ namespace ProjectW.IngameMvp
         public float sleepDecayPerTick = 4f;
         public float sleepRecoverPerSleep = 40f;
         public float sleepThreshold = 25f;
+        public float stressDecayPerTick = 5f;
+        public float stressRecoverPerMeal = 12f;
+        public float stressRecoverPerSleep = 24f;
+        public float stressThreshold = 35f;
         public string displayName;
 
         [NonSerialized] public Vector3 targetPosition;
         [NonSerialized] public int missionTicks;
         [NonSerialized] public float hunger = 100f;
         [NonSerialized] public float sleep = 100f;
+        [NonSerialized] public float stress = 100f;
         [NonSerialized] public RoutineActionType currentAction;
+        [NonSerialized] public RoutineActionType intendedAction;
         [NonSerialized] public bool runtimeInitialized;
         [NonSerialized] public Transform statusUiRoot;
         [NonSerialized] public Transform hungerFill;
         [NonSerialized] public Transform sleepFill;
+        [NonSerialized] public Transform stressFill;
         [NonSerialized] public TextMesh nameLabel;
+        [NonSerialized] public TextMesh intentLabel;
     }
 
     public struct RoutineTickSnapshot
@@ -70,6 +79,10 @@ namespace ProjectW.IngameMvp
         private const float GaugeMax = 100f;
         private const float GaugeWidth = 0.9f;
         private const float GaugeHeight = 0.08f;
+        private const float ZoneActionSpacing = 0.9f;
+        private const string ZoneTagMission = "zone.mission";
+        private const string ZoneTagNeedHunger = "need.hunger";
+        private const string ZoneTagNeedSleep = "need.sleep";
 
         [Header("Tick")]
         [SerializeField] private bool autoRunOnStart = true;
@@ -77,9 +90,10 @@ namespace ProjectW.IngameMvp
         [SerializeField] private int ticksPerHalfDay = 30;
 
         [Header("Zone Anchors (Scene Fixed Objects)")]
-        [SerializeField] private Transform missionZone;
-        [SerializeField] private Transform cafeteriaZone;
-        [SerializeField] private Transform sleepZone;
+        [SerializeField] private Transform zonesRoot;
+        [SerializeField] private RoutineZoneAnchor missionZone;
+        [SerializeField] private RoutineZoneAnchor cafeteriaZone;
+        [SerializeField] private RoutineZoneAnchor sleepZone;
         [SerializeField] private Transform charactersRoot;
 
         [Header("UI")]
@@ -90,6 +104,7 @@ namespace ProjectW.IngameMvp
 
         private int _absoluteTick;
         private Coroutine _loopCoroutine;
+        private readonly List<RoutineZoneAnchor> _zoneAnchors = new List<RoutineZoneAnchor>();
 
         public IReadOnlyList<RoutineCharacterBinding> Characters => characters;
         public int AbsoluteTick => _absoluteTick;
@@ -127,7 +142,6 @@ namespace ProjectW.IngameMvp
                 return;
             }
 
-            Debug.Log("[RoutineMVP] Session started: infinite mission routine with meal/sleep zones.");
             _loopCoroutine = StartCoroutine(RunLoop());
         }
 
@@ -152,8 +166,8 @@ namespace ProjectW.IngameMvp
             int halfDayIndex = (((_absoluteTick - 1) / ticksPerHalfDay) % 2) + 1;
             int tickInHalfDay = ((_absoluteTick - 1) % ticksPerHalfDay) + 1;
             var defaultAction = RoutineSchedule.ResolveAction(tickInHalfDay);
-            Transform defaultZone = ResolveZone(defaultAction);
-            string zoneName = defaultZone != null ? defaultZone.name : "MissingZone";
+            RoutineZoneAnchor defaultZone = ResolveZone(defaultAction, Vector3.zero);
+            string zoneName = defaultZone != null ? defaultZone.ZoneId : "MissingZone";
 
             for (int i = 0; i < characters.Count; i++)
             {
@@ -161,32 +175,32 @@ namespace ProjectW.IngameMvp
                 if (binding.actor == null) continue;
                 EnsureRuntimeBindingInitialized(binding, i);
 
-                var action = ResolveCharacterAction(binding, tickInHalfDay);
-                binding.currentAction = action;
-                ApplyNeedsAndProgress(binding, action);
+                var desiredAction = ResolveCharacterAction(binding, tickInHalfDay);
+                binding.intendedAction = desiredAction;
+                RoutineZoneAnchor zone = ResolveZone(desiredAction, binding.actor.position);
+                var actionTarget = zone != null ? zone.Position + GetZoneActionOffset(i) : binding.actor.position;
+                binding.targetPosition = actionTarget;
 
-                Transform zone = ResolveZone(action);
-                var offset = GetCharacterSlotOffset(i);
-                binding.targetPosition = zone != null ? zone.position + offset : binding.actor.position;
+                if (!HasArrived(binding.actor.position, actionTarget))
+                {
+                    binding.currentAction = RoutineActionType.Move;
+                    ApplyNeedsAndProgress(binding, RoutineActionType.Move, false);
+                    UpdateStatusVisual(binding);
+                    UpdateIntentLabel(binding);
+                    continue;
+                }
+
+                binding.currentAction = desiredAction;
+                var canResolveNeed = CanResolveNeed(binding, desiredAction, zone);
+                ApplyNeedsAndProgress(binding, desiredAction, canResolveNeed);
                 UpdateStatusVisual(binding);
+                UpdateIntentLabel(binding);
             }
 
             string timeText = BuildTimeText(dayIndex, halfDayIndex, tickInHalfDay);
             if (currentTimeText != null)
             {
                 currentTimeText.text = timeText;
-            }
-
-            Debug.Log($"[RoutineMVP] {timeText} schedule={defaultAction} zone={zoneName} mission=infinite");
-            if (characters.Count > 0)
-            {
-                for (int i = 0; i < characters.Count; i++)
-                {
-                    var binding = characters[i];
-                    if (binding.actor == null) continue;
-                    Debug.Log(
-                        $"[RoutineMVP] {binding.actor.name} action={binding.currentAction} hunger={binding.hunger:0} sleep={binding.sleep:0} mission_ticks={binding.missionTicks}");
-                }
             }
 
             return new RoutineTickSnapshot
@@ -209,7 +223,7 @@ namespace ProjectW.IngameMvp
             }
         }
 
-        private Transform ResolveZone(RoutineActionType action)
+        private RoutineZoneAnchor ResolveZone(RoutineActionType action, Vector3 actorPosition)
         {
             switch (action)
             {
@@ -217,11 +231,11 @@ namespace ProjectW.IngameMvp
                 case RoutineActionType.Breakfast:
                 case RoutineActionType.Lunch:
                 case RoutineActionType.Dinner:
-                    return cafeteriaZone;
+                    return FindZoneByTag(ZoneTagNeedHunger, actorPosition);
                 case RoutineActionType.Sleep:
-                    return sleepZone;
+                    return FindZoneByTag(ZoneTagNeedSleep, actorPosition);
                 default:
-                    return missionZone;
+                    return FindZoneByTag(ZoneTagMission, actorPosition);
             }
         }
 
@@ -234,14 +248,14 @@ namespace ProjectW.IngameMvp
                                    || scheduledAction == RoutineActionType.Dinner;
             bool isScheduledSleep = scheduledAction == RoutineActionType.Sleep;
             bool isHungry = binding.hunger <= binding.hungerThreshold;
-            bool isSleepy = binding.sleep <= binding.sleepThreshold;
+            bool isStressed = binding.stress <= binding.stressThreshold;
 
-            if (isSleepy || isScheduledSleep)
+            if (isScheduledSleep && isHungry && isStressed)
             {
                 return RoutineActionType.Sleep;
             }
 
-            if (isHungry || isScheduledMeal)
+            if (isScheduledMeal && isHungry && isStressed)
             {
                 return isScheduledMeal ? scheduledAction : RoutineActionType.Eat;
             }
@@ -249,32 +263,56 @@ namespace ProjectW.IngameMvp
             return RoutineActionType.Mission;
         }
 
-        private void ApplyNeedsAndProgress(RoutineCharacterBinding binding, RoutineActionType action)
+        private void ApplyNeedsAndProgress(RoutineCharacterBinding binding, RoutineActionType action, bool canResolveNeed)
         {
             switch (action)
             {
+                case RoutineActionType.Move:
+                    binding.hunger -= binding.hungerDecayPerTick * 0.5f;
+                    binding.sleep -= binding.sleepDecayPerTick * 0.35f;
+                    binding.stress -= binding.stressDecayPerTick * 0.3f;
+                    break;
                 case RoutineActionType.Mission:
                     binding.hunger -= binding.hungerDecayPerTick;
                     binding.sleep -= binding.sleepDecayPerTick;
+                    binding.stress -= binding.stressDecayPerTick;
                     binding.missionTicks += 1;
                     break;
                 case RoutineActionType.Sleep:
                     binding.hunger -= binding.hungerDecayPerTick * 0.35f;
-                    binding.sleep += binding.sleepRecoverPerSleep;
+                    if (canResolveNeed)
+                    {
+                        binding.sleep += binding.sleepRecoverPerSleep;
+                        binding.stress += binding.stressRecoverPerSleep;
+                    }
                     break;
                 default:
-                    binding.hunger += binding.hungerRecoverPerMeal;
+                    if (canResolveNeed)
+                    {
+                        binding.hunger += binding.hungerRecoverPerMeal;
+                        binding.stress += binding.stressRecoverPerMeal;
+                    }
                     binding.sleep -= binding.sleepDecayPerTick * 0.5f;
                     break;
             }
 
             binding.hunger = Mathf.Clamp(binding.hunger, 0f, GaugeMax);
             binding.sleep = Mathf.Clamp(binding.sleep, 0f, GaugeMax);
+            binding.stress = Mathf.Clamp(binding.stress, 0f, GaugeMax);
         }
 
-        private Vector3 GetCharacterSlotOffset(int index)
+        private static bool HasArrived(Vector3 currentPosition, Vector3 targetPosition)
         {
-            return new Vector3(index * 1.4f - 1.4f, 0f, 0f);
+            return (targetPosition - currentPosition).sqrMagnitude <= 0.0001f;
+        }
+
+        private Vector3 GetZoneActionOffset(int index)
+        {
+            var row = index / 2;
+            var col = index % 2;
+            var x = (col == 0 ? -1f : 1f) * ZoneActionSpacing;
+            var y = row * ZoneActionSpacing * 0.8f;
+            return new Vector3(x, y, 0f);
         }
 
         private int WrapTick(int tick)
@@ -308,23 +346,13 @@ namespace ProjectW.IngameMvp
 
         private void AutoBindSceneReferences()
         {
-            if (missionZone == null)
+            if (zonesRoot == null)
             {
-                var go = GameObject.Find("MissionZone");
-                missionZone = go != null ? go.transform : null;
+                var zones = GameObject.Find("Zones");
+                zonesRoot = zones != null ? zones.transform : null;
             }
 
-            if (cafeteriaZone == null)
-            {
-                var go = GameObject.Find("CafeteriaZone");
-                cafeteriaZone = go != null ? go.transform : null;
-            }
-
-            if (sleepZone == null)
-            {
-                var go = GameObject.Find("SleepZone");
-                sleepZone = go != null ? go.transform : null;
-            }
+            BindZonesFromAnchors();
 
             if (charactersRoot == null)
             {
@@ -340,6 +368,86 @@ namespace ProjectW.IngameMvp
 
             EnsureDefaultCharactersExist();
             EnsureCharacterBindingsFromRoot();
+        }
+
+        private void BindZonesFromAnchors()
+        {
+            _zoneAnchors.Clear();
+
+            if (zonesRoot == null)
+            {
+                return;
+            }
+
+            var anchors = zonesRoot.GetComponentsInChildren<RoutineZoneAnchor>(true);
+            for (int i = 0; i < anchors.Length; i++)
+            {
+                var anchor = anchors[i];
+                if (anchor == null)
+                {
+                    continue;
+                }
+
+                _zoneAnchors.Add(anchor);
+            }
+
+            missionZone = FindZoneByTag(ZoneTagMission, Vector3.zero);
+            cafeteriaZone = FindZoneByTag(ZoneTagNeedHunger, Vector3.zero);
+            sleepZone = FindZoneByTag(ZoneTagNeedSleep, Vector3.zero);
+        }
+
+        private RoutineZoneAnchor FindZoneByTag(string zoneTag, Vector3 referencePosition)
+        {
+            RoutineZoneAnchor selected = null;
+            var bestDistance = float.MaxValue;
+
+            for (int i = 0; i < _zoneAnchors.Count; i++)
+            {
+                var zone = _zoneAnchors[i];
+                if (zone == null || !zone.HasTag(zoneTag))
+                {
+                    continue;
+                }
+
+                var distance = (zone.Position - referencePosition).sqrMagnitude;
+                if (selected == null || distance < bestDistance)
+                {
+                    selected = zone;
+                    bestDistance = distance;
+                    continue;
+                }
+
+                if (Mathf.Approximately(distance, bestDistance) &&
+                    string.CompareOrdinal(zone.ZoneId, selected.ZoneId) < 0)
+                {
+                    selected = zone;
+                }
+            }
+
+            return selected;
+        }
+
+        private bool CanResolveNeed(RoutineCharacterBinding binding, RoutineActionType action, RoutineZoneAnchor zone)
+        {
+            if (binding.actor == null || zone == null)
+            {
+                return false;
+            }
+
+            if (action == RoutineActionType.Sleep)
+            {
+                return zone.HasTag(ZoneTagNeedSleep) && zone.Contains(binding.actor.position);
+            }
+
+            if (action == RoutineActionType.Eat ||
+                action == RoutineActionType.Breakfast ||
+                action == RoutineActionType.Lunch ||
+                action == RoutineActionType.Dinner)
+            {
+                return zone.HasTag(ZoneTagNeedHunger) && zone.Contains(binding.actor.position);
+            }
+
+            return true;
         }
 
         private void EnsureDefaultCharactersExist()
@@ -411,10 +519,11 @@ namespace ProjectW.IngameMvp
                 return;
             }
 
-            binding.routineOffsetTicks = binding.routineOffsetTicks == 0 ? index * 2 : binding.routineOffsetTicks;
             binding.displayName = string.IsNullOrWhiteSpace(binding.displayName) ? BuildDisplayName(binding.actor) : binding.displayName;
             binding.targetPosition = binding.actor != null ? binding.actor.position : Vector3.zero;
+            binding.intendedAction = RoutineActionType.Mission;
             EnsureStatusVisual(binding);
+            UpdateIntentLabel(binding);
             binding.runtimeInitialized = true;
         }
 
@@ -442,8 +551,9 @@ namespace ProjectW.IngameMvp
                 uiRoot.transform.SetParent(binding.actor, false);
                 uiRoot.transform.localPosition = new Vector3(0.95f, 0.9f, 0f);
                 binding.statusUiRoot = uiRoot.transform;
-                binding.hungerFill = CreateGauge(binding.statusUiRoot, "HungerGauge", new Vector3(0f, 0.22f, 0f), new Color(0.25f, 0.08f, 0.08f, 1f), new Color(1f, 0.35f, 0.2f, 1f));
-                binding.sleepFill = CreateGauge(binding.statusUiRoot, "SleepGauge", new Vector3(0f, -0.02f, 0f), new Color(0.08f, 0.08f, 0.2f, 1f), new Color(0.3f, 0.55f, 1f, 1f));
+                binding.hungerFill = CreateGauge(binding.statusUiRoot, "HungerGauge", new Vector3(0f, 0.26f, 0f), new Color(0.15f, 0.08f, 0.08f, 1f), new Color(1f, 0.42f, 0.2f, 1f));
+                binding.sleepFill = CreateGauge(binding.statusUiRoot, "SleepGauge", new Vector3(0f, 0.02f, 0f), new Color(0.07f, 0.09f, 0.18f, 1f), new Color(0.25f, 0.7f, 1f, 1f));
+                binding.stressFill = CreateGauge(binding.statusUiRoot, "StressGauge", new Vector3(0f, -0.22f, 0f), new Color(0.08f, 0.15f, 0.09f, 1f), new Color(0.35f, 1f, 0.45f, 1f));
             }
 
             if (binding.nameLabel == null)
@@ -459,6 +569,20 @@ namespace ProjectW.IngameMvp
                 textMesh.fontSize = 64;
                 textMesh.color = Color.white;
                 binding.nameLabel = textMesh;
+            }
+
+            if (binding.intentLabel == null)
+            {
+                var intentObject = new GameObject("RoutineIntentLabel");
+                intentObject.transform.SetParent(binding.actor, false);
+                intentObject.transform.localPosition = new Vector3(0f, 1.25f, 0f);
+                var textMesh = intentObject.AddComponent<TextMesh>();
+                textMesh.anchor = TextAnchor.MiddleCenter;
+                textMesh.alignment = TextAlignment.Center;
+                textMesh.characterSize = 0.045f;
+                textMesh.fontSize = 48;
+                textMesh.color = new Color(1f, 0.95f, 0.65f, 1f);
+                binding.intentLabel = textMesh;
             }
         }
 
@@ -491,6 +615,17 @@ namespace ProjectW.IngameMvp
         {
             UpdateGaugeFill(binding.hungerFill, binding.hunger / GaugeMax);
             UpdateGaugeFill(binding.sleepFill, binding.sleep / GaugeMax);
+            UpdateGaugeFill(binding.stressFill, binding.stress / GaugeMax);
+        }
+
+        private void UpdateIntentLabel(RoutineCharacterBinding binding)
+        {
+            if (binding.intentLabel == null)
+            {
+                return;
+            }
+
+            binding.intentLabel.text = "Intent: " + binding.intendedAction;
         }
 
         private void UpdateGaugeFill(Transform fill, float normalizedValue)
@@ -514,6 +649,7 @@ namespace ProjectW.IngameMvp
                 var props = new MaterialPropertyBlock();
                 renderer.GetPropertyBlock(props);
                 props.SetColor("_Color", color);
+                props.SetColor("_BaseColor", color);
                 renderer.SetPropertyBlock(props);
             }
         }

@@ -38,6 +38,23 @@
 - `selected_target_id`
 - `query_trace_id`
 
+### Zone Anchor Contract (Tag + Boundary)
+
+- Zone은 이름이 아니라 `zone_id + tags[] + boundary`로 식별한다.
+- 캐릭터/시뮬레이션은 Zone 이름 문자열(`MissionZone`, `SleepZone` 등)에 의존하지 않는다.
+- Zone 최소 필드:
+  - `zone_id`
+  - `tags[]` (예: `zone.mission`, `need.hunger`, `need.sleep`)
+  - `boundary` (`Collider` 또는 `Collider2D`)
+  - `position` (anchor position)
+
+### Need Resolution Contract
+
+- 욕구 해소는 해당 `need` 태그 Zone의 `boundary` 내부에서만 허용된다.
+- `need.hunger`: 식사/간식 계열 행동의 해소 조건.
+- `need.sleep`: 수면 계열 행동의 해소 조건.
+- `boundary` 밖에서는 같은 행동 타입이어도 해소를 적용하지 않는다.
+
 ### Deterministic Rule
 
 동일 반경 내 다수 후보 발견 시 아래 순서로 선택한다.
@@ -92,6 +109,16 @@
 
 - 타깃 소실/무효 상태이면 이벤트를 `rejected`로 기록하고 다음 후보 재평가.
 - 재평가 한도는 `SessionConfig.max_decision_retry`를 따른다.
+
+------
+
+## Move-Then-Act Contract (MVP)
+
+- 행동 실행 순서는 `Move -> Action` 고정이다.
+- 목적 행동(`Eat`, `Sleep`, `Mission` 등)은 목표 위치 도착 전에는 실행할 수 없다.
+- 도착 전 `current_action`은 항상 `Move`로 기록한다.
+- 이동 중 캐릭터 겹침은 허용한다.
+- 단, 실제 액션 수행 시에는 Zone 내 액션 슬롯 오프셋을 적용해 가급적 비중첩을 유지한다.
 
 ------
 

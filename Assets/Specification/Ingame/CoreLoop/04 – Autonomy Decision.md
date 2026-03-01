@@ -20,6 +20,17 @@
 - `score = base_weight * policy_multiplier * state_multiplier`를 계산한다.
 - 후보 행동 선택은 가중치 기반 확률로 수행한다.
 - 확률 요소는 deterministic seed 난수로 생성한다.
+- Routine MVP 기본 규칙:
+  - 식사 행동은 `식사 시간` AND `공복 낮음` AND `스트레스 낮음`을 동시에 만족할 때만 선택한다.
+  - 수면 행동은 `수면 시간` AND `공복 낮음` AND `스트레스 낮음`을 동시에 만족할 때만 선택한다.
+  - 위 조건 미충족 시 기본 후보는 `Mission`이다.
+
+### Action Intent vs Execution
+
+- `intended_action`: 현재 Tick에서 의사결정으로 선택된 목적 행동.
+- `current_action`: 실제 실행된 행동.
+- 이동이 남아 있으면 `current_action = Move`이며, `intended_action`은 유지한다.
+- 목적 행동의 효과 적용은 도착 후 Tick에서만 허용된다.
 
 ------
 

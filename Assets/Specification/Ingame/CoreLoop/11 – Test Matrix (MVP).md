@@ -19,6 +19,9 @@
 | T10 | Pause/Resume stability | pause/resume 반복 | Tick 인덱스 연속성 유지 |
 | T11 | Conflicting interventions | 동일 Tick 상충 명령 3개 | 최신/priority/ID 규칙으로 일관 처리 |
 | T12 | Guard false handling | transition guard=false | 상태 유지 + 로그 기록 |
+| T13 | Move then action gating | action target 미도달 상태 | `current_action=Move`, 목적 행동 효과 미적용 |
+| T14 | Need zone boundary check | need 태그 Zone boundary 밖 | 욕구 해소 미적용 |
+| T15 | Action slot de-overlap | 동일 Zone 동시 행동 2명 | target/action slot 비중첩 유지 |
 
 ## Failure/Recovery Tests
 
@@ -34,6 +37,7 @@
 ## Mandatory Pass Set
 
 - `T01`, `T02`, `T03`, `T10`, `T11`, `T21`, `T22`, `T23`
+- Routine/Spatial MVP 확장 시 `T13`, `T14`, `T15`를 추가 필수로 포함한다.
 
 위 테스트가 전부 PASS일 때만 MVP Gate 통과로 판정한다.
 

@@ -131,6 +131,7 @@ GameObject:
   - component: {fileID: 49517444}
   - component: {fileID: 49517443}
   - component: {fileID: 49517442}
+  - component: {fileID: 49517445}
   m_Layer: 0
   m_Name: SleepZone
   m_TagString: Untagged
@@ -147,7 +148,7 @@ Transform:
   m_GameObject: {fileID: 49517440}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 2.5, y: 0, z: 0}
+  m_LocalPosition: {x: 5.2, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -231,6 +232,23 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 49517440}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!114 &49517445
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 49517440}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 66850f95d03c47a293527949de9754f3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Scripts::ProjectW.IngameMvp.RoutineZoneAnchor
+  zoneId: need.sleep
+  tags:
+  - need.sleep
+  boundary3D: {fileID: 49517443}
+  boundary2D: {fileID: 0}
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0
@@ -543,6 +561,7 @@ GameObject:
   - component: {fileID: 776225001}
   - component: {fileID: 776225000}
   - component: {fileID: 776224999}
+  - component: {fileID: 776225002}
   m_Layer: 0
   m_Name: MissionZone
   m_TagString: Untagged
@@ -643,6 +662,23 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 776224997}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!114 &776225002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 776224997}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 66850f95d03c47a293527949de9754f3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Scripts::ProjectW.IngameMvp.RoutineZoneAnchor
+  zoneId: zone.mission
+  tags:
+  - zone.mission
+  boundary3D: {fileID: 776225000}
+  boundary2D: {fileID: 0}
 --- !u!1 &955556464
 GameObject:
   m_ObjectHideFlags: 0
@@ -777,6 +813,7 @@ MonoBehaviour:
   autoRunOnStart: 1
   tickIntervalSeconds: 0.6
   ticksPerHalfDay: 30
+  zonesRoot: {fileID: 0}
   missionZone: {fileID: 0}
   cafeteriaZone: {fileID: 0}
   sleepZone: {fileID: 0}
@@ -958,6 +995,7 @@ GameObject:
   - component: {fileID: 1598863326}
   - component: {fileID: 1598863325}
   - component: {fileID: 1598863324}
+  - component: {fileID: 1598863327}
   m_Layer: 0
   m_Name: CafeteriaZone
   m_TagString: Untagged
@@ -974,7 +1012,7 @@ Transform:
   m_GameObject: {fileID: 1598863322}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -2.5, y: 0, z: 0}
+  m_LocalPosition: {x: -6.3, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1058,6 +1096,23 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1598863322}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!114 &1598863327
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1598863322}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 66850f95d03c47a293527949de9754f3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Scripts::ProjectW.IngameMvp.RoutineZoneAnchor
+  zoneId: 'need.hunger '
+  tags:
+  - 'need.hunger '
+  boundary3D: {fileID: 1598863325}
+  boundary2D: {fileID: 0}
 --- !u!1 &1607489090
 GameObject:
   m_ObjectHideFlags: 0

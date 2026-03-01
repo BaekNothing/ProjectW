@@ -37,3 +37,26 @@
 - 해석 및 관리 판단: PM Log
 
 관리 판단은 반드시 추적 가능한 근거 링크(커밋, PR, 빌드, 문서 경로)와 함께 남긴다.
+
+------
+
+## Change Records
+
+### 2026-03-01 – Ingame Routine MVP Rule Tightening + Editor Refresh Control
+
+- 범위:
+  - Ingame Routine 행동 규칙 정교화
+  - Spatial/Need 기반 Zone 계약 고정
+  - Unity Editor 리프레시 운영 정책 통제
+- 반영된 규칙:
+  - Zone 탐색은 이름 기반이 아닌 `zone_id + tags + boundary` 기반으로 고정
+  - 욕구 해소는 해당 need 태그 Zone boundary 내부에서만 허용
+  - `Move -> Action` 순서 강제 (미도달 시 `current_action=Move`)
+  - 액션 수행 위치는 Zone action slot을 사용해 비중첩 우선
+  - 식사/수면은 시간 조건 + 공복/스트레스 조건 동시 만족 시에만 선택
+  - Auto Refresh 기본 비활성, 명시 트리거에서만 리프레시
+- 추적 문서:
+  - `Assets/Specification/Ingame/CoreLoop/04 – Autonomy Decision.md`
+  - `Assets/Specification/Ingame/CoreLoop/11 – Test Matrix (MVP).md`
+  - `Assets/Specification/Ingame/CoreLoop/12 – Spatial Interaction and Entity Scaling.md`
+  - `Assets/Specification/SSOT – Workflow Confluence × Unity × GitHub.md`
