@@ -5,26 +5,19 @@ namespace ProjectW.IngameCore.Simulation
 {
     public sealed class SimulationTickEngine
     {
-        private static readonly HashSet<(int hour, int minute)> MealTimes = new HashSet<(int hour, int minute)>()
-        {
-            (7, 0),
-            (12, 30),
-            (19, 0)
-        };
-
         private readonly Random _random;
+        private readonly CharacterNeuronSystem _neuronSystem;
 
         public SimulationTickEngine(int seed)
         {
             _random = new Random(seed);
+            _neuronSystem = new CharacterNeuronSystem();
         }
 
         public int AdvanceTick(DateTime simTime, int tickIndex, TaskModel task, IReadOnlyList<AgentRuntimeState> agents)
         {
             var hour = simTime.Hour;
             var minute = simTime.Minute;
-            var isMealTime = MealTimes.Contains((hour, minute));
-
             task.AdvanceElapsedHours(SimulationConstants.TickMinutes / 60f);
             var deadlinePressure = task.ComputeDeadlinePressure();
 
@@ -49,35 +42,38 @@ namespace ProjectW.IngameCore.Simulation
                     agent.Stress += 0.1f;
                 }
 
-                var inWorkHours = hour >= SimulationConstants.WorkStartHour && hour < SimulationConstants.WorkEndHour;
-                var shouldWork = false;
-                var isOvertimeWork = false;
+                var loadRatio = Math.Max(0f, agent.SubtaskWork) / avgSubtask;
+                var intent = _neuronSystem.EvaluateCore(new CoreNeuronContext(
+                    agent.Id,
+                    tickIndex,
+                    hour,
+                    minute,
+                    agent.Satiety,
+                    25f,
+                    agent.BurnoutLevel,
+                    SimulationConstants.BurnoutThreshold,
+                    loadRatio,
+                    deadlinePressure,
+                    agent.CanOvertime()));
 
-                if (isMealTime)
+                var shouldWork = intent == CharacterNeuronIntent.Work;
+                var isMealTime = intent == CharacterNeuronIntent.Eat;
+                var isOvertimeWork = shouldWork && !(hour >= SimulationConstants.WorkStartHour && hour < SimulationConstants.WorkEndHour);
+
+                if (intent == CharacterNeuronIntent.Eat)
                 {
                     agent.OvertimeState = false;
                     agent.SetTargetZone((int)RoutineZone.Eat);
                 }
-                else if (inWorkHours)
+                else if (intent == CharacterNeuronIntent.Work)
                 {
-                    agent.OvertimeState = false;
+                    agent.OvertimeState = isOvertimeWork;
                     agent.SetTargetZone((int)RoutineZone.Work);
-                    shouldWork = true;
                 }
                 else
                 {
-                    var loadRatio = Math.Max(0f, agent.SubtaskWork) / avgSubtask;
-                    var overtimeOn = agent.DecideOvertime(loadRatio, deadlinePressure);
-                    if (overtimeOn)
-                    {
-                        agent.SetTargetZone((int)RoutineZone.Work);
-                        shouldWork = true;
-                        isOvertimeWork = true;
-                    }
-                    else
-                    {
-                        agent.SetTargetZone((int)RoutineZone.Sleep);
-                    }
+                    agent.OvertimeState = false;
+                    agent.SetTargetZone((int)RoutineZone.Sleep);
                 }
 
                 var moved = agent.MoveOneTick();
