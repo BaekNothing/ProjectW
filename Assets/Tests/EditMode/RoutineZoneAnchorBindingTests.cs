@@ -87,8 +87,6 @@ namespace ProjectW.Tests.EditMode
 
             Assert.AreEqual(RoutineActionType.Move, binding.currentAction);
             Assert.AreEqual(RoutineActionType.Mission, binding.intendedAction);
-            Assert.NotNull(binding.intentLabel);
-            Assert.AreEqual("Intent: Mission", binding.intentLabel.text);
         }
 
         [Test]
@@ -107,6 +105,110 @@ namespace ProjectW.Tests.EditMode
 
             session.AdvanceOneTick();
             Assert.AreEqual(RoutineActionType.Mission, binding.intendedAction);
+        }
+
+        [Test]
+        public void AdvanceOneTick_KeepsNeedIntentWhileMovingUntilResolved()
+        {
+            var zonesRoot = CreateObject("Zones_Test_Latch");
+            CreateTaggedZone(zonesRoot.transform, "Mission", "zone.mission.main", new[] { "zone.mission" }, new Vector3(0f, 0f, 0f), new Vector3(3f, 3f, 2f));
+            var mealZone = CreateTaggedZone(zonesRoot.transform, "Meal", "zone.meal.main", new[] { "need.hunger" }, new Vector3(9f, 0f, 0f), new Vector3(3f, 3f, 2f));
+            CreateTaggedZone(zonesRoot.transform, "Sleep", "zone.sleep.main", new[] { "need.sleep" }, new Vector3(-9f, 0f, 0f), new Vector3(3f, 3f, 2f));
+
+            var session = CreateConfiguredSession(zonesRoot.transform, out var actor, out var binding);
+            binding.hunger = 5f;
+            binding.stress = 5f;
+            binding.sleep = 80f;
+            actor.transform.position = Vector3.zero;
+            SetField(session, "_absoluteTick", 5); // next tick = breakfast
+
+            session.AdvanceOneTick();
+            Assert.AreEqual(RoutineActionType.Breakfast, binding.intendedAction);
+            Assert.AreEqual(RoutineActionType.Move, binding.currentAction);
+
+            SetField(session, "_absoluteTick", 7); // no longer breakfast timing
+            session.AdvanceOneTick();
+            Assert.AreEqual(RoutineActionType.Breakfast, binding.intendedAction);
+            Assert.AreEqual(RoutineActionType.Move, binding.currentAction);
+
+            actor.transform.position = mealZone.transform.position + new Vector3(-0.9f, 0f, 0f);
+            session.AdvanceOneTick();
+            Assert.AreEqual(RoutineActionType.Breakfast, binding.currentAction);
+            Assert.IsFalse(binding.hasLatchedNeedAction);
+        }
+
+        [Test]
+        public void AdvanceOneTick_UsesZoneCenterIfNeedSlotOutsideBoundary()
+        {
+            var zonesRoot = CreateObject("Zones_Test_SmallBoundary");
+            CreateTaggedZone(zonesRoot.transform, "Mission", "zone.mission.main", new[] { "zone.mission" }, new Vector3(0f, 0f, 0f), new Vector3(2f, 2f, 2f));
+            var mealZone = CreateTaggedZone(zonesRoot.transform, "Meal", "zone.meal.main", new[] { "need.hunger" }, new Vector3(8f, 0f, 0f), new Vector3(1f, 1f, 1f));
+            CreateTaggedZone(zonesRoot.transform, "Sleep", "zone.sleep.main", new[] { "need.sleep" }, new Vector3(-8f, 0f, 0f), new Vector3(2f, 2f, 2f));
+
+            var session = CreateConfiguredSession(zonesRoot.transform, out var actor, out var binding);
+            binding.hunger = 5f;
+            binding.stress = 5f;
+            binding.sleep = 80f;
+            actor.transform.position = Vector3.zero;
+            SetField(session, "_absoluteTick", 5); // breakfast tick
+
+            session.AdvanceOneTick();
+            actor.transform.position = mealZone.transform.position; // arrive at center
+            SetField(session, "_absoluteTick", 5);
+            session.AdvanceOneTick();
+
+            Assert.IsFalse(binding.hasLatchedNeedAction);
+            Assert.AreEqual(RoutineActionType.Breakfast, binding.currentAction);
+        }
+
+        [Test]
+        public void AdvanceOneTick_KeepsEatingUntilHungerResolved()
+        {
+            var zonesRoot = CreateObject("Zones_Test_KeepEating");
+            CreateTaggedZone(zonesRoot.transform, "Mission", "zone.mission.main", new[] { "zone.mission" }, new Vector3(0f, 0f, 0f), new Vector3(3f, 3f, 2f));
+            var mealZone = CreateTaggedZone(zonesRoot.transform, "Meal", "zone.meal.main", new[] { "need.hunger" }, new Vector3(8f, 0f, 0f), new Vector3(3f, 3f, 2f));
+            CreateTaggedZone(zonesRoot.transform, "Sleep", "zone.sleep.main", new[] { "need.sleep" }, new Vector3(-8f, 0f, 0f), new Vector3(3f, 3f, 2f));
+
+            var session = CreateConfiguredSession(zonesRoot.transform, out var actor, out var binding);
+            binding.hunger = 5f;
+            binding.stress = 5f;
+            binding.hungerRecoverPerMeal = 10f; // force multi-meal recovery
+            actor.transform.position = mealZone.transform.position + new Vector3(-0.9f, 0f, 0f);
+            SetField(session, "_absoluteTick", 5); // breakfast tick
+
+            session.AdvanceOneTick();
+            Assert.AreEqual(RoutineActionType.Breakfast, binding.currentAction);
+            Assert.IsTrue(binding.hasLatchedNeedAction);
+            Assert.LessOrEqual(binding.hunger, binding.hungerThreshold);
+
+            SetField(session, "_absoluteTick", 6); // outside meal schedule
+            session.AdvanceOneTick();
+            Assert.AreEqual(RoutineActionType.Breakfast, binding.currentAction);
+            Assert.IsTrue(binding.hasLatchedNeedAction);
+        }
+
+        [Test]
+        public void AdvanceOneTick_SleepOverridesMealLatch()
+        {
+            var zonesRoot = CreateObject("Zones_Test_SleepPriority");
+            CreateTaggedZone(zonesRoot.transform, "Mission", "zone.mission.main", new[] { "zone.mission" }, new Vector3(0f, 0f, 0f), new Vector3(3f, 3f, 2f));
+            var mealZone = CreateTaggedZone(zonesRoot.transform, "Meal", "zone.meal.main", new[] { "need.hunger" }, new Vector3(8f, 0f, 0f), new Vector3(3f, 3f, 2f));
+            var sleepZone = CreateTaggedZone(zonesRoot.transform, "Sleep", "zone.sleep.main", new[] { "need.sleep" }, new Vector3(-8f, 0f, 0f), new Vector3(3f, 3f, 2f));
+
+            var session = CreateConfiguredSession(zonesRoot.transform, out var actor, out var binding);
+            binding.hunger = 5f;
+            binding.stress = 5f;
+            binding.hungerRecoverPerMeal = 10f; // keep meal latch active
+            actor.transform.position = mealZone.transform.position + new Vector3(-0.9f, 0f, 0f);
+            SetField(session, "_absoluteTick", 5); // breakfast
+            session.AdvanceOneTick();
+            Assert.AreEqual(RoutineActionType.Breakfast, binding.currentAction);
+            Assert.IsTrue(binding.hasLatchedNeedAction);
+
+            actor.transform.position = sleepZone.transform.position + new Vector3(-0.9f, 0f, 0f);
+            SetField(session, "_absoluteTick", 26); // next tick => sleep schedule
+            session.AdvanceOneTick();
+            Assert.AreEqual(RoutineActionType.Sleep, binding.currentAction);
         }
 
         [Test]

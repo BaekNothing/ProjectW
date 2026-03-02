@@ -20,7 +20,7 @@ namespace ProjectW.Tests.EditMode
         }
 
         [Test]
-        public void AdvanceTick_CreatesCharacterUiAndMovesByIndependentNeeds()
+        public void AdvanceTick_UpdatesActionsByIndependentNeeds()
         {
             var zones = new GameObject("Zones");
             CreateZone(zones.transform, "Mission", "zone.mission.main", new[] { "zone.mission" }, new Vector3(-5f, 0f, 0f), new Vector3(4f, 4f, 2f));
@@ -48,9 +48,8 @@ namespace ProjectW.Tests.EditMode
             var a = session.Characters[0];
             var b = session.Characters[1];
             var c = session.Characters[2];
-            Assert.IsNotNull(a.actor.Find("RoutineStatusUI"));
-            Assert.IsNotNull(a.actor.Find("RoutineNameLabel"));
-            Assert.AreEqual("A", a.nameLabel.text);
+            Assert.IsNull(a.actor.Find("RoutineStatusUI"));
+            Assert.IsNull(a.actor.Find("RoutineNameLabel"));
 
             b.hunger = 0f;
             b.stress = 0f;
@@ -63,6 +62,146 @@ namespace ProjectW.Tests.EditMode
             Assert.AreEqual(RoutineActionType.Breakfast, b.intendedAction);
             Assert.AreEqual(RoutineActionType.Mission, c.intendedAction);
             Assert.AreEqual(RoutineActionType.Move, a.currentAction);
+
+            Object.DestroyImmediate(go);
+            Object.DestroyImmediate(zones);
+            Object.DestroyImmediate(root);
+        }
+
+        [Test]
+        public void AutoCreateDefaultCharacters_UsesCubeDummyVisual()
+        {
+            var zones = new GameObject("Zones");
+            CreateZone(zones.transform, "Mission", "zone.mission.main", new[] { "zone.mission" }, new Vector3(0f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            CreateZone(zones.transform, "Cafeteria", "zone.meal.main", new[] { "need.hunger" }, new Vector3(6f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            CreateZone(zones.transform, "Sleep", "zone.sleep.main", new[] { "need.sleep" }, new Vector3(-6f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            var root = new GameObject("Characters");
+            var go = new GameObject("RoutineSession_DefaultDummy");
+            var session = go.AddComponent<RoutineObservationMvpSession>();
+
+            session.BakeGeneratedObjectsToScene();
+            session.AdvanceOneTick();
+
+            var actor = root.transform.Find("Character_A");
+            Assert.IsNotNull(actor);
+            Assert.IsNotNull(actor.GetComponent<BoxCollider>());
+            Assert.IsNull(actor.GetComponent<CapsuleCollider>());
+            Assert.AreEqual(5f, session.Characters[0].moveSpeed, 0.001f);
+
+            Object.DestroyImmediate(go);
+            Object.DestroyImmediate(zones);
+            Object.DestroyImmediate(root);
+        }
+
+        [Test]
+        public void ExplicitGaugeObjects_AreUpdatedWithoutDynamicCreation()
+        {
+            var zones = new GameObject("Zones");
+            CreateZone(zones.transform, "Mission", "zone.mission.main", new[] { "zone.mission" }, new Vector3(0f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            CreateZone(zones.transform, "Cafeteria", "zone.meal.main", new[] { "need.hunger" }, new Vector3(6f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            CreateZone(zones.transform, "Sleep", "zone.sleep.main", new[] { "need.sleep" }, new Vector3(-6f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            var root = new GameObject("Characters");
+            var actorGo = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            actorGo.name = "Character_A";
+            actorGo.transform.SetParent(root.transform, false);
+            actorGo.transform.localPosition = new Vector3(0f, 1.6f, 0f);
+            var gaugeRoot = new GameObject("GaugeRoot").transform;
+            gaugeRoot.SetParent(actorGo.transform, false);
+            CreateGaugeBar(gaugeRoot, "HungerBar", 0.4f);
+            CreateGaugeBar(gaugeRoot, "SleepBar", 0f);
+            CreateGaugeBar(gaugeRoot, "StressBar", -0.4f);
+
+            var go = new GameObject("RoutineSession_Gauge");
+            var session = go.AddComponent<RoutineObservationMvpSession>();
+            session.AdvanceOneTick();
+            var binding = session.Characters[0];
+            binding.hunger = 10f;
+            binding.sleep = 60f;
+            binding.stress = 90f;
+
+            InvokePrivateMethod(session, "UpdateRuntimeStateTexts", binding);
+
+            Assert.Less(actorGo.transform.Find("GaugeRoot/HungerBar").localScale.x, actorGo.transform.Find("GaugeRoot/SleepBar").localScale.x);
+            Assert.Less(actorGo.transform.Find("GaugeRoot/SleepBar").localScale.x, actorGo.transform.Find("GaugeRoot/StressBar").localScale.x);
+
+            Object.DestroyImmediate(go);
+            Object.DestroyImmediate(zones);
+            Object.DestroyImmediate(root);
+        }
+
+        [Test]
+        public void AdvanceTick_CreatesAndEnablesTargetPathLine()
+        {
+            var zones = new GameObject("Zones");
+            CreateZone(zones.transform, "Mission", "zone.mission.main", new[] { "zone.mission" }, new Vector3(6f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            CreateZone(zones.transform, "Cafeteria", "zone.meal.main", new[] { "need.hunger" }, new Vector3(0f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            CreateZone(zones.transform, "Sleep", "zone.sleep.main", new[] { "need.sleep" }, new Vector3(-6f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            var root = new GameObject("Characters");
+            var actor = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            actor.name = "Character_A";
+            actor.transform.SetParent(root.transform, false);
+            actor.transform.localPosition = new Vector3(0f, 1.6f, 0f);
+
+            var go = new GameObject("RoutineSession_TargetLine");
+            var session = go.AddComponent<RoutineObservationMvpSession>();
+            session.AdvanceOneTick();
+
+            var line = actor.transform.Find("TargetPathLine");
+            Assert.IsNotNull(line);
+            var renderer = line.GetComponent<LineRenderer>();
+            Assert.IsNotNull(renderer);
+            Assert.IsTrue(renderer.enabled);
+            Assert.AreEqual(2, renderer.positionCount);
+
+            Object.DestroyImmediate(go);
+            Object.DestroyImmediate(zones);
+            Object.DestroyImmediate(root);
+        }
+
+        [Test]
+        public void HumanPhysiologyPreset_UsesOneDayHungerAndThreeDayFatigueDecay()
+        {
+            var zones = new GameObject("Zones");
+            CreateZone(zones.transform, "Mission", "zone.mission.main", new[] { "zone.mission" }, new Vector3(3f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            CreateZone(zones.transform, "Cafeteria", "zone.meal.main", new[] { "need.hunger" }, new Vector3(0f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            CreateZone(zones.transform, "Sleep", "zone.sleep.main", new[] { "need.sleep" }, new Vector3(-3f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            var root = new GameObject("Characters");
+            var actor = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            actor.name = "Character_A";
+            actor.transform.SetParent(root.transform, false);
+            actor.transform.localPosition = new Vector3(0f, 1.6f, 0f);
+
+            var go = new GameObject("RoutineSession_Physiology");
+            var session = go.AddComponent<RoutineObservationMvpSession>();
+            session.AdvanceOneTick();
+
+            var binding = session.Characters[0];
+            Assert.AreEqual(100f / 60f, binding.hungerDecayPerTick, 0.0001f);
+            Assert.AreEqual(100f / 180f, binding.sleepDecayPerTick, 0.0001f);
+            Assert.AreEqual(100f / 180f, binding.stressDecayPerTick, 0.0001f);
+
+            binding.hunger = 100f;
+            binding.sleep = 100f;
+            binding.stress = 100f;
+
+            for (int i = 0; i < 60; i++)
+            {
+                InvokePrivateMethod(session, "ApplyNeedsAndProgress", binding, RoutineActionType.Mission, false);
+            }
+
+            Assert.LessOrEqual(binding.hunger, 0.01f);
+            Assert.Greater(binding.sleep, 60f);
+            Assert.Greater(binding.stress, 60f);
+
+            binding.sleep = 100f;
+            binding.stress = 100f;
+            for (int i = 0; i < 180; i++)
+            {
+                InvokePrivateMethod(session, "ApplyNeedsAndProgress", binding, RoutineActionType.Mission, false);
+            }
+
+            Assert.LessOrEqual(binding.sleep, 0.01f);
+            Assert.LessOrEqual(binding.stress, 0.01f);
 
             Object.DestroyImmediate(go);
             Object.DestroyImmediate(zones);
@@ -86,6 +225,27 @@ namespace ProjectW.Tests.EditMode
         {
             var field = target.GetType().GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Instance);
             field.SetValue(target, value);
+        }
+
+        private static void InvokePrivateMethod(object target, string methodName, object argument)
+        {
+            var method = target.GetType().GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Instance);
+            method.Invoke(target, new[] { argument });
+        }
+
+        private static void InvokePrivateMethod(object target, string methodName, object arg0, object arg1, object arg2)
+        {
+            var method = target.GetType().GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Instance);
+            method.Invoke(target, new[] { arg0, arg1, arg2 });
+        }
+
+        private static void CreateGaugeBar(Transform parent, string name, float y)
+        {
+            var bar = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            bar.name = name;
+            bar.transform.SetParent(parent, false);
+            bar.transform.localPosition = new Vector3(0f, y, 0f);
+            bar.transform.localScale = new Vector3(1f, 0.15f, 0.1f);
         }
     }
 }
