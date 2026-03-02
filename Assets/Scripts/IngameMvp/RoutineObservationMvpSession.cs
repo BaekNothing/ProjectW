@@ -51,6 +51,9 @@ namespace ProjectW.IngameMvp
         [NonSerialized] public int remainingMoveTicks;
         [NonSerialized] public int remainingActionTicks;
         [NonSerialized] public int completedWorkCount;
+        [NonSerialized] public bool hasLockedZonePosition;
+        [NonSerialized] public string lockedZoneKey;
+        [NonSerialized] public Vector3 lockedZonePosition;
     }
 
     public struct RoutineTickSnapshot
@@ -96,6 +99,8 @@ namespace ProjectW.IngameMvp
         [SerializeField] private bool autoRunOnStart = true;
         [SerializeField] private float tickIntervalSeconds = 1f;
         [SerializeField] private int ticksPerHalfDay = 48;
+        [SerializeField, Range(0, 23)] private int simulationStartHour = 10;
+        [SerializeField, Range(0, 45)] private int simulationStartMinute = 0;
 
         [Header("Zone Anchors (Scene Fixed Objects)")]
         [SerializeField] private Transform zonesRoot;
@@ -127,6 +132,8 @@ namespace ProjectW.IngameMvp
         [SerializeField] private bool disableLegacy3DRenderers = true;
         [SerializeField] private float zoneGap = 2f;
         [SerializeField] private Vector2 zoneScale = new Vector2(0.5f, 0.4f);
+        [SerializeField, Min(0.5f)] private float minimumCharacterSeparation = 0.5f;
+        [SerializeField] private bool autoExpandZoneWidthForSeparation = true;
 
         [Header("Depth Layout")]
         [SerializeField] private bool enforceDepthLayout = true;
@@ -143,6 +150,7 @@ namespace ProjectW.IngameMvp
         private Coroutine _loopCoroutine;
         private readonly List<RoutineZoneAnchor> _zoneAnchors = new List<RoutineZoneAnchor>();
         private readonly Dictionary<string, string> _dashboardContext = new Dictionary<string, string>();
+        private readonly Dictionary<string, Dictionary<RoutineCharacterBinding, Vector3>> _zoneLockedPositions = new Dictionary<string, Dictionary<RoutineCharacterBinding, Vector3>>();
         private GUIStyle _debugLabelStyle;
         private int _lastAppliedInterventionTick = -1;
         private int _pendingInterventionCount;
@@ -178,7 +186,24 @@ namespace ProjectW.IngameMvp
 
         private void Awake()
         {
+            Application.runInBackground = true;
             AutoBindSceneReferences();
+        }
+
+        private void OnApplicationFocus(bool hasFocus)
+        {
+            if (!hasFocus)
+            {
+                Application.runInBackground = true;
+            }
+        }
+
+        private void OnApplicationPause(bool paused)
+        {
+            if (paused)
+            {
+                Application.runInBackground = true;
+            }
         }
 
         private void OnValidate()
@@ -211,9 +236,16 @@ namespace ProjectW.IngameMvp
                 {
                     ForceActorDepth(binding.actor);
                     var target = binding.targetPosition;
+                    target.y = 0f;
                     target.z = characterDepthZ;
                     binding.targetPosition = target;
                 }
+
+                binding.actor.position = Vector3.MoveTowards(
+                    binding.actor.position,
+                    binding.targetPosition,
+                    binding.moveSpeed * Time.deltaTime);
+                binding.actor.position = WithCharacterDepth(binding.actor.position);
                 UpdateTargetLineVisual(binding, i);
             }
         }
@@ -322,12 +354,13 @@ namespace ProjectW.IngameMvp
             int halfDayIndex = (((_absoluteTick - 1) / ticksPerHalfDay) % 2) + 1;
             int tickInHalfDay = ((_absoluteTick - 1) % ticksPerHalfDay) + 1;
             int tickInDay = ((_absoluteTick - 1) % ticksPerDay) + 1;
-            int totalMinutes = (tickInDay - 1) * 15;
+            int totalMinutes = (GetSimulationStartMinutes() + (tickInDay - 1) * 15) % 1440;
             int hour = (totalMinutes / 60) % 24;
             int minute = totalMinutes % 60;
             var defaultAction = ResolveScheduleAction(hour, minute);
             RoutineZoneAnchor defaultZone = ResolveZone(defaultAction, Vector3.zero);
             string zoneName = defaultZone != null ? defaultZone.ZoneId : "MissingZone";
+            CleanupZoneLocks();
 
             for (int i = 0; i < characters.Count; i++)
             {
@@ -360,11 +393,14 @@ namespace ProjectW.IngameMvp
                 desiredAction = ResolveLatchedOrNewNeedAction(binding, desiredAction);
                 binding.intendedAction = desiredAction;
                 RoutineZoneAnchor zone = ResolveZone(desiredAction, binding.actor.position);
-                var actionTarget = ResolveActionTargetPosition(zone, i, desiredAction, binding.actor.position);
+                var actionTarget = ResolveActionTargetPosition(zone, binding, desiredAction, binding.actor.position);
                 binding.targetPosition = actionTarget;
                 UpdateTargetLineVisual(binding, i);
+                var isMicroAdjust = zone != null
+                                    && zone.Contains(binding.actor.position)
+                                    && zone.Contains(actionTarget);
 
-                var movedThisTick = ResolveMovementTick(binding, desiredAction, actionTarget);
+                var movedThisTick = ResolveMovementTick(binding, desiredAction, actionTarget, isMicroAdjust);
                 if (movedThisTick)
                 {
                     ApplyNeedsAndProgress(binding, RoutineActionType.Move, false);
@@ -422,7 +458,7 @@ namespace ProjectW.IngameMvp
                     latchReleased);
             }
 
-            string timeText = BuildTimeText(dayIndex, halfDayIndex, tickInHalfDay);
+            string timeText = BuildTimeText(dayIndex, halfDayIndex, tickInHalfDay, totalMinutes);
             if (currentTimeText != null)
             {
                 currentTimeText.text = timeText;
@@ -485,9 +521,13 @@ namespace ProjectW.IngameMvp
             out bool isHungry,
             out bool isStressed)
         {
-            int ticksPerDay = ticksPerHalfDay * 2;
-            int adjustedTickInDay = ((tickInDay + binding.routineOffsetTicks - 1 + ticksPerDay) % ticksPerDay) + 1;
-            int adjustedMinutes = (adjustedTickInDay - 1) * 15;
+            int baseMinutes = ((hour * 60) + minute) % 1440;
+            int adjustedMinutes = (baseMinutes + (binding.routineOffsetTicks * 15)) % 1440;
+            if (adjustedMinutes < 0)
+            {
+                adjustedMinutes += 1440;
+            }
+
             int adjustedHour = (adjustedMinutes / 60) % 24;
             int adjustedMinute = adjustedMinutes % 60;
             scheduledAction = ResolveScheduleAction(adjustedHour, adjustedMinute);
@@ -510,7 +550,7 @@ namespace ProjectW.IngameMvp
                 return isScheduledMeal ? scheduledAction : RoutineActionType.Eat;
             }
 
-            if (hour >= 20)
+            if (adjustedHour >= 20)
             {
                 decisionReason = "after_work_sleep";
                 return RoutineActionType.Sleep;
@@ -537,28 +577,40 @@ namespace ProjectW.IngameMvp
             return RoutineActionType.Mission;
         }
 
-        private bool ResolveMovementTick(RoutineCharacterBinding binding, RoutineActionType desiredAction, Vector3 actionTarget)
+        private bool ResolveMovementTick(
+            RoutineCharacterBinding binding,
+            RoutineActionType desiredAction,
+            Vector3 actionTarget,
+            bool isMicroAdjust)
         {
             bool needsMove = !HasArrived(binding.actor.position, actionTarget);
             if (needsMove && binding.remainingMoveTicks <= 0)
             {
-                binding.remainingMoveTicks = UnityEngine.Random.Range(2, 5);
+                binding.remainingMoveTicks = isMicroAdjust ? 1 : UnityEngine.Random.Range(2, 5);
             }
 
-            if (binding.remainingMoveTicks <= 0)
+            if (needsMove && isMicroAdjust)
             {
+                binding.remainingMoveTicks = Mathf.Clamp(binding.remainingMoveTicks, 1, 1);
+            }
+
+            if (!needsMove)
+            {
+                binding.remainingMoveTicks = 0;
                 return false;
             }
 
+            if (binding.remainingMoveTicks <= 0)
+            {
+                binding.remainingMoveTicks = 1;
+            }
+
+            var remainingDistance = Vector3.Distance(binding.actor.position, actionTarget);
+            var secondsLeft = Mathf.Max(0.05f, binding.remainingMoveTicks * tickIntervalSeconds);
+            binding.moveSpeed = Mathf.Max(0.01f, remainingDistance / secondsLeft);
             binding.currentAction = RoutineActionType.Move;
             binding.remainingMoveTicks -= 1;
             binding.targetPosition = actionTarget;
-            if (binding.remainingMoveTicks <= 0)
-            {
-                binding.actor.position = actionTarget;
-                return true;
-            }
-
             return true;
         }
 
@@ -630,21 +682,248 @@ namespace ProjectW.IngameMvp
             return (targetPosition - currentPosition).sqrMagnitude <= 0.0001f;
         }
 
-        private Vector3 ResolveActionTargetPosition(RoutineZoneAnchor zone, int actorIndex, RoutineActionType action, Vector3 fallback)
+        private Vector3 ResolveActionTargetPosition(
+            RoutineZoneAnchor zone,
+            RoutineCharacterBinding binding,
+            RoutineActionType desiredAction,
+            Vector3 fallback)
         {
             if (zone == null)
             {
+                ReleaseZoneLock(binding);
                 return WithCharacterDepth(fallback);
             }
 
-            var slot = zone.Position + GetZoneActionOffset(actorIndex);
-            if (IsNeedAction(action) && !zone.Contains(slot))
+            var zoneKey = GetZoneReservationKey(zone);
+            if (binding.hasLockedZonePosition && !string.Equals(binding.lockedZoneKey, zoneKey, StringComparison.Ordinal))
             {
-                // Need action must complete at least once; if slot is outside boundary, fallback to zone center.
-                return WithCharacterDepth(zone.Position);
+                ReleaseZoneLock(binding);
             }
 
-            return WithCharacterDepth(slot);
+            if (TryGetZoneLock(zoneKey, binding, out var lockedPosition))
+            {
+                if (zone.Contains(lockedPosition))
+                {
+                    return WithCharacterDepth(lockedPosition);
+                }
+
+                ReleaseZoneLock(binding);
+            }
+
+            var currentPosition = WithCharacterDepth(binding.actor != null ? binding.actor.position : fallback);
+            if (zone.Contains(currentPosition))
+            {
+                if (!IsPositionTooCloseToLocked(zoneKey, binding, currentPosition))
+                {
+                    AssignZoneLock(zoneKey, binding, currentPosition);
+                    return currentPosition;
+                }
+            }
+
+            if (binding.currentAction == desiredAction && zone.Contains(binding.targetPosition))
+            {
+                var normalizedTarget = WithCharacterDepth(binding.targetPosition);
+                if (!IsPositionTooCloseToLocked(zoneKey, binding, normalizedTarget))
+                {
+                    return normalizedTarget;
+                }
+            }
+
+            return WithCharacterDepth(FindAvailableZonePosition(zone, zoneKey, binding, currentPosition));
+        }
+
+        private void CleanupZoneLocks()
+        {
+            if (_zoneLockedPositions.Count == 0)
+            {
+                return;
+            }
+
+            var zoneKeys = new List<string>(_zoneLockedPositions.Keys);
+            for (int i = 0; i < zoneKeys.Count; i++)
+            {
+                var zoneKey = zoneKeys[i];
+                if (!_zoneLockedPositions.TryGetValue(zoneKey, out var occupants))
+                {
+                    continue;
+                }
+
+                var bindings = new List<RoutineCharacterBinding>(occupants.Keys);
+                for (int j = 0; j < bindings.Count; j++)
+                {
+                    var binding = bindings[j];
+                    if (binding == null || binding.actor == null)
+                    {
+                        occupants.Remove(binding);
+                        continue;
+                    }
+
+                    if (!binding.hasLockedZonePosition || !string.Equals(binding.lockedZoneKey, zoneKey, StringComparison.Ordinal))
+                    {
+                        occupants.Remove(binding);
+                    }
+                }
+
+                if (occupants.Count == 0)
+                {
+                    _zoneLockedPositions.Remove(zoneKey);
+                }
+            }
+        }
+
+        private bool TryGetZoneLock(string zoneKey, RoutineCharacterBinding binding, out Vector3 position)
+        {
+            position = default;
+            if (binding == null || !binding.hasLockedZonePosition || !string.Equals(binding.lockedZoneKey, zoneKey, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (!_zoneLockedPositions.TryGetValue(zoneKey, out var occupants))
+            {
+                return false;
+            }
+
+            if (!occupants.TryGetValue(binding, out position))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private void AssignZoneLock(string zoneKey, RoutineCharacterBinding binding, Vector3 position)
+        {
+            if (binding == null)
+            {
+                return;
+            }
+
+            if (!_zoneLockedPositions.TryGetValue(zoneKey, out var occupants))
+            {
+                occupants = new Dictionary<RoutineCharacterBinding, Vector3>();
+                _zoneLockedPositions[zoneKey] = occupants;
+            }
+
+            var normalized = WithCharacterDepth(position);
+            occupants[binding] = normalized;
+            binding.hasLockedZonePosition = true;
+            binding.lockedZoneKey = zoneKey;
+            binding.lockedZonePosition = normalized;
+        }
+
+        private void ReleaseZoneLock(RoutineCharacterBinding binding)
+        {
+            if (binding == null || !binding.hasLockedZonePosition)
+            {
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(binding.lockedZoneKey)
+                && _zoneLockedPositions.TryGetValue(binding.lockedZoneKey, out var occupants))
+            {
+                occupants.Remove(binding);
+                if (occupants.Count == 0)
+                {
+                    _zoneLockedPositions.Remove(binding.lockedZoneKey);
+                }
+            }
+
+            binding.hasLockedZonePosition = false;
+            binding.lockedZoneKey = null;
+            binding.lockedZonePosition = Vector3.zero;
+        }
+
+        private bool IsPositionTooCloseToLocked(string zoneKey, RoutineCharacterBinding binding, Vector3 position)
+        {
+            if (!_zoneLockedPositions.TryGetValue(zoneKey, out var occupants))
+            {
+                return false;
+            }
+
+            var minGap = Mathf.Max(0.5f, minimumCharacterSeparation);
+            foreach (var kvp in occupants)
+            {
+                if (ReferenceEquals(kvp.Key, binding))
+                {
+                    continue;
+                }
+
+                if (Mathf.Abs(position.x - kvp.Value.x) < minGap)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private Vector3 FindAvailableZonePosition(
+            RoutineZoneAnchor zone,
+            string zoneKey,
+            RoutineCharacterBinding binding,
+            Vector3 referencePosition)
+        {
+            var boundary2D = zone.GetComponent<BoxCollider2D>();
+            if (boundary2D == null)
+            {
+                return zone.Position;
+            }
+
+            var bounds = boundary2D.bounds;
+            var minGap = Mathf.Max(0.5f, minimumCharacterSeparation);
+            var margin = Mathf.Max(0.02f, minGap * 0.1f);
+            var minX = bounds.min.x + margin;
+            var maxX = bounds.max.x - margin;
+            var laneY = 0f;
+            if (maxX < minX)
+            {
+                var center = zone.Position;
+                center.y = laneY;
+                return center;
+            }
+
+            var candidates = new List<float>(16);
+            var left = minX;
+            var right = maxX;
+            int guard = 0;
+            while (left <= right + 0.0001f && guard < 128)
+            {
+                candidates.Add(left);
+                if (right - left > 0.0001f)
+                {
+                    candidates.Add(right);
+                }
+
+                left += minGap;
+                right -= minGap;
+                guard += 1;
+            }
+
+            var best = new Vector3(Mathf.Clamp(referencePosition.x, minX, maxX), laneY, characterDepthZ);
+            var bestTravel = float.PositiveInfinity;
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                var candidate = new Vector3(candidates[i], laneY, characterDepthZ);
+                if (!zone.Contains(candidate))
+                {
+                    continue;
+                }
+
+                if (IsPositionTooCloseToLocked(zoneKey, binding, candidate))
+                {
+                    continue;
+                }
+
+                var travel = Mathf.Abs(referencePosition.x - candidate.x);
+                if (travel < bestTravel)
+                {
+                    bestTravel = travel;
+                    best = candidate;
+                }
+            }
+
+            return best;
         }
 
         private RoutineActionType ResolveLatchedOrNewNeedAction(RoutineCharacterBinding binding, RoutineActionType desiredAction)
@@ -720,6 +999,17 @@ namespace ProjectW.IngameMvp
                    || action == RoutineActionType.Dinner;
         }
 
+        private string GetZoneReservationKey(RoutineZoneAnchor zone)
+        {
+            var key = zone.ZoneId;
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                key = zone.name;
+            }
+
+            return key;
+        }
+
         private Vector3 GetZoneActionOffset(int index)
         {
             var row = index / 2;
@@ -740,11 +1030,8 @@ namespace ProjectW.IngameMvp
             return wrapped;
         }
 
-        private string BuildTimeText(int dayIndex, int halfDayIndex, int tickInHalfDay)
+        private string BuildTimeText(int dayIndex, int halfDayIndex, int tickInHalfDay, int totalMinutes)
         {
-            int ticksFromDayStart = (halfDayIndex - 1) * ticksPerHalfDay + (tickInHalfDay - 1);
-            int minutesFromDayStart = ticksFromDayStart * 15;
-            int totalMinutes = minutesFromDayStart;
             int hour = (totalMinutes / 60) % 24;
             int minute = totalMinutes % 60;
             return string.Format(
@@ -756,6 +1043,12 @@ namespace ProjectW.IngameMvp
                 halfDayIndex,
                 tickInHalfDay,
                 ticksPerHalfDay);
+        }
+
+        private int GetSimulationStartMinutes()
+        {
+            int alignedMinute = Mathf.Clamp((simulationStartMinute / 15) * 15, 0, 45);
+            return (simulationStartHour * 60) + alignedMinute;
         }
 
         private void UpdateDashboardUi(int dayIndex, int halfDayIndex, int tickInHalfDay, string timeText)
@@ -917,8 +1210,43 @@ namespace ProjectW.IngameMvp
 
             EnsureDefaultCharactersExist();
             EnsureCharacterBindingsFromRoot();
+            EnsureZoneWidthsForCharacterSeparation();
             Ensure2DWorldSetup();
             ApplyDepthLayout();
+        }
+
+        private void EnsureZoneWidthsForCharacterSeparation()
+        {
+            if (!autoExpandZoneWidthForSeparation)
+            {
+                return;
+            }
+
+            var requiredOccupants = Mathf.Max(1, characters.Count);
+            EnsureZoneWidthForCharacterSeparation(missionZone, requiredOccupants);
+            EnsureZoneWidthForCharacterSeparation(cafeteriaZone, requiredOccupants);
+            EnsureZoneWidthForCharacterSeparation(sleepZone, requiredOccupants);
+        }
+
+        private void EnsureZoneWidthForCharacterSeparation(RoutineZoneAnchor zone, int occupants)
+        {
+            if (zone == null || occupants <= 1)
+            {
+                return;
+            }
+
+            var minGap = Mathf.Max(0.5f, minimumCharacterSeparation);
+            var margin = 0.08f;
+            var requiredWidth = ((occupants - 1) * minGap) + (margin * 2f);
+            var scale = zone.transform.localScale;
+            var currentWidth = Mathf.Abs(scale.x);
+            if (currentWidth >= requiredWidth)
+            {
+                return;
+            }
+
+            scale.x = Mathf.Sign(scale.x == 0f ? 1f : scale.x) * requiredWidth;
+            zone.transform.localScale = scale;
         }
 
         private void EnsureDashboardUiReferences()
@@ -1183,6 +1511,9 @@ namespace ProjectW.IngameMvp
             ApplyHumanPhysiologyPreset(binding);
             binding.targetPosition = binding.actor != null ? binding.actor.position : Vector3.zero;
             binding.intendedAction = RoutineActionType.Mission;
+            binding.hasLockedZonePosition = false;
+            binding.lockedZoneKey = null;
+            binding.lockedZonePosition = Vector3.zero;
             UpdateRuntimeStateTexts(binding);
             EnsureTargetLineRenderer(binding, index);
             binding.runtimeInitialized = true;
@@ -1278,9 +1609,9 @@ namespace ProjectW.IngameMvp
 
             var charactersGo = new GameObject("Characters");
             charactersRoot = charactersGo.transform;
-            CreateCharacter2D(charactersRoot, "Character_A", new Vector2(-1.2f, CharacterSpawnHeight), new Color(0.2f, 0.85f, 1f, 1f));
-            CreateCharacter2D(charactersRoot, "Character_B", new Vector2(0f, CharacterSpawnHeight), new Color(0.4f, 1f, 0.4f, 1f));
-            CreateCharacter2D(charactersRoot, "Character_C", new Vector2(1.2f, CharacterSpawnHeight), new Color(1f, 0.7f, 0.25f, 1f));
+            CreateCharacter2D(charactersRoot, "Character_A", new Vector2(-1.2f, 0f), new Color(0.2f, 0.85f, 1f, 1f));
+            CreateCharacter2D(charactersRoot, "Character_B", new Vector2(0f, 0f), new Color(0.4f, 1f, 0.4f, 1f));
+            CreateCharacter2D(charactersRoot, "Character_C", new Vector2(1.2f, 0f), new Color(1f, 0.7f, 0.25f, 1f));
 
             characters.Clear();
             currentTimeText = null;
@@ -1656,12 +1987,14 @@ namespace ProjectW.IngameMvp
         private void ForceActorDepth(Transform actor)
         {
             var position = actor.position;
+            position.y = 0f;
             position.z = characterDepthZ;
             actor.position = position;
         }
 
         private Vector3 WithCharacterDepth(Vector3 position)
         {
+            position.y = 0f;
             if (!enforceDepthLayout)
             {
                 return position;
