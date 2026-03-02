@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using UnityEngine;
+using ProjectW.IngameCore.Simulation;
 using UnityEngine.UI;
 
 namespace ProjectW.IngameMvp
@@ -114,6 +115,8 @@ namespace ProjectW.IngameMvp
         [SerializeField] private Text goalText;
         [SerializeField] private Text progressText;
         [SerializeField] private Text situationText;
+        [SerializeField] private RoutineNeuronPanelView neuronPanelView;
+        [SerializeField] private Camera interactionCamera;
 
         [Header("Dashboard")]
         [SerializeField] private bool autoCreateDashboardUi = false;
@@ -144,7 +147,6 @@ namespace ProjectW.IngameMvp
         [SerializeField] private bool showDebugOnGui = true;
         [SerializeField] private Vector2 debugPanelPosition = new Vector2(16f, 16f);
         [SerializeField] private Vector2 debugPanelSize = new Vector2(430f, 240f);
-        [SerializeField] private bool enableDecisionLog = true;
 
         private int _absoluteTick;
         private Coroutine _loopCoroutine;
@@ -156,6 +158,9 @@ namespace ProjectW.IngameMvp
         private int _pendingInterventionCount;
         private string _recentRejectedInterventionReason = "None";
         private static Sprite _runtimeSquareSprite;
+        private readonly CharacterNeuronSystem _neuronSystem = new CharacterNeuronSystem();
+        private readonly Dictionary<RoutineCharacterBinding, CharacterNeuronSnapshot> _latestNeuronSnapshots = new Dictionary<RoutineCharacterBinding, CharacterNeuronSnapshot>();
+        private RoutineCharacterBinding _selectedCharacter;
 
         public IReadOnlyList<RoutineCharacterBinding> Characters => characters;
         public int AbsoluteTick => _absoluteTick;
@@ -228,6 +233,7 @@ namespace ProjectW.IngameMvp
 
         private void Update()
         {
+            HandleCharacterSelectionInput();
             for (int i = 0; i < characters.Count; i++)
             {
                 var binding = characters[i];
@@ -357,7 +363,7 @@ namespace ProjectW.IngameMvp
             int totalMinutes = (GetSimulationStartMinutes() + (tickInDay - 1) * 15) % 1440;
             int hour = (totalMinutes / 60) % 24;
             int minute = totalMinutes % 60;
-            var defaultAction = ResolveScheduleAction(hour, minute);
+            var defaultAction = ToRoutineAction(_neuronSystem.EvaluateRoutine(new RoutineNeuronContext("default", _absoluteTick, hour, minute, 0, 100f, 100f, 100f, 0f, 0f, 0f, false, CharacterNeuronIntent.Work)).ScheduledIntent);
             RoutineZoneAnchor defaultZone = ResolveZone(defaultAction, Vector3.zero);
             string zoneName = defaultZone != null ? defaultZone.ZoneId : "MissingZone";
             CleanupZoneLocks();
@@ -372,25 +378,39 @@ namespace ProjectW.IngameMvp
                     ForceActorDepth(binding.actor);
                 }
 
-                var desiredAction = ResolveCharacterAction(
-                    binding,
-                    tickInDay,
+                var neuronSnapshot = _neuronSystem.EvaluateRoutine(new RoutineNeuronContext(
+                    binding.actor.name,
+                    _absoluteTick,
                     hour,
                     minute,
-                    out var decisionReason,
-                    out var scheduledAction,
-                    out var isScheduledMeal,
-                    out var isScheduledSleep,
-                    out var isHungry,
-                    out var isStressed);
+                    binding.routineOffsetTicks,
+                    binding.hunger,
+                    binding.sleep,
+                    binding.stress,
+                    binding.hungerThreshold,
+                    binding.sleepThreshold,
+                    binding.stressThreshold,
+                    binding.hasLatchedNeedAction,
+                    ToNeuronIntent(binding.latchedNeedAction)));
+
+                _latestNeuronSnapshots[binding] = neuronSnapshot;
+                var desiredAction = ToRoutineAction(neuronSnapshot.IntendedIntent);
 
                 if (binding.remainingActionTicks > 0 && IsNeedAction(binding.currentAction))
                 {
                     desiredAction = binding.currentAction;
                 }
 
-                var preLatchAction = desiredAction;
-                desiredAction = ResolveLatchedOrNewNeedAction(binding, desiredAction);
+                if (binding.hasLatchedNeedAction && IsNeedAction(binding.latchedNeedAction))
+                {
+                    desiredAction = binding.latchedNeedAction;
+                }
+                else if (IsNeedAction(desiredAction))
+                {
+                    binding.hasLatchedNeedAction = true;
+                    binding.latchedNeedAction = desiredAction;
+                }
+
                 binding.intendedAction = desiredAction;
                 RoutineZoneAnchor zone = ResolveZone(desiredAction, binding.actor.position);
                 var actionTarget = ResolveActionTargetPosition(zone, binding, desiredAction, binding.actor.position);
@@ -405,22 +425,6 @@ namespace ProjectW.IngameMvp
                 {
                     ApplyNeedsAndProgress(binding, RoutineActionType.Move, false);
                     UpdateRuntimeStateTexts(binding);
-                    LogDecision(
-                        binding,
-                        tickInDay,
-                        scheduledAction,
-                        preLatchAction,
-                        desiredAction,
-                        decisionReason,
-                        isScheduledMeal,
-                        isScheduledSleep,
-                        isHungry,
-                        isStressed,
-                        zone,
-                        actionTarget,
-                        true,
-                        false,
-                        false);
                     continue;
                 }
 
@@ -432,30 +436,12 @@ namespace ProjectW.IngameMvp
                 binding.currentAction = desiredAction;
                 var canResolveNeed = CanResolveNeed(binding, desiredAction, zone);
                 ApplyNeedsAndProgress(binding, desiredAction, canResolveNeed);
-                var hadLatchBeforeResolve = binding.hasLatchedNeedAction;
-                ResolveNeedLatchAfterAction(binding, desiredAction, canResolveNeed);
+                ApplyNeedLatchAfterAction(binding, desiredAction, canResolveNeed);
                 if (binding.remainingActionTicks > 0)
                 {
                     binding.remainingActionTicks -= 1;
                 }
-                var latchReleased = hadLatchBeforeResolve && !binding.hasLatchedNeedAction;
                 UpdateRuntimeStateTexts(binding);
-                LogDecision(
-                    binding,
-                    tickInDay,
-                    scheduledAction,
-                    preLatchAction,
-                    desiredAction,
-                    decisionReason,
-                    isScheduledMeal,
-                    isScheduledSleep,
-                    isHungry,
-                    isStressed,
-                    zone,
-                    actionTarget,
-                    false,
-                    canResolveNeed,
-                    latchReleased);
             }
 
             string timeText = BuildTimeText(dayIndex, halfDayIndex, tickInHalfDay, totalMinutes);
@@ -465,6 +451,7 @@ namespace ProjectW.IngameMvp
             }
 
             UpdateDashboardUi(dayIndex, halfDayIndex, tickInHalfDay, timeText);
+            UpdateNeuronPanel();
             Debug.Log(string.Format(
                 CultureInfo.InvariantCulture,
                 "[RoutineMVP] {0} | Goal:{1:0}% ({2}/{3})",
@@ -507,74 +494,6 @@ namespace ProjectW.IngameMvp
                 default:
                     return FindZoneByTag(ZoneTagMission, actorPosition);
             }
-        }
-
-        private RoutineActionType ResolveCharacterAction(
-            RoutineCharacterBinding binding,
-            int tickInDay,
-            int hour,
-            int minute,
-            out string decisionReason,
-            out RoutineActionType scheduledAction,
-            out bool isScheduledMeal,
-            out bool isScheduledSleep,
-            out bool isHungry,
-            out bool isStressed)
-        {
-            int baseMinutes = ((hour * 60) + minute) % 1440;
-            int adjustedMinutes = (baseMinutes + (binding.routineOffsetTicks * 15)) % 1440;
-            if (adjustedMinutes < 0)
-            {
-                adjustedMinutes += 1440;
-            }
-
-            int adjustedHour = (adjustedMinutes / 60) % 24;
-            int adjustedMinute = adjustedMinutes % 60;
-            scheduledAction = ResolveScheduleAction(adjustedHour, adjustedMinute);
-            isScheduledMeal = scheduledAction == RoutineActionType.Breakfast
-                              || scheduledAction == RoutineActionType.Lunch
-                              || scheduledAction == RoutineActionType.Dinner;
-            isScheduledSleep = scheduledAction == RoutineActionType.Sleep;
-            isHungry = binding.hunger <= binding.hungerThreshold;
-            isStressed = binding.stress <= binding.stressThreshold;
-
-            if (isScheduledSleep)
-            {
-                decisionReason = "scheduled_sleep_window";
-                return RoutineActionType.Sleep;
-            }
-
-            if (isScheduledMeal)
-            {
-                decisionReason = "scheduled_meal_window";
-                return isScheduledMeal ? scheduledAction : RoutineActionType.Eat;
-            }
-
-            if (adjustedHour >= 20)
-            {
-                decisionReason = "after_work_sleep";
-                return RoutineActionType.Sleep;
-            }
-
-            decisionReason = "work_time_mission";
-            return RoutineActionType.Mission;
-        }
-
-        private static RoutineActionType ResolveScheduleAction(int hour, int minute)
-        {
-            if (hour < 8 || hour >= 22)
-            {
-                return RoutineActionType.Sleep;
-            }
-
-            if (minute == 0)
-            {
-                if (hour == 8) return RoutineActionType.Breakfast;
-                if (hour == 12) return RoutineActionType.Lunch;
-                if (hour == 18) return RoutineActionType.Dinner;
-            }
-
-            return RoutineActionType.Mission;
         }
 
         private bool ResolveMovementTick(
@@ -924,62 +843,6 @@ namespace ProjectW.IngameMvp
             }
 
             return best;
-        }
-
-        private RoutineActionType ResolveLatchedOrNewNeedAction(RoutineCharacterBinding binding, RoutineActionType desiredAction)
-        {
-            if (desiredAction == RoutineActionType.Sleep)
-            {
-                // Sleep always has priority over meal-type need actions.
-                binding.hasLatchedNeedAction = true;
-                binding.latchedNeedAction = RoutineActionType.Sleep;
-                return RoutineActionType.Sleep;
-            }
-
-            if (binding.hasLatchedNeedAction && IsNeedAction(binding.latchedNeedAction))
-            {
-                return binding.latchedNeedAction;
-            }
-
-            if (IsNeedAction(desiredAction))
-            {
-                binding.hasLatchedNeedAction = true;
-                binding.latchedNeedAction = desiredAction;
-                return desiredAction;
-            }
-
-            return desiredAction;
-        }
-
-        private void ResolveNeedLatchAfterAction(RoutineCharacterBinding binding, RoutineActionType appliedAction, bool canResolveNeed)
-        {
-            if (!binding.hasLatchedNeedAction)
-            {
-                return;
-            }
-
-            if (!IsNeedAction(binding.latchedNeedAction))
-            {
-                binding.hasLatchedNeedAction = false;
-                return;
-            }
-
-            if (binding.latchedNeedAction == appliedAction && canResolveNeed)
-            {
-                if (IsMealAction(binding.latchedNeedAction))
-                {
-                    // Keep eating until hunger is resolved.
-                    if (binding.hunger > binding.hungerThreshold)
-                    {
-                        binding.hasLatchedNeedAction = false;
-                    }
-                }
-                else
-                {
-                    // Sleep and other need actions: execute at least once after arrival.
-                    binding.hasLatchedNeedAction = false;
-                }
-            }
         }
 
         private static bool IsNeedAction(RoutineActionType action)
@@ -2244,55 +2107,117 @@ namespace ProjectW.IngameMvp
                 normal = { textColor = new Color(0.95f, 0.98f, 1f, 1f) }
             };
         }
-
-        private void LogDecision(
-            RoutineCharacterBinding binding,
-            int tickInHalfDay,
-            RoutineActionType scheduledAction,
-            RoutineActionType preLatchAction,
-            RoutineActionType postLatchAction,
-            string decisionReason,
-            bool isScheduledMeal,
-            bool isScheduledSleep,
-            bool isHungry,
-            bool isStressed,
-            RoutineZoneAnchor zone,
-            Vector3 target,
-            bool movedThisTick,
-            bool canResolveNeed,
-            bool latchReleased)
+        private void HandleCharacterSelectionInput()
         {
-            if (!enableDecisionLog)
+            if (!Input.GetMouseButtonDown(0))
             {
                 return;
             }
 
-            var actorName = binding.actor != null ? binding.actor.name : "Unknown";
-            var zoneId = zone != null ? zone.ZoneId : "null";
-            var msg = string.Format(
-                CultureInfo.InvariantCulture,
-                "[RoutineDecision] tick={0} actor={1} scheduled={2} cond(meal={3},sleep={4},hungry={5},stressed={6}) reason={7} action(preLatch={8},postLatch={9},current={10}) latch(active={11},released={12}) zone={13} target=({14:0.##},{15:0.##},{16:0.##}) moved={17} canResolveNeed={18}",
-                tickInHalfDay,
-                actorName,
-                scheduledAction,
-                isScheduledMeal,
-                isScheduledSleep,
-                isHungry,
-                isStressed,
-                decisionReason,
-                preLatchAction,
-                postLatchAction,
-                binding.currentAction,
-                binding.hasLatchedNeedAction,
-                latchReleased,
-                zoneId,
-                target.x,
-                target.y,
-                target.z,
-                movedThisTick,
-                canResolveNeed);
+            var cameraToUse = interactionCamera != null ? interactionCamera : Camera.main;
+            if (cameraToUse == null)
+            {
+                return;
+            }
 
-            Debug.Log(msg);
+            var worldPoint = cameraToUse.ScreenToWorldPoint(Input.mousePosition);
+            var hit = Physics2D.OverlapPoint(new Vector2(worldPoint.x, worldPoint.y));
+            if (hit == null)
+            {
+                _selectedCharacter = null;
+                UpdateNeuronPanel();
+                return;
+            }
+
+            for (int i = 0; i < characters.Count; i++)
+            {
+                var binding = characters[i];
+                if (binding.actor == null)
+                {
+                    continue;
+                }
+
+                if (hit.transform == binding.actor || hit.transform.IsChildOf(binding.actor))
+                {
+                    _selectedCharacter = binding;
+                    UpdateNeuronPanel();
+                    return;
+                }
+            }
         }
+
+        private void UpdateNeuronPanel()
+        {
+            if (neuronPanelView == null)
+            {
+                return;
+            }
+
+            if (_selectedCharacter == null || !_latestNeuronSnapshots.TryGetValue(_selectedCharacter, out var snapshot))
+            {
+                neuronPanelView.Hide();
+                return;
+            }
+
+            var viewModel = RoutineNeuronPanelViewModel.FromSnapshot(snapshot, _selectedCharacter.currentAction.ToString(), _selectedCharacter.intendedAction.ToString());
+            neuronPanelView.Render(viewModel);
+        }
+
+        private static RoutineActionType ToRoutineAction(CharacterNeuronIntent intent)
+        {
+            return intent == CharacterNeuronIntent.Eat
+                ? RoutineActionType.Eat
+                : intent == CharacterNeuronIntent.Sleep
+                    ? RoutineActionType.Sleep
+                    : RoutineActionType.Mission;
+        }
+
+        private static CharacterNeuronIntent ToNeuronIntent(RoutineActionType action)
+        {
+            return action == RoutineActionType.Sleep
+                ? CharacterNeuronIntent.Sleep
+                : IsMealAction(action)
+                    ? CharacterNeuronIntent.Eat
+                    : CharacterNeuronIntent.Work;
+        }
+
+        private static void ApplyNeedLatchAfterAction(RoutineCharacterBinding binding, RoutineActionType appliedAction, bool canResolveNeed)
+        {
+            if (binding == null)
+            {
+                return;
+            }
+
+            if (!binding.hasLatchedNeedAction)
+            {
+                return;
+            }
+
+            if (!IsNeedAction(binding.latchedNeedAction))
+            {
+                binding.hasLatchedNeedAction = false;
+                return;
+            }
+
+            if (binding.latchedNeedAction != appliedAction || !canResolveNeed)
+            {
+                return;
+            }
+
+            if (IsMealAction(binding.latchedNeedAction))
+            {
+                if (binding.hunger > binding.hungerThreshold)
+                {
+                    binding.hasLatchedNeedAction = false;
+                }
+                return;
+            }
+
+            if (binding.latchedNeedAction == RoutineActionType.Sleep && binding.sleep > binding.sleepThreshold && binding.stress > binding.stressThreshold)
+            {
+                binding.hasLatchedNeedAction = false;
+            }
+        }
+
     }
 }
