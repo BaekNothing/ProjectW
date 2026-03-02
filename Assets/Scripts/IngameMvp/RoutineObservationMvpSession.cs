@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -47,6 +48,9 @@ namespace ProjectW.IngameMvp
         [NonSerialized] public bool hasLatchedNeedAction;
         [NonSerialized] public RoutineActionType latchedNeedAction;
         [NonSerialized] public LineRenderer targetLineRenderer;
+        [NonSerialized] public int remainingMoveTicks;
+        [NonSerialized] public int remainingActionTicks;
+        [NonSerialized] public int completedWorkCount;
     }
 
     public struct RoutineTickSnapshot
@@ -82,14 +86,16 @@ namespace ProjectW.IngameMvp
         private const float GaugeBarMinWidth = 0.06f;
         private const float TargetLineY = 0.35f;
         private const float ZoneActionSpacing = 0.9f;
+        private const float DefaultCharacterSpriteSize = 0.1f;
+        private const float DefaultZoneAlpha = 0.4f;
         private const string ZoneTagMission = "zone.mission";
         private const string ZoneTagNeedHunger = "need.hunger";
         private const string ZoneTagNeedSleep = "need.sleep";
 
         [Header("Tick")]
         [SerializeField] private bool autoRunOnStart = true;
-        [SerializeField] private float tickIntervalSeconds = 0.6f;
-        [SerializeField] private int ticksPerHalfDay = 30;
+        [SerializeField] private float tickIntervalSeconds = 1f;
+        [SerializeField] private int ticksPerHalfDay = 48;
 
         [Header("Zone Anchors (Scene Fixed Objects)")]
         [SerializeField] private Transform zonesRoot;
@@ -100,6 +106,14 @@ namespace ProjectW.IngameMvp
 
         [Header("UI")]
         [SerializeField] private Text currentTimeText;
+        [SerializeField] private Text goalText;
+        [SerializeField] private Text progressText;
+        [SerializeField] private Text situationText;
+
+        [Header("Dashboard")]
+        [SerializeField] private bool autoCreateDashboardUi = false;
+        [SerializeField] private string dashboardGoalTitle = "Routine Stability";
+        [SerializeField] private int dashboardMissionGoalTicks = 100;
 
         [Header("Characters")]
         [SerializeField] private List<RoutineCharacterBinding> characters = new List<RoutineCharacterBinding>();
@@ -107,6 +121,17 @@ namespace ProjectW.IngameMvp
         [Header("Generation")]
         [SerializeField] private bool persistGeneratedObjectsInScene = true;
         [SerializeField] private bool useCubeDummyVisual = true;
+
+        [Header("2D World")]
+        [SerializeField] private bool use2DWorld = true;
+        [SerializeField] private bool disableLegacy3DRenderers = true;
+        [SerializeField] private float zoneGap = 2f;
+        [SerializeField] private Vector2 zoneScale = new Vector2(0.5f, 0.4f);
+
+        [Header("Depth Layout")]
+        [SerializeField] private bool enforceDepthLayout = true;
+        [SerializeField] private float zoneDepthZ = 0f;
+        [SerializeField] private float characterDepthZ = -1f;
 
         [Header("Debug View")]
         [SerializeField] private bool showDebugOnGui = true;
@@ -117,14 +142,55 @@ namespace ProjectW.IngameMvp
         private int _absoluteTick;
         private Coroutine _loopCoroutine;
         private readonly List<RoutineZoneAnchor> _zoneAnchors = new List<RoutineZoneAnchor>();
+        private readonly Dictionary<string, string> _dashboardContext = new Dictionary<string, string>();
         private GUIStyle _debugLabelStyle;
+        private int _lastAppliedInterventionTick = -1;
+        private int _pendingInterventionCount;
+        private string _recentRejectedInterventionReason = "None";
+        private static Sprite _runtimeSquareSprite;
 
         public IReadOnlyList<RoutineCharacterBinding> Characters => characters;
         public int AbsoluteTick => _absoluteTick;
 
+        public void SetInterventionVisibility(int pendingCount, int lastAppliedTick, string recentRejectedReason)
+        {
+            _pendingInterventionCount = Mathf.Max(0, pendingCount);
+            _lastAppliedInterventionTick = Mathf.Max(-1, lastAppliedTick);
+            _recentRejectedInterventionReason = string.IsNullOrWhiteSpace(recentRejectedReason)
+                ? "None"
+                : recentRejectedReason.Trim();
+        }
+
+        public void SetDashboardContext(string key, string value)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                return;
+            }
+
+            _dashboardContext[key.Trim()] = string.IsNullOrWhiteSpace(value) ? "-" : value.Trim();
+        }
+
+        public void ClearDashboardContext()
+        {
+            _dashboardContext.Clear();
+        }
+
         private void Awake()
         {
             AutoBindSceneReferences();
+        }
+
+        private void OnValidate()
+        {
+            if (Application.isPlaying)
+            {
+                return;
+            }
+
+            AutoBindSceneReferences();
+            SyncLayoutConfigFromSceneObjects();
+            ApplyDepthLayout();
         }
 
         private void Start()
@@ -141,10 +207,13 @@ namespace ProjectW.IngameMvp
             {
                 var binding = characters[i];
                 if (binding.actor == null) continue;
-                binding.actor.position = Vector3.MoveTowards(
-                    binding.actor.position,
-                    binding.targetPosition,
-                    binding.moveSpeed * Time.deltaTime);
+                if (enforceDepthLayout)
+                {
+                    ForceActorDepth(binding.actor);
+                    var target = binding.targetPosition;
+                    target.z = characterDepthZ;
+                    binding.targetPosition = target;
+                }
                 UpdateTargetLineVisual(binding, i);
             }
         }
@@ -216,9 +285,32 @@ namespace ProjectW.IngameMvp
             }
         }
 
+        [ContextMenu("ProjectW/Apply Depth Layout")]
+        public void ApplyDepthLayoutInEditor()
+        {
+            AutoBindSceneReferences();
+            ApplyDepthLayout();
+        }
+
+        [ContextMenu("ProjectW/Rebuild MVP Scene (2D Only)")]
+        public void RebuildMvpScene2D()
+        {
+            SyncLayoutConfigFromSceneObjects();
+            RebuildMvpScene2DInternal();
+            AutoBindSceneReferences();
+            ApplyDepthLayout();
+        }
+
+        [ContextMenu("ProjectW/Sync 2D Layout Config From Scene")]
+        public void SyncLayoutConfigFromScene()
+        {
+            AutoBindSceneReferences();
+            SyncLayoutConfigFromSceneObjects();
+        }
+
         public RoutineTickSnapshot AdvanceOneTick()
         {
-            if (missionZone == null || cafeteriaZone == null || sleepZone == null || characters.Count == 0 || currentTimeText == null)
+            if (missionZone == null || cafeteriaZone == null || sleepZone == null || characters.Count == 0)
             {
                 AutoBindSceneReferences();
             }
@@ -229,7 +321,11 @@ namespace ProjectW.IngameMvp
             int dayIndex = ((_absoluteTick - 1) / ticksPerDay) + 1;
             int halfDayIndex = (((_absoluteTick - 1) / ticksPerHalfDay) % 2) + 1;
             int tickInHalfDay = ((_absoluteTick - 1) % ticksPerHalfDay) + 1;
-            var defaultAction = RoutineSchedule.ResolveAction(tickInHalfDay);
+            int tickInDay = ((_absoluteTick - 1) % ticksPerDay) + 1;
+            int totalMinutes = (tickInDay - 1) * 15;
+            int hour = (totalMinutes / 60) % 24;
+            int minute = totalMinutes % 60;
+            var defaultAction = ResolveScheduleAction(hour, minute);
             RoutineZoneAnchor defaultZone = ResolveZone(defaultAction, Vector3.zero);
             string zoneName = defaultZone != null ? defaultZone.ZoneId : "MissingZone";
 
@@ -238,16 +334,27 @@ namespace ProjectW.IngameMvp
                 var binding = characters[i];
                 if (binding.actor == null) continue;
                 EnsureRuntimeBindingInitialized(binding, i);
+                if (enforceDepthLayout)
+                {
+                    ForceActorDepth(binding.actor);
+                }
 
                 var desiredAction = ResolveCharacterAction(
                     binding,
-                    tickInHalfDay,
+                    tickInDay,
+                    hour,
+                    minute,
                     out var decisionReason,
                     out var scheduledAction,
                     out var isScheduledMeal,
                     out var isScheduledSleep,
                     out var isHungry,
                     out var isStressed);
+
+                if (binding.remainingActionTicks > 0 && IsNeedAction(binding.currentAction))
+                {
+                    desiredAction = binding.currentAction;
+                }
 
                 var preLatchAction = desiredAction;
                 desiredAction = ResolveLatchedOrNewNeedAction(binding, desiredAction);
@@ -257,14 +364,14 @@ namespace ProjectW.IngameMvp
                 binding.targetPosition = actionTarget;
                 UpdateTargetLineVisual(binding, i);
 
-                if (!HasArrived(binding.actor.position, actionTarget))
+                var movedThisTick = ResolveMovementTick(binding, desiredAction, actionTarget);
+                if (movedThisTick)
                 {
-                    binding.currentAction = RoutineActionType.Move;
                     ApplyNeedsAndProgress(binding, RoutineActionType.Move, false);
                     UpdateRuntimeStateTexts(binding);
                     LogDecision(
                         binding,
-                        tickInHalfDay,
+                        tickInDay,
                         scheduledAction,
                         preLatchAction,
                         desiredAction,
@@ -281,16 +388,25 @@ namespace ProjectW.IngameMvp
                     continue;
                 }
 
+                if (binding.remainingActionTicks <= 0)
+                {
+                    binding.remainingActionTicks = ResolveActionDurationTicks(desiredAction);
+                }
+
                 binding.currentAction = desiredAction;
                 var canResolveNeed = CanResolveNeed(binding, desiredAction, zone);
                 ApplyNeedsAndProgress(binding, desiredAction, canResolveNeed);
                 var hadLatchBeforeResolve = binding.hasLatchedNeedAction;
                 ResolveNeedLatchAfterAction(binding, desiredAction, canResolveNeed);
+                if (binding.remainingActionTicks > 0)
+                {
+                    binding.remainingActionTicks -= 1;
+                }
                 var latchReleased = hadLatchBeforeResolve && !binding.hasLatchedNeedAction;
                 UpdateRuntimeStateTexts(binding);
                 LogDecision(
                     binding,
-                    tickInHalfDay,
+                    tickInDay,
                     scheduledAction,
                     preLatchAction,
                     desiredAction,
@@ -311,6 +427,15 @@ namespace ProjectW.IngameMvp
             {
                 currentTimeText.text = timeText;
             }
+
+            UpdateDashboardUi(dayIndex, halfDayIndex, tickInHalfDay, timeText);
+            Debug.Log(string.Format(
+                CultureInfo.InvariantCulture,
+                "[RoutineMVP] {0} | Goal:{1:0}% ({2}/{3})",
+                timeText,
+                GetMissionProgressRatio() * 100f,
+                GetTotalMissionTicks(),
+                Mathf.Max(1, dashboardMissionGoalTicks)));
 
             return new RoutineTickSnapshot
             {
@@ -350,7 +475,9 @@ namespace ProjectW.IngameMvp
 
         private RoutineActionType ResolveCharacterAction(
             RoutineCharacterBinding binding,
-            int tickInHalfDay,
+            int tickInDay,
+            int hour,
+            int minute,
             out string decisionReason,
             out RoutineActionType scheduledAction,
             out bool isScheduledMeal,
@@ -358,8 +485,12 @@ namespace ProjectW.IngameMvp
             out bool isHungry,
             out bool isStressed)
         {
-            int adjustedTick = WrapTick(tickInHalfDay + binding.routineOffsetTicks);
-            scheduledAction = RoutineSchedule.ResolveAction(adjustedTick);
+            int ticksPerDay = ticksPerHalfDay * 2;
+            int adjustedTickInDay = ((tickInDay + binding.routineOffsetTicks - 1 + ticksPerDay) % ticksPerDay) + 1;
+            int adjustedMinutes = (adjustedTickInDay - 1) * 15;
+            int adjustedHour = (adjustedMinutes / 60) % 24;
+            int adjustedMinute = adjustedMinutes % 60;
+            scheduledAction = ResolveScheduleAction(adjustedHour, adjustedMinute);
             isScheduledMeal = scheduledAction == RoutineActionType.Breakfast
                               || scheduledAction == RoutineActionType.Lunch
                               || scheduledAction == RoutineActionType.Dinner;
@@ -367,20 +498,83 @@ namespace ProjectW.IngameMvp
             isHungry = binding.hunger <= binding.hungerThreshold;
             isStressed = binding.stress <= binding.stressThreshold;
 
-            if (isScheduledSleep && isHungry && isStressed)
+            if (isScheduledSleep)
             {
-                decisionReason = "scheduled_sleep && hungry && stressed";
+                decisionReason = "scheduled_sleep_window";
                 return RoutineActionType.Sleep;
             }
 
-            if (isScheduledMeal && isHungry && isStressed)
+            if (isScheduledMeal)
             {
-                decisionReason = "scheduled_meal && hungry && stressed";
+                decisionReason = "scheduled_meal_window";
                 return isScheduledMeal ? scheduledAction : RoutineActionType.Eat;
             }
 
-            decisionReason = "fallback_mission (time/need condition not satisfied)";
+            if (hour >= 20)
+            {
+                decisionReason = "after_work_sleep";
+                return RoutineActionType.Sleep;
+            }
+
+            decisionReason = "work_time_mission";
             return RoutineActionType.Mission;
+        }
+
+        private static RoutineActionType ResolveScheduleAction(int hour, int minute)
+        {
+            if (hour < 8 || hour >= 22)
+            {
+                return RoutineActionType.Sleep;
+            }
+
+            if (minute == 0)
+            {
+                if (hour == 8) return RoutineActionType.Breakfast;
+                if (hour == 12) return RoutineActionType.Lunch;
+                if (hour == 18) return RoutineActionType.Dinner;
+            }
+
+            return RoutineActionType.Mission;
+        }
+
+        private bool ResolveMovementTick(RoutineCharacterBinding binding, RoutineActionType desiredAction, Vector3 actionTarget)
+        {
+            bool needsMove = !HasArrived(binding.actor.position, actionTarget);
+            if (needsMove && binding.remainingMoveTicks <= 0)
+            {
+                binding.remainingMoveTicks = UnityEngine.Random.Range(2, 5);
+            }
+
+            if (binding.remainingMoveTicks <= 0)
+            {
+                return false;
+            }
+
+            binding.currentAction = RoutineActionType.Move;
+            binding.remainingMoveTicks -= 1;
+            binding.targetPosition = actionTarget;
+            if (binding.remainingMoveTicks <= 0)
+            {
+                binding.actor.position = actionTarget;
+                return true;
+            }
+
+            return true;
+        }
+
+        private static int ResolveActionDurationTicks(RoutineActionType action)
+        {
+            if (IsMealAction(action))
+            {
+                return UnityEngine.Random.Range(4, 7);
+            }
+
+            if (action == RoutineActionType.Sleep)
+            {
+                return 1;
+            }
+
+            return 1;
         }
 
         private void ApplyNeedsAndProgress(RoutineCharacterBinding binding, RoutineActionType action, bool canResolveNeed)
@@ -397,6 +591,16 @@ namespace ProjectW.IngameMvp
                     binding.sleep -= binding.sleepDecayPerTick;
                     binding.stress -= binding.stressDecayPerTick;
                     binding.missionTicks += 1;
+                    if (binding.missionTicks >= 100)
+                    {
+                        binding.completedWorkCount += 1;
+                        binding.missionTicks = 0;
+                        Debug.Log(string.Format(
+                            CultureInfo.InvariantCulture,
+                            "[RoutineWork] actor={0} completed={1} -> assigned_new_work",
+                            binding.actor != null ? binding.actor.name : "Unknown",
+                            binding.completedWorkCount));
+                    }
                     break;
                 case RoutineActionType.Sleep:
                     binding.hunger -= binding.hungerDecayPerTick * 0.35f;
@@ -430,17 +634,17 @@ namespace ProjectW.IngameMvp
         {
             if (zone == null)
             {
-                return fallback;
+                return WithCharacterDepth(fallback);
             }
 
             var slot = zone.Position + GetZoneActionOffset(actorIndex);
             if (IsNeedAction(action) && !zone.Contains(slot))
             {
                 // Need action must complete at least once; if slot is outside boundary, fallback to zone center.
-                return zone.Position;
+                return WithCharacterDepth(zone.Position);
             }
 
-            return slot;
+            return WithCharacterDepth(slot);
         }
 
         private RoutineActionType ResolveLatchedOrNewNeedAction(RoutineCharacterBinding binding, RoutineActionType desiredAction)
@@ -539,8 +743,8 @@ namespace ProjectW.IngameMvp
         private string BuildTimeText(int dayIndex, int halfDayIndex, int tickInHalfDay)
         {
             int ticksFromDayStart = (halfDayIndex - 1) * ticksPerHalfDay + (tickInHalfDay - 1);
-            int minutesFromDayStart = ticksFromDayStart * 24;
-            int totalMinutes = (6 * 60) + minutesFromDayStart;
+            int minutesFromDayStart = ticksFromDayStart * 15;
+            int totalMinutes = minutesFromDayStart;
             int hour = (totalMinutes / 60) % 24;
             int minute = totalMinutes % 60;
             return string.Format(
@@ -552,6 +756,139 @@ namespace ProjectW.IngameMvp
                 halfDayIndex,
                 tickInHalfDay,
                 ticksPerHalfDay);
+        }
+
+        private void UpdateDashboardUi(int dayIndex, int halfDayIndex, int tickInHalfDay, string timeText)
+        {
+            EnsureDashboardUiReferences();
+            if (goalText == null && progressText == null && situationText == null)
+            {
+                return;
+            }
+
+            var totalMissionTicks = GetTotalMissionTicks();
+            var ratio = GetMissionProgressRatio();
+            var percentage = ratio * 100f;
+            var movingCount = CountCurrentAction(RoutineActionType.Move);
+            var avgHunger = ComputeAverageNeedValue(binding => binding.hunger);
+            var avgSleep = ComputeAverageNeedValue(binding => binding.sleep);
+            var avgStress = ComputeAverageNeedValue(binding => binding.stress);
+
+            if (goalText != null)
+            {
+                goalText.text = string.Format(
+                    CultureInfo.InvariantCulture,
+                    "Goal: {0} ({1}/{2})",
+                    dashboardGoalTitle,
+                    totalMissionTicks,
+                    Mathf.Max(1, dashboardMissionGoalTicks));
+            }
+
+            if (progressText != null)
+            {
+                progressText.text = string.Format(
+                    CultureInfo.InvariantCulture,
+                    "Progress: {0:0}% | Move:{1}/{2} | Avg H/S/T: {3:0}/{4:0}/{5:0}",
+                    percentage,
+                    movingCount,
+                    characters.Count,
+                    avgHunger,
+                    avgSleep,
+                    avgStress);
+            }
+
+            if (situationText != null)
+            {
+                situationText.text = BuildSituationSummary(dayIndex, halfDayIndex, tickInHalfDay, timeText);
+            }
+        }
+
+        private string BuildSituationSummary(int dayIndex, int halfDayIndex, int tickInHalfDay, string timeText)
+        {
+            var summary = new StringBuilder(256);
+            summary.AppendFormat(
+                CultureInfo.InvariantCulture,
+                "Situation: Day {0} Half {1} Tick {2} ({3})",
+                dayIndex,
+                halfDayIndex,
+                tickInHalfDay,
+                timeText);
+
+            summary.AppendLine();
+            summary.AppendFormat(
+                CultureInfo.InvariantCulture,
+                "Interventions pending:{0}, lastApplied:{1}, latestReject:{2}",
+                _pendingInterventionCount,
+                _lastAppliedInterventionTick < 0 ? "N/A" : _lastAppliedInterventionTick.ToString(CultureInfo.InvariantCulture),
+                _recentRejectedInterventionReason);
+
+            if (_dashboardContext.Count > 0)
+            {
+                var orderedKeys = new List<string>(_dashboardContext.Keys);
+                orderedKeys.Sort(StringComparer.Ordinal);
+                for (int i = 0; i < orderedKeys.Count; i++)
+                {
+                    var key = orderedKeys[i];
+                    summary.AppendLine();
+                    summary.AppendFormat(CultureInfo.InvariantCulture, "{0}: {1}", key, _dashboardContext[key]);
+                }
+            }
+
+            return summary.ToString();
+        }
+
+        private int GetTotalMissionTicks()
+        {
+            var total = 0;
+            for (int i = 0; i < characters.Count; i++)
+            {
+                total += Mathf.Max(0, characters[i].missionTicks);
+            }
+
+            return total;
+        }
+
+        private float GetMissionProgressRatio()
+        {
+            var target = Mathf.Max(1, dashboardMissionGoalTicks);
+            return Mathf.Clamp01(GetTotalMissionTicks() / (float)target);
+        }
+
+        private int CountCurrentAction(RoutineActionType action)
+        {
+            var count = 0;
+            for (int i = 0; i < characters.Count; i++)
+            {
+                if (characters[i].actor != null && characters[i].currentAction == action)
+                {
+                    count += 1;
+                }
+            }
+
+            return count;
+        }
+
+        private float ComputeAverageNeedValue(Func<RoutineCharacterBinding, float> selector)
+        {
+            if (characters.Count == 0)
+            {
+                return 0f;
+            }
+
+            var sum = 0f;
+            var count = 0;
+            for (int i = 0; i < characters.Count; i++)
+            {
+                if (characters[i].actor == null)
+                {
+                    continue;
+                }
+
+                sum += selector(characters[i]);
+                count += 1;
+            }
+
+            return count == 0 ? 0f : sum / count;
         }
 
         private void AutoBindSceneReferences()
@@ -576,8 +913,116 @@ namespace ProjectW.IngameMvp
                 currentTimeText = go != null ? go.GetComponent<Text>() : null;
             }
 
+            EnsureDashboardUiReferences();
+
             EnsureDefaultCharactersExist();
             EnsureCharacterBindingsFromRoot();
+            Ensure2DWorldSetup();
+            ApplyDepthLayout();
+        }
+
+        private void EnsureDashboardUiReferences()
+        {
+            if (goalText == null)
+            {
+                var goalGo = GameObject.Find("GoalText");
+                goalText = goalGo != null ? goalGo.GetComponent<Text>() : null;
+            }
+
+            if (progressText == null)
+            {
+                var progressGo = GameObject.Find("ProgressText");
+                progressText = progressGo != null ? progressGo.GetComponent<Text>() : null;
+            }
+
+            if (situationText == null)
+            {
+                var situationGo = GameObject.Find("SituationText");
+                situationText = situationGo != null ? situationGo.GetComponent<Text>() : null;
+            }
+
+            if (!autoCreateDashboardUi || (goalText != null && progressText != null && situationText != null))
+            {
+                return;
+            }
+
+            CreateDashboardUiIfMissing();
+        }
+
+        private void CreateDashboardUiIfMissing()
+        {
+            var canvas = FindFirstObjectByType<Canvas>();
+            if (canvas == null)
+            {
+                return;
+            }
+
+            var panelTransform = canvas.transform.Find("RoutineDashboardPanel");
+            if (panelTransform == null)
+            {
+                var panel = new GameObject("RoutineDashboardPanel", typeof(RectTransform));
+                panelTransform = panel.transform;
+                panelTransform.SetParent(canvas.transform, false);
+                var panelRect = panelTransform as RectTransform;
+                if (panelRect != null)
+                {
+                    panelRect.anchorMin = new Vector2(1f, 1f);
+                    panelRect.anchorMax = new Vector2(1f, 1f);
+                    panelRect.pivot = new Vector2(1f, 1f);
+                    panelRect.anchoredPosition = new Vector2(-16f, -16f);
+                    panelRect.sizeDelta = new Vector2(560f, 180f);
+                }
+            }
+
+            if (goalText == null)
+            {
+                goalText = CreateDashboardLine(panelTransform, "GoalText", 0f);
+            }
+
+            if (progressText == null)
+            {
+                progressText = CreateDashboardLine(panelTransform, "ProgressText", -44f);
+            }
+
+            if (situationText == null)
+            {
+                situationText = CreateDashboardLine(panelTransform, "SituationText", -88f);
+                situationText.horizontalOverflow = HorizontalWrapMode.Wrap;
+                situationText.verticalOverflow = VerticalWrapMode.Overflow;
+            }
+        }
+
+        private static Text CreateDashboardLine(Transform parent, string objectName, float yOffset)
+        {
+            var go = new GameObject(objectName, typeof(RectTransform), typeof(Text));
+            var lineTransform = go.transform;
+            lineTransform.SetParent(parent, false);
+            var rect = lineTransform as RectTransform;
+            if (rect != null)
+            {
+                rect.anchorMin = new Vector2(0f, 1f);
+                rect.anchorMax = new Vector2(1f, 1f);
+                rect.pivot = new Vector2(0f, 1f);
+                rect.anchoredPosition = new Vector2(0f, yOffset);
+                rect.sizeDelta = new Vector2(0f, 40f);
+            }
+
+            var text = go.GetComponent<Text>();
+            try
+            {
+                text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            }
+            catch (ArgumentException)
+            {
+                text.font = null;
+            }
+            text.fontSize = 20;
+            text.alignment = TextAnchor.UpperLeft;
+            text.color = new Color(0.92f, 0.96f, 1f, 1f);
+            text.horizontalOverflow = HorizontalWrapMode.Overflow;
+            text.verticalOverflow = VerticalWrapMode.Truncate;
+            text.text = string.Empty;
+            return text;
         }
 
         private void BindZonesFromAnchors()
@@ -682,9 +1127,14 @@ namespace ProjectW.IngameMvp
             var character = CreateDummyCharacterObject("Character");
             character.name = characterName;
             character.transform.SetParent(charactersRoot, false);
+            if (enforceDepthLayout)
+            {
+                localPosition.z = characterDepthZ;
+            }
+
             character.transform.localPosition = localPosition;
             character.transform.localRotation = Quaternion.identity;
-            character.transform.localScale = Vector3.one;
+            character.transform.localScale = new Vector3(DefaultCharacterSpriteSize, DefaultCharacterSpriteSize, 1f);
             TryColorize(character, tint);
         }
 
@@ -736,6 +1186,489 @@ namespace ProjectW.IngameMvp
             UpdateRuntimeStateTexts(binding);
             EnsureTargetLineRenderer(binding, index);
             binding.runtimeInitialized = true;
+        }
+
+        private void ApplyDepthLayout()
+        {
+            if (!enforceDepthLayout)
+            {
+                return;
+            }
+
+            for (int i = 0; i < _zoneAnchors.Count; i++)
+            {
+                var zone = _zoneAnchors[i];
+                if (zone == null)
+                {
+                    continue;
+                }
+
+                var zonePosition = zone.transform.position;
+                zonePosition.z = zoneDepthZ;
+                zone.transform.position = zonePosition;
+            }
+
+            for (int i = 0; i < characters.Count; i++)
+            {
+                var actor = characters[i].actor;
+                if (actor == null)
+                {
+                    continue;
+                }
+
+                ForceActorDepth(actor);
+                var target = characters[i].targetPosition;
+                target.z = characterDepthZ;
+                characters[i].targetPosition = target;
+            }
+        }
+
+        private void RebuildMvpScene2DInternal()
+        {
+            use2DWorld = true;
+            disableLegacy3DRenderers = true;
+            enforceDepthLayout = true;
+            zoneDepthZ = 0f;
+            characterDepthZ = -1f;
+            autoCreateDashboardUi = false;
+
+            zoneGap = Mathf.Max(1.5f, zoneGap);
+            if (zoneScale.x <= 0f)
+            {
+                zoneScale.x = 0.5f;
+            }
+            if (zoneScale.y <= 0f)
+            {
+                zoneScale.y = 0.5f;
+            }
+
+            EnsureMainCamera2D();
+
+            DestroyIfExists("Zones");
+            DestroyIfExists("Characters");
+
+            var zonesGo = new GameObject("Zones");
+            zonesRoot = zonesGo.transform;
+            var halfWidth = zoneScale.x * 0.5f;
+            var centerDistance = (halfWidth + halfWidth) + zoneGap;
+            missionZone = CreateZone2D(
+                zonesRoot,
+                "MissionZone",
+                "zone.mission",
+                new[] { ZoneTagMission },
+                new Vector2(0f, 0f),
+                zoneScale,
+                new Color(0.9f, 0.2f, 0.2f, DefaultZoneAlpha));
+            cafeteriaZone = CreateZone2D(
+                zonesRoot,
+                "CafeteriaZone",
+                "need.hunger",
+                new[] { ZoneTagNeedHunger },
+                new Vector2(-centerDistance, 0f),
+                zoneScale,
+                new Color(0.12f, 0.53f, 0.9f, DefaultZoneAlpha));
+            sleepZone = CreateZone2D(
+                zonesRoot,
+                "SleepZone",
+                "need.sleep",
+                new[] { ZoneTagNeedSleep },
+                new Vector2(centerDistance, 0f),
+                zoneScale,
+                new Color(0.26f, 0.66f, 0.29f, DefaultZoneAlpha));
+
+            var charactersGo = new GameObject("Characters");
+            charactersRoot = charactersGo.transform;
+            CreateCharacter2D(charactersRoot, "Character_A", new Vector2(-1.2f, CharacterSpawnHeight), new Color(0.2f, 0.85f, 1f, 1f));
+            CreateCharacter2D(charactersRoot, "Character_B", new Vector2(0f, CharacterSpawnHeight), new Color(0.4f, 1f, 0.4f, 1f));
+            CreateCharacter2D(charactersRoot, "Character_C", new Vector2(1.2f, CharacterSpawnHeight), new Color(1f, 0.7f, 0.25f, 1f));
+
+            characters.Clear();
+            currentTimeText = null;
+            goalText = null;
+            progressText = null;
+            situationText = null;
+        }
+
+        private void SyncLayoutConfigFromSceneObjects()
+        {
+            if (missionZone == null || cafeteriaZone == null || sleepZone == null)
+            {
+                return;
+            }
+
+            // Use current scene-authored zone size as canonical rebuild baseline.
+            var missionScale = missionZone.transform.localScale;
+            var x = Mathf.Abs(missionScale.x);
+            var y = Mathf.Abs(missionScale.y);
+            if (x > 0.0001f && y > 0.0001f)
+            {
+                zoneScale = new Vector2(x, y);
+            }
+
+            // Estimate gap from current left-center-right layout if possible.
+            var zones = new[] { cafeteriaZone.transform, missionZone.transform, sleepZone.transform };
+            System.Array.Sort(zones, (a, b) => a.position.x.CompareTo(b.position.x));
+            var left = zones[0];
+            var center = zones[1];
+            var right = zones[2];
+            var gapLeft = ComputeEdgeGap(left, center);
+            var gapRight = ComputeEdgeGap(center, right);
+            var observedGap = Mathf.Min(gapLeft, gapRight);
+            if (observedGap > 0.01f)
+            {
+                zoneGap = Mathf.Max(1.5f, observedGap);
+            }
+        }
+
+        private static float ComputeEdgeGap(Transform left, Transform right)
+        {
+            var leftHalf = Mathf.Abs(left.localScale.x) * 0.5f;
+            var rightHalf = Mathf.Abs(right.localScale.x) * 0.5f;
+            var leftEdge = left.position.x + leftHalf;
+            var rightEdge = right.position.x - rightHalf;
+            return rightEdge - leftEdge;
+        }
+
+        private void EnsureMainCamera2D()
+        {
+            var camera = Camera.main;
+            if (camera == null)
+            {
+                var cameraGo = new GameObject("Main Camera");
+                cameraGo.tag = "MainCamera";
+                camera = cameraGo.AddComponent<Camera>();
+            }
+
+            camera.orthographic = true;
+            var cameraTransform = camera.transform;
+            cameraTransform.position = new Vector3(0f, 0f, -10f);
+            cameraTransform.rotation = Quaternion.identity;
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = new Color(0.12f, 0.18f, 0.26f, 1f);
+        }
+
+        private RoutineZoneAnchor CreateZone2D(
+            Transform parent,
+            string objectName,
+            string zoneId,
+            string[] tags,
+            Vector2 center,
+            Vector2 size,
+            Color color)
+        {
+            var zone = new GameObject(objectName);
+            zone.transform.SetParent(parent, false);
+            zone.transform.localPosition = new Vector3(center.x, center.y, zoneDepthZ);
+            zone.transform.localScale = new Vector3(size.x, size.y, 1f);
+            EnsureSpriteRenderer(zone, color, Vector2.one, false);
+
+            var collider2D = zone.AddComponent<BoxCollider2D>();
+            collider2D.size = Vector2.one;
+            collider2D.offset = Vector2.zero;
+
+            var anchor = zone.AddComponent<RoutineZoneAnchor>();
+            anchor.SetZoneId(zoneId);
+            anchor.SetTags(tags);
+            anchor.RebindBoundaries();
+            return anchor;
+        }
+
+        private void CreateCharacter2D(Transform parent, string name, Vector2 localPosition, Color color)
+        {
+            var actor = new GameObject(name);
+            actor.transform.SetParent(parent, false);
+            actor.transform.localPosition = new Vector3(localPosition.x, localPosition.y, characterDepthZ);
+            actor.transform.localScale = new Vector3(DefaultCharacterSpriteSize, DefaultCharacterSpriteSize, 1f);
+            EnsureSpriteRenderer(actor, color, new Vector2(DefaultCharacterSpriteSize, DefaultCharacterSpriteSize), true);
+            actor.AddComponent<CapsuleCollider2D>();
+
+            var gaugeRoot = new GameObject("GaugeRoot");
+            gaugeRoot.transform.SetParent(actor.transform, false);
+            gaugeRoot.transform.localPosition = new Vector3(0f, 1f, 0f);
+
+            CreateGaugeBar2D(gaugeRoot.transform, "HungerBar", 0.24f, new Color(0.94f, 0.35f, 0.35f, 1f));
+            CreateGaugeBar2D(gaugeRoot.transform, "SleepBar", 0f, new Color(0.30f, 0.55f, 0.95f, 1f));
+            CreateGaugeBar2D(gaugeRoot.transform, "StressBar", -0.24f, new Color(0.30f, 0.80f, 0.40f, 1f));
+        }
+
+        private void CreateGaugeBar2D(Transform parent, string name, float y, Color color)
+        {
+            var bar = new GameObject(name);
+            bar.transform.SetParent(parent, false);
+            bar.transform.localPosition = new Vector3(0f, y, 0f);
+            bar.transform.localScale = new Vector3(GaugeBarMaxWidth, 0.12f, 1f);
+            EnsureSpriteRenderer(bar, color, Vector2.one, true);
+        }
+
+        private void BuildDashboardCanvas2D()
+        {
+            var canvas = FindFirstObjectByType<Canvas>();
+            GameObject canvasGo;
+            if (canvas == null)
+            {
+                canvasGo = new GameObject("MvpDashboardCanvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+                canvas = canvasGo.GetComponent<Canvas>();
+            }
+            else
+            {
+                canvasGo = canvas.gameObject;
+                if (canvasGo.GetComponent<CanvasScaler>() == null)
+                {
+                    canvasGo.AddComponent<CanvasScaler>();
+                }
+
+                if (canvasGo.GetComponent<GraphicRaycaster>() == null)
+                {
+                    canvasGo.AddComponent<GraphicRaycaster>();
+                }
+            }
+
+            canvas.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas.worldCamera = Camera.main;
+            canvas.planeDistance = 5f;
+            var scaler = canvasGo.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+
+            currentTimeText = EnsureDashboardText(canvasGo.transform, "CurrentTimeText", new Vector2(24f, -24f), 40, "Day 1 | 06:00");
+            goalText = EnsureDashboardText(canvasGo.transform, "GoalText", new Vector2(24f, -82f), 30, "Goal: Routine Stability");
+            progressText = EnsureDashboardText(canvasGo.transform, "ProgressText", new Vector2(24f, -126f), 28, "Progress: 0%");
+            situationText = EnsureDashboardText(canvasGo.transform, "SituationText", new Vector2(24f, -170f), 24, "Situation: Initialized");
+            situationText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            situationText.verticalOverflow = VerticalWrapMode.Overflow;
+        }
+
+        private static Text EnsureDashboardText(Transform parent, string name, Vector2 anchorPos, int fontSize, string initialText)
+        {
+            var existing = parent.Find(name);
+            GameObject textGo;
+            if (existing == null)
+            {
+                textGo = new GameObject(name, typeof(RectTransform), typeof(Text));
+                textGo.transform.SetParent(parent, false);
+            }
+            else
+            {
+                textGo = existing.gameObject;
+                if (textGo.GetComponent<Text>() == null)
+                {
+                    textGo.AddComponent<Text>();
+                }
+            }
+
+            var rect = (RectTransform)textGo.transform;
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = anchorPos;
+            rect.sizeDelta = new Vector2(1200f, 44f);
+
+            var text = textGo.GetComponent<Text>();
+            try
+            {
+                text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            }
+            catch (ArgumentException)
+            {
+                text.font = null;
+            }
+            text.fontSize = fontSize;
+            text.alignment = TextAnchor.UpperLeft;
+            text.color = new Color(0.94f, 0.97f, 1f, 1f);
+            text.horizontalOverflow = HorizontalWrapMode.Overflow;
+            text.verticalOverflow = VerticalWrapMode.Truncate;
+            text.text = initialText;
+            return text;
+        }
+
+        private static void DestroyIfExists(string objectName)
+        {
+            var go = GameObject.Find(objectName);
+            if (go == null)
+            {
+                return;
+            }
+
+            if (Application.isPlaying)
+            {
+                Destroy(go);
+            }
+            else
+            {
+                DestroyImmediate(go);
+            }
+        }
+
+        private void Ensure2DWorldSetup()
+        {
+            if (!use2DWorld)
+            {
+                return;
+            }
+
+            Ensure2DZones();
+            Ensure2DCharacters();
+        }
+
+        private void Ensure2DZones()
+        {
+            for (int i = 0; i < _zoneAnchors.Count; i++)
+            {
+                var anchor = _zoneAnchors[i];
+                if (anchor == null)
+                {
+                    continue;
+                }
+
+                var color = ReadRendererColor(anchor.GetComponent<Renderer>(), new Color(0.9f, 0.2f, 0.2f, DefaultZoneAlpha));
+                color.a = DefaultZoneAlpha;
+                EnsureSpriteRenderer(anchor.gameObject, color, Vector2.one, false);
+                EnsureZoneBoundary2D(anchor);
+            }
+        }
+
+        private void Ensure2DCharacters()
+        {
+            for (int i = 0; i < characters.Count; i++)
+            {
+                var binding = characters[i];
+                if (binding.actor == null)
+                {
+                    continue;
+                }
+
+                var actorGo = binding.actor.gameObject;
+                actorGo.transform.localScale = new Vector3(DefaultCharacterSpriteSize, DefaultCharacterSpriteSize, 1f);
+                var color = ReadRendererColor(actorGo.GetComponent<Renderer>(), GetLineColor(i));
+                EnsureSpriteRenderer(actorGo, color, new Vector2(DefaultCharacterSpriteSize, DefaultCharacterSpriteSize), true);
+                EnsureGaugeBarsAre2D(binding.actor);
+            }
+        }
+
+        private void EnsureGaugeBarsAre2D(Transform actor)
+        {
+            var gaugeRoot = actor.Find("GaugeRoot");
+            if (gaugeRoot == null)
+            {
+                return;
+            }
+
+            EnsureSpriteRenderer(gaugeRoot.Find("HungerBar")?.gameObject, new Color(0.94f, 0.35f, 0.35f, 1f), Vector2.one, true);
+            EnsureSpriteRenderer(gaugeRoot.Find("SleepBar")?.gameObject, new Color(0.30f, 0.55f, 0.95f, 1f), Vector2.one, true);
+            EnsureSpriteRenderer(gaugeRoot.Find("StressBar")?.gameObject, new Color(0.30f, 0.80f, 0.40f, 1f), Vector2.one, true);
+        }
+
+        private void EnsureZoneBoundary2D(RoutineZoneAnchor anchor)
+        {
+            var go = anchor.gameObject;
+            var box2D = go.GetComponent<BoxCollider2D>();
+            if (box2D == null)
+            {
+                box2D = go.AddComponent<BoxCollider2D>();
+            }
+
+            var box3D = go.GetComponent<BoxCollider>();
+            if (box3D != null)
+            {
+                var size = box3D.size;
+                var scale = go.transform.lossyScale;
+                box2D.size = new Vector2(Mathf.Abs(size.x * scale.x), Mathf.Abs(size.y * scale.y));
+                var center = box3D.center;
+                box2D.offset = new Vector2(center.x * scale.x, center.y * scale.y);
+                if (disableLegacy3DRenderers)
+                {
+                    box3D.enabled = false;
+                }
+            }
+            else if (box2D.size == Vector2.zero)
+            {
+                box2D.size = new Vector2(Mathf.Max(1f, go.transform.localScale.x), Mathf.Max(1f, go.transform.localScale.y));
+            }
+
+            anchor.RebindBoundaries();
+        }
+
+        private void EnsureSpriteRenderer(GameObject go, Color color, Vector2 targetScale, bool opaque)
+        {
+            if (go == null)
+            {
+                return;
+            }
+
+            var spriteRenderer = go.GetComponent<SpriteRenderer>();
+            if (spriteRenderer == null)
+            {
+                spriteRenderer = go.AddComponent<SpriteRenderer>();
+            }
+
+            spriteRenderer.sprite = GetRuntimeSquareSprite();
+            spriteRenderer.color = opaque ? new Color(color.r, color.g, color.b, 1f) : new Color(color.r, color.g, color.b, Mathf.Clamp01(color.a));
+            var scale = go.transform.localScale;
+            scale.x = Mathf.Abs(scale.x) < 0.0001f ? targetScale.x : scale.x;
+            scale.y = Mathf.Abs(scale.y) < 0.0001f ? targetScale.y : scale.y;
+            go.transform.localScale = scale;
+
+            var meshRenderer = go.GetComponent<MeshRenderer>();
+            if (meshRenderer != null && disableLegacy3DRenderers)
+            {
+                meshRenderer.enabled = false;
+            }
+        }
+
+        private static Color ReadRendererColor(Renderer renderer, Color fallback)
+        {
+            if (renderer == null || renderer.sharedMaterial == null)
+            {
+                return fallback;
+            }
+
+            var material = renderer.sharedMaterial;
+            if (material.HasProperty("_BaseColor"))
+            {
+                return material.GetColor("_BaseColor");
+            }
+
+            if (material.HasProperty("_Color"))
+            {
+                return material.GetColor("_Color");
+            }
+
+            return fallback;
+        }
+
+        private static Sprite GetRuntimeSquareSprite()
+        {
+            if (_runtimeSquareSprite != null)
+            {
+                return _runtimeSquareSprite;
+            }
+
+            var texture = Texture2D.whiteTexture;
+            _runtimeSquareSprite = Sprite.Create(
+                texture,
+                new Rect(0f, 0f, texture.width, texture.height),
+                new Vector2(0.5f, 0.5f),
+                1f);
+            _runtimeSquareSprite.name = "RuntimeSquare";
+            return _runtimeSquareSprite;
+        }
+
+        private void ForceActorDepth(Transform actor)
+        {
+            var position = actor.position;
+            position.z = characterDepthZ;
+            actor.position = position;
+        }
+
+        private Vector3 WithCharacterDepth(Vector3 position)
+        {
+            if (!enforceDepthLayout)
+            {
+                return position;
+            }
+
+            position.z = characterDepthZ;
+            return position;
         }
 
         private void ApplyHumanPhysiologyPreset(RoutineCharacterBinding binding)
@@ -888,6 +1821,12 @@ namespace ProjectW.IngameMvp
 
         private void TryColorize(GameObject go, Color color)
         {
+            var spriteRenderer = go.GetComponent<SpriteRenderer>();
+            if (spriteRenderer != null)
+            {
+                spriteRenderer.color = color;
+            }
+
             var renderer = go.GetComponent<Renderer>();
             if (renderer == null)
             {
@@ -944,6 +1883,13 @@ namespace ProjectW.IngameMvp
 
         private GameObject CreateDummyCharacterObject(string name)
         {
+            if (use2DWorld)
+            {
+                var go2D = new GameObject(name);
+                EnsureSpriteRenderer(go2D, Color.white, new Vector2(DefaultCharacterSpriteSize, DefaultCharacterSpriteSize), true);
+                return go2D;
+            }
+
             // Extension point: replace primitive path with Spine/sprite prefab injection later.
             var primitiveType = useCubeDummyVisual ? PrimitiveType.Cube : PrimitiveType.Capsule;
             var go = GameObject.CreatePrimitive(primitiveType);

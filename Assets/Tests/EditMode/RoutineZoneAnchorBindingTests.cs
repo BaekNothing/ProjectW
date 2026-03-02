@@ -40,7 +40,9 @@ namespace ProjectW.Tests.EditMode
 
             session.AdvanceOneTick();
 
-            Assert.AreEqual(missionZone.transform.position + new Vector3(-0.9f, 0f, 0f), session.Characters[0].targetPosition);
+            var expected = missionZone.transform.position + new Vector3(-0.9f, 0f, 0f);
+            expected.z = actor.transform.position.z;
+            Assert.AreEqual(expected, session.Characters[0].targetPosition);
         }
 
         [Test]

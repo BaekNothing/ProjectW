@@ -1190,15 +1190,26 @@ MonoBehaviour:
   autoRunOnStart: 1
   tickIntervalSeconds: 0.6
   ticksPerHalfDay: 30
-  zonesRoot: {fileID: 0}
-  missionZone: {fileID: 0}
-  cafeteriaZone: {fileID: 0}
-  sleepZone: {fileID: 0}
-  charactersRoot: {fileID: 0}
-  currentTimeText: {fileID: 0}
+  zonesRoot: {fileID: 1399186541}
+  missionZone: {fileID: 776225002}
+  cafeteriaZone: {fileID: 1598863327}
+  sleepZone: {fileID: 49517445}
+  charactersRoot: {fileID: 2146214038}
+  currentTimeText: {fileID: 526668787}
+  goalText: {fileID: 0}
+  progressText: {fileID: 0}
+  situationText: {fileID: 0}
+  autoCreateDashboardUi: 1
+  dashboardGoalTitle: Routine Stability
+  dashboardMissionGoalTicks: 180
   characters: []
   persistGeneratedObjectsInScene: 1
   useCubeDummyVisual: 1
+  use2DWorld: 1
+  disableLegacy3DRenderers: 1
+  enforceDepthLayout: 1
+  zoneDepthZ: 0
+  characterDepthZ: -1
   showDebugOnGui: 1
   debugPanelPosition: {x: 16, y: 16}
   debugPanelSize: {x: 430, y: 240}
@@ -1246,7 +1257,7 @@ Transform:
   m_GameObject: {fileID: 1234636227}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -1.2, y: 1.6, z: 0}
+  m_LocalPosition: {x: -1.2, y: 1.6, z: -1}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1850,9 +1861,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 66850f95d03c47a293527949de9754f3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Scripts::ProjectW.IngameMvp.RoutineZoneAnchor
-  zoneId: 'need.hunger '
+  zoneId: need.hunger
   tags:
-  - 'need.hunger '
+  - need.hunger
   boundary3D: {fileID: 1598863325}
   boundary2D: {fileID: 0}
 --- !u!1 &1607489090
@@ -1883,7 +1894,7 @@ Transform:
   m_GameObject: {fileID: 1607489090}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 1.6, z: 0}
+  m_LocalPosition: {x: 0, y: 1.6, z: -1}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1996,7 +2007,7 @@ Transform:
   m_GameObject: {fileID: 1654024762}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 1.2, y: 1.6, z: 0}
+  m_LocalPosition: {x: 1.2, y: 1.6, z: -1}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:

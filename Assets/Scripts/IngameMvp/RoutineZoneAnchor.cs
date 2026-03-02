@@ -56,6 +56,11 @@ namespace ProjectW.IngameMvp
             tags = value ?? Array.Empty<string>();
         }
 
+        public void RebindBoundaries()
+        {
+            TryAutoBindBoundary();
+        }
+
         private void Reset()
         {
             TryAutoBindBoundary();

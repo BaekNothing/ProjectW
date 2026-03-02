@@ -2,6 +2,7 @@ using NUnit.Framework;
 using ProjectW.IngameMvp;
 using System.Reflection;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace ProjectW.Tests.EditMode
 {
@@ -69,7 +70,7 @@ namespace ProjectW.Tests.EditMode
         }
 
         [Test]
-        public void AutoCreateDefaultCharacters_UsesCubeDummyVisual()
+        public void AutoCreateDefaultCharacters_Uses2DSpriteVisual()
         {
             var zones = new GameObject("Zones");
             CreateZone(zones.transform, "Mission", "zone.mission.main", new[] { "zone.mission" }, new Vector3(0f, 0f, 0f), new Vector3(4f, 4f, 2f));
@@ -84,7 +85,7 @@ namespace ProjectW.Tests.EditMode
 
             var actor = root.transform.Find("Character_A");
             Assert.IsNotNull(actor);
-            Assert.IsNotNull(actor.GetComponent<BoxCollider>());
+            Assert.IsNotNull(actor.GetComponent<SpriteRenderer>());
             Assert.IsNull(actor.GetComponent<CapsuleCollider>());
             Assert.AreEqual(5f, session.Characters[0].moveSpeed, 0.001f);
 
@@ -208,6 +209,192 @@ namespace ProjectW.Tests.EditMode
             Object.DestroyImmediate(root);
         }
 
+        [Test]
+        public void AdvanceTick_UpdatesGoalProgressAndSituationDashboardTexts()
+        {
+            var zones = new GameObject("Zones");
+            CreateZone(zones.transform, "Mission", "zone.mission.main", new[] { "zone.mission" }, new Vector3(0f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            CreateZone(zones.transform, "Cafeteria", "zone.meal.main", new[] { "need.hunger" }, new Vector3(6f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            CreateZone(zones.transform, "Sleep", "zone.sleep.main", new[] { "need.sleep" }, new Vector3(-6f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            var root = new GameObject("Characters");
+            var actor = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            actor.name = "Character_A";
+            actor.transform.SetParent(root.transform, false);
+            actor.transform.localPosition = Vector3.zero;
+
+            var timeText = new GameObject("CurrentTimeText").AddComponent<Text>();
+            var goalText = new GameObject("GoalText").AddComponent<Text>();
+            var progressText = new GameObject("ProgressText").AddComponent<Text>();
+            var situationText = new GameObject("SituationText").AddComponent<Text>();
+
+            var go = new GameObject("RoutineSession_Dashboard");
+            var session = go.AddComponent<RoutineObservationMvpSession>();
+            SetPrivateField(session, "autoCreateDashboardUi", false);
+            SetPrivateField(session, "currentTimeText", timeText);
+            SetPrivateField(session, "goalText", goalText);
+            SetPrivateField(session, "progressText", progressText);
+            SetPrivateField(session, "situationText", situationText);
+            session.SetInterventionVisibility(2, 7, "priority_conflict");
+            session.AdvanceOneTick();
+
+            StringAssert.Contains("Goal:", goalText.text);
+            StringAssert.Contains("Progress:", progressText.text);
+            StringAssert.Contains("Interventions pending:2", situationText.text);
+            StringAssert.Contains("latestReject:priority_conflict", situationText.text);
+
+            Object.DestroyImmediate(go);
+            Object.DestroyImmediate(zones);
+            Object.DestroyImmediate(root);
+            Object.DestroyImmediate(timeText.gameObject);
+            Object.DestroyImmediate(goalText.gameObject);
+            Object.DestroyImmediate(progressText.gameObject);
+            Object.DestroyImmediate(situationText.gameObject);
+        }
+
+        [Test]
+        public void DashboardContext_ExposesCustomRuntimeStatusForDevelopers()
+        {
+            var zones = new GameObject("Zones");
+            CreateZone(zones.transform, "Mission", "zone.mission.main", new[] { "zone.mission" }, new Vector3(0f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            CreateZone(zones.transform, "Cafeteria", "zone.meal.main", new[] { "need.hunger" }, new Vector3(6f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            CreateZone(zones.transform, "Sleep", "zone.sleep.main", new[] { "need.sleep" }, new Vector3(-6f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            var root = new GameObject("Characters");
+            var actor = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            actor.name = "Character_A";
+            actor.transform.SetParent(root.transform, false);
+            actor.transform.localPosition = Vector3.zero;
+
+            var timeText = new GameObject("CurrentTimeText").AddComponent<Text>();
+            var situationText = new GameObject("SituationText").AddComponent<Text>();
+
+            var go = new GameObject("RoutineSession_DashboardContext");
+            var session = go.AddComponent<RoutineObservationMvpSession>();
+            SetPrivateField(session, "autoCreateDashboardUi", false);
+            SetPrivateField(session, "currentTimeText", timeText);
+            SetPrivateField(session, "situationText", situationText);
+            session.SetDashboardContext("LevelGen", "Seed=42, Stage=Layout");
+            session.AdvanceOneTick();
+
+            StringAssert.Contains("LevelGen: Seed=42, Stage=Layout", situationText.text);
+
+            Object.DestroyImmediate(go);
+            Object.DestroyImmediate(zones);
+            Object.DestroyImmediate(root);
+            Object.DestroyImmediate(timeText.gameObject);
+            Object.DestroyImmediate(situationText.gameObject);
+        }
+
+        [Test]
+        public void AdvanceTick_AppliesDepthLayoutSoCharactersStayCloserToCameraThanZones()
+        {
+            var zones = new GameObject("Zones");
+            var mission = CreateZone(zones.transform, "Mission", "zone.mission.main", new[] { "zone.mission" }, new Vector3(0f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            CreateZone(zones.transform, "Cafeteria", "zone.meal.main", new[] { "need.hunger" }, new Vector3(6f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            CreateZone(zones.transform, "Sleep", "zone.sleep.main", new[] { "need.sleep" }, new Vector3(-6f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            var root = new GameObject("Characters");
+            var actor = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            actor.name = "Character_A";
+            actor.transform.SetParent(root.transform, false);
+            actor.transform.localPosition = Vector3.zero;
+            var timeText = new GameObject("CurrentTimeText").AddComponent<Text>();
+
+            var go = new GameObject("RoutineSession_RenderOrder");
+            var session = go.AddComponent<RoutineObservationMvpSession>();
+            session.AdvanceOneTick();
+
+            Assert.AreEqual(0f, mission.transform.position.z, 0.0001f);
+            Assert.AreEqual(-1f, actor.transform.position.z, 0.0001f);
+            Assert.Less(actor.transform.position.z, mission.transform.position.z);
+
+            Object.DestroyImmediate(go);
+            Object.DestroyImmediate(zones);
+            Object.DestroyImmediate(root);
+            Object.DestroyImmediate(timeText.gameObject);
+        }
+
+        [Test]
+        public void AdvanceTick_ConvertsLegacy3DObjectsTo2DRuntimeRepresentation()
+        {
+            var zones = new GameObject("Zones");
+            var mission = CreateZone(zones.transform, "Mission", "zone.mission.main", new[] { "zone.mission" }, new Vector3(0f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            CreateZone(zones.transform, "Cafeteria", "zone.meal.main", new[] { "need.hunger" }, new Vector3(6f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            CreateZone(zones.transform, "Sleep", "zone.sleep.main", new[] { "need.sleep" }, new Vector3(-6f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            var root = new GameObject("Characters");
+            var actor = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            actor.name = "Character_A";
+            actor.transform.SetParent(root.transform, false);
+            actor.transform.localPosition = Vector3.zero;
+            var timeText = new GameObject("CurrentTimeText").AddComponent<Text>();
+
+            var go = new GameObject("RoutineSession_2DConversion");
+            var session = go.AddComponent<RoutineObservationMvpSession>();
+            session.AdvanceOneTick();
+
+            Assert.IsNotNull(mission.GetComponent<SpriteRenderer>());
+            Assert.IsNotNull(mission.GetComponent<BoxCollider2D>());
+            Assert.IsNotNull(actor.GetComponent<SpriteRenderer>());
+            Assert.IsFalse(actor.GetComponent<MeshRenderer>().enabled);
+
+            Object.DestroyImmediate(go);
+            Object.DestroyImmediate(zones);
+            Object.DestroyImmediate(root);
+            Object.DestroyImmediate(timeText.gameObject);
+        }
+
+        [Test]
+        public void RebuildMvpScene2D_CreatesRequired2DZonesAndCharacters()
+        {
+            DestroyIfExists("Zones");
+            DestroyIfExists("Characters");
+            DestroyIfExists("Main Camera");
+
+            var go = new GameObject("RoutineSession_Rebuild2D");
+            var session = go.AddComponent<RoutineObservationMvpSession>();
+            session.RebuildMvpScene2D();
+
+            var zones = GameObject.Find("Zones");
+            var characters = GameObject.Find("Characters");
+            var mission = GameObject.Find("MissionZone");
+            var cafeteria = GameObject.Find("CafeteriaZone");
+            var sleep = GameObject.Find("SleepZone");
+            var a = GameObject.Find("Character_A");
+            var b = GameObject.Find("Character_B");
+            var c = GameObject.Find("Character_C");
+
+            Assert.IsNotNull(zones);
+            Assert.IsNotNull(characters);
+            Assert.IsNotNull(mission);
+            Assert.IsNotNull(cafeteria);
+            Assert.IsNotNull(sleep);
+            Assert.IsNotNull(a);
+            Assert.IsNotNull(b);
+            Assert.IsNotNull(c);
+
+            Assert.IsNotNull(mission.GetComponent<SpriteRenderer>());
+            Assert.IsNotNull(mission.GetComponent<BoxCollider2D>());
+            Assert.IsNotNull(a.GetComponent<SpriteRenderer>());
+            Assert.IsNotNull(a.GetComponent<CapsuleCollider2D>());
+            Assert.AreEqual(0.1f, a.transform.localScale.x, 0.0001f);
+            Assert.AreEqual(0.1f, a.transform.localScale.y, 0.0001f);
+
+            var missionScale = mission.transform.localScale;
+            Assert.AreEqual(0.5f, missionScale.x, 0.0001f);
+            Assert.AreEqual(0.4f, missionScale.y, 0.0001f);
+
+            var missionRight = mission.transform.position.x + (missionScale.x * 0.5f);
+            var sleepLeft = sleep.transform.position.x - (sleep.transform.localScale.x * 0.5f);
+            var zoneGap = sleepLeft - missionRight;
+            Assert.GreaterOrEqual(zoneGap, 1.5f);
+            Assert.AreEqual(2f, zoneGap, 0.0001f);
+
+            Assert.Less(a.transform.position.z, mission.transform.position.z);
+
+            Object.DestroyImmediate(go);
+            DestroyIfExists("Zones");
+            DestroyIfExists("Characters");
+            DestroyIfExists("Main Camera");
+        }
+
         private static GameObject CreateZone(Transform parent, string objectName, string zoneId, string[] tags, Vector3 position, Vector3 boundarySize)
         {
             var zone = new GameObject(objectName);
@@ -246,6 +433,15 @@ namespace ProjectW.Tests.EditMode
             bar.transform.SetParent(parent, false);
             bar.transform.localPosition = new Vector3(0f, y, 0f);
             bar.transform.localScale = new Vector3(1f, 0.15f, 0.1f);
+        }
+
+        private static void DestroyIfExists(string objectName)
+        {
+            var go = GameObject.Find(objectName);
+            if (go != null)
+            {
+                Object.DestroyImmediate(go);
+            }
         }
     }
 }
