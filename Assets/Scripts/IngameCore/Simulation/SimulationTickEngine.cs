@@ -7,11 +7,15 @@ namespace ProjectW.IngameCore.Simulation
     {
         private readonly Random _random;
         private readonly CharacterNeuronSystem _neuronSystem;
+        private readonly JobSystem _jobSystem;
+        private readonly List<WorldItem> _officeItems;
 
         public SimulationTickEngine(int seed)
         {
             _random = new Random(seed);
             _neuronSystem = new CharacterNeuronSystem();
+            _jobSystem = new JobSystem();
+            _officeItems = OfficeItemFactory.GenerateOfficeItems(_random, 12, Array.Empty<string>());
         }
 
         public int AdvanceTick(DateTime simTime, int tickIndex, TaskModel task, IReadOnlyList<AgentRuntimeState> agents)
@@ -21,7 +25,18 @@ namespace ProjectW.IngameCore.Simulation
             task.AdvanceElapsedHours(SimulationConstants.TickMinutes / 60f);
             var deadlinePressure = task.ComputeDeadlinePressure();
 
-            TaskAllocator.AssignWorkChunks(task, agents, _random);
+            var ownerIds = new List<string>(agents.Count);
+            for (var i = 0; i < agents.Count; i++)
+            {
+                ownerIds.Add(agents[i].Id);
+            }
+
+            if (_officeItems.Count == 0)
+            {
+                _officeItems.AddRange(OfficeItemFactory.GenerateOfficeItems(_random, 12, ownerIds));
+            }
+
+            var jobs = _jobSystem.BuildJobs(simTime, task, agents);
 
             var sumSubtask = 0f;
             for (var i = 0; i < agents.Count; i++)
@@ -43,18 +58,8 @@ namespace ProjectW.IngameCore.Simulation
                 }
 
                 var loadRatio = Math.Max(0f, agent.SubtaskWork) / avgSubtask;
-                var intent = _neuronSystem.EvaluateCore(new CoreNeuronContext(
-                    agent.Id,
-                    tickIndex,
-                    hour,
-                    minute,
-                    agent.Satiety,
-                    25f,
-                    agent.BurnoutLevel,
-                    SimulationConstants.BurnoutThreshold,
-                    loadRatio,
-                    deadlinePressure,
-                    agent.CanOvertime()));
+                var assignedJob = _jobSystem.AssignBestJob(agent, jobs, _officeItems);
+                var intent = ResolveIntentFromJob(assignedJob, agent, tickIndex, hour, minute, loadRatio, deadlinePressure);
 
                 var shouldWork = intent == CharacterNeuronIntent.Work;
                 var isMealTime = intent == CharacterNeuronIntent.Eat;
@@ -90,6 +95,11 @@ namespace ProjectW.IngameCore.Simulation
 
                 if (shouldWork && agent.Position == (int)RoutineZone.Work)
                 {
+                    if (assignedJob != null && assignedJob.JobType == AtomicJobType.Work && agent.SubtaskWork <= 0)
+                    {
+                        agent.SubtaskWork = Math.Max(1, assignedJob.WorkUnits);
+                    }
+
                     totalProgress += agent.Work(tickIndex, isOvertimeWork, _random);
                 }
                 else if (isMealTime && agent.Position == (int)RoutineZone.Eat)
@@ -104,6 +114,42 @@ namespace ProjectW.IngameCore.Simulation
 
             task.ApplyProgress(totalProgress);
             return totalProgress;
+        }
+
+        private CharacterNeuronIntent ResolveIntentFromJob(
+            AtomicJob assignedJob,
+            AgentRuntimeState agent,
+            int tickIndex,
+            int hour,
+            int minute,
+            float loadRatio,
+            float deadlinePressure)
+        {
+            if (assignedJob == null)
+            {
+                return _neuronSystem.EvaluateCore(new CoreNeuronContext(
+                    agent.Id,
+                    tickIndex,
+                    hour,
+                    minute,
+                    agent.Satiety,
+                    25f,
+                    agent.BurnoutLevel,
+                    SimulationConstants.BurnoutThreshold,
+                    loadRatio,
+                    deadlinePressure,
+                    agent.CanOvertime()));
+            }
+
+            switch (assignedJob.JobType)
+            {
+                case AtomicJobType.Eat:
+                    return CharacterNeuronIntent.Eat;
+                case AtomicJobType.Sleep:
+                    return CharacterNeuronIntent.Sleep;
+                default:
+                    return CharacterNeuronIntent.Work;
+            }
         }
     }
 }

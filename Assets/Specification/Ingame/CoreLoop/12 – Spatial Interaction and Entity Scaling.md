@@ -55,6 +55,28 @@
 - `need.sleep`: 수면 계열 행동의 해소 조건.
 - `boundary` 밖에서는 같은 행동 타입이어도 해소를 적용하지 않는다.
 
+
+### Item Requirement Gate Contract
+
+- 모든 목적 행동(`Work`, `Eat`, `Sleep`)은 Zone 경계 조건과 별개로 `NeedRequirement.required_tags[]` 충족 여부를 추가 검사한다.
+- `Work` 기본 요구 태그: `desk`, `computer`
+- `Eat` 기본 요구 태그: `table`, `tray`, `cup`
+- `Sleep` 기본 요구 태그: `bed`, `pillow`, `blanket`
+- 요구 태그 미충족이면 해당 Tick의 효과(진행/회복)는 적용하지 않는다.
+
+### Ownership / Preference Contract
+
+- 물품은 `Public` 또는 `Personal` 정책을 가진다.
+- 캐릭터는 가능한 경우 본인 `Personal` 물품을 우선 사용한다.
+- 본인 물품이 없을 때는 공용 또는 타인 물품으로 fallback 가능하되, social event를 남긴다.
+
+### Affinity Event Hook Contract
+
+- 타인 `Personal` 물품 사용이 소유자에게 관측되면 `PersonalItemViolated` 이벤트를 발행한다.
+- 제지/다툼으로 확장되면 `ItemConflict` 이벤트를 양방향으로 추가 발행한다.
+- 이벤트 처리 결과는 독립 `AffinitySystem`에 누적된다.
+
+
 ### Deterministic Rule
 
 동일 반경 내 다수 후보 발견 시 아래 순서로 선택한다.

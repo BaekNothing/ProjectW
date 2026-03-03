@@ -23,6 +23,9 @@
 
 - 캐릭터 행동 모델
 - 자율 루틴 / 정책 반영 방식
+- 원자적 Job 모델(`Work/Eat/Sleep`)
+- 월드 Item(태그/소유권/공용·개인 정책)
+- 호감도(Affinity) 이벤트 누적 규칙
 - 위기 상황 및 저력 발현 조건
 - 누적 변화(퇴적)의 처리 방식
 - 코어 루프 상태 전이 및 종료 조건
@@ -53,6 +56,7 @@
 10. `Assets/Specification/Ingame/CoreLoop/10 – Observability and Replay.md`
 11. `Assets/Specification/Ingame/CoreLoop/11 – Test Matrix (MVP).md`
 12. `Assets/Specification/Ingame/CoreLoop/12 – Spatial Interaction and Entity Scaling.md`
+13. `Assets/Specification/Ingame/CoreLoop/13 – Character Neuron Visualization Feasibility.md`
 
 ------
 
@@ -61,7 +65,7 @@
 Ingame 구현 판단은 아래 순서를 따른다.
 
 1. 본 문서(`SSOT – Ingame`)
-2. CoreLoop 세부 문서(`01..12`)
+2. CoreLoop 세부 문서(`01..13`)
 3. `SSOT – Workflow Local Spec × Unity × GitHub`
 4. Unity 구현 코드
 
