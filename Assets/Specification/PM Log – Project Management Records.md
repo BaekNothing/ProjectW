@@ -60,3 +60,19 @@
   - `Assets/Specification/Ingame/CoreLoop/11 – Test Matrix (MVP).md`
   - `Assets/Specification/Ingame/CoreLoop/12 – Spatial Interaction and Entity Scaling.md`
   - `Assets/Specification/SSOT – Workflow Confluence × Unity × GitHub.md`
+
+### 2026-03-03 – Item/Job/Affinity 통합 규칙 반영 및 문서 정합성 보강
+
+- 범위:
+  - Ingame Core에 Item(태그/소유권), Unified Job, Affinity 이벤트 시스템 반영
+  - Routine MVP에서 Zone + Item Requirement 동시 게이트 적용
+  - SSOT 문서 정합성 점검 및 누락 규칙 보강
+- 반영된 규칙:
+  - `Work/Eat/Sleep`는 모두 Atomic Job으로 취급
+  - 사무실 아이템 풀은 기본 12개 생성, 필수 태그 세트 보장
+  - Need 해소/미션 진행은 Zone 조건 외에 Item Requirement 충족 필요
+  - 개인 물품 오남용 발견/충돌/협업 결과를 독립 Affinity 이벤트로 기록
+- 추적 문서:
+  - `Assets/Specification/Ingame/CoreLoop/04 – Autonomy Decision.md`
+  - `Assets/Specification/Ingame/CoreLoop/11 – Test Matrix (MVP).md`
+  - `Assets/Specification/Ingame/CoreLoop/12 – Spatial Interaction and Entity Scaling.md`

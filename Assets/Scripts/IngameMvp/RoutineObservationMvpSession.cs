@@ -95,6 +95,9 @@ namespace ProjectW.IngameMvp
         private const string ZoneTagMission = "zone.mission";
         private const string ZoneTagNeedHunger = "need.hunger";
         private const string ZoneTagNeedSleep = "need.sleep";
+        private const string JobZoneWork = "workzone";
+        private const string JobZoneEat = "eatzone";
+        private const string JobZoneSleep = "sleepzone";
 
         [Header("Tick")]
         [SerializeField] private bool autoRunOnStart = true;
@@ -160,6 +163,8 @@ namespace ProjectW.IngameMvp
         private static Sprite _runtimeSquareSprite;
         private readonly CharacterNeuronSystem _neuronSystem = new CharacterNeuronSystem();
         private readonly Dictionary<RoutineCharacterBinding, CharacterNeuronSnapshot> _latestNeuronSnapshots = new Dictionary<RoutineCharacterBinding, CharacterNeuronSnapshot>();
+        private readonly Dictionary<RoutineActionType, NeedRequirement> _actionJobRequirements = new Dictionary<RoutineActionType, NeedRequirement>();
+        private readonly List<WorldItem> _officeItems = new List<WorldItem>();
         private RoutineCharacterBinding _selectedCharacter;
 
         public IReadOnlyList<RoutineCharacterBinding> Characters => characters;
@@ -193,6 +198,7 @@ namespace ProjectW.IngameMvp
         {
             Application.runInBackground = true;
             AutoBindSceneReferences();
+            EnsureOfficeItemsAndJobBindings();
         }
 
         private void OnApplicationFocus(bool hasFocus)
@@ -296,6 +302,8 @@ namespace ProjectW.IngameMvp
             {
                 return;
             }
+
+            EnsureOfficeItemsAndJobBindings();
 
             _loopCoroutine = StartCoroutine(RunLoop());
         }
@@ -561,16 +569,19 @@ namespace ProjectW.IngameMvp
                     binding.hunger -= binding.hungerDecayPerTick;
                     binding.sleep -= binding.sleepDecayPerTick;
                     binding.stress -= binding.stressDecayPerTick;
-                    binding.missionTicks += 1;
-                    if (binding.missionTicks >= 100)
+                    if (canResolveNeed)
                     {
-                        binding.completedWorkCount += 1;
-                        binding.missionTicks = 0;
-                        Debug.Log(string.Format(
-                            CultureInfo.InvariantCulture,
-                            "[RoutineWork] actor={0} completed={1} -> assigned_new_work",
-                            binding.actor != null ? binding.actor.name : "Unknown",
-                            binding.completedWorkCount));
+                        binding.missionTicks += 1;
+                        if (binding.missionTicks >= 100)
+                        {
+                            binding.completedWorkCount += 1;
+                            binding.missionTicks = 0;
+                            Debug.Log(string.Format(
+                                CultureInfo.InvariantCulture,
+                                "[RoutineWork] actor={0} completed={1} -> assigned_new_work",
+                                binding.actor != null ? binding.actor.name : "Unknown",
+                                binding.completedWorkCount));
+                        }
                     }
                     break;
                 case RoutineActionType.Sleep:
@@ -1280,9 +1291,16 @@ namespace ProjectW.IngameMvp
                 return false;
             }
 
+            if (!_actionJobRequirements.TryGetValue(action, out var requirement))
+            {
+                requirement = null;
+            }
+
+            var hasRequiredItems = requirement == null || requirement.IsSatisfied(_officeItems, binding.actor.name);
+
             if (action == RoutineActionType.Sleep)
             {
-                return zone.HasTag(ZoneTagNeedSleep) && zone.Contains(binding.actor.position);
+                return zone.HasTag(ZoneTagNeedSleep) && zone.Contains(binding.actor.position) && hasRequiredItems;
             }
 
             if (action == RoutineActionType.Eat ||
@@ -1290,10 +1308,50 @@ namespace ProjectW.IngameMvp
                 action == RoutineActionType.Lunch ||
                 action == RoutineActionType.Dinner)
             {
-                return zone.HasTag(ZoneTagNeedHunger) && zone.Contains(binding.actor.position);
+                return zone.HasTag(ZoneTagNeedHunger) && zone.Contains(binding.actor.position) && hasRequiredItems;
             }
 
-            return true;
+            return zone.HasTag(ZoneTagMission) && zone.Contains(binding.actor.position) && hasRequiredItems;
+        }
+
+        private void EnsureOfficeItemsAndJobBindings()
+        {
+            if (_actionJobRequirements.Count == 0)
+            {
+                var workRequirement = new NeedRequirement("work", JobZoneWork, new[] { "desk", "computer" });
+                var eatRequirement = new NeedRequirement("eat", JobZoneEat, new[] { "table", "tray", "cup" });
+                var sleepRequirement = new NeedRequirement("sleep", JobZoneSleep, new[] { "bed", "pillow", "blanket" });
+                _actionJobRequirements[RoutineActionType.Mission] = workRequirement;
+                _actionJobRequirements[RoutineActionType.Eat] = eatRequirement;
+                _actionJobRequirements[RoutineActionType.Breakfast] = eatRequirement;
+                _actionJobRequirements[RoutineActionType.Lunch] = eatRequirement;
+                _actionJobRequirements[RoutineActionType.Dinner] = eatRequirement;
+                _actionJobRequirements[RoutineActionType.Sleep] = sleepRequirement;
+            }
+
+            if (_officeItems.Count > 0)
+            {
+                return;
+            }
+
+            var owners = new List<string>();
+            for (int i = 0; i < characters.Count; i++)
+            {
+                var actor = characters[i].actor;
+                if (actor != null)
+                {
+                    owners.Add(actor.name);
+                }
+            }
+
+            _officeItems.AddRange(OfficeItemFactory.GenerateOfficeItems(new System.Random(17), 12, owners));
+            var itemDump = new StringBuilder();
+            for (int i = 0; i < _officeItems.Count; i++)
+            {
+                itemDump.AppendLine(_officeItems[i].BuildInspectorSummary());
+            }
+
+            Debug.Log("[RoutineMVP] Generated office items for job system:\n" + itemDump);
         }
 
         private void EnsureDefaultCharactersExist()
