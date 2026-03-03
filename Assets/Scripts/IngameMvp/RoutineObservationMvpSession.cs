@@ -148,10 +148,6 @@ namespace ProjectW.IngameMvp
         [SerializeField] private bool disableLegacy3DRenderers = true;
         [SerializeField] private float zoneGap = 2f;
         [SerializeField] private Vector2 zoneScale = new Vector2(0.5f, 0.4f);
-        [SerializeField, Min(1)] private int minDeskCountPerZone = 2;
-        [SerializeField, Min(1)] private int maxDeskCountPerZone = 5;
-        [SerializeField, Range(0.02f, 0.45f)] private float deskInsetRatio = 0.14f;
-        [SerializeField, Range(0.08f, 0.9f)] private float deskMinSpacingRatio = 0.7f;
         [SerializeField] private Vector2 deskVisualScale = new Vector2(0.95f, 0.95f);
         [SerializeField] private Vector2 objectVisualScale = new Vector2(0.55f, 0.55f);
         [SerializeField, Min(0.5f)] private float minimumCharacterSeparation = 0.5f;
@@ -194,6 +190,7 @@ namespace ProjectW.IngameMvp
         private bool _hasCupTemplateScale;
         private Vector2 _templateCupScale;
         private PanelKind _lastOpenedPanel = PanelKind.None;
+        private bool _didWarnMissingCharacterAnimatorController;
 
         private enum PanelKind
         {
@@ -250,7 +247,15 @@ namespace ProjectW.IngameMvp
             characterAnimatorController = Resources.Load<RuntimeAnimatorController>(DefaultCharacterAnimatorControllerPath);
             if (characterAnimatorController == null)
             {
-                Debug.LogWarning("[RoutineMVP] Character animator controller missing. Generate one via: ProjectW/Animation/Create Default Character Animator Controller");
+                if (!_didWarnMissingCharacterAnimatorController)
+                {
+                    Debug.LogWarning("[RoutineMVP] Character animator controller missing. Generate one via: ProjectW/Animation/Create Default Character Animator Controller");
+                    _didWarnMissingCharacterAnimatorController = true;
+                }
+            }
+            else
+            {
+                _didWarnMissingCharacterAnimatorController = false;
             }
         }
 
@@ -2277,6 +2282,8 @@ namespace ProjectW.IngameMvp
                 return;
             }
 
+            EnsureCharacterAnimatorControllerLoaded();
+
             var animator = go.GetComponent<Animator>();
             if (animator == null)
             {
@@ -2291,6 +2298,23 @@ namespace ProjectW.IngameMvp
             if (go.GetComponent<RoutineCharacterAnimatorDriver>() == null)
             {
                 go.AddComponent<RoutineCharacterAnimatorDriver>();
+            }
+        }
+
+        [ContextMenu("Rebind Character Animators")]
+        public void RebindCharacterAnimators()
+        {
+            EnsureCharacterAnimatorControllerLoaded();
+            EnsureCharacterBindingsFromRoot();
+            for (int i = 0; i < characters.Count; i++)
+            {
+                var actor = characters[i].actor;
+                if (actor == null)
+                {
+                    continue;
+                }
+
+                EnsureCharacterAnimator(actor.gameObject);
             }
         }
 

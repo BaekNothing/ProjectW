@@ -88,17 +88,70 @@ namespace ProjectW.EditorTools
         {
             var path = ClipsDir + "/" + clipName + ".anim";
             var clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(path);
-            if (clip != null)
+            if (clip == null)
             {
-                return clip;
+                clip = new AnimationClip { name = clipName };
+                AssetDatabase.CreateAsset(clip, path);
             }
 
-            clip = new AnimationClip { name = clipName };
+            ConfigureClipCurves(clip, clipName);
+            EditorUtility.SetDirty(clip);
+            return clip;
+        }
+
+        private static void ConfigureClipCurves(AnimationClip clip, string clipName)
+        {
+            if (clip == null)
+            {
+                return;
+            }
+
+            clip.ClearCurves();
             var settings = AnimationUtility.GetAnimationClipSettings(clip);
             settings.loopTime = true;
             AnimationUtility.SetAnimationClipSettings(clip, settings);
-            AssetDatabase.CreateAsset(clip, path);
-            return clip;
+
+            var lower = clipName.ToLowerInvariant();
+            if (lower.Contains("move"))
+            {
+                var curve = new AnimationCurve(
+                    new Keyframe(0f, 1f),
+                    new Keyframe(0.12f, 0.92f),
+                    new Keyframe(0.24f, 1.08f),
+                    new Keyframe(0.36f, 1f));
+                AnimationUtility.SetEditorCurve(clip, EditorCurveBinding.FloatCurve(string.Empty, typeof(Transform), "m_LocalScale.y"), curve);
+                return;
+            }
+
+            if (lower.Contains("work"))
+            {
+                var curve = new AnimationCurve(
+                    new Keyframe(0f, 1f),
+                    new Keyframe(0.25f, 1.04f),
+                    new Keyframe(0.5f, 1f));
+                AnimationUtility.SetEditorCurve(clip, EditorCurveBinding.FloatCurve(string.Empty, typeof(Transform), "m_LocalScale.y"), curve);
+                return;
+            }
+
+            if (lower.Contains("eat"))
+            {
+                var curve = new AnimationCurve(
+                    new Keyframe(0f, 1f),
+                    new Keyframe(0.18f, 0.95f),
+                    new Keyframe(0.36f, 1f));
+                AnimationUtility.SetEditorCurve(clip, EditorCurveBinding.FloatCurve(string.Empty, typeof(Transform), "m_LocalScale.y"), curve);
+                return;
+            }
+
+            if (lower.Contains("sleep"))
+            {
+                var curve = AnimationCurve.Constant(0f, 0.5f, 0.84f);
+                AnimationUtility.SetEditorCurve(clip, EditorCurveBinding.FloatCurve(string.Empty, typeof(Transform), "m_LocalScale.y"), curve);
+                return;
+            }
+
+            var idleCurve = AnimationCurve.Constant(0f, 0.5f, 1f);
+            AnimationUtility.SetEditorCurve(clip, EditorCurveBinding.FloatCurve(string.Empty, typeof(Transform), "m_LocalScale.y"), idleCurve);
         }
 
         private static void EnsureDirectories()
