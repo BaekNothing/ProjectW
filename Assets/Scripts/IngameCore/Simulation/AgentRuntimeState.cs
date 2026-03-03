@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace ProjectW.IngameCore.Simulation
 {
@@ -22,6 +23,10 @@ namespace ProjectW.IngameCore.Simulation
 
         public int InspirationCooldown;
         public int LastInspirationTick;
+        public int CarryCapacity = 2;
+
+        private readonly List<string> _carriedItemIds = new List<string>();
+        public IReadOnlyList<string> CarriedItemIds => _carriedItemIds;
 
         public AgentRuntimeState(string id, int inspirationCooldown)
         {
@@ -151,6 +156,38 @@ namespace ProjectW.IngameCore.Simulation
             Satiety = Math.Min(100f, Satiety + 35f);
             Happiness = Math.Min(100f, Happiness + 0.4f);
             Stress = Math.Max(0f, Stress - 0.2f);
+        }
+
+        public bool TryCarryItem(string itemId)
+        {
+            if (string.IsNullOrWhiteSpace(itemId))
+            {
+                return false;
+            }
+
+            if (_carriedItemIds.Count >= Math.Max(1, CarryCapacity))
+            {
+                return false;
+            }
+
+            var normalized = itemId.Trim();
+            if (_carriedItemIds.Contains(normalized))
+            {
+                return false;
+            }
+
+            _carriedItemIds.Add(normalized);
+            return true;
+        }
+
+        public bool DropItem(string itemId)
+        {
+            if (string.IsNullOrWhiteSpace(itemId))
+            {
+                return false;
+            }
+
+            return _carriedItemIds.Remove(itemId.Trim());
         }
     }
 }
