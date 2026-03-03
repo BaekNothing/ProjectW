@@ -110,6 +110,8 @@ namespace ProjectW.IngameMvp
 
         public Sprite ResolveItemSprite(string itemTag)
         {
+            EnsureLoadedFromResources();
+
             if (string.IsNullOrWhiteSpace(itemTag))
             {
                 return null;

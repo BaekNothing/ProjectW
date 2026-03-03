@@ -342,57 +342,54 @@ namespace ProjectW.Tests.EditMode
         }
 
         [Test]
-        public void RebuildMvpScene2D_CreatesRequired2DZonesAndCharacters()
+        public void ComposeFromMissionZone_CreatesSecondaryZonesAndKeepsCharacters()
         {
             DestroyIfExists("Zones");
-            DestroyIfExists("Characters");
-            DestroyIfExists("Main Camera");
 
-            var go = new GameObject("RoutineSession_Rebuild2D");
+            var zones = new GameObject("Zones");
+            var mission = new GameObject("MissionZone");
+            mission.transform.SetParent(zones.transform, false);
+            mission.transform.position = Vector3.zero;
+            mission.transform.localScale = new Vector3(6f, 6f, 1f);
+            mission.AddComponent<SpriteRenderer>();
+            var missionCollider = mission.AddComponent<BoxCollider2D>();
+            missionCollider.size = Vector2.one;
+            var missionAnchor = mission.AddComponent<RoutineZoneAnchor>();
+            missionAnchor.SetZoneId("zone.mission");
+            missionAnchor.SetTags("zone.mission");
+
+            var characters = new GameObject("Characters");
+            new GameObject("Character_A").transform.SetParent(characters.transform, false);
+            new GameObject("Character_B").transform.SetParent(characters.transform, false);
+            new GameObject("Character_C").transform.SetParent(characters.transform, false);
+
+            var go = new GameObject("RoutineSession_ComposeMission");
             var session = go.AddComponent<RoutineObservationMvpSession>();
-            session.RebuildMvpScene2D();
+            session.ComposeCafeteriaAndSleepFromMission();
 
-            var zones = GameObject.Find("Zones");
-            var characters = GameObject.Find("Characters");
-            var mission = GameObject.Find("MissionZone");
             var cafeteria = GameObject.Find("CafeteriaZone");
             var sleep = GameObject.Find("SleepZone");
-            var a = GameObject.Find("Character_A");
-            var b = GameObject.Find("Character_B");
-            var c = GameObject.Find("Character_C");
 
             Assert.IsNotNull(zones);
             Assert.IsNotNull(characters);
             Assert.IsNotNull(mission);
             Assert.IsNotNull(cafeteria);
             Assert.IsNotNull(sleep);
-            Assert.IsNotNull(a);
-            Assert.IsNotNull(b);
-            Assert.IsNotNull(c);
-
-            Assert.IsNotNull(mission.GetComponent<SpriteRenderer>());
-            Assert.IsNotNull(mission.GetComponent<BoxCollider2D>());
-            Assert.IsNotNull(a.GetComponent<SpriteRenderer>());
-            Assert.IsNotNull(a.GetComponent<CapsuleCollider2D>());
-            Assert.AreEqual(0.1f, a.transform.localScale.x, 0.0001f);
-            Assert.AreEqual(0.1f, a.transform.localScale.y, 0.0001f);
+            Assert.IsNotNull(GameObject.Find("Character_A"));
+            Assert.IsNotNull(GameObject.Find("Character_B"));
+            Assert.IsNotNull(GameObject.Find("Character_C"));
 
             var missionScale = mission.transform.localScale;
-            Assert.AreEqual(0.5f, missionScale.x, 0.0001f);
-            Assert.AreEqual(0.4f, missionScale.y, 0.0001f);
-
             var missionRight = mission.transform.position.x + (missionScale.x * 0.5f);
             var sleepLeft = sleep.transform.position.x - (sleep.transform.localScale.x * 0.5f);
             var zoneGap = sleepLeft - missionRight;
             Assert.GreaterOrEqual(zoneGap, 1.5f);
-            Assert.AreEqual(2f, zoneGap, 0.0001f);
-
-            Assert.Less(a.transform.position.z, mission.transform.position.z);
+            Assert.IsNotNull(cafeteria.transform.Find("ObjectSlots"));
+            Assert.IsNotNull(sleep.transform.Find("ObjectSlots"));
 
             Object.DestroyImmediate(go);
             DestroyIfExists("Zones");
             DestroyIfExists("Characters");
-            DestroyIfExists("Main Camera");
         }
 
         private static GameObject CreateZone(Transform parent, string objectName, string zoneId, string[] tags, Vector3 position, Vector3 boundarySize)

@@ -30,6 +30,12 @@ namespace ProjectW.IngameMvp
                 return;
             }
 
+            // Avoid Unity warnings when no controller is bound yet.
+            if (_animator.runtimeAnimatorController == null)
+            {
+                return;
+            }
+
             _animator.SetBool(IsMovingHash, isMoving);
             _animator.SetFloat(SpeedHash, Mathf.Max(0f, speed));
             _animator.SetInteger(CurrentActionHash, (int)currentAction);

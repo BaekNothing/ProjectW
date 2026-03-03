@@ -88,14 +88,13 @@ namespace ProjectW.IngameMvp
         private const float HumanFatigueDaysToZero = 3f;
         private const float DefaultMoveSpeed = 5f;
         private const float CharacterSpawnHeight = 1.6f;
-        private const float GaugeBarMaxWidth = 1.2f;
-        private const float GaugeBarMinWidth = 0.06f;
+        private const float GaugeBarMaxWidth = 0.62f;
+        private const float GaugeBarMinWidth = 0.03f;
         private const float TargetLineY = 0.35f;
         private const float ZoneActionSpacing = 0.9f;
-        private const float DefaultCharacterSpriteSize = 0.1f;
+        private const float DefaultCharacterSpriteSize = 1f;
         private const float DefaultZoneAlpha = 0.4f;
         private const float DeskActionArrivalThresholdSqr = 0.01f;
-        private const string DeskRootName = "DeskSlots";
         private const string ZoneObjectRootName = "ObjectSlots";
         private const string ZoneTagMission = "zone.mission";
         private const string ZoneTagNeedHunger = "need.hunger";
@@ -153,15 +152,16 @@ namespace ProjectW.IngameMvp
         [SerializeField, Min(1)] private int maxDeskCountPerZone = 5;
         [SerializeField, Range(0.02f, 0.45f)] private float deskInsetRatio = 0.14f;
         [SerializeField, Range(0.08f, 0.9f)] private float deskMinSpacingRatio = 0.7f;
-        [SerializeField] private Vector2 deskVisualScale = new Vector2(0.14f, 0.14f);
-        [SerializeField] private Vector2 objectVisualScale = new Vector2(0.11f, 0.11f);
+        [SerializeField] private Vector2 deskVisualScale = new Vector2(0.95f, 0.95f);
+        [SerializeField] private Vector2 objectVisualScale = new Vector2(0.55f, 0.55f);
         [SerializeField, Min(0.5f)] private float minimumCharacterSeparation = 0.5f;
         [SerializeField] private bool autoExpandZoneWidthForSeparation = true;
 
         [Header("Depth Layout")]
         [SerializeField] private bool enforceDepthLayout = true;
         [SerializeField] private float zoneDepthZ = 0f;
-        [SerializeField] private float characterDepthZ = -1f;
+        [SerializeField] private float objectDepthZ = -1f;
+        [SerializeField] private float characterDepthZ = -2f;
 
         [Header("Debug View")]
         [SerializeField] private bool showDebugOnGui = false;
@@ -187,6 +187,12 @@ namespace ProjectW.IngameMvp
         private RoutineCharacterBinding _selectedCharacter;
         private RoutineCharacterBinding _pinnedNeuronCharacter;
         private RoutineInspectableWorldObject _selectedWorldObject;
+        private bool _hasDeskTemplateScale;
+        private Vector2 _templateDeskScale;
+        private bool _hasComputerTemplateScale;
+        private Vector2 _templateComputerScale;
+        private bool _hasCupTemplateScale;
+        private Vector2 _templateCupScale;
         private PanelKind _lastOpenedPanel = PanelKind.None;
 
         private enum PanelKind
@@ -271,9 +277,31 @@ namespace ProjectW.IngameMvp
                 return;
             }
 
-            AutoBindSceneReferences();
-            SyncLayoutConfigFromSceneObjects();
+            visualResources?.EnsureLoadedFromResources();
+            AutoBindSceneReferencesEditorSafe();
             ApplyDepthLayout();
+        }
+
+        private void AutoBindSceneReferencesEditorSafe()
+        {
+            if (zonesRoot == null)
+            {
+                var zones = GameObject.Find("Zones");
+                zonesRoot = zones != null ? zones.transform : null;
+            }
+
+            BindZonesFromAnchors();
+
+            if (charactersRoot == null)
+            {
+                var go = GameObject.Find("Characters");
+                charactersRoot = go != null ? go.transform : null;
+            }
+
+            EnsureDashboardUiReferences();
+            EnsureInteractionReferences();
+            EnsureCharacterBindingsFromRoot();
+            EnsureZoneWidthsForCharacterSeparation();
         }
 
         private void Start()
@@ -286,6 +314,7 @@ namespace ProjectW.IngameMvp
 
         private void Update()
         {
+            EnsureCharactersRootDepth();
             HandleCharacterSelectionInput();
             HandleObjectInfoCloseInput();
             for (int i = 0; i < characters.Count; i++)
@@ -387,20 +416,193 @@ namespace ProjectW.IngameMvp
             ApplyDepthLayout();
         }
 
-        [ContextMenu("ProjectW/Rebuild MVP Scene (2D Only)")]
-        public void RebuildMvpScene2D()
+        [ContextMenu("ProjectW/Recompose Scene From Mission Zone")]
+        public void ComposeCafeteriaAndSleepFromMission()
         {
-            SyncLayoutConfigFromSceneObjects();
-            RebuildMvpScene2DInternal();
             AutoBindSceneReferences();
+            if (missionZone == null)
+            {
+                Debug.LogWarning("[RoutineMVP] MissionZone is required to compose secondary zones.");
+                return;
+            }
+
+            if (zonesRoot == null)
+            {
+                var zonesGo = GameObject.Find("Zones");
+                if (zonesGo == null)
+                {
+                    zonesGo = new GameObject("Zones");
+                }
+
+                zonesRoot = zonesGo.transform;
+            }
+
+            RemoveSecondaryZones();
+            _zoneLockedPositions.Clear();
+            _zoneDeskPositions.Clear();
+            _zonePreferredDeskPositions.Clear();
+
+            var missionPos = missionZone.transform.position;
+            var missionScale = missionZone.transform.localScale;
+            var offsetX = Mathf.Max(Mathf.Abs(missionScale.x) + zoneGap, Mathf.Abs(missionScale.x) * 1.75f);
+            var cafeteriaPos = new Vector3(missionPos.x - offsetX, missionPos.y - 0.08f, zoneDepthZ);
+            var sleepPos = new Vector3(missionPos.x + offsetX, missionPos.y + 0.08f, zoneDepthZ);
+
+            cafeteriaZone = EnsureOrUpdateSecondaryZone(
+                "CafeteriaZone",
+                "need.hunger",
+                new[] { ZoneTagNeedHunger },
+                cafeteriaPos,
+                missionScale,
+                new Color(0.12f, 0.53f, 0.9f, DefaultZoneAlpha),
+                false);
+
+            sleepZone = EnsureOrUpdateSecondaryZone(
+                "SleepZone",
+                "need.sleep",
+                new[] { ZoneTagNeedSleep },
+                sleepPos,
+                missionScale,
+                new Color(0.26f, 0.66f, 0.29f, DefaultZoneAlpha),
+                false);
+
+            BindZonesFromAnchors();
+            EnsureZoneWidthsForCharacterSeparation();
+            Ensure2DZones();
             ApplyDepthLayout();
+            Debug.Log("[RoutineMVP] Composed Cafeteria/Sleep zones and required objects from Mission layout.");
         }
 
-        [ContextMenu("ProjectW/Sync 2D Layout Config From Scene")]
-        public void SyncLayoutConfigFromScene()
+        [ContextMenu("ProjectW/Setup Scene From Current Layout")]
+        public void SetupSceneFromCurrentLayout()
         {
             AutoBindSceneReferences();
-            SyncLayoutConfigFromSceneObjects();
+            if (missionZone == null)
+            {
+                Debug.LogWarning("[RoutineMVP] MissionZone is required to setup scene from current layout.");
+                return;
+            }
+
+            if (zonesRoot == null)
+            {
+                var zonesGo = GameObject.Find("Zones");
+                if (zonesGo == null)
+                {
+                    zonesGo = new GameObject("Zones");
+                }
+
+                zonesRoot = zonesGo.transform;
+            }
+
+            var missionPos = missionZone.transform.position;
+            var missionScale = missionZone.transform.localScale;
+            var offsetX = Mathf.Max(Mathf.Abs(missionScale.x) + zoneGap, Mathf.Abs(missionScale.x) * 1.75f);
+            var cafeteriaPos = new Vector3(missionPos.x - offsetX, missionPos.y - 0.08f, zoneDepthZ);
+            var sleepPos = new Vector3(missionPos.x + offsetX, missionPos.y + 0.08f, zoneDepthZ);
+
+            cafeteriaZone = EnsureOrUpdateSecondaryZone(
+                "CafeteriaZone",
+                "need.hunger",
+                new[] { ZoneTagNeedHunger },
+                cafeteriaPos,
+                missionScale,
+                new Color(0.12f, 0.53f, 0.9f, DefaultZoneAlpha),
+                true);
+
+            sleepZone = EnsureOrUpdateSecondaryZone(
+                "SleepZone",
+                "need.sleep",
+                new[] { ZoneTagNeedSleep },
+                sleepPos,
+                missionScale,
+                new Color(0.26f, 0.66f, 0.29f, DefaultZoneAlpha),
+                true);
+
+            BindZonesFromAnchors();
+            EnsureDefaultCharactersExist();
+            EnsureCharacterBindingsFromRoot();
+            EnsureZoneWidthsForCharacterSeparation();
+            Ensure2DZones();
+            Ensure2DCharacters();
+            ApplyDepthLayout();
+            BakeGeneratedObjectsToScene();
+            Debug.Log("[RoutineMVP] Setup scene from current layout completed.");
+        }
+
+        private void RemoveSecondaryZones()
+        {
+            if (zonesRoot == null)
+            {
+                return;
+            }
+
+            var toRemove = new List<GameObject>();
+            for (int i = 0; i < zonesRoot.childCount; i++)
+            {
+                var child = zonesRoot.GetChild(i);
+                if (child == null || child == missionZone?.transform)
+                {
+                    continue;
+                }
+
+                toRemove.Add(child.gameObject);
+            }
+
+            for (int i = 0; i < toRemove.Count; i++)
+            {
+                SafeDestroyGameObject(toRemove[i]);
+            }
+
+            cafeteriaZone = null;
+            sleepZone = null;
+        }
+
+        private RoutineZoneAnchor EnsureOrUpdateSecondaryZone(
+            string objectName,
+            string zoneId,
+            string[] tags,
+            Vector3 worldPosition,
+            Vector3 localScale,
+            Color color,
+            bool keepExistingTransform)
+        {
+            var existing = zonesRoot != null ? zonesRoot.Find(objectName) : null;
+            GameObject zoneGo;
+            if (existing == null)
+            {
+                zoneGo = new GameObject(objectName);
+                zoneGo.transform.SetParent(zonesRoot, false);
+            }
+            else
+            {
+                zoneGo = existing.gameObject;
+            }
+
+            if (existing == null || !keepExistingTransform)
+            {
+                zoneGo.transform.position = new Vector3(worldPosition.x, worldPosition.y, zoneDepthZ);
+                zoneGo.transform.localScale = new Vector3(Mathf.Abs(localScale.x), Mathf.Abs(localScale.y), 1f);
+            }
+            else
+            {
+                var p = zoneGo.transform.position;
+                p.z = zoneDepthZ;
+                zoneGo.transform.position = p;
+            }
+
+            EnsureSpriteRenderer(zoneGo, color, Vector2.one, false, visualResources != null ? visualResources.ResolveZoneSprite(zoneId) : null);
+            EnsureZoneBoundary2D(zoneGo.GetComponent<RoutineZoneAnchor>() ?? zoneGo.AddComponent<RoutineZoneAnchor>());
+
+            var anchor = zoneGo.GetComponent<RoutineZoneAnchor>();
+            if (anchor == null)
+            {
+                anchor = zoneGo.AddComponent<RoutineZoneAnchor>();
+            }
+
+            anchor.SetZoneId(zoneId);
+            anchor.SetTags(tags);
+            anchor.RebindBoundaries();
+            return anchor;
         }
 
         public RoutineTickSnapshot AdvanceOneTick()
@@ -572,7 +774,9 @@ namespace ProjectW.IngameMvp
                 binding.remainingMoveTicks = 1;
             }
 
-            var remainingDistance = Vector3.Distance(binding.actor.position, actionTarget);
+            var dx = actionTarget.x - binding.actor.position.x;
+            var dy = actionTarget.y - binding.actor.position.y;
+            var remainingDistance = Mathf.Sqrt((dx * dx) + (dy * dy));
             var secondsLeft = Mathf.Max(0.05f, binding.remainingMoveTicks * tickIntervalSeconds);
             binding.moveSpeed = Mathf.Max(0.01f, remainingDistance / secondsLeft);
             binding.currentAction = RoutineActionType.Move;
@@ -654,7 +858,9 @@ namespace ProjectW.IngameMvp
 
         private static bool HasArrived(Vector3 currentPosition, Vector3 targetPosition)
         {
-            return (targetPosition - currentPosition).sqrMagnitude <= 0.0001f;
+            var dx = targetPosition.x - currentPosition.x;
+            var dy = targetPosition.y - currentPosition.y;
+            return (dx * dx) + (dy * dy) <= 0.0001f;
         }
 
         private Vector3 ResolveActionTargetPosition(
@@ -685,13 +891,13 @@ namespace ProjectW.IngameMvp
             {
                 if (IsDeskPositionAvailableInZone(zone, zoneKey, lockedPosition))
                 {
-                    return WithCharacterDepth(lockedPosition);
+                    return WithObjectDepth(lockedPosition);
                 }
 
                 ReleaseZoneLock(binding);
             }
 
-            var currentPosition = WithCharacterDepth(binding.actor != null ? binding.actor.position : fallback);
+            var currentPosition = WithObjectDepth(binding.actor != null ? binding.actor.position : fallback);
             if (TryGetPreferredDeskPosition(zone, zoneKey, binding, out var preferredDesk)
                 && !IsDeskReservedByOther(zoneKey, binding, preferredDesk))
             {
@@ -802,7 +1008,7 @@ namespace ProjectW.IngameMvp
                 _zoneLockedPositions[zoneKey] = occupants;
             }
 
-            var normalized = WithCharacterDepth(position);
+            var normalized = WithObjectDepth(position);
             occupants[binding] = normalized;
             binding.hasLockedZonePosition = true;
             binding.lockedZoneKey = zoneKey;
@@ -878,13 +1084,13 @@ namespace ProjectW.IngameMvp
                 return false;
             }
 
-            var fallback = WithCharacterDepth(deskPositions[0]);
+            var fallback = WithObjectDepth(deskPositions[0]);
             var best = fallback;
             var bestTravel = float.PositiveInfinity;
             var found = false;
             for (int i = 0; i < deskPositions.Count; i++)
             {
-                var candidate = WithCharacterDepth(deskPositions[i]);
+                var candidate = WithObjectDepth(deskPositions[i]);
                 if (zone != null && !zone.Contains(candidate))
                 {
                     continue;
@@ -926,7 +1132,7 @@ namespace ProjectW.IngameMvp
                 return false;
             }
 
-            preferredDesk = WithCharacterDepth(preferredDesk);
+            preferredDesk = WithObjectDepth(preferredDesk);
             if (!_zoneDeskPositions.TryGetValue(zoneKey, out var desks) || desks == null || !ContainsDeskPosition(desks, preferredDesk))
             {
                 preferredMap.Remove(binding);
@@ -955,7 +1161,7 @@ namespace ProjectW.IngameMvp
                 _zonePreferredDeskPositions[zoneKey] = preferredMap;
             }
 
-            preferredMap[binding] = WithCharacterDepth(deskPosition);
+            preferredMap[binding] = WithObjectDepth(deskPosition);
         }
 
         private bool IsDeskReservedByOther(string zoneKey, RoutineCharacterBinding binding, Vector3 deskPosition)
@@ -999,13 +1205,13 @@ namespace ProjectW.IngameMvp
                 return false;
             }
 
-            var deskPosition = WithCharacterDepth(binding.lockedZonePosition);
+            var deskPosition = WithObjectDepth(binding.lockedZonePosition);
             if (!ContainsDeskPosition(desks, deskPosition) || !zone.Contains(deskPosition))
             {
                 return false;
             }
 
-            var actorPosition = WithCharacterDepth(binding.actor.position);
+            var actorPosition = WithObjectDepth(binding.actor.position);
             return (actorPosition - deskPosition).sqrMagnitude <= DeskActionArrivalThresholdSqr;
         }
 
@@ -1278,6 +1484,21 @@ namespace ProjectW.IngameMvp
             }
         }
 
+        private void EnsureCharactersRootDepth()
+        {
+            if (!enforceDepthLayout || charactersRoot == null)
+            {
+                return;
+            }
+
+            var rootPos = charactersRoot.position;
+            if (!Mathf.Approximately(rootPos.z, characterDepthZ))
+            {
+                rootPos.z = characterDepthZ;
+                charactersRoot.position = rootPos;
+            }
+        }
+
         private RoutineNeuronPanelView CreateRuntimeNeuronPanelView()
         {
             var canvas = EnsureSharedMvpCanvas();
@@ -1387,7 +1608,12 @@ namespace ProjectW.IngameMvp
 
         private Canvas EnsureSharedMvpCanvas()
         {
-            var existing = GameObject.Find("MvpCanvas");
+            var existing = GameObject.Find("MvpDashboardCanvas");
+            if (existing == null)
+            {
+                existing = GameObject.Find("MvpCanvas");
+            }
+
             if (existing == null)
             {
                 var anyCanvas = FindFirstObjectByType<Canvas>();
@@ -1421,7 +1647,7 @@ namespace ProjectW.IngameMvp
                 }
             }
 
-            var canvasGo = new GameObject("MvpCanvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+            var canvasGo = new GameObject("MvpDashboardCanvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             var canvas = canvasGo.GetComponent<Canvas>();
             var uiCamera = Camera.main != null ? Camera.main : FindFirstObjectByType<Camera>();
             canvas.renderMode = RenderMode.ScreenSpaceCamera;
@@ -1796,7 +2022,7 @@ namespace ProjectW.IngameMvp
             character.transform.SetParent(charactersRoot, false);
             if (enforceDepthLayout)
             {
-                localPosition.z = characterDepthZ;
+                localPosition.z = 0f;
             }
 
             character.transform.localPosition = localPosition;
@@ -1865,6 +2091,13 @@ namespace ProjectW.IngameMvp
                 return;
             }
 
+            if (charactersRoot != null)
+            {
+                var rootPos = charactersRoot.position;
+                rootPos.z = characterDepthZ;
+                charactersRoot.position = rootPos;
+            }
+
             for (int i = 0; i < _zoneAnchors.Count; i++)
             {
                 var zone = _zoneAnchors[i];
@@ -1891,114 +2124,6 @@ namespace ProjectW.IngameMvp
                 target.z = characterDepthZ;
                 characters[i].targetPosition = target;
             }
-        }
-
-        private void RebuildMvpScene2DInternal()
-        {
-            use2DWorld = true;
-            disableLegacy3DRenderers = true;
-            enforceDepthLayout = true;
-            zoneDepthZ = 0f;
-            characterDepthZ = -1f;
-            autoCreateDashboardUi = false;
-
-            zoneGap = Mathf.Max(1.5f, zoneGap);
-            if (zoneScale.x <= 0f)
-            {
-                zoneScale.x = 0.5f;
-            }
-            if (zoneScale.y <= 0f)
-            {
-                zoneScale.y = 0.5f;
-            }
-
-            deskVisualScale = new Vector2(0.14f, 0.14f);
-            objectVisualScale = new Vector2(0.11f, 0.11f);
-
-            EnsureMainCamera2D();
-
-            DestroyIfExists("Zones");
-            DestroyIfExists("Characters");
-
-            var zonesGo = new GameObject("Zones");
-            zonesRoot = zonesGo.transform;
-            var halfWidth = zoneScale.x * 0.5f;
-            var centerDistance = (halfWidth + halfWidth) + zoneGap;
-            missionZone = CreateZone2D(
-                zonesRoot,
-                "MissionZone",
-                "zone.mission",
-                new[] { ZoneTagMission },
-                new Vector2(0f, 0f),
-                zoneScale,
-                new Color(0.9f, 0.2f, 0.2f, DefaultZoneAlpha));
-            cafeteriaZone = CreateZone2D(
-                zonesRoot,
-                "CafeteriaZone",
-                "need.hunger",
-                new[] { ZoneTagNeedHunger },
-                new Vector2(-centerDistance, 0f),
-                zoneScale,
-                new Color(0.12f, 0.53f, 0.9f, DefaultZoneAlpha));
-            sleepZone = CreateZone2D(
-                zonesRoot,
-                "SleepZone",
-                "need.sleep",
-                new[] { ZoneTagNeedSleep },
-                new Vector2(centerDistance, 0f),
-                zoneScale,
-                new Color(0.26f, 0.66f, 0.29f, DefaultZoneAlpha));
-
-            var charactersGo = new GameObject("Characters");
-            charactersRoot = charactersGo.transform;
-            CreateCharacter2D(charactersRoot, "Character_A", new Vector2(-1.2f, 0f), new Color(0.2f, 0.85f, 1f, 1f));
-            CreateCharacter2D(charactersRoot, "Character_B", new Vector2(0f, 0f), new Color(0.4f, 1f, 0.4f, 1f));
-            CreateCharacter2D(charactersRoot, "Character_C", new Vector2(1.2f, 0f), new Color(1f, 0.7f, 0.25f, 1f));
-
-            characters.Clear();
-            goalText = null;
-            progressText = null;
-            situationText = null;
-        }
-
-        private void SyncLayoutConfigFromSceneObjects()
-        {
-            if (missionZone == null || cafeteriaZone == null || sleepZone == null)
-            {
-                return;
-            }
-
-            // Use current scene-authored zone size as canonical rebuild baseline.
-            var missionScale = missionZone.transform.localScale;
-            var x = Mathf.Abs(missionScale.x);
-            var y = Mathf.Abs(missionScale.y);
-            if (x > 0.0001f && y > 0.0001f)
-            {
-                zoneScale = new Vector2(x, y);
-            }
-
-            // Estimate gap from current left-center-right layout if possible.
-            var zones = new[] { cafeteriaZone.transform, missionZone.transform, sleepZone.transform };
-            System.Array.Sort(zones, (a, b) => a.position.x.CompareTo(b.position.x));
-            var left = zones[0];
-            var center = zones[1];
-            var right = zones[2];
-            var gapLeft = ComputeEdgeGap(left, center);
-            var gapRight = ComputeEdgeGap(center, right);
-            var observedGap = Mathf.Min(gapLeft, gapRight);
-            if (observedGap > 0.01f)
-            {
-                zoneGap = Mathf.Max(1.5f, observedGap);
-            }
-        }
-
-        private static float ComputeEdgeGap(Transform left, Transform right)
-        {
-            var leftHalf = Mathf.Abs(left.localScale.x) * 0.5f;
-            var rightHalf = Mathf.Abs(right.localScale.x) * 0.5f;
-            var leftEdge = left.position.x + leftHalf;
-            var rightEdge = right.position.x - rightHalf;
-            return rightEdge - leftEdge;
         }
 
         private void EnsureMainCamera2D()
@@ -2049,18 +2174,18 @@ namespace ProjectW.IngameMvp
         {
             var actor = new GameObject(name);
             actor.transform.SetParent(parent, false);
-            actor.transform.localPosition = new Vector3(localPosition.x, localPosition.y, characterDepthZ);
+            actor.transform.localPosition = new Vector3(localPosition.x, localPosition.y, 0f);
             actor.transform.localScale = new Vector3(DefaultCharacterSpriteSize, DefaultCharacterSpriteSize, 1f);
             EnsureSpriteRenderer(actor, color, new Vector2(DefaultCharacterSpriteSize, DefaultCharacterSpriteSize), true);
             actor.AddComponent<CapsuleCollider2D>();
 
             var gaugeRoot = new GameObject("GaugeRoot");
             gaugeRoot.transform.SetParent(actor.transform, false);
-            gaugeRoot.transform.localPosition = new Vector3(0f, 1f, 0f);
+            gaugeRoot.transform.localPosition = new Vector3(0f, 0.82f, 0f);
 
-            CreateGaugeBar2D(gaugeRoot.transform, "HungerBar", 0.24f, new Color(0.94f, 0.35f, 0.35f, 1f));
+            CreateGaugeBar2D(gaugeRoot.transform, "HungerBar", 0.12f, new Color(0.94f, 0.35f, 0.35f, 1f));
             CreateGaugeBar2D(gaugeRoot.transform, "SleepBar", 0f, new Color(0.30f, 0.55f, 0.95f, 1f));
-            CreateGaugeBar2D(gaugeRoot.transform, "StressBar", -0.24f, new Color(0.30f, 0.80f, 0.40f, 1f));
+            CreateGaugeBar2D(gaugeRoot.transform, "StressBar", -0.12f, new Color(0.30f, 0.80f, 0.40f, 1f));
         }
 
         private void CreateGaugeBar2D(Transform parent, string name, float y, Color color)
@@ -2068,7 +2193,7 @@ namespace ProjectW.IngameMvp
             var bar = new GameObject(name);
             bar.transform.SetParent(parent, false);
             bar.transform.localPosition = new Vector3(0f, y, 0f);
-            bar.transform.localScale = new Vector3(GaugeBarMaxWidth, 0.12f, 1f);
+            bar.transform.localScale = new Vector3(GaugeBarMaxWidth, 0.055f, 1f);
             EnsureSpriteRenderer(bar, color, Vector2.one, true);
         }
 
@@ -2307,12 +2432,17 @@ namespace ProjectW.IngameMvp
                     continue;
                 }
 
-                child.gameObject.SetActive(activeNames.Contains(child.name));
+                if (!activeNames.Contains(child.name))
+                {
+                    SafeDestroyGameObject(child.gameObject);
+                }
             }
         }
 
         private void EnsureMissionZoneFurniture(RoutineZoneAnchor zone, Transform objectRoot, HashSet<string> activeNames)
         {
+            RefreshMissionFurnitureTemplate(objectRoot);
+
             var zoneKey = GetZoneReservationKey(zone);
             if (!_zoneDeskPositions.TryGetValue(zoneKey, out var desks) || desks == null || desks.Count == 0)
             {
@@ -2327,32 +2457,19 @@ namespace ProjectW.IngameMvp
 
             for (int i = 0; i < desks.Count; i++)
             {
-                var deskPos = WithCharacterDepth(desks[i]);
+                var baseYJitter = (i % 3 == 0 ? -0.04f : i % 3 == 1 ? 0.02f : 0.05f);
+                var deskPos = WithObjectDepth(desks[i] + new Vector3(0f, baseYJitter, 0f));
                 var deskName = string.Format(CultureInfo.InvariantCulture, "DeskSet_{0:D2}", i + 1);
-                CreateFurnitureObject(objectRoot, deskName, deskPos, "desk", deskVisualScale, zoneKey, "mission-desk", activeNames);
+                CreateFurnitureObject(objectRoot, deskName, deskPos, "desk", ResolveObjectScaleForTag("desk"), zoneKey, "mission-desk", activeNames);
 
                 var jitter = (i % 2 == 0 ? -0.02f : 0.02f);
-                var computerPos = deskPos + new Vector3(-0.03f + jitter, 0.055f, 0f);
-                var cupPos = deskPos + new Vector3(0.04f + jitter, 0.055f, 0f);
-                CreateFurnitureObject(objectRoot, deskName + "_Computer", computerPos, "computer", objectVisualScale * 0.95f, zoneKey, "desk-top", activeNames);
-                CreateFurnitureObject(objectRoot, deskName + "_Cup", cupPos, "cup", objectVisualScale * 0.7f, zoneKey, "desk-top", activeNames);
-
-                var slot = zone.transform.Find(DeskRootName + "/" + string.Format(CultureInfo.InvariantCulture, "Desk_{0:D2}", i + 1));
-                if (slot != null)
-                {
-                    var renderer = slot.GetComponent<SpriteRenderer>();
-                    if (renderer != null)
-                    {
-                        renderer.enabled = false;
-                    }
-
-                    var collider = slot.GetComponent<Collider2D>();
-                    if (collider != null)
-                    {
-                        collider.enabled = false;
-                    }
-                }
+                var computerPos = deskPos + new Vector3(-0.11f + jitter, 0.24f, 0f);
+                var cupPos = deskPos + new Vector3(0.12f + jitter, 0.28f, 0f);
+                CreateFurnitureObject(objectRoot, deskName + "_Computer", computerPos, "computer", ResolveObjectScaleForTag("computer"), zoneKey, "desk-top", activeNames);
+                CreateFurnitureObject(objectRoot, deskName + "_Cup", cupPos, "cup", ResolveObjectScaleForTag("cup"), zoneKey, "desk-top", activeNames);
             }
+
+            _zoneDeskPositions[zoneKey] = new List<Vector3>(desks);
         }
 
         private void EnsureCafeteriaZoneFurniture(RoutineZoneAnchor zone, Transform objectRoot, HashSet<string> activeNames)
@@ -2363,29 +2480,153 @@ namespace ProjectW.IngameMvp
             for (int i = 0; i < tablePositions.Count; i++)
             {
                 var tableName = string.Format(CultureInfo.InvariantCulture, "TableSet_{0:D2}", i + 1);
-                var tablePos = tablePositions[i];
-                CreateFurnitureObject(objectRoot, tableName, tablePos, "table", objectVisualScale * 1.25f, zoneKey, "cafeteria-table", activeNames);
+                var tablePos = tablePositions[i] + new Vector3(0f, (i % 2 == 0 ? 0.04f : -0.03f), 0f);
+                CreateFurnitureObject(objectRoot, tableName, tablePos, "table", ResolveObjectScaleForTag("table"), zoneKey, "cafeteria-table", activeNames);
 
-                CreateFurnitureObject(objectRoot, tableName + "_Tray", tablePos + new Vector3(-0.03f, 0.05f, 0f), "tray", objectVisualScale * 0.75f, zoneKey, "table-top", activeNames);
-                CreateFurnitureObject(objectRoot, tableName + "_Cup", tablePos + new Vector3(0.03f, 0.05f, 0f), "cup", objectVisualScale * 0.6f, zoneKey, "table-top", activeNames);
+                CreateFurnitureObject(objectRoot, tableName + "_Tray", tablePos + new Vector3(-0.09f, 0.22f, 0f), "tray", ResolveObjectScaleForTag("tray"), zoneKey, "table-top", activeNames);
+                CreateFurnitureObject(objectRoot, tableName + "_Cup", tablePos + new Vector3(0.10f, 0.26f, 0f), "cup", ResolveObjectScaleForTag("cup"), zoneKey, "table-top", activeNames);
             }
+
+            _zoneDeskPositions[zoneKey] = tablePositions;
         }
 
         private void EnsureSleepZoneFurniture(RoutineZoneAnchor zone, Transform objectRoot, HashSet<string> activeNames)
         {
             var zoneKey = GetZoneReservationKey(zone);
-            var bedCount = Mathf.Clamp(Mathf.Max(1, (characters.Count + 1) / 2), 1, 3);
+            var bedCount = Mathf.Clamp(Mathf.Max(3, (characters.Count + 1) / 2), 3, 5);
             var bedPositions = GenerateScatteredPositions(zone, bedCount, 0.24f);
-            var bedScale = new Vector2(objectVisualScale.x * 1.55f, objectVisualScale.y * 1.25f);
+            var bedScale = ResolveObjectScaleForTag("bed");
 
             for (int i = 0; i < bedPositions.Count; i++)
             {
                 var bedName = string.Format(CultureInfo.InvariantCulture, "BedSet_{0:D2}", i + 1);
-                var bedPos = bedPositions[i];
+                var bedPos = bedPositions[i] + new Vector3(0f, (i % 2 == 0 ? -0.02f : 0.04f), 0f);
                 CreateFurnitureObject(objectRoot, bedName, bedPos, "bed", bedScale, zoneKey, "sleep-set", activeNames);
-                CreateFurnitureObject(objectRoot, bedName + "_Pillow", bedPos + new Vector3(-0.04f, 0.05f, 0f), "pillow", objectVisualScale * 0.85f, zoneKey, "bed-top", activeNames);
-                CreateFurnitureObject(objectRoot, bedName + "_Blanket", bedPos + new Vector3(0.03f, 0.02f, 0f), "blanket", objectVisualScale * 1.1f, zoneKey, "bed-top", activeNames);
+                CreateFurnitureObject(objectRoot, bedName + "_Pillow", bedPos + new Vector3(-0.12f, 0.20f, 0f), "pillow", ResolveObjectScaleForTag("pillow"), zoneKey, "bed-top", activeNames);
+                CreateFurnitureObject(objectRoot, bedName + "_Blanket", bedPos + new Vector3(0.08f, 0.14f, 0f), "blanket", ResolveObjectScaleForTag("blanket"), zoneKey, "bed-top", activeNames);
             }
+
+            _zoneDeskPositions[zoneKey] = bedPositions;
+        }
+
+        private static void SafeDestroyGameObject(GameObject go)
+        {
+            if (go == null)
+            {
+                return;
+            }
+
+            if (Application.isPlaying)
+            {
+                Destroy(go);
+                return;
+            }
+
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.delayCall += () =>
+            {
+                if (go != null)
+                {
+                    DestroyImmediate(go);
+                }
+            };
+#else
+            Destroy(go);
+#endif
+        }
+
+        private Vector2 ResolveObjectScaleForTag(string tag)
+        {
+            if (string.IsNullOrWhiteSpace(tag))
+            {
+                return objectVisualScale;
+            }
+
+            if (string.Equals(tag, "bed", StringComparison.OrdinalIgnoreCase))
+            {
+                var baseDesk = ResolveObjectScaleForTag("desk");
+                return new Vector2(baseDesk.x * 1.35f, baseDesk.y * 0.95f);
+            }
+
+            if (string.Equals(tag, "desk", StringComparison.OrdinalIgnoreCase))
+            {
+                if (_hasDeskTemplateScale)
+                {
+                    return _templateDeskScale;
+                }
+
+                return new Vector2(deskVisualScale.x, deskVisualScale.y * 0.9f);
+            }
+
+            if (string.Equals(tag, "table", StringComparison.OrdinalIgnoreCase))
+            {
+                var baseDesk = ResolveObjectScaleForTag("desk");
+                return new Vector2(baseDesk.x * 1.15f, baseDesk.y * 0.85f);
+            }
+
+            if (string.Equals(tag, "blanket", StringComparison.OrdinalIgnoreCase))
+            {
+                var baseDesk = ResolveObjectScaleForTag("desk");
+                return new Vector2(baseDesk.x * 0.95f, baseDesk.y * 0.7f);
+            }
+
+            if (string.Equals(tag, "computer", StringComparison.OrdinalIgnoreCase))
+            {
+                if (_hasComputerTemplateScale)
+                {
+                    return _templateComputerScale;
+                }
+
+                return objectVisualScale * 0.95f;
+            }
+
+            if (string.Equals(tag, "tray", StringComparison.OrdinalIgnoreCase))
+            {
+                return objectVisualScale * 0.52f;
+            }
+
+            if (string.Equals(tag, "pillow", StringComparison.OrdinalIgnoreCase))
+            {
+                return objectVisualScale * 0.72f;
+            }
+
+            if (string.Equals(tag, "cup", StringComparison.OrdinalIgnoreCase))
+            {
+                if (_hasCupTemplateScale)
+                {
+                    return _templateCupScale;
+                }
+
+                return objectVisualScale * 0.46f;
+            }
+
+            return objectVisualScale;
+        }
+
+        private void RefreshMissionFurnitureTemplate(Transform objectRoot)
+        {
+            _hasDeskTemplateScale = TryReadTemplateScale(objectRoot, "DeskSet_01", out _templateDeskScale);
+            _hasComputerTemplateScale = TryReadTemplateScale(objectRoot, "DeskSet_01_Computer", out _templateComputerScale);
+            _hasCupTemplateScale = TryReadTemplateScale(objectRoot, "DeskSet_01_Cup", out _templateCupScale);
+        }
+
+        private static bool TryReadTemplateScale(Transform root, string name, out Vector2 scale)
+        {
+            scale = default;
+            if (root == null || string.IsNullOrWhiteSpace(name))
+            {
+                return false;
+            }
+
+            var target = root.Find(name);
+            if (target == null)
+            {
+                return false;
+            }
+
+            var local = target.localScale;
+            scale = new Vector2(Mathf.Abs(local.x), Mathf.Abs(local.y));
+            return scale.x > 0.0001f && scale.y > 0.0001f;
         }
 
         private List<Vector3> GenerateScatteredPositions(RoutineZoneAnchor zone, int count, float insetRatio)
@@ -2395,7 +2636,7 @@ namespace ProjectW.IngameMvp
             var bounds = zone.GetComponent<BoxCollider2D>()?.bounds;
             if (bounds == null)
             {
-                result.Add(WithCharacterDepth(zone.Position));
+                result.Add(WithObjectDepth(zone.Position));
                 return result;
             }
 
@@ -2415,7 +2656,7 @@ namespace ProjectW.IngameMvp
             {
                 var x = Mathf.Lerp(minX, maxX, (float)rng.NextDouble());
                 var y = Mathf.Lerp(minY, maxY, (float)rng.NextDouble());
-                var candidate = WithCharacterDepth(new Vector3(x, y, characterDepthZ));
+                var candidate = WithObjectDepth(new Vector3(x, y, objectDepthZ));
                 if (!zone.Contains(candidate))
                 {
                     continue;
@@ -2442,7 +2683,7 @@ namespace ProjectW.IngameMvp
                 var t = (result.Count + 0.5f) / count;
                 var x = Mathf.Lerp(minX, maxX, t);
                 var y = Mathf.Lerp(minY, maxY, 0.5f);
-                result.Add(WithCharacterDepth(new Vector3(x, y, characterDepthZ)));
+                result.Add(WithObjectDepth(new Vector3(x, y, objectDepthZ)));
             }
 
             return result;
@@ -2465,7 +2706,7 @@ namespace ProjectW.IngameMvp
                 go.transform.SetParent(parent, false);
             }
 
-            go.transform.position = WithCharacterDepth(worldPosition);
+            go.transform.position = WithObjectDepth(worldPosition);
             go.transform.localScale = new Vector3(Mathf.Abs(scale.x), Mathf.Abs(scale.y), 1f);
             go.SetActive(true);
             activeNames?.Add(objectName);
@@ -2581,145 +2822,58 @@ namespace ProjectW.IngameMvp
 
         private void EnsureZoneDesks(RoutineZoneAnchor zone, string zoneKey)
         {
-            var deskRoot = zone.transform.Find(DeskRootName);
-            if (deskRoot == null)
+            var anchors = CollectActionAnchorPositions(zone);
+            if (anchors.Count == 0)
             {
-                var rootGo = new GameObject(DeskRootName);
-                rootGo.transform.SetParent(zone.transform, false);
-                deskRoot = rootGo.transform;
+                anchors.Add(WithObjectDepth(zone.Position));
             }
 
-            var deskPositions = CollectDeskPositionsFromChildren(deskRoot, zoneKey);
-            if (deskPositions.Count == 0)
-            {
-                var deskCount = UnityEngine.Random.Range(Mathf.Max(1, minDeskCountPerZone), Mathf.Max(Mathf.Max(1, minDeskCountPerZone), maxDeskCountPerZone) + 1);
-                deskPositions = GenerateDeskPositions(zone, deskCount);
-                for (int i = 0; i < deskPositions.Count; i++)
-                {
-                    CreateDeskObject(deskRoot, zoneKey, i, deskPositions[i]);
-                }
-            }
-
-            for (int i = 0; i < deskPositions.Count; i++)
-            {
-                deskPositions[i] = WithCharacterDepth(deskPositions[i]);
-            }
-
-            _zoneDeskPositions[zoneKey] = deskPositions;
+            _zoneDeskPositions[zoneKey] = anchors;
         }
 
-        private List<Vector3> CollectDeskPositionsFromChildren(Transform deskRoot, string zoneKey)
+        private List<Vector3> CollectActionAnchorPositions(RoutineZoneAnchor zone)
         {
-            var deskPositions = new List<Vector3>();
-            for (int i = 0; i < deskRoot.childCount; i++)
+            var results = new List<Vector3>();
+            var objectRoot = zone != null ? zone.transform.Find(ZoneObjectRootName) : null;
+            if (objectRoot == null)
             {
-                var child = deskRoot.GetChild(i);
+                return results;
+            }
+
+            var primaryTag = zone.HasTag(ZoneTagMission)
+                ? "desk"
+                : zone.HasTag(ZoneTagNeedHunger)
+                    ? "table"
+                    : zone.HasTag(ZoneTagNeedSleep)
+                        ? "bed"
+                        : string.Empty;
+
+            for (int i = 0; i < objectRoot.childCount; i++)
+            {
+                var child = objectRoot.GetChild(i);
                 if (child == null)
                 {
                     continue;
                 }
 
-                deskPositions.Add(WithCharacterDepth(child.position));
-                var deskSprite = visualResources != null ? visualResources.ResolveItemSprite("desk") : null;
-                EnsureSpriteRenderer(child.gameObject, new Color(0.95f, 0.95f, 0.95f, 0.95f), deskVisualScale, true, deskSprite);
-                EnsureClickableObjectCollider(child.gameObject, deskVisualScale);
-                EnsureInspectableWorldObject(child.gameObject, child.name, zoneKey, "desk", "desk-slot");
-            }
-
-            return deskPositions;
-        }
-
-        private List<Vector3> GenerateDeskPositions(RoutineZoneAnchor zone, int deskCount)
-        {
-            var desks = new List<Vector3>(Mathf.Max(1, deskCount));
-            var bounds = zone.GetComponent<BoxCollider2D>()?.bounds;
-            if (bounds == null)
-            {
-                desks.Add(WithCharacterDepth(zone.Position));
-                return desks;
-            }
-
-            var b = bounds.Value;
-            var inset = Mathf.Clamp(Mathf.Min(b.extents.x, b.extents.y) * deskInsetRatio, 0.02f, 0.4f);
-            var minX = b.min.x + inset;
-            var maxX = b.max.x - inset;
-            var minY = b.min.y + inset;
-            var maxY = b.max.y - inset;
-            if (minX > maxX)
-            {
-                minX = b.center.x;
-                maxX = b.center.x;
-            }
-
-            if (minY > maxY)
-            {
-                minY = b.center.y;
-                maxY = b.center.y;
-            }
-
-            var zoneWidth = Mathf.Max(0.001f, maxX - minX);
-            var zoneHeight = Mathf.Max(0.001f, maxY - minY);
-            var minDeskSpacing = Mathf.Max(0.06f, Mathf.Min(zoneWidth, zoneHeight) * deskMinSpacingRatio);
-            var minDeskSpacingSqr = minDeskSpacing * minDeskSpacing;
-            var attempts = Mathf.Max(24, deskCount * 24);
-
-            for (int i = 0; i < attempts && desks.Count < deskCount; i++)
-            {
-                var x = UnityEngine.Random.Range(minX, maxX);
-                var y = UnityEngine.Random.Range(minY, maxY);
-
-                var pos = WithCharacterDepth(new Vector3(x, y, characterDepthZ));
-                if (!zone.Contains(pos))
+                var inspectable = child.GetComponent<RoutineInspectableWorldObject>();
+                if (inspectable == null)
                 {
                     continue;
                 }
 
-                var overlaps = false;
-                for (int j = 0; j < desks.Count; j++)
+                if (!string.Equals(inspectable.PrimaryTag, primaryTag, StringComparison.OrdinalIgnoreCase))
                 {
-                    if ((desks[j] - pos).sqrMagnitude < minDeskSpacingSqr)
-                    {
-                        overlaps = true;
-                        break;
-                    }
+                    continue;
                 }
 
-                if (!overlaps)
-                {
-                    desks.Add(pos);
-                }
+                results.Add(WithObjectDepth(child.position));
             }
 
-            for (int i = desks.Count; i < deskCount; i++)
-            {
-                var t = (i + 0.5f) / deskCount;
-                var x = Mathf.Lerp(minX, maxX, t);
-                var y = (i % 2 == 0) ? Mathf.Lerp(minY, maxY, 0.3f) : Mathf.Lerp(minY, maxY, 0.7f);
-                var pos = WithCharacterDepth(new Vector3(x, y, characterDepthZ));
-                if (!zone.Contains(pos))
-                {
-                    pos = WithCharacterDepth(zone.Position);
-                }
-
-                desks.Add(pos);
-            }
-
-            return desks;
+            return results;
         }
 
-        private void CreateDeskObject(Transform deskRoot, string zoneKey, int index, Vector3 worldPosition)
-        {
-            var deskGo = new GameObject(string.Format(CultureInfo.InvariantCulture, "Desk_{0:D2}", index + 1));
-            deskGo.transform.SetParent(deskRoot, false);
-            deskGo.transform.position = WithCharacterDepth(worldPosition);
-            deskGo.transform.localScale = new Vector3(Mathf.Abs(deskVisualScale.x), Mathf.Abs(deskVisualScale.y), 1f);
-            var deskSprite = visualResources != null ? visualResources.ResolveItemSprite("desk") : null;
-            EnsureSpriteRenderer(deskGo, new Color(0.95f, 0.95f, 0.95f, 0.95f), deskVisualScale, true, deskSprite);
-            EnsureClickableObjectCollider(deskGo, deskVisualScale);
-            EnsureInspectableWorldObject(deskGo, deskGo.name, zoneKey, "desk", "desk-slot");
-        }
-
-        private static void EnsureClickableObjectCollider(GameObject go, Vector2 targetScale)
+        private void EnsureClickableObjectCollider(GameObject go, Vector2 targetScale)
         {
             if (go == null)
             {
@@ -2732,9 +2886,18 @@ namespace ProjectW.IngameMvp
                 collider = go.AddComponent<BoxCollider2D>();
             }
 
-            var scale = go.transform.localScale;
-            var width = Mathf.Max(0.24f, (Mathf.Abs(scale.x) > 0.0001f ? Mathf.Abs(scale.x) : Mathf.Abs(targetScale.x)) * 2.2f);
-            var height = Mathf.Max(0.24f, (Mathf.Abs(scale.y) > 0.0001f ? Mathf.Abs(scale.y) : Mathf.Abs(targetScale.y)) * 2.2f);
+            var spriteRenderer = go.GetComponent<SpriteRenderer>();
+            var width = Mathf.Max(0.05f, Mathf.Abs(targetScale.x));
+            var height = Mathf.Max(0.05f, Mathf.Abs(targetScale.y));
+            if (spriteRenderer != null && spriteRenderer.sprite != null)
+            {
+                var drawSize = spriteRenderer.drawMode == SpriteDrawMode.Simple
+                    ? (Vector2)spriteRenderer.sprite.bounds.size
+                    : spriteRenderer.size;
+                width = Mathf.Max(0.05f, drawSize.x);
+                height = Mathf.Max(0.05f, drawSize.y);
+            }
+
             collider.size = new Vector2(width, height);
             collider.offset = Vector2.zero;
             collider.isTrigger = true;
@@ -2828,10 +2991,18 @@ namespace ProjectW.IngameMvp
 
         private void ForceActorDepth(Transform actor)
         {
+            if (actor == null)
+            {
+                return;
+            }
+
             var position = actor.position;
             position.y = 0f;
-            position.z = characterDepthZ;
             actor.position = position;
+
+            var local = actor.localPosition;
+            local.z = 0f;
+            actor.localPosition = local;
         }
 
         private Vector3 WithCharacterDepth(Vector3 position)
@@ -2843,6 +3014,18 @@ namespace ProjectW.IngameMvp
             }
 
             position.z = characterDepthZ;
+            return position;
+        }
+
+        private Vector3 WithObjectDepth(Vector3 position)
+        {
+            if (!enforceDepthLayout)
+            {
+                return position;
+            }
+
+            position.y = 0f;
+            position.z = objectDepthZ;
             return position;
         }
 

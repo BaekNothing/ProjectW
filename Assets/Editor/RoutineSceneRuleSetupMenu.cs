@@ -9,8 +9,8 @@ namespace ProjectW.EditorTools
 {
     public static class RoutineSceneRuleSetupMenu
     {
-        [MenuItem("ProjectW/Scene/Apply Declared Object Rules")]
-        public static void ApplyDeclaredObjectRules()
+        [MenuItem("ProjectW/Scene/Setup From Current MVP Scene")]
+        public static void SetupFromCurrentMvpScene()
         {
             if (EditorApplication.isPlaying)
             {
@@ -27,7 +27,7 @@ namespace ProjectW.EditorTools
                 session = go.AddComponent<RoutineObservationMvpSession>();
             }
 
-            session.RebuildMvpScene2D();
+            session.SetupSceneFromCurrentLayout();
             session.BakeGeneratedObjectsToScene();
             session.ApplyDepthLayoutInEditor();
 
@@ -38,7 +38,7 @@ namespace ProjectW.EditorTools
             }
 
             EditorUtility.SetDirty(session);
-            Debug.Log("[ProjectW] Applied declared object rules to current scene.");
+            Debug.Log("[ProjectW] Setup from current MVP scene completed.");
         }
     }
 }
