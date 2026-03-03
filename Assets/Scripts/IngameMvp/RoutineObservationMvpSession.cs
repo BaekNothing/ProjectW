@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Reflection;
 using System.Text;
 using UnityEngine;
 using ProjectW.IngameCore.Simulation;
@@ -92,6 +93,8 @@ namespace ProjectW.IngameMvp
         private const float ZoneActionSpacing = 0.9f;
         private const float DefaultCharacterSpriteSize = 0.1f;
         private const float DefaultZoneAlpha = 0.4f;
+        private const float DeskActionArrivalThresholdSqr = 0.01f;
+        private const string DeskRootName = "DeskSlots";
         private const string ZoneTagMission = "zone.mission";
         private const string ZoneTagNeedHunger = "need.hunger";
         private const string ZoneTagNeedSleep = "need.sleep";
@@ -135,6 +138,11 @@ namespace ProjectW.IngameMvp
         [SerializeField] private bool disableLegacy3DRenderers = true;
         [SerializeField] private float zoneGap = 2f;
         [SerializeField] private Vector2 zoneScale = new Vector2(0.5f, 0.4f);
+        [SerializeField, Min(1)] private int minDeskCountPerZone = 2;
+        [SerializeField, Min(1)] private int maxDeskCountPerZone = 5;
+        [SerializeField, Range(0.02f, 0.45f)] private float deskInsetRatio = 0.14f;
+        [SerializeField, Range(0.08f, 0.9f)] private float deskMinSpacingRatio = 0.7f;
+        [SerializeField] private Vector2 deskVisualScale = new Vector2(0.16f, 0.09f);
         [SerializeField, Min(0.5f)] private float minimumCharacterSeparation = 0.5f;
         [SerializeField] private bool autoExpandZoneWidthForSeparation = true;
 
@@ -153,6 +161,8 @@ namespace ProjectW.IngameMvp
         private readonly List<RoutineZoneAnchor> _zoneAnchors = new List<RoutineZoneAnchor>();
         private readonly Dictionary<string, string> _dashboardContext = new Dictionary<string, string>();
         private readonly Dictionary<string, Dictionary<RoutineCharacterBinding, Vector3>> _zoneLockedPositions = new Dictionary<string, Dictionary<RoutineCharacterBinding, Vector3>>();
+        private readonly Dictionary<string, List<Vector3>> _zoneDeskPositions = new Dictionary<string, List<Vector3>>();
+        private readonly Dictionary<string, Dictionary<RoutineCharacterBinding, Vector3>> _zonePreferredDeskPositions = new Dictionary<string, Dictionary<RoutineCharacterBinding, Vector3>>();
         private GUIStyle _debugLabelStyle;
         private int _lastAppliedInterventionTick = -1;
         private int _pendingInterventionCount;
@@ -423,7 +433,7 @@ namespace ProjectW.IngameMvp
                 var movedThisTick = ResolveMovementTick(binding, desiredAction, actionTarget, isMicroAdjust);
                 if (movedThisTick)
                 {
-                    ApplyNeedsAndProgress(binding, RoutineActionType.Move, false);
+                    ApplyNeedsAndProgress(binding, RoutineActionType.Move, false, false);
                     UpdateRuntimeStateTexts(binding);
                     continue;
                 }
@@ -434,8 +444,9 @@ namespace ProjectW.IngameMvp
                 }
 
                 binding.currentAction = desiredAction;
-                var canResolveNeed = CanResolveNeed(binding, desiredAction, zone);
-                ApplyNeedsAndProgress(binding, desiredAction, canResolveNeed);
+                var canPerformAction = CanPerformActionAtDesk(binding, zone);
+                var canResolveNeed = canPerformAction && CanResolveNeed(binding, desiredAction, zone);
+                ApplyNeedsAndProgress(binding, desiredAction, canResolveNeed, canPerformAction);
                 ApplyNeedLatchAfterAction(binding, desiredAction, canResolveNeed);
                 if (binding.remainingActionTicks > 0)
                 {
@@ -548,8 +559,13 @@ namespace ProjectW.IngameMvp
             return 1;
         }
 
-        private void ApplyNeedsAndProgress(RoutineCharacterBinding binding, RoutineActionType action, bool canResolveNeed)
+        private void ApplyNeedsAndProgress(RoutineCharacterBinding binding, RoutineActionType action, bool canResolveNeed, bool canPerformAction)
         {
+            if (action != RoutineActionType.Move && !canPerformAction)
+            {
+                action = RoutineActionType.Move;
+            }
+
             switch (action)
             {
                 case RoutineActionType.Move:
@@ -561,16 +577,19 @@ namespace ProjectW.IngameMvp
                     binding.hunger -= binding.hungerDecayPerTick;
                     binding.sleep -= binding.sleepDecayPerTick;
                     binding.stress -= binding.stressDecayPerTick;
-                    binding.missionTicks += 1;
-                    if (binding.missionTicks >= 100)
+                    if (canPerformAction)
                     {
-                        binding.completedWorkCount += 1;
-                        binding.missionTicks = 0;
-                        Debug.Log(string.Format(
-                            CultureInfo.InvariantCulture,
-                            "[RoutineWork] actor={0} completed={1} -> assigned_new_work",
-                            binding.actor != null ? binding.actor.name : "Unknown",
-                            binding.completedWorkCount));
+                        binding.missionTicks += 1;
+                        if (binding.missionTicks >= 100)
+                        {
+                            binding.completedWorkCount += 1;
+                            binding.missionTicks = 0;
+                            Debug.Log(string.Format(
+                                CultureInfo.InvariantCulture,
+                                "[RoutineWork] actor={0} completed={1} -> assigned_new_work",
+                                binding.actor != null ? binding.actor.name : "Unknown",
+                                binding.completedWorkCount));
+                        }
                     }
                     break;
                 case RoutineActionType.Sleep:
@@ -619,9 +638,15 @@ namespace ProjectW.IngameMvp
                 ReleaseZoneLock(binding);
             }
 
+            if (!_zoneDeskPositions.TryGetValue(zoneKey, out var deskPositions) || deskPositions == null || deskPositions.Count == 0)
+            {
+                EnsureZoneDesks(zone, zoneKey);
+                _zoneDeskPositions.TryGetValue(zoneKey, out deskPositions);
+            }
+
             if (TryGetZoneLock(zoneKey, binding, out var lockedPosition))
             {
-                if (zone.Contains(lockedPosition))
+                if (IsDeskPositionAvailableInZone(zone, zoneKey, lockedPosition))
                 {
                     return WithCharacterDepth(lockedPosition);
                 }
@@ -630,25 +655,23 @@ namespace ProjectW.IngameMvp
             }
 
             var currentPosition = WithCharacterDepth(binding.actor != null ? binding.actor.position : fallback);
-            if (zone.Contains(currentPosition))
+            if (TryGetPreferredDeskPosition(zone, zoneKey, binding, out var preferredDesk)
+                && !IsDeskReservedByOther(zoneKey, binding, preferredDesk))
             {
-                if (!IsPositionTooCloseToLocked(zoneKey, binding, currentPosition))
-                {
-                    AssignZoneLock(zoneKey, binding, currentPosition);
-                    return currentPosition;
-                }
+                AssignZoneLock(zoneKey, binding, preferredDesk);
+                RememberPreferredDesk(zoneKey, binding, preferredDesk);
+                return preferredDesk;
             }
 
-            if (binding.currentAction == desiredAction && zone.Contains(binding.targetPosition))
+            if (!TryFindAvailableDeskPosition(zone, zoneKey, binding, currentPosition, deskPositions, out var deskTarget))
             {
-                var normalizedTarget = WithCharacterDepth(binding.targetPosition);
-                if (!IsPositionTooCloseToLocked(zoneKey, binding, normalizedTarget))
-                {
-                    return normalizedTarget;
-                }
+                ReleaseZoneLock(binding);
+                return currentPosition;
             }
 
-            return WithCharacterDepth(FindAvailableZonePosition(zone, zoneKey, binding, currentPosition));
+            AssignZoneLock(zoneKey, binding, deskTarget);
+            RememberPreferredDesk(zoneKey, binding, deskTarget);
+            return deskTarget;
         }
 
         private void CleanupZoneLocks()
@@ -680,6 +703,24 @@ namespace ProjectW.IngameMvp
                     if (!binding.hasLockedZonePosition || !string.Equals(binding.lockedZoneKey, zoneKey, StringComparison.Ordinal))
                     {
                         occupants.Remove(binding);
+                        continue;
+                    }
+
+                    if (!_zoneDeskPositions.TryGetValue(zoneKey, out var desks) || desks == null || desks.Count == 0)
+                    {
+                        occupants.Remove(binding);
+                        binding.hasLockedZonePosition = false;
+                        binding.lockedZoneKey = null;
+                        binding.lockedZonePosition = Vector3.zero;
+                        continue;
+                    }
+
+                    if (!ContainsDeskPosition(desks, binding.lockedZonePosition))
+                    {
+                        occupants.Remove(binding);
+                        binding.hasLockedZonePosition = false;
+                        binding.lockedZoneKey = null;
+                        binding.lockedZonePosition = Vector3.zero;
                     }
                 }
 
@@ -753,22 +794,16 @@ namespace ProjectW.IngameMvp
             binding.lockedZonePosition = Vector3.zero;
         }
 
-        private bool IsPositionTooCloseToLocked(string zoneKey, RoutineCharacterBinding binding, Vector3 position)
+        private static bool ContainsDeskPosition(List<Vector3> deskPositions, Vector3 candidate)
         {
-            if (!_zoneLockedPositions.TryGetValue(zoneKey, out var occupants))
+            if (deskPositions == null)
             {
                 return false;
             }
 
-            var minGap = Mathf.Max(0.5f, minimumCharacterSeparation);
-            foreach (var kvp in occupants)
+            for (int i = 0; i < deskPositions.Count; i++)
             {
-                if (ReferenceEquals(kvp.Key, binding))
-                {
-                    continue;
-                }
-
-                if (Mathf.Abs(position.x - kvp.Value.x) < minGap)
+                if ((deskPositions[i] - candidate).sqrMagnitude <= 0.0001f)
                 {
                     return true;
                 }
@@ -777,72 +812,164 @@ namespace ProjectW.IngameMvp
             return false;
         }
 
-        private Vector3 FindAvailableZonePosition(
+        private bool IsDeskPositionAvailableInZone(RoutineZoneAnchor zone, string zoneKey, Vector3 position)
+        {
+            if (zone == null || !_zoneDeskPositions.TryGetValue(zoneKey, out var desks) || desks == null)
+            {
+                return false;
+            }
+
+            if (!ContainsDeskPosition(desks, position))
+            {
+                return false;
+            }
+
+            return zone.Contains(position);
+        }
+
+        private bool TryFindAvailableDeskPosition(
             RoutineZoneAnchor zone,
             string zoneKey,
             RoutineCharacterBinding binding,
-            Vector3 referencePosition)
+            Vector3 referencePosition,
+            List<Vector3> deskPositions,
+            out Vector3 bestPosition)
         {
-            var boundary2D = zone.GetComponent<BoxCollider2D>();
-            if (boundary2D == null)
+            bestPosition = referencePosition;
+            if (deskPositions == null || deskPositions.Count == 0)
             {
-                return zone.Position;
+                return false;
             }
 
-            var bounds = boundary2D.bounds;
-            var minGap = Mathf.Max(0.5f, minimumCharacterSeparation);
-            var margin = Mathf.Max(0.02f, minGap * 0.1f);
-            var minX = bounds.min.x + margin;
-            var maxX = bounds.max.x - margin;
-            var laneY = 0f;
-            if (maxX < minX)
-            {
-                var center = zone.Position;
-                center.y = laneY;
-                return center;
-            }
-
-            var candidates = new List<float>(16);
-            var left = minX;
-            var right = maxX;
-            int guard = 0;
-            while (left <= right + 0.0001f && guard < 128)
-            {
-                candidates.Add(left);
-                if (right - left > 0.0001f)
-                {
-                    candidates.Add(right);
-                }
-
-                left += minGap;
-                right -= minGap;
-                guard += 1;
-            }
-
-            var best = new Vector3(Mathf.Clamp(referencePosition.x, minX, maxX), laneY, characterDepthZ);
+            var fallback = WithCharacterDepth(deskPositions[0]);
+            var best = fallback;
             var bestTravel = float.PositiveInfinity;
-            for (int i = 0; i < candidates.Count; i++)
+            var found = false;
+            for (int i = 0; i < deskPositions.Count; i++)
             {
-                var candidate = new Vector3(candidates[i], laneY, characterDepthZ);
-                if (!zone.Contains(candidate))
+                var candidate = WithCharacterDepth(deskPositions[i]);
+                if (zone != null && !zone.Contains(candidate))
                 {
                     continue;
                 }
 
-                if (IsPositionTooCloseToLocked(zoneKey, binding, candidate))
+                if (IsDeskReservedByOther(zoneKey, binding, candidate))
                 {
                     continue;
                 }
 
-                var travel = Mathf.Abs(referencePosition.x - candidate.x);
+                var travel = (referencePosition - candidate).sqrMagnitude;
                 if (travel < bestTravel)
                 {
                     bestTravel = travel;
                     best = candidate;
+                    found = true;
                 }
             }
 
-            return best;
+            bestPosition = best;
+            return found;
+        }
+
+        private bool TryGetPreferredDeskPosition(RoutineZoneAnchor zone, string zoneKey, RoutineCharacterBinding binding, out Vector3 preferredDesk)
+        {
+            preferredDesk = default;
+            if (zone == null || binding == null)
+            {
+                return false;
+            }
+
+            if (!_zonePreferredDeskPositions.TryGetValue(zoneKey, out var preferredMap) || preferredMap == null)
+            {
+                return false;
+            }
+
+            if (!preferredMap.TryGetValue(binding, out preferredDesk))
+            {
+                return false;
+            }
+
+            preferredDesk = WithCharacterDepth(preferredDesk);
+            if (!_zoneDeskPositions.TryGetValue(zoneKey, out var desks) || desks == null || !ContainsDeskPosition(desks, preferredDesk))
+            {
+                preferredMap.Remove(binding);
+                return false;
+            }
+
+            if (!zone.Contains(preferredDesk))
+            {
+                preferredMap.Remove(binding);
+                return false;
+            }
+
+            return true;
+        }
+
+        private void RememberPreferredDesk(string zoneKey, RoutineCharacterBinding binding, Vector3 deskPosition)
+        {
+            if (binding == null || string.IsNullOrWhiteSpace(zoneKey))
+            {
+                return;
+            }
+
+            if (!_zonePreferredDeskPositions.TryGetValue(zoneKey, out var preferredMap))
+            {
+                preferredMap = new Dictionary<RoutineCharacterBinding, Vector3>();
+                _zonePreferredDeskPositions[zoneKey] = preferredMap;
+            }
+
+            preferredMap[binding] = WithCharacterDepth(deskPosition);
+        }
+
+        private bool IsDeskReservedByOther(string zoneKey, RoutineCharacterBinding binding, Vector3 deskPosition)
+        {
+            if (!_zoneLockedPositions.TryGetValue(zoneKey, out var occupants))
+            {
+                return false;
+            }
+
+            foreach (var kvp in occupants)
+            {
+                if (ReferenceEquals(kvp.Key, binding))
+                {
+                    continue;
+                }
+
+                if ((kvp.Value - deskPosition).sqrMagnitude <= 0.0001f)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool CanPerformActionAtDesk(RoutineCharacterBinding binding, RoutineZoneAnchor zone)
+        {
+            if (binding == null || binding.actor == null || zone == null || !binding.hasLockedZonePosition)
+            {
+                return false;
+            }
+
+            var zoneKey = GetZoneReservationKey(zone);
+            if (string.IsNullOrWhiteSpace(zoneKey) || !string.Equals(binding.lockedZoneKey, zoneKey, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (!_zoneDeskPositions.TryGetValue(zoneKey, out var desks) || desks == null || desks.Count == 0)
+            {
+                return false;
+            }
+
+            var deskPosition = WithCharacterDepth(binding.lockedZonePosition);
+            if (!ContainsDeskPosition(desks, deskPosition) || !zone.Contains(deskPosition))
+            {
+                return false;
+            }
+
+            var actorPosition = WithCharacterDepth(binding.actor.position);
+            return (actorPosition - deskPosition).sqrMagnitude <= DeskActionArrivalThresholdSqr;
         }
 
         private static bool IsNeedAction(RoutineActionType action)
@@ -1070,12 +1197,106 @@ namespace ProjectW.IngameMvp
             }
 
             EnsureDashboardUiReferences();
+            EnsureInteractionReferences();
 
             EnsureDefaultCharactersExist();
             EnsureCharacterBindingsFromRoot();
             EnsureZoneWidthsForCharacterSeparation();
             Ensure2DWorldSetup();
+            EnsureZoneDesks();
             ApplyDepthLayout();
+        }
+
+        private void EnsureInteractionReferences()
+        {
+            if (interactionCamera == null)
+            {
+                interactionCamera = Camera.main;
+                if (interactionCamera == null)
+                {
+                    interactionCamera = FindFirstObjectByType<Camera>();
+                }
+            }
+
+            if (neuronPanelView == null)
+            {
+                neuronPanelView = FindFirstObjectByType<RoutineNeuronPanelView>();
+                if (neuronPanelView == null && Application.isPlaying)
+                {
+                    neuronPanelView = CreateRuntimeNeuronPanelView();
+                }
+            }
+
+            if (neuronPanelView != null)
+            {
+                neuronPanelView.Hide();
+            }
+        }
+
+        private RoutineNeuronPanelView CreateRuntimeNeuronPanelView()
+        {
+            var canvas = FindFirstObjectByType<Canvas>();
+            if (canvas == null)
+            {
+                return null;
+            }
+
+            var panelGo = new GameObject("RoutineNeuronPanel", typeof(RectTransform), typeof(Image), typeof(RoutineNeuronPanelView));
+            panelGo.transform.SetParent(canvas.transform, false);
+
+            var panelRect = (RectTransform)panelGo.transform;
+            panelRect.anchorMin = new Vector2(1f, 1f);
+            panelRect.anchorMax = new Vector2(1f, 1f);
+            panelRect.pivot = new Vector2(1f, 1f);
+            panelRect.anchoredPosition = new Vector2(-20f, -20f);
+            panelRect.sizeDelta = new Vector2(620f, 210f);
+
+            var panelImage = panelGo.GetComponent<Image>();
+            panelImage.color = new Color(0.04f, 0.08f, 0.14f, 0.86f);
+
+            var titleText = CreateNeuronPanelText(panelGo.transform, "TitleText", new Vector2(16f, -12f), 20);
+            var intentText = CreateNeuronPanelText(panelGo.transform, "IntentText", new Vector2(16f, -50f), 16);
+            var reasonText = CreateNeuronPanelText(panelGo.transform, "ReasonText", new Vector2(16f, -82f), 16);
+            var conditionText = CreateNeuronPanelText(panelGo.transform, "ConditionText", new Vector2(16f, -114f), 16);
+            var gaugeText = CreateNeuronPanelText(panelGo.transform, "GaugeText", new Vector2(16f, -146f), 16);
+            gaugeText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            gaugeText.verticalOverflow = VerticalWrapMode.Overflow;
+
+            var view = panelGo.GetComponent<RoutineNeuronPanelView>();
+            view.Configure(panelGo, titleText, intentText, reasonText, conditionText, gaugeText);
+            view.Hide();
+            return view;
+        }
+
+        private static Text CreateNeuronPanelText(Transform parent, string name, Vector2 anchoredPosition, int fontSize)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Text));
+            go.transform.SetParent(parent, false);
+
+            var rect = (RectTransform)go.transform;
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = anchoredPosition;
+            rect.sizeDelta = new Vector2(-24f, 28f);
+
+            var text = go.GetComponent<Text>();
+            try
+            {
+                text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            }
+            catch (ArgumentException)
+            {
+                text.font = null;
+            }
+
+            text.fontSize = fontSize;
+            text.alignment = TextAnchor.UpperLeft;
+            text.color = new Color(0.92f, 0.96f, 1f, 1f);
+            text.horizontalOverflow = HorizontalWrapMode.Overflow;
+            text.verticalOverflow = VerticalWrapMode.Truncate;
+            text.text = string.Empty;
+            return text;
         }
 
         private void EnsureZoneWidthsForCharacterSeparation()
@@ -1719,6 +1940,8 @@ namespace ProjectW.IngameMvp
                 EnsureSpriteRenderer(anchor.gameObject, color, Vector2.one, false);
                 EnsureZoneBoundary2D(anchor);
             }
+
+            EnsureZoneDesks();
         }
 
         private void Ensure2DCharacters()
@@ -1780,6 +2003,232 @@ namespace ProjectW.IngameMvp
             }
 
             anchor.RebindBoundaries();
+        }
+
+        private void EnsureZoneDesks()
+        {
+            var zones = GetManagedZones();
+            var validKeys = new HashSet<string>(StringComparer.Ordinal);
+            for (int i = 0; i < zones.Count; i++)
+            {
+                var zone = zones[i];
+                if (zone == null)
+                {
+                    continue;
+                }
+
+                var zoneKey = GetZoneReservationKey(zone);
+                if (string.IsNullOrWhiteSpace(zoneKey))
+                {
+                    continue;
+                }
+
+                validKeys.Add(zoneKey);
+                EnsureZoneDesks(zone, zoneKey);
+            }
+
+            var keys = new List<string>(_zoneDeskPositions.Keys);
+            for (int i = 0; i < keys.Count; i++)
+            {
+                if (!validKeys.Contains(keys[i]))
+                {
+                    _zoneDeskPositions.Remove(keys[i]);
+                }
+            }
+
+            var preferredKeys = new List<string>(_zonePreferredDeskPositions.Keys);
+            for (int i = 0; i < preferredKeys.Count; i++)
+            {
+                var zoneKey = preferredKeys[i];
+                if (!validKeys.Contains(zoneKey))
+                {
+                    _zonePreferredDeskPositions.Remove(zoneKey);
+                    continue;
+                }
+
+                if (!_zonePreferredDeskPositions.TryGetValue(zoneKey, out var preferredMap)
+                    || !_zoneDeskPositions.TryGetValue(zoneKey, out var desks)
+                    || preferredMap == null
+                    || desks == null)
+                {
+                    continue;
+                }
+
+                var bindings = new List<RoutineCharacterBinding>(preferredMap.Keys);
+                for (int j = 0; j < bindings.Count; j++)
+                {
+                    var binding = bindings[j];
+                    if (binding == null || binding.actor == null || !ContainsDeskPosition(desks, preferredMap[binding]))
+                    {
+                        preferredMap.Remove(binding);
+                    }
+                }
+
+                if (preferredMap.Count == 0)
+                {
+                    _zonePreferredDeskPositions.Remove(zoneKey);
+                }
+            }
+        }
+
+        private List<RoutineZoneAnchor> GetManagedZones()
+        {
+            var zones = new List<RoutineZoneAnchor>(3);
+            AddZoneIfMissing(zones, missionZone);
+            AddZoneIfMissing(zones, cafeteriaZone);
+            AddZoneIfMissing(zones, sleepZone);
+
+            for (int i = 0; i < _zoneAnchors.Count; i++)
+            {
+                AddZoneIfMissing(zones, _zoneAnchors[i]);
+            }
+
+            return zones;
+        }
+
+        private static void AddZoneIfMissing(List<RoutineZoneAnchor> zones, RoutineZoneAnchor zone)
+        {
+            if (zone == null || zones.Contains(zone))
+            {
+                return;
+            }
+
+            zones.Add(zone);
+        }
+
+        private void EnsureZoneDesks(RoutineZoneAnchor zone, string zoneKey)
+        {
+            var deskRoot = zone.transform.Find(DeskRootName);
+            if (deskRoot == null)
+            {
+                var rootGo = new GameObject(DeskRootName);
+                rootGo.transform.SetParent(zone.transform, false);
+                deskRoot = rootGo.transform;
+            }
+
+            var deskPositions = CollectDeskPositionsFromChildren(deskRoot);
+            if (deskPositions.Count == 0)
+            {
+                var deskCount = UnityEngine.Random.Range(Mathf.Max(1, minDeskCountPerZone), Mathf.Max(Mathf.Max(1, minDeskCountPerZone), maxDeskCountPerZone) + 1);
+                deskPositions = GenerateDeskPositions(zone, deskCount);
+                for (int i = 0; i < deskPositions.Count; i++)
+                {
+                    CreateDeskObject(deskRoot, i, deskPositions[i]);
+                }
+            }
+
+            for (int i = 0; i < deskPositions.Count; i++)
+            {
+                deskPositions[i] = WithCharacterDepth(deskPositions[i]);
+            }
+
+            _zoneDeskPositions[zoneKey] = deskPositions;
+        }
+
+        private List<Vector3> CollectDeskPositionsFromChildren(Transform deskRoot)
+        {
+            var deskPositions = new List<Vector3>();
+            for (int i = 0; i < deskRoot.childCount; i++)
+            {
+                var child = deskRoot.GetChild(i);
+                if (child == null)
+                {
+                    continue;
+                }
+
+                deskPositions.Add(WithCharacterDepth(child.position));
+                EnsureSpriteRenderer(child.gameObject, new Color(0.95f, 0.95f, 0.95f, 0.95f), deskVisualScale, true);
+            }
+
+            return deskPositions;
+        }
+
+        private List<Vector3> GenerateDeskPositions(RoutineZoneAnchor zone, int deskCount)
+        {
+            var desks = new List<Vector3>(Mathf.Max(1, deskCount));
+            var bounds = zone.GetComponent<BoxCollider2D>()?.bounds;
+            if (bounds == null)
+            {
+                desks.Add(WithCharacterDepth(zone.Position));
+                return desks;
+            }
+
+            var b = bounds.Value;
+            var inset = Mathf.Clamp(Mathf.Min(b.extents.x, b.extents.y) * deskInsetRatio, 0.02f, 0.4f);
+            var minX = b.min.x + inset;
+            var maxX = b.max.x - inset;
+            var minY = b.min.y + inset;
+            var maxY = b.max.y - inset;
+            if (minX > maxX)
+            {
+                minX = b.center.x;
+                maxX = b.center.x;
+            }
+
+            if (minY > maxY)
+            {
+                minY = b.center.y;
+                maxY = b.center.y;
+            }
+
+            var zoneWidth = Mathf.Max(0.001f, maxX - minX);
+            var zoneHeight = Mathf.Max(0.001f, maxY - minY);
+            var minDeskSpacing = Mathf.Max(0.06f, Mathf.Min(zoneWidth, zoneHeight) * deskMinSpacingRatio);
+            var minDeskSpacingSqr = minDeskSpacing * minDeskSpacing;
+            var attempts = Mathf.Max(24, deskCount * 24);
+
+            for (int i = 0; i < attempts && desks.Count < deskCount; i++)
+            {
+                var x = UnityEngine.Random.Range(minX, maxX);
+                var y = UnityEngine.Random.Range(minY, maxY);
+
+                var pos = WithCharacterDepth(new Vector3(x, y, characterDepthZ));
+                if (!zone.Contains(pos))
+                {
+                    continue;
+                }
+
+                var overlaps = false;
+                for (int j = 0; j < desks.Count; j++)
+                {
+                    if ((desks[j] - pos).sqrMagnitude < minDeskSpacingSqr)
+                    {
+                        overlaps = true;
+                        break;
+                    }
+                }
+
+                if (!overlaps)
+                {
+                    desks.Add(pos);
+                }
+            }
+
+            // Fallback: if random sampling couldn't place enough desks, fill remaining with center-biased samples.
+            for (int i = desks.Count; i < deskCount; i++)
+            {
+                var t = (i + 0.5f) / deskCount;
+                var x = Mathf.Lerp(minX, maxX, t);
+                var y = (i % 2 == 0) ? Mathf.Lerp(minY, maxY, 0.3f) : Mathf.Lerp(minY, maxY, 0.7f);
+                var pos = WithCharacterDepth(new Vector3(x, y, characterDepthZ));
+                if (!zone.Contains(pos))
+                {
+                    pos = WithCharacterDepth(zone.Position);
+                }
+
+                desks.Add(pos);
+            }
+
+            return desks;
+        }
+
+        private void CreateDeskObject(Transform deskRoot, int index, Vector3 worldPosition)
+        {
+            var deskGo = new GameObject(string.Format(CultureInfo.InvariantCulture, "Desk_{0:D2}", index + 1));
+            deskGo.transform.SetParent(deskRoot, false);
+            deskGo.transform.position = WithCharacterDepth(worldPosition);
+            deskGo.transform.localScale = new Vector3(Mathf.Abs(deskVisualScale.x), Mathf.Abs(deskVisualScale.y), 1f);
+            EnsureSpriteRenderer(deskGo, new Color(0.95f, 0.95f, 0.95f, 0.95f), deskVisualScale, true);
         }
 
         private void EnsureSpriteRenderer(GameObject go, Color color, Vector2 targetScale, bool opaque)
@@ -2109,7 +2558,7 @@ namespace ProjectW.IngameMvp
         }
         private void HandleCharacterSelectionInput()
         {
-            if (!Input.GetMouseButtonDown(0))
+            if (!TryGetPointerDownScreenPosition(out var pointerScreenPosition))
             {
                 return;
             }
@@ -2120,7 +2569,7 @@ namespace ProjectW.IngameMvp
                 return;
             }
 
-            var worldPoint = cameraToUse.ScreenToWorldPoint(Input.mousePosition);
+            var worldPoint = cameraToUse.ScreenToWorldPoint(new Vector3(pointerScreenPosition.x, pointerScreenPosition.y, Mathf.Abs(cameraToUse.transform.position.z)));
             var hit = Physics2D.OverlapPoint(new Vector2(worldPoint.x, worldPoint.y));
             if (hit == null)
             {
@@ -2145,6 +2594,114 @@ namespace ProjectW.IngameMvp
                 }
             }
         }
+
+        private static bool TryGetPointerDownScreenPosition(out Vector2 screenPosition)
+        {
+#if ENABLE_INPUT_SYSTEM
+            if (TryGetInputSystemPointerDownScreenPosition(out screenPosition))
+            {
+                return true;
+            }
+#endif
+
+#if ENABLE_LEGACY_INPUT_MANAGER
+            if (Input.GetMouseButtonDown(0))
+            {
+                screenPosition = Input.mousePosition;
+                return true;
+            }
+#endif
+
+            screenPosition = default;
+            return false;
+        }
+
+#if ENABLE_INPUT_SYSTEM
+        private static bool TryGetInputSystemPointerDownScreenPosition(out Vector2 screenPosition)
+        {
+            screenPosition = default;
+            var mouseType = Type.GetType("UnityEngine.InputSystem.Mouse, Unity.InputSystem");
+            if (mouseType != null)
+            {
+                var mouse = mouseType.GetProperty("current", BindingFlags.Public | BindingFlags.Static)?.GetValue(null);
+                if (mouse != null &&
+                    TryReadBoolProperty(TryReadProperty(mouse, "leftButton"), "wasPressedThisFrame", out var mousePressed) &&
+                    mousePressed &&
+                    TryReadVector2FromControl(mouse, "position", out screenPosition))
+                {
+                    return true;
+                }
+            }
+
+            var touchType = Type.GetType("UnityEngine.InputSystem.Touchscreen, Unity.InputSystem");
+            if (touchType == null)
+            {
+                return false;
+            }
+
+            var touchscreen = touchType.GetProperty("current", BindingFlags.Public | BindingFlags.Static)?.GetValue(null);
+            if (touchscreen == null)
+            {
+                return false;
+            }
+
+            var primaryTouch = TryReadProperty(touchscreen, "primaryTouch");
+            if (primaryTouch == null)
+            {
+                return false;
+            }
+
+            var pressControl = TryReadProperty(primaryTouch, "press");
+            if (!TryReadBoolProperty(pressControl, "wasPressedThisFrame", out var touchPressed) || !touchPressed)
+            {
+                return false;
+            }
+
+            return TryReadVector2FromControl(primaryTouch, "position", out screenPosition);
+        }
+
+        private static object TryReadProperty(object source, string propertyName)
+        {
+            return source?.GetType().GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance)?.GetValue(source);
+        }
+
+        private static bool TryReadBoolProperty(object source, string propertyName, out bool value)
+        {
+            value = false;
+            if (source == null)
+            {
+                return false;
+            }
+
+            var prop = source.GetType().GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance);
+            if (prop == null || prop.PropertyType != typeof(bool))
+            {
+                return false;
+            }
+
+            value = (bool)prop.GetValue(source);
+            return true;
+        }
+
+        private static bool TryReadVector2FromControl(object deviceOrTouch, string controlPropertyName, out Vector2 value)
+        {
+            value = default;
+            var control = TryReadProperty(deviceOrTouch, controlPropertyName);
+            if (control == null)
+            {
+                return false;
+            }
+
+            var readValueMethod = control.GetType().GetMethod("ReadValue", BindingFlags.Public | BindingFlags.Instance, null, Type.EmptyTypes, null);
+            if (readValueMethod == null || readValueMethod.ReturnType != typeof(Vector2))
+            {
+                return false;
+            }
+
+            value = (Vector2)readValueMethod.Invoke(control, null);
+            return true;
+        }
+#endif
 
         private void UpdateNeuronPanel()
         {

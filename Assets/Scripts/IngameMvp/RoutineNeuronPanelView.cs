@@ -12,6 +12,16 @@ namespace ProjectW.IngameMvp
         [SerializeField] private Text conditionText;
         [SerializeField] private Text gaugeText;
 
+        public void Configure(GameObject root, Text title, Text intent, Text reason, Text condition, Text gauge)
+        {
+            panelRoot = root;
+            titleText = title;
+            intentText = intent;
+            reasonText = reason;
+            conditionText = condition;
+            gaugeText = gauge;
+        }
+
         public void Render(RoutineNeuronPanelViewModel viewModel)
         {
             if (panelRoot != null)
