@@ -7,6 +7,7 @@ using System.Text;
 using UnityEngine;
 using ProjectW.IngameCore.Simulation;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 
 namespace ProjectW.IngameMvp
 {
@@ -95,12 +96,14 @@ namespace ProjectW.IngameMvp
         private const float DefaultZoneAlpha = 0.4f;
         private const float DeskActionArrivalThresholdSqr = 0.01f;
         private const string DeskRootName = "DeskSlots";
+        private const string ZoneObjectRootName = "ObjectSlots";
         private const string ZoneTagMission = "zone.mission";
         private const string ZoneTagNeedHunger = "need.hunger";
         private const string ZoneTagNeedSleep = "need.sleep";
         private const string JobZoneWork = "workzone";
         private const string JobZoneEat = "eatzone";
         private const string JobZoneSleep = "sleepzone";
+        private const string DefaultCharacterAnimatorControllerPath = "AnimatorControllers/routine_character_default";
 
         [Header("Tick")]
         [SerializeField] private bool autoRunOnStart = true;
@@ -117,11 +120,11 @@ namespace ProjectW.IngameMvp
         [SerializeField] private Transform charactersRoot;
 
         [Header("UI")]
-        [SerializeField] private Text currentTimeText;
         [SerializeField] private Text goalText;
         [SerializeField] private Text progressText;
         [SerializeField] private Text situationText;
         [SerializeField] private RoutineNeuronPanelView neuronPanelView;
+        [SerializeField] private RoutineObjectInfoPanelView objectInfoPanelView;
         [SerializeField] private Camera interactionCamera;
 
         [Header("Dashboard")]
@@ -131,6 +134,11 @@ namespace ProjectW.IngameMvp
 
         [Header("Characters")]
         [SerializeField] private List<RoutineCharacterBinding> characters = new List<RoutineCharacterBinding>();
+
+        [Header("Visual Resources")]
+        [SerializeField] private RoutineVisualResourceSet visualResources = new RoutineVisualResourceSet();
+        [SerializeField] private RuntimeAnimatorController characterAnimatorController;
+        [SerializeField, Min(0.5f)] private float zoneSpriteAnimationFps = 4f;
 
         [Header("Generation")]
         [SerializeField] private bool persistGeneratedObjectsInScene = true;
@@ -145,7 +153,8 @@ namespace ProjectW.IngameMvp
         [SerializeField, Min(1)] private int maxDeskCountPerZone = 5;
         [SerializeField, Range(0.02f, 0.45f)] private float deskInsetRatio = 0.14f;
         [SerializeField, Range(0.08f, 0.9f)] private float deskMinSpacingRatio = 0.7f;
-        [SerializeField] private Vector2 deskVisualScale = new Vector2(0.16f, 0.09f);
+        [SerializeField] private Vector2 deskVisualScale = new Vector2(0.14f, 0.14f);
+        [SerializeField] private Vector2 objectVisualScale = new Vector2(0.11f, 0.11f);
         [SerializeField, Min(0.5f)] private float minimumCharacterSeparation = 0.5f;
         [SerializeField] private bool autoExpandZoneWidthForSeparation = true;
 
@@ -155,7 +164,7 @@ namespace ProjectW.IngameMvp
         [SerializeField] private float characterDepthZ = -1f;
 
         [Header("Debug View")]
-        [SerializeField] private bool showDebugOnGui = true;
+        [SerializeField] private bool showDebugOnGui = false;
         [SerializeField] private Vector2 debugPanelPosition = new Vector2(16f, 16f);
         [SerializeField] private Vector2 debugPanelSize = new Vector2(430f, 240f);
 
@@ -176,6 +185,16 @@ namespace ProjectW.IngameMvp
         private readonly Dictionary<RoutineActionType, NeedRequirement> _actionJobRequirements = new Dictionary<RoutineActionType, NeedRequirement>();
         private readonly List<WorldItem> _officeItems = new List<WorldItem>();
         private RoutineCharacterBinding _selectedCharacter;
+        private RoutineCharacterBinding _pinnedNeuronCharacter;
+        private RoutineInspectableWorldObject _selectedWorldObject;
+        private PanelKind _lastOpenedPanel = PanelKind.None;
+
+        private enum PanelKind
+        {
+            None,
+            Neuron,
+            Object
+        }
 
         public IReadOnlyList<RoutineCharacterBinding> Characters => characters;
         public int AbsoluteTick => _absoluteTick;
@@ -207,8 +226,26 @@ namespace ProjectW.IngameMvp
         private void Awake()
         {
             Application.runInBackground = true;
+            showDebugOnGui = false;
             AutoBindSceneReferences();
+            visualResources?.EnsureLoadedFromResources();
+            EnsureCharacterAnimatorControllerLoaded();
             EnsureOfficeItemsAndJobBindings();
+        }
+
+
+        private void EnsureCharacterAnimatorControllerLoaded()
+        {
+            if (characterAnimatorController != null)
+            {
+                return;
+            }
+
+            characterAnimatorController = Resources.Load<RuntimeAnimatorController>(DefaultCharacterAnimatorControllerPath);
+            if (characterAnimatorController == null)
+            {
+                Debug.LogWarning("[RoutineMVP] Character animator controller missing. Generate one via: ProjectW/Animation/Create Default Character Animator Controller");
+            }
         }
 
         private void OnApplicationFocus(bool hasFocus)
@@ -250,6 +287,7 @@ namespace ProjectW.IngameMvp
         private void Update()
         {
             HandleCharacterSelectionInput();
+            HandleObjectInfoCloseInput();
             for (int i = 0; i < characters.Count; i++)
             {
                 var binding = characters[i];
@@ -268,6 +306,7 @@ namespace ProjectW.IngameMvp
                     binding.targetPosition,
                     binding.moveSpeed * Time.deltaTime);
                 binding.actor.position = WithCharacterDepth(binding.actor.position);
+                UpdateCharacterAnimator(binding);
                 UpdateTargetLineVisual(binding, i);
             }
         }
@@ -464,20 +503,10 @@ namespace ProjectW.IngameMvp
             }
 
             string timeText = BuildTimeText(dayIndex, halfDayIndex, tickInHalfDay, totalMinutes);
-            if (currentTimeText != null)
-            {
-                currentTimeText.text = timeText;
-            }
-
             UpdateDashboardUi(dayIndex, halfDayIndex, tickInHalfDay, timeText);
             UpdateNeuronPanel();
-            Debug.Log(string.Format(
-                CultureInfo.InvariantCulture,
-                "[RoutineMVP] {0} | Goal:{1:0}% ({2}/{3})",
-                timeText,
-                GetMissionProgressRatio() * 100f,
-                GetTotalMissionTicks(),
-                Mathf.Max(1, dashboardMissionGoalTicks)));
+            UpdateObjectInfoPanel();
+            // Tick log intentionally disabled to reduce console noise.
 
             return new RoutineTickSnapshot
             {
@@ -1198,12 +1227,6 @@ namespace ProjectW.IngameMvp
                 charactersRoot = go != null ? go.transform : null;
             }
 
-            if (currentTimeText == null)
-            {
-                var go = GameObject.Find("CurrentTimeText");
-                currentTimeText = go != null ? go.GetComponent<Text>() : null;
-            }
-
             EnsureDashboardUiReferences();
             EnsureInteractionReferences();
 
@@ -1239,15 +1262,25 @@ namespace ProjectW.IngameMvp
             {
                 neuronPanelView.Hide();
             }
+
+            if (objectInfoPanelView == null)
+            {
+                objectInfoPanelView = FindFirstObjectByType<RoutineObjectInfoPanelView>();
+                if (objectInfoPanelView == null && Application.isPlaying)
+                {
+                    objectInfoPanelView = CreateRuntimeObjectInfoPanelView();
+                }
+            }
+
+            if (objectInfoPanelView != null)
+            {
+                objectInfoPanelView.Hide();
+            }
         }
 
         private RoutineNeuronPanelView CreateRuntimeNeuronPanelView()
         {
-            var canvas = FindFirstObjectByType<Canvas>();
-            if (canvas == null)
-            {
-                return null;
-            }
+            var canvas = EnsureSharedMvpCanvas();
 
             var panelGo = new GameObject("RoutineNeuronPanel", typeof(RectTransform), typeof(Image), typeof(RoutineNeuronPanelView));
             panelGo.transform.SetParent(canvas.transform, false);
@@ -1270,10 +1303,177 @@ namespace ProjectW.IngameMvp
             gaugeText.horizontalOverflow = HorizontalWrapMode.Wrap;
             gaugeText.verticalOverflow = VerticalWrapMode.Overflow;
 
+            var closeButtonGo = new GameObject("CloseButton", typeof(RectTransform), typeof(Image), typeof(Button));
+            closeButtonGo.transform.SetParent(panelGo.transform, false);
+            var closeRect = (RectTransform)closeButtonGo.transform;
+            closeRect.anchorMin = new Vector2(1f, 1f);
+            closeRect.anchorMax = new Vector2(1f, 1f);
+            closeRect.pivot = new Vector2(1f, 1f);
+            closeRect.anchoredPosition = new Vector2(-8f, -8f);
+            closeRect.sizeDelta = new Vector2(28f, 28f);
+            var closeImage = closeButtonGo.GetComponent<Image>();
+            closeImage.color = new Color(0.72f, 0.20f, 0.20f, 0.94f);
+            var closeLabel = CreateNeuronPanelText(closeButtonGo.transform, "Label", new Vector2(0f, -2f), 18);
+            closeLabel.alignment = TextAnchor.MiddleCenter;
+            closeLabel.text = "X";
+            closeLabel.color = Color.white;
+            closeLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
+            closeLabel.verticalOverflow = VerticalWrapMode.Overflow;
+            var closeLabelRect = closeLabel.rectTransform;
+            closeLabelRect.anchorMin = Vector2.zero;
+            closeLabelRect.anchorMax = Vector2.one;
+            closeLabelRect.pivot = new Vector2(0.5f, 0.5f);
+            closeLabelRect.anchoredPosition = Vector2.zero;
+            closeLabelRect.sizeDelta = Vector2.zero;
+            closeButtonGo.GetComponent<Button>().onClick.AddListener(CloseNeuronPanel);
+
             var view = panelGo.GetComponent<RoutineNeuronPanelView>();
             view.Configure(panelGo, titleText, intentText, reasonText, conditionText, gaugeText);
             view.Hide();
             return view;
+        }
+
+        private RoutineObjectInfoPanelView CreateRuntimeObjectInfoPanelView()
+        {
+            var canvas = EnsureSharedMvpCanvas();
+
+            var panelGo = new GameObject("RoutineObjectInfoPanel", typeof(RectTransform), typeof(Image), typeof(RoutineObjectInfoPanelView));
+            panelGo.transform.SetParent(canvas.transform, false);
+
+            var panelRect = (RectTransform)panelGo.transform;
+            panelRect.anchorMin = new Vector2(0f, 1f);
+            panelRect.anchorMax = new Vector2(0f, 1f);
+            panelRect.pivot = new Vector2(0f, 1f);
+            panelRect.anchoredPosition = new Vector2(20f, -20f);
+            panelRect.sizeDelta = new Vector2(440f, 140f);
+
+            var panelImage = panelGo.GetComponent<Image>();
+            panelImage.color = new Color(0.12f, 0.10f, 0.06f, 0.86f);
+
+            var titleText = CreateNeuronPanelText(panelGo.transform, "TitleText", new Vector2(14f, -12f), 19);
+            var bodyText = CreateNeuronPanelText(panelGo.transform, "BodyText", new Vector2(14f, -48f), 15);
+            bodyText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            bodyText.verticalOverflow = VerticalWrapMode.Overflow;
+
+            var closeButtonGo = new GameObject("CloseButton", typeof(RectTransform), typeof(Image), typeof(Button));
+            closeButtonGo.transform.SetParent(panelGo.transform, false);
+            var closeRect = (RectTransform)closeButtonGo.transform;
+            closeRect.anchorMin = new Vector2(1f, 1f);
+            closeRect.anchorMax = new Vector2(1f, 1f);
+            closeRect.pivot = new Vector2(1f, 1f);
+            closeRect.anchoredPosition = new Vector2(-8f, -8f);
+            closeRect.sizeDelta = new Vector2(28f, 28f);
+            var closeImage = closeButtonGo.GetComponent<Image>();
+            closeImage.color = new Color(0.72f, 0.20f, 0.20f, 0.94f);
+            var closeLabel = CreateNeuronPanelText(closeButtonGo.transform, "Label", new Vector2(0f, -2f), 18);
+            closeLabel.alignment = TextAnchor.MiddleCenter;
+            closeLabel.text = "X";
+            closeLabel.color = Color.white;
+            closeLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
+            closeLabel.verticalOverflow = VerticalWrapMode.Overflow;
+            var closeLabelRect = closeLabel.rectTransform;
+            closeLabelRect.anchorMin = Vector2.zero;
+            closeLabelRect.anchorMax = Vector2.one;
+            closeLabelRect.pivot = new Vector2(0.5f, 0.5f);
+            closeLabelRect.anchoredPosition = Vector2.zero;
+            closeLabelRect.sizeDelta = Vector2.zero;
+            closeButtonGo.GetComponent<Button>().onClick.AddListener(CloseObjectInfoPanel);
+
+            var view = panelGo.GetComponent<RoutineObjectInfoPanelView>();
+            view.Configure(panelGo, titleText, bodyText);
+            view.Hide();
+            return view;
+        }
+
+        private Canvas EnsureSharedMvpCanvas()
+        {
+            var existing = GameObject.Find("MvpCanvas");
+            if (existing == null)
+            {
+                var anyCanvas = FindFirstObjectByType<Canvas>();
+                if (anyCanvas != null)
+                {
+                    existing = anyCanvas.gameObject;
+                }
+            }
+
+            if (existing != null)
+            {
+                var existingCanvas = existing.GetComponent<Canvas>();
+                if (existingCanvas != null)
+                {
+                    var existingCamera = Camera.main != null ? Camera.main : FindFirstObjectByType<Camera>();
+                    existingCanvas.renderMode = RenderMode.ScreenSpaceCamera;
+                    existingCanvas.worldCamera = existingCamera;
+                    existingCanvas.planeDistance = 5f;
+                    if (existingCanvas.GetComponent<GraphicRaycaster>() == null)
+                    {
+                        existingCanvas.gameObject.AddComponent<GraphicRaycaster>();
+                    }
+
+                    if (existingCanvas.GetComponent<CanvasScaler>() == null)
+                    {
+                        existingCanvas.gameObject.AddComponent<CanvasScaler>();
+                    }
+
+                    EnsureEventSystemExists();
+                    return existingCanvas;
+                }
+            }
+
+            var canvasGo = new GameObject("MvpCanvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+            var canvas = canvasGo.GetComponent<Canvas>();
+            var uiCamera = Camera.main != null ? Camera.main : FindFirstObjectByType<Camera>();
+            canvas.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas.worldCamera = uiCamera;
+            canvas.planeDistance = 5f;
+
+            var scaler = canvasGo.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.matchWidthOrHeight = 0.5f;
+            EnsureEventSystemExists();
+            return canvas;
+        }
+
+        private static void EnsureEventSystemExists()
+        {
+            var eventSystem = EventSystem.current;
+            if (eventSystem == null)
+            {
+                var go = new GameObject("EventSystem", typeof(EventSystem));
+                eventSystem = go.GetComponent<EventSystem>();
+            }
+
+            if (eventSystem == null)
+            {
+                return;
+            }
+
+            var eventGo = eventSystem.gameObject;
+#if ENABLE_INPUT_SYSTEM
+            var inputSystemModuleType = Type.GetType("UnityEngine.InputSystem.UI.InputSystemUIInputModule, Unity.InputSystem");
+            if (inputSystemModuleType != null)
+            {
+                var standalone = eventGo.GetComponent<StandaloneInputModule>();
+                if (standalone != null)
+                {
+                    if (Application.isPlaying) Destroy(standalone);
+                    else DestroyImmediate(standalone);
+                }
+
+                if (eventGo.GetComponent(inputSystemModuleType) == null)
+                {
+                    eventGo.AddComponent(inputSystemModuleType);
+                }
+
+                return;
+            }
+#endif
+            if (eventGo.GetComponent<StandaloneInputModule>() == null)
+            {
+                eventGo.AddComponent<StandaloneInputModule>();
+            }
         }
 
         private static Text CreateNeuronPanelText(Transform parent, string name, Vector2 anchoredPosition, int fontSize)
@@ -1712,6 +1912,9 @@ namespace ProjectW.IngameMvp
                 zoneScale.y = 0.5f;
             }
 
+            deskVisualScale = new Vector2(0.14f, 0.14f);
+            objectVisualScale = new Vector2(0.11f, 0.11f);
+
             EnsureMainCamera2D();
 
             DestroyIfExists("Zones");
@@ -1753,7 +1956,6 @@ namespace ProjectW.IngameMvp
             CreateCharacter2D(charactersRoot, "Character_C", new Vector2(1.2f, 0f), new Color(1f, 0.7f, 0.25f, 1f));
 
             characters.Clear();
-            currentTimeText = null;
             goalText = null;
             progressText = null;
             situationText = null;
@@ -1870,87 +2072,6 @@ namespace ProjectW.IngameMvp
             EnsureSpriteRenderer(bar, color, Vector2.one, true);
         }
 
-        private void BuildDashboardCanvas2D()
-        {
-            var canvas = FindFirstObjectByType<Canvas>();
-            GameObject canvasGo;
-            if (canvas == null)
-            {
-                canvasGo = new GameObject("MvpDashboardCanvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-                canvas = canvasGo.GetComponent<Canvas>();
-            }
-            else
-            {
-                canvasGo = canvas.gameObject;
-                if (canvasGo.GetComponent<CanvasScaler>() == null)
-                {
-                    canvasGo.AddComponent<CanvasScaler>();
-                }
-
-                if (canvasGo.GetComponent<GraphicRaycaster>() == null)
-                {
-                    canvasGo.AddComponent<GraphicRaycaster>();
-                }
-            }
-
-            canvas.renderMode = RenderMode.ScreenSpaceCamera;
-            canvas.worldCamera = Camera.main;
-            canvas.planeDistance = 5f;
-            var scaler = canvasGo.GetComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
-
-            currentTimeText = EnsureDashboardText(canvasGo.transform, "CurrentTimeText", new Vector2(24f, -24f), 40, "Day 1 | 06:00");
-            goalText = EnsureDashboardText(canvasGo.transform, "GoalText", new Vector2(24f, -82f), 30, "Goal: Routine Stability");
-            progressText = EnsureDashboardText(canvasGo.transform, "ProgressText", new Vector2(24f, -126f), 28, "Progress: 0%");
-            situationText = EnsureDashboardText(canvasGo.transform, "SituationText", new Vector2(24f, -170f), 24, "Situation: Initialized");
-            situationText.horizontalOverflow = HorizontalWrapMode.Wrap;
-            situationText.verticalOverflow = VerticalWrapMode.Overflow;
-        }
-
-        private static Text EnsureDashboardText(Transform parent, string name, Vector2 anchorPos, int fontSize, string initialText)
-        {
-            var existing = parent.Find(name);
-            GameObject textGo;
-            if (existing == null)
-            {
-                textGo = new GameObject(name, typeof(RectTransform), typeof(Text));
-                textGo.transform.SetParent(parent, false);
-            }
-            else
-            {
-                textGo = existing.gameObject;
-                if (textGo.GetComponent<Text>() == null)
-                {
-                    textGo.AddComponent<Text>();
-                }
-            }
-
-            var rect = (RectTransform)textGo.transform;
-            rect.anchorMin = new Vector2(0f, 1f);
-            rect.anchorMax = new Vector2(0f, 1f);
-            rect.pivot = new Vector2(0f, 1f);
-            rect.anchoredPosition = anchorPos;
-            rect.sizeDelta = new Vector2(1200f, 44f);
-
-            var text = textGo.GetComponent<Text>();
-            try
-            {
-                text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            }
-            catch (ArgumentException)
-            {
-                text.font = null;
-            }
-            text.fontSize = fontSize;
-            text.alignment = TextAnchor.UpperLeft;
-            text.color = new Color(0.94f, 0.97f, 1f, 1f);
-            text.horizontalOverflow = HorizontalWrapMode.Overflow;
-            text.verticalOverflow = VerticalWrapMode.Truncate;
-            text.text = initialText;
-            return text;
-        }
-
         private static void DestroyIfExists(string objectName)
         {
             var go = GameObject.Find(objectName);
@@ -1992,11 +2113,15 @@ namespace ProjectW.IngameMvp
 
                 var color = ReadRendererColor(anchor.GetComponent<Renderer>(), new Color(0.9f, 0.2f, 0.2f, DefaultZoneAlpha));
                 color.a = DefaultZoneAlpha;
-                EnsureSpriteRenderer(anchor.gameObject, color, Vector2.one, false);
+                var zoneSprite = visualResources != null ? visualResources.ResolveZoneSprite(anchor.ZoneId) : null;
+                EnsureSpriteRenderer(anchor.gameObject, color, Vector2.one, false, zoneSprite);
+                var zoneFrames = visualResources != null ? visualResources.ResolveZoneAnimationFrames(anchor.ZoneId) : null;
+                EnsureObjectSpriteAnimation(anchor.gameObject, zoneFrames, zoneSpriteAnimationFps);
                 EnsureZoneBoundary2D(anchor);
             }
 
             EnsureZoneDesks();
+            EnsureZoneObjects();
         }
 
         private void Ensure2DCharacters()
@@ -2012,8 +2137,83 @@ namespace ProjectW.IngameMvp
                 var actorGo = binding.actor.gameObject;
                 actorGo.transform.localScale = new Vector3(DefaultCharacterSpriteSize, DefaultCharacterSpriteSize, 1f);
                 var color = ReadRendererColor(actorGo.GetComponent<Renderer>(), GetLineColor(i));
-                EnsureSpriteRenderer(actorGo, color, new Vector2(DefaultCharacterSpriteSize, DefaultCharacterSpriteSize), true);
+                var actorSprite = visualResources != null ? visualResources.ResolveCharacterSprite(binding.actor.name, i) : null;
+                EnsureSpriteRenderer(actorGo, color, new Vector2(DefaultCharacterSpriteSize, DefaultCharacterSpriteSize), true, actorSprite);
+                EnsureCharacterAnimator(binding.actor.gameObject);
                 EnsureGaugeBarsAre2D(binding.actor);
+            }
+        }
+
+
+        private void EnsureCharacterAnimator(GameObject go)
+        {
+            if (go == null)
+            {
+                return;
+            }
+
+            var animator = go.GetComponent<Animator>();
+            if (animator == null)
+            {
+                animator = go.AddComponent<Animator>();
+            }
+
+            if (characterAnimatorController != null && animator.runtimeAnimatorController != characterAnimatorController)
+            {
+                animator.runtimeAnimatorController = characterAnimatorController;
+            }
+
+            if (go.GetComponent<RoutineCharacterAnimatorDriver>() == null)
+            {
+                go.AddComponent<RoutineCharacterAnimatorDriver>();
+            }
+        }
+
+        private void EnsureObjectSpriteAnimation(GameObject go, Sprite[] frames, float fps)
+        {
+            if (go == null)
+            {
+                return;
+            }
+
+            if (frames == null || frames.Length <= 1)
+            {
+                return;
+            }
+
+            var player = go.GetComponent<RoutineObjectSpriteAnimationPlayer>();
+            if (player == null)
+            {
+                player = go.AddComponent<RoutineObjectSpriteAnimationPlayer>();
+            }
+
+            player.Configure(frames, fps);
+        }
+
+        private static void UpdateCharacterAnimator(RoutineCharacterBinding binding)
+        {
+            if (binding.actor == null)
+            {
+                return;
+            }
+
+            var driver = binding.actor.GetComponent<RoutineCharacterAnimatorDriver>();
+            if (driver == null)
+            {
+                return;
+            }
+
+            var position = binding.actor.position;
+            var delta = binding.targetPosition - position;
+            var isMoving = delta.sqrMagnitude > 0.0001f;
+            var speed = isMoving ? binding.moveSpeed : 0f;
+            driver.ApplyState(binding.currentAction, binding.intendedAction, isMoving, speed, delta.x);
+
+            if (isMoving && Mathf.Abs(delta.x) > 0.0001f)
+            {
+                var scale = binding.actor.localScale;
+                scale.x = Mathf.Abs(scale.x) * Mathf.Sign(delta.x);
+                binding.actor.localScale = scale;
             }
         }
 
@@ -2058,6 +2258,234 @@ namespace ProjectW.IngameMvp
             }
 
             anchor.RebindBoundaries();
+        }
+
+        private void EnsureZoneObjects()
+        {
+            var zones = GetManagedZones();
+            for (int i = 0; i < zones.Count; i++)
+            {
+                EnsureZoneObjects(zones[i]);
+            }
+        }
+
+        private void EnsureZoneObjects(RoutineZoneAnchor zone)
+        {
+            if (zone == null)
+            {
+                return;
+            }
+
+            var objectRoot = zone.transform.Find(ZoneObjectRootName);
+            if (objectRoot == null)
+            {
+                var rootGo = new GameObject(ZoneObjectRootName);
+                rootGo.transform.SetParent(zone.transform, false);
+                objectRoot = rootGo.transform;
+            }
+
+            var activeNames = new HashSet<string>(StringComparer.Ordinal);
+
+            if (zone.HasTag(ZoneTagMission))
+            {
+                EnsureMissionZoneFurniture(zone, objectRoot, activeNames);
+            }
+            else if (zone.HasTag(ZoneTagNeedHunger))
+            {
+                EnsureCafeteriaZoneFurniture(zone, objectRoot, activeNames);
+            }
+            else if (zone.HasTag(ZoneTagNeedSleep))
+            {
+                EnsureSleepZoneFurniture(zone, objectRoot, activeNames);
+            }
+
+            for (int i = 0; i < objectRoot.childCount; i++)
+            {
+                var child = objectRoot.GetChild(i);
+                if (child == null)
+                {
+                    continue;
+                }
+
+                child.gameObject.SetActive(activeNames.Contains(child.name));
+            }
+        }
+
+        private void EnsureMissionZoneFurniture(RoutineZoneAnchor zone, Transform objectRoot, HashSet<string> activeNames)
+        {
+            var zoneKey = GetZoneReservationKey(zone);
+            if (!_zoneDeskPositions.TryGetValue(zoneKey, out var desks) || desks == null || desks.Count == 0)
+            {
+                EnsureZoneDesks(zone, zoneKey);
+                _zoneDeskPositions.TryGetValue(zoneKey, out desks);
+            }
+
+            if (desks == null || desks.Count == 0)
+            {
+                return;
+            }
+
+            for (int i = 0; i < desks.Count; i++)
+            {
+                var deskPos = WithCharacterDepth(desks[i]);
+                var deskName = string.Format(CultureInfo.InvariantCulture, "DeskSet_{0:D2}", i + 1);
+                CreateFurnitureObject(objectRoot, deskName, deskPos, "desk", deskVisualScale, zoneKey, "mission-desk", activeNames);
+
+                var jitter = (i % 2 == 0 ? -0.02f : 0.02f);
+                var computerPos = deskPos + new Vector3(-0.03f + jitter, 0.055f, 0f);
+                var cupPos = deskPos + new Vector3(0.04f + jitter, 0.055f, 0f);
+                CreateFurnitureObject(objectRoot, deskName + "_Computer", computerPos, "computer", objectVisualScale * 0.95f, zoneKey, "desk-top", activeNames);
+                CreateFurnitureObject(objectRoot, deskName + "_Cup", cupPos, "cup", objectVisualScale * 0.7f, zoneKey, "desk-top", activeNames);
+
+                var slot = zone.transform.Find(DeskRootName + "/" + string.Format(CultureInfo.InvariantCulture, "Desk_{0:D2}", i + 1));
+                if (slot != null)
+                {
+                    var renderer = slot.GetComponent<SpriteRenderer>();
+                    if (renderer != null)
+                    {
+                        renderer.enabled = false;
+                    }
+
+                    var collider = slot.GetComponent<Collider2D>();
+                    if (collider != null)
+                    {
+                        collider.enabled = false;
+                    }
+                }
+            }
+        }
+
+        private void EnsureCafeteriaZoneFurniture(RoutineZoneAnchor zone, Transform objectRoot, HashSet<string> activeNames)
+        {
+            var zoneKey = GetZoneReservationKey(zone);
+            var tableCount = Mathf.Clamp(Mathf.Max(2, characters.Count), 2, 5);
+            var tablePositions = GenerateScatteredPositions(zone, tableCount, 0.20f);
+            for (int i = 0; i < tablePositions.Count; i++)
+            {
+                var tableName = string.Format(CultureInfo.InvariantCulture, "TableSet_{0:D2}", i + 1);
+                var tablePos = tablePositions[i];
+                CreateFurnitureObject(objectRoot, tableName, tablePos, "table", objectVisualScale * 1.25f, zoneKey, "cafeteria-table", activeNames);
+
+                CreateFurnitureObject(objectRoot, tableName + "_Tray", tablePos + new Vector3(-0.03f, 0.05f, 0f), "tray", objectVisualScale * 0.75f, zoneKey, "table-top", activeNames);
+                CreateFurnitureObject(objectRoot, tableName + "_Cup", tablePos + new Vector3(0.03f, 0.05f, 0f), "cup", objectVisualScale * 0.6f, zoneKey, "table-top", activeNames);
+            }
+        }
+
+        private void EnsureSleepZoneFurniture(RoutineZoneAnchor zone, Transform objectRoot, HashSet<string> activeNames)
+        {
+            var zoneKey = GetZoneReservationKey(zone);
+            var bedCount = Mathf.Clamp(Mathf.Max(1, (characters.Count + 1) / 2), 1, 3);
+            var bedPositions = GenerateScatteredPositions(zone, bedCount, 0.24f);
+            var bedScale = new Vector2(objectVisualScale.x * 1.55f, objectVisualScale.y * 1.25f);
+
+            for (int i = 0; i < bedPositions.Count; i++)
+            {
+                var bedName = string.Format(CultureInfo.InvariantCulture, "BedSet_{0:D2}", i + 1);
+                var bedPos = bedPositions[i];
+                CreateFurnitureObject(objectRoot, bedName, bedPos, "bed", bedScale, zoneKey, "sleep-set", activeNames);
+                CreateFurnitureObject(objectRoot, bedName + "_Pillow", bedPos + new Vector3(-0.04f, 0.05f, 0f), "pillow", objectVisualScale * 0.85f, zoneKey, "bed-top", activeNames);
+                CreateFurnitureObject(objectRoot, bedName + "_Blanket", bedPos + new Vector3(0.03f, 0.02f, 0f), "blanket", objectVisualScale * 1.1f, zoneKey, "bed-top", activeNames);
+            }
+        }
+
+        private List<Vector3> GenerateScatteredPositions(RoutineZoneAnchor zone, int count, float insetRatio)
+        {
+            var result = new List<Vector3>(Mathf.Max(1, count));
+            count = Mathf.Max(1, count);
+            var bounds = zone.GetComponent<BoxCollider2D>()?.bounds;
+            if (bounds == null)
+            {
+                result.Add(WithCharacterDepth(zone.Position));
+                return result;
+            }
+
+            var b = bounds.Value;
+            var inset = Mathf.Clamp(Mathf.Min(b.extents.x, b.extents.y) * insetRatio, 0.06f, 0.45f);
+            var minX = b.min.x + inset;
+            var maxX = b.max.x - inset;
+            var minY = b.min.y + inset;
+            var maxY = b.max.y - inset;
+
+            var minSpacing = Mathf.Max(0.12f, Mathf.Min(maxX - minX, maxY - minY) * 0.25f);
+            var minSpacingSqr = minSpacing * minSpacing;
+            var rng = new System.Random(zone.GetInstanceID() ^ (count * 397));
+            var attempts = count * 30;
+
+            for (int i = 0; i < attempts && result.Count < count; i++)
+            {
+                var x = Mathf.Lerp(minX, maxX, (float)rng.NextDouble());
+                var y = Mathf.Lerp(minY, maxY, (float)rng.NextDouble());
+                var candidate = WithCharacterDepth(new Vector3(x, y, characterDepthZ));
+                if (!zone.Contains(candidate))
+                {
+                    continue;
+                }
+
+                var overlaps = false;
+                for (int j = 0; j < result.Count; j++)
+                {
+                    if ((result[j] - candidate).sqrMagnitude < minSpacingSqr)
+                    {
+                        overlaps = true;
+                        break;
+                    }
+                }
+
+                if (!overlaps)
+                {
+                    result.Add(candidate);
+                }
+            }
+
+            while (result.Count < count)
+            {
+                var t = (result.Count + 0.5f) / count;
+                var x = Mathf.Lerp(minX, maxX, t);
+                var y = Mathf.Lerp(minY, maxY, 0.5f);
+                result.Add(WithCharacterDepth(new Vector3(x, y, characterDepthZ)));
+            }
+
+            return result;
+        }
+
+        private GameObject CreateFurnitureObject(
+            Transform parent,
+            string objectName,
+            Vector3 worldPosition,
+            string tag,
+            Vector2 scale,
+            string zoneKey,
+            string detail,
+            HashSet<string> activeNames)
+        {
+            var existing = parent.Find(objectName);
+            var go = existing != null ? existing.gameObject : new GameObject(objectName);
+            if (existing == null)
+            {
+                go.transform.SetParent(parent, false);
+            }
+
+            go.transform.position = WithCharacterDepth(worldPosition);
+            go.transform.localScale = new Vector3(Mathf.Abs(scale.x), Mathf.Abs(scale.y), 1f);
+            go.SetActive(true);
+            activeNames?.Add(objectName);
+            var sprite = visualResources != null ? visualResources.ResolveItemSprite(tag) : null;
+            EnsureSpriteRenderer(go, ResolveObjectColor(tag), scale, true, sprite);
+            EnsureClickableObjectCollider(go, scale);
+            EnsureInspectableWorldObject(go, objectName, zoneKey, tag, detail);
+            return go;
+        }
+
+        private static Color ResolveObjectColor(string tag)
+        {
+            if (string.Equals(tag, "bed", StringComparison.OrdinalIgnoreCase)) return new Color(0.73f, 0.88f, 1f, 1f);
+            if (string.Equals(tag, "pillow", StringComparison.OrdinalIgnoreCase)) return new Color(0.93f, 0.93f, 0.98f, 1f);
+            if (string.Equals(tag, "blanket", StringComparison.OrdinalIgnoreCase)) return new Color(0.54f, 0.76f, 0.94f, 1f);
+            if (string.Equals(tag, "table", StringComparison.OrdinalIgnoreCase)) return new Color(0.86f, 0.69f, 0.46f, 1f);
+            if (string.Equals(tag, "tray", StringComparison.OrdinalIgnoreCase)) return new Color(0.98f, 0.82f, 0.38f, 1f);
+            if (string.Equals(tag, "cup", StringComparison.OrdinalIgnoreCase)) return new Color(0.95f, 0.94f, 0.9f, 1f);
+            if (string.Equals(tag, "computer", StringComparison.OrdinalIgnoreCase)) return new Color(0.66f, 0.74f, 0.82f, 1f);
+            return new Color(0.86f, 0.86f, 0.86f, 1f);
         }
 
         private void EnsureZoneDesks()
@@ -2161,14 +2589,14 @@ namespace ProjectW.IngameMvp
                 deskRoot = rootGo.transform;
             }
 
-            var deskPositions = CollectDeskPositionsFromChildren(deskRoot);
+            var deskPositions = CollectDeskPositionsFromChildren(deskRoot, zoneKey);
             if (deskPositions.Count == 0)
             {
                 var deskCount = UnityEngine.Random.Range(Mathf.Max(1, minDeskCountPerZone), Mathf.Max(Mathf.Max(1, minDeskCountPerZone), maxDeskCountPerZone) + 1);
                 deskPositions = GenerateDeskPositions(zone, deskCount);
                 for (int i = 0; i < deskPositions.Count; i++)
                 {
-                    CreateDeskObject(deskRoot, i, deskPositions[i]);
+                    CreateDeskObject(deskRoot, zoneKey, i, deskPositions[i]);
                 }
             }
 
@@ -2180,7 +2608,7 @@ namespace ProjectW.IngameMvp
             _zoneDeskPositions[zoneKey] = deskPositions;
         }
 
-        private List<Vector3> CollectDeskPositionsFromChildren(Transform deskRoot)
+        private List<Vector3> CollectDeskPositionsFromChildren(Transform deskRoot, string zoneKey)
         {
             var deskPositions = new List<Vector3>();
             for (int i = 0; i < deskRoot.childCount; i++)
@@ -2192,7 +2620,10 @@ namespace ProjectW.IngameMvp
                 }
 
                 deskPositions.Add(WithCharacterDepth(child.position));
-                EnsureSpriteRenderer(child.gameObject, new Color(0.95f, 0.95f, 0.95f, 0.95f), deskVisualScale, true);
+                var deskSprite = visualResources != null ? visualResources.ResolveItemSprite("desk") : null;
+                EnsureSpriteRenderer(child.gameObject, new Color(0.95f, 0.95f, 0.95f, 0.95f), deskVisualScale, true, deskSprite);
+                EnsureClickableObjectCollider(child.gameObject, deskVisualScale);
+                EnsureInspectableWorldObject(child.gameObject, child.name, zoneKey, "desk", "desk-slot");
             }
 
             return deskPositions;
@@ -2259,7 +2690,6 @@ namespace ProjectW.IngameMvp
                 }
             }
 
-            // Fallback: if random sampling couldn't place enough desks, fill remaining with center-biased samples.
             for (int i = desks.Count; i < deskCount; i++)
             {
                 var t = (i + 0.5f) / deskCount;
@@ -2277,16 +2707,61 @@ namespace ProjectW.IngameMvp
             return desks;
         }
 
-        private void CreateDeskObject(Transform deskRoot, int index, Vector3 worldPosition)
+        private void CreateDeskObject(Transform deskRoot, string zoneKey, int index, Vector3 worldPosition)
         {
             var deskGo = new GameObject(string.Format(CultureInfo.InvariantCulture, "Desk_{0:D2}", index + 1));
             deskGo.transform.SetParent(deskRoot, false);
             deskGo.transform.position = WithCharacterDepth(worldPosition);
             deskGo.transform.localScale = new Vector3(Mathf.Abs(deskVisualScale.x), Mathf.Abs(deskVisualScale.y), 1f);
-            EnsureSpriteRenderer(deskGo, new Color(0.95f, 0.95f, 0.95f, 0.95f), deskVisualScale, true);
+            var deskSprite = visualResources != null ? visualResources.ResolveItemSprite("desk") : null;
+            EnsureSpriteRenderer(deskGo, new Color(0.95f, 0.95f, 0.95f, 0.95f), deskVisualScale, true, deskSprite);
+            EnsureClickableObjectCollider(deskGo, deskVisualScale);
+            EnsureInspectableWorldObject(deskGo, deskGo.name, zoneKey, "desk", "desk-slot");
         }
 
-        private void EnsureSpriteRenderer(GameObject go, Color color, Vector2 targetScale, bool opaque)
+        private static void EnsureClickableObjectCollider(GameObject go, Vector2 targetScale)
+        {
+            if (go == null)
+            {
+                return;
+            }
+
+            var collider = go.GetComponent<BoxCollider2D>();
+            if (collider == null)
+            {
+                collider = go.AddComponent<BoxCollider2D>();
+            }
+
+            var scale = go.transform.localScale;
+            var width = Mathf.Max(0.24f, (Mathf.Abs(scale.x) > 0.0001f ? Mathf.Abs(scale.x) : Mathf.Abs(targetScale.x)) * 2.2f);
+            var height = Mathf.Max(0.24f, (Mathf.Abs(scale.y) > 0.0001f ? Mathf.Abs(scale.y) : Mathf.Abs(targetScale.y)) * 2.2f);
+            collider.size = new Vector2(width, height);
+            collider.offset = Vector2.zero;
+            collider.isTrigger = true;
+        }
+
+        private static void EnsureInspectableWorldObject(
+            GameObject go,
+            string displayName,
+            string zoneId,
+            string primaryTag,
+            string detail)
+        {
+            if (go == null)
+            {
+                return;
+            }
+
+            var inspectable = go.GetComponent<RoutineInspectableWorldObject>();
+            if (inspectable == null)
+            {
+                inspectable = go.AddComponent<RoutineInspectableWorldObject>();
+            }
+
+            inspectable.Configure(displayName, zoneId, primaryTag, detail);
+        }
+
+        private void EnsureSpriteRenderer(GameObject go, Color color, Vector2 targetScale, bool opaque, Sprite spriteOverride = null)
         {
             if (go == null)
             {
@@ -2299,7 +2774,7 @@ namespace ProjectW.IngameMvp
                 spriteRenderer = go.AddComponent<SpriteRenderer>();
             }
 
-            spriteRenderer.sprite = GetRuntimeSquareSprite();
+            spriteRenderer.sprite = spriteOverride != null ? spriteOverride : GetRuntimeSquareSprite();
             spriteRenderer.color = opaque ? new Color(color.r, color.g, color.b, 1f) : new Color(color.r, color.g, color.b, Mathf.Clamp01(color.a));
             var scale = go.transform.localScale;
             scale.x = Mathf.Abs(scale.x) < 0.0001f ? targetScale.x : scale.x;
@@ -2618,18 +3093,48 @@ namespace ProjectW.IngameMvp
                 return;
             }
 
-            var cameraToUse = interactionCamera != null ? interactionCamera : Camera.main;
-            if (cameraToUse == null)
+            if (IsPointerOverUi())
             {
                 return;
             }
 
-            var worldPoint = cameraToUse.ScreenToWorldPoint(new Vector3(pointerScreenPosition.x, pointerScreenPosition.y, Mathf.Abs(cameraToUse.transform.position.z)));
-            var hit = Physics2D.OverlapPoint(new Vector2(worldPoint.x, worldPoint.y));
-            if (hit == null)
+            var cameraToUse = interactionCamera != null ? interactionCamera : Camera.main;
+            if (cameraToUse == null)
             {
-                _selectedCharacter = null;
-                UpdateNeuronPanel();
+                Debug.LogWarning("[RoutineMVP][Click] pointer-down detected but no camera is available.");
+                return;
+            }
+
+            var worldPoint = cameraToUse.ScreenToWorldPoint(new Vector3(pointerScreenPosition.x, pointerScreenPosition.y, Mathf.Abs(cameraToUse.transform.position.z)));
+            var hits = Physics2D.OverlapPointAll(new Vector2(worldPoint.x, worldPoint.y));
+            var hitNames = new StringBuilder();
+            if (hits != null)
+            {
+                for (int i = 0; i < hits.Length; i++)
+                {
+                    if (hits[i] == null)
+                    {
+                        continue;
+                    }
+
+                    if (hitNames.Length > 0)
+                    {
+                        hitNames.Append(", ");
+                    }
+
+                    hitNames.Append(hits[i].name);
+                }
+            }
+
+            if (hits == null || hits.Length == 0)
+            {
+                Debug.Log(string.Format(
+                    CultureInfo.InvariantCulture,
+                    "[RoutineMVP][Click] screen=({0:0.0},{1:0.0}) world=({2:0.00},{3:0.00}) hits=0",
+                    pointerScreenPosition.x,
+                    pointerScreenPosition.y,
+                    worldPoint.x,
+                    worldPoint.y));
                 return;
             }
 
@@ -2641,13 +3146,206 @@ namespace ProjectW.IngameMvp
                     continue;
                 }
 
-                if (hit.transform == binding.actor || hit.transform.IsChildOf(binding.actor))
+                for (int j = 0; j < hits.Length; j++)
                 {
-                    _selectedCharacter = binding;
-                    UpdateNeuronPanel();
+                    var hit = hits[j];
+                    if (hit == null)
+                    {
+                        continue;
+                    }
+
+                    if (hit.transform == binding.actor || hit.transform.IsChildOf(binding.actor))
+                    {
+                        Debug.Log(string.Format(
+                            CultureInfo.InvariantCulture,
+                            "[RoutineMVP][Click] character selected name={0} hits={1} [{2}]",
+                            binding.actor.name,
+                            hits.Length,
+                            hitNames.ToString()));
+                        _selectedCharacter = binding;
+                        _pinnedNeuronCharacter = binding;
+                        UpdateNeuronPanel();
+                        return;
+                    }
+                }
+            }
+
+            for (int i = 0; i < hits.Length; i++)
+            {
+                var hit = hits[i];
+                if (hit == null)
+                {
+                    continue;
+                }
+
+                var selectedObject = hit.GetComponentInParent<RoutineInspectableWorldObject>();
+                if (selectedObject != null)
+                {
+                    Debug.Log(string.Format(
+                        CultureInfo.InvariantCulture,
+                        "[RoutineMVP][Click] object selected name={0} tag={1} zone={2} hits={3} [{4}]",
+                        selectedObject.DisplayName,
+                        selectedObject.PrimaryTag,
+                        selectedObject.ZoneId,
+                        hits.Length,
+                        hitNames.ToString()));
+                    _selectedWorldObject = selectedObject;
+                    UpdateObjectInfoPanel();
                     return;
                 }
             }
+
+            if (TrySelectWorldObjectByProximity(worldPoint, out var nearbyObject))
+            {
+                Debug.Log(string.Format(
+                    CultureInfo.InvariantCulture,
+                    "[RoutineMVP][Click] object selected (fallback) name={0} tag={1} zone={2}",
+                    nearbyObject.DisplayName,
+                    nearbyObject.PrimaryTag,
+                    nearbyObject.ZoneId));
+                _selectedWorldObject = nearbyObject;
+                UpdateObjectInfoPanel();
+                return;
+            }
+
+            for (int i = 0; i < hits.Length; i++)
+            {
+                var hit = hits[i];
+                if (hit == null)
+                {
+                    continue;
+                }
+
+                var zone = hit.GetComponentInParent<RoutineZoneAnchor>();
+                if (zone != null)
+                {
+                    Debug.Log(string.Format(
+                        CultureInfo.InvariantCulture,
+                        "[RoutineMVP][Click] zone selected zoneId={0} hits={1} [{2}]",
+                        zone.ZoneId,
+                        hits.Length,
+                        hitNames.ToString()));
+                    return;
+                }
+            }
+
+            Debug.Log(string.Format(
+                CultureInfo.InvariantCulture,
+                "[RoutineMVP][Click] no selectable target hits={0} [{1}]",
+                hits.Length,
+                hitNames.ToString()));
+        }
+
+        private static bool IsPointerOverUi()
+        {
+            return EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+        }
+
+        private void HandleObjectInfoCloseInput()
+        {
+#if ENABLE_LEGACY_INPUT_MANAGER
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                CloseLastOpenedPanel();
+                return;
+            }
+#endif
+#if ENABLE_INPUT_SYSTEM
+            var keyboardType = Type.GetType("UnityEngine.InputSystem.Keyboard, Unity.InputSystem");
+            if (keyboardType == null)
+            {
+                return;
+            }
+
+            var keyboard = keyboardType.GetProperty("current", BindingFlags.Public | BindingFlags.Static)?.GetValue(null);
+            var escapeKey = TryReadProperty(keyboard, "escapeKey");
+            if (TryReadBoolProperty(escapeKey, "wasPressedThisFrame", out var pressed) && pressed)
+            {
+                CloseLastOpenedPanel();
+            }
+#endif
+        }
+
+        private void CloseLastOpenedPanel()
+        {
+            if (_lastOpenedPanel == PanelKind.Object)
+            {
+                CloseObjectInfoPanel();
+                return;
+            }
+
+            if (_lastOpenedPanel == PanelKind.Neuron)
+            {
+                CloseNeuronPanel();
+            }
+        }
+
+        private void CloseObjectInfoPanel()
+        {
+            _selectedWorldObject = null;
+            UpdateObjectInfoPanel();
+            if (_lastOpenedPanel == PanelKind.Object)
+            {
+                _lastOpenedPanel = PanelKind.None;
+            }
+        }
+
+        private void CloseNeuronPanel()
+        {
+            _pinnedNeuronCharacter = null;
+            if (neuronPanelView != null)
+            {
+                neuronPanelView.Hide();
+            }
+
+            if (_lastOpenedPanel == PanelKind.Neuron)
+            {
+                _lastOpenedPanel = PanelKind.None;
+            }
+        }
+
+        private static bool TrySelectWorldObjectByProximity(Vector3 worldPoint, out RoutineInspectableWorldObject selected)
+        {
+            selected = null;
+            var candidates = FindObjectsByType<RoutineInspectableWorldObject>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            if (candidates == null || candidates.Length == 0)
+            {
+                return false;
+            }
+
+            var click2D = new Vector2(worldPoint.x, worldPoint.y);
+            var bestDistanceSqr = float.PositiveInfinity;
+            for (int i = 0; i < candidates.Length; i++)
+            {
+                var candidate = candidates[i];
+                if (candidate == null || !candidate.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+
+                var sr = candidate.GetComponent<SpriteRenderer>();
+                if (sr != null && sr.bounds.Contains(new Vector3(worldPoint.x, worldPoint.y, sr.bounds.center.z)))
+                {
+                    selected = candidate;
+                    return true;
+                }
+
+                var p = candidate.transform.position;
+                var distanceSqr = (new Vector2(p.x, p.y) - click2D).sqrMagnitude;
+                if (distanceSqr < bestDistanceSqr)
+                {
+                    bestDistanceSqr = distanceSqr;
+                    selected = candidate;
+                }
+            }
+
+            if (selected == null)
+            {
+                return false;
+            }
+
+            // Keep fallback conservative to avoid selecting far-away objects on empty clicks.
+            return bestDistanceSqr <= 0.20f * 0.20f;
         }
 
         private static bool TryGetPointerDownScreenPosition(out Vector2 screenPosition)
@@ -2765,14 +3463,38 @@ namespace ProjectW.IngameMvp
                 return;
             }
 
-            if (_selectedCharacter == null || !_latestNeuronSnapshots.TryGetValue(_selectedCharacter, out var snapshot))
+            if (_pinnedNeuronCharacter == null || !_latestNeuronSnapshots.TryGetValue(_pinnedNeuronCharacter, out var snapshot))
             {
-                neuronPanelView.Hide();
                 return;
             }
 
-            var viewModel = RoutineNeuronPanelViewModel.FromSnapshot(snapshot, _selectedCharacter.currentAction.ToString(), _selectedCharacter.intendedAction.ToString());
+            var viewModel = RoutineNeuronPanelViewModel.FromSnapshot(snapshot, _pinnedNeuronCharacter.currentAction.ToString(), _pinnedNeuronCharacter.intendedAction.ToString());
             neuronPanelView.Render(viewModel);
+            _lastOpenedPanel = PanelKind.Neuron;
+        }
+
+        private void UpdateObjectInfoPanel()
+        {
+            if (objectInfoPanelView == null)
+            {
+                return;
+            }
+
+            if (_selectedWorldObject == null)
+            {
+                objectInfoPanelView.Hide();
+                return;
+            }
+
+            var title = string.Format(CultureInfo.InvariantCulture, "Object | {0}", _selectedWorldObject.DisplayName);
+            var body = string.Format(
+                CultureInfo.InvariantCulture,
+                "tag: {0}\nzone: {1}\n{2}",
+                _selectedWorldObject.PrimaryTag,
+                _selectedWorldObject.ZoneId,
+                string.IsNullOrWhiteSpace(_selectedWorldObject.Detail) ? "detail: -" : "detail: " + _selectedWorldObject.Detail);
+            objectInfoPanelView.Render(title, body);
+            _lastOpenedPanel = PanelKind.Object;
         }
 
         private static RoutineActionType ToRoutineAction(CharacterNeuronIntent intent)
