@@ -10,6 +10,7 @@ using ProjectW.IngameCore.Config;
 using ProjectW.IngameCore.Meta;
 using ProjectW.IngameCore.Simulation;
 using ProjectW.IngameCore.StateMachine;
+using ProjectW.Outgame;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 
@@ -126,6 +127,8 @@ namespace ProjectW.IngameMvp
         [SerializeField] private Text goalText;
         [SerializeField] private Text progressText;
         [SerializeField] private Text situationText;
+        [SerializeField] private Text chronicleText;
+        [SerializeField] private Text currentTimeText;
         [SerializeField] private RoutineNeuronPanelView neuronPanelView;
         [SerializeField] private RoutineObjectInfoPanelView objectInfoPanelView;
         [SerializeField] private Camera interactionCamera;
@@ -215,6 +218,8 @@ namespace ProjectW.IngameMvp
         private bool _sessionEndRequested;
         private SessionEndResult _latestSessionEndResult;
         private SnapshotPersistenceResult _latestPersistenceResult;
+        private bool _sessionEndEventRaised;
+        private bool _outgameSetupApplied;
 
         private enum PanelKind
         {
@@ -232,6 +237,7 @@ namespace ProjectW.IngameMvp
         public ChronicleSummary LatestChronicleSummary => _latestChronicleSummary;
         public CycleKpiSnapshot LatestCycleKpi => _latestCycleKpi;
         public IReadOnlyList<MetaChoice> AvailableMetaChoices => MetaChoiceCatalog.BuildDefaultChoices();
+        public event Action<SessionResultSummary> SessionEnded;
 
         public void SetInterventionVisibility(int pendingCount, int lastAppliedTick, string recentRejectedReason)
         {
@@ -285,6 +291,81 @@ namespace ProjectW.IngameMvp
         public void ClearDashboardContext()
         {
             _dashboardContext.Clear();
+        }
+
+        public void ApplyOutgameSetup(OutgameSessionSetup setup)
+        {
+            if (_outgameSetupApplied)
+            {
+                return;
+            }
+
+            _outgameSetupApplied = true;
+            var resolvedSetup = setup ?? OutgameSessionSetup.CreateDefault();
+            var selectedIds = new HashSet<string>(
+                (resolvedSetup.SelectedCharacterIds != null && resolvedSetup.SelectedCharacterIds.Count > 0)
+                    ? resolvedSetup.SelectedCharacterIds
+                    : OutgameSessionSetup.CreateDefault().SelectedCharacterIds,
+                StringComparer.Ordinal);
+
+            var hasMatchingSelection = false;
+            for (int i = 0; i < characters.Count; i++)
+            {
+                var actor = characters[i]?.actor;
+                if (actor != null && selectedIds.Contains(actor.name))
+                {
+                    hasMatchingSelection = true;
+                    break;
+                }
+            }
+
+            if (!hasMatchingSelection)
+            {
+                selectedIds.Clear();
+                for (int i = 0; i < characters.Count; i++)
+                {
+                    var actor = characters[i]?.actor;
+                    if (actor != null)
+                    {
+                        selectedIds.Add(actor.name);
+                    }
+                }
+            }
+
+            for (int i = characters.Count - 1; i >= 0; i--)
+            {
+                var binding = characters[i];
+                if (binding?.actor == null)
+                {
+                    continue;
+                }
+
+                if (selectedIds.Contains(binding.actor.name))
+                {
+                    binding.actor.gameObject.SetActive(true);
+                    continue;
+                }
+
+                binding.actor.gameObject.SetActive(false);
+                characters.RemoveAt(i);
+            }
+
+            dashboardMissionGoalTicks = ResolveMissionGoalTicks(resolvedSetup.InitialMissionType);
+            var safety = Mathf.Clamp(resolvedSetup.SafetyPriority, 0, 100);
+            var resource = Mathf.Clamp(resolvedSetup.ResourcePriority, 0, 100);
+            var bias = Mathf.Clamp((safety - resource) / 100f, -1f, 1f);
+
+            for (int i = 0; i < characters.Count; i++)
+            {
+                var binding = characters[i];
+                binding.hungerThreshold = Mathf.Clamp(binding.hungerThreshold + (bias * 10f), 0f, GaugeMax);
+                binding.sleepThreshold = Mathf.Clamp(binding.sleepThreshold + (bias * 10f), 0f, GaugeMax);
+                binding.stressThreshold = Mathf.Clamp(binding.stressThreshold + (bias * 10f), 0f, GaugeMax);
+            }
+
+            SetDashboardContext("InitialMission", resolvedSetup.InitialMissionType.ToString());
+            SetDashboardContext("Priority", $"R:{resource}, S:{safety}");
+            SetDashboardContext("SelectedCharacters", string.Join(",", selectedIds));
         }
 
         private void Awake()
@@ -446,6 +527,9 @@ namespace ProjectW.IngameMvp
             {
                 return;
             }
+
+            _sessionEndEventRaised = false;
+            _sessionEndRequested = false;
 
             if (!TryBootstrapRuntimeConfig())
             {
@@ -996,14 +1080,57 @@ namespace ProjectW.IngameMvp
             if (!_latestPersistenceResult.Success)
             {
                 SetDashboardContext("Persistence", $"{_latestPersistenceResult.State}:{_latestPersistenceResult.ErrorCode}");
+                EmitSessionEndedOnce("PERSISTENCE_ERROR");
                 StopSession();
                 return false;
             }
 
             SetDashboardContext("Termination", _latestSessionEndResult.EndReasonCode);
             SetDashboardContext("Persistence", _latestPersistenceResult.State.ToString());
+            EmitSessionEndedOnce();
             _sessionEndRequested = true;
             return true;
+        }
+
+        private void EmitSessionEndedOnce(string overrideTerminationReasonCode = null)
+        {
+            if (_sessionEndEventRaised)
+            {
+                return;
+            }
+
+            _sessionEndEventRaised = true;
+            SessionEnded?.Invoke(BuildSessionResultSummary(overrideTerminationReasonCode));
+        }
+
+        private SessionResultSummary BuildSessionResultSummary(string overrideTerminationReasonCode = null)
+        {
+            var survivingCount = 0;
+            for (int i = 0; i < characters.Count; i++)
+            {
+                var binding = characters[i];
+                if (binding == null || binding.actor == null || !binding.actor.gameObject.activeInHierarchy)
+                {
+                    continue;
+                }
+
+                var active = binding.hunger > 0.01f || binding.sleep > 0.01f || binding.stress > 0.01f;
+                if (active)
+                {
+                    survivingCount += 1;
+                }
+            }
+
+            return new SessionResultSummary
+            {
+                TerminationReasonCode = string.IsNullOrWhiteSpace(overrideTerminationReasonCode)
+                    ? _latestSessionEndResult.EndReasonCode
+                    : overrideTerminationReasonCode,
+                MissionProgressRatio = GetMissionProgressRatio(),
+                SurvivingCharacterCount = survivingCount,
+                TickIndex = _absoluteTick,
+                SessionId = _runtimeConfigSet?.SessionConfig?.SessionId ?? "default"
+            };
         }
 
         private SessionSnapshotDto BuildSessionSnapshot(SessionEndResult sessionEndResult)
@@ -1745,7 +1872,7 @@ namespace ProjectW.IngameMvp
         private void UpdateDashboardUi(int dayIndex, int halfDayIndex, int tickInHalfDay, string timeText)
         {
             EnsureDashboardUiReferences();
-            if (goalText == null && progressText == null && situationText == null)
+            if (goalText == null && progressText == null && situationText == null && currentTimeText == null)
             {
                 return;
             }
@@ -1783,22 +1910,20 @@ namespace ProjectW.IngameMvp
 
             if (situationText != null)
             {
-                situationText.text = BuildSituationSummary(dayIndex, halfDayIndex, tickInHalfDay, timeText);
+                situationText.text = BuildSituationSummary();
             }
+
+            if (currentTimeText != null)
+            {
+                currentTimeText.text = timeText;
+            }
+
+            UpdateChronicleUi();
         }
 
-        private string BuildSituationSummary(int dayIndex, int halfDayIndex, int tickInHalfDay, string timeText)
+        private string BuildSituationSummary()
         {
             var summary = new StringBuilder(256);
-            summary.AppendFormat(
-                CultureInfo.InvariantCulture,
-                "Situation: Day {0} Half {1} Tick {2} ({3})",
-                dayIndex,
-                halfDayIndex,
-                tickInHalfDay,
-                timeText);
-
-            summary.AppendLine();
             summary.AppendFormat(
                 CultureInfo.InvariantCulture,
                 "Interventions pending:{0}, lastApplied:{1}, latestReject:{2}",
@@ -1813,12 +1938,49 @@ namespace ProjectW.IngameMvp
                 for (int i = 0; i < orderedKeys.Count; i++)
                 {
                     var key = orderedKeys[i];
+                    if (string.Equals(key, "Chronicle", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
                     summary.AppendLine();
                     summary.AppendFormat(CultureInfo.InvariantCulture, "{0}: {1}", key, _dashboardContext[key]);
                 }
             }
 
             return summary.ToString();
+        }
+
+        private void UpdateChronicleUi()
+        {
+            var chronicleValue = TryGetDashboardValue("Chronicle");
+            if (string.IsNullOrWhiteSpace(chronicleValue))
+            {
+                if (chronicleText != null)
+                {
+                    chronicleText.text = string.Empty;
+                }
+
+                return;
+            }
+
+            EnsureChronicleTextReference();
+            if (chronicleText == null)
+            {
+                return;
+            }
+
+            chronicleText.text = "Chronicle:\n" + chronicleValue;
+        }
+
+        private string TryGetDashboardValue(string key)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                return null;
+            }
+
+            return _dashboardContext.TryGetValue(key, out var value) ? value : null;
         }
 
         private int GetTotalMissionTicks()
@@ -1830,6 +1992,20 @@ namespace ProjectW.IngameMvp
             }
 
             return total;
+        }
+
+        private static int ResolveMissionGoalTicks(MissionType missionType)
+        {
+            switch (missionType)
+            {
+                case MissionType.ResourceSweep:
+                    return 240;
+                case MissionType.SafetyPatrol:
+                    return 140;
+                case MissionType.Recon:
+                default:
+                    return 180;
+            }
         }
 
         private float GetMissionProgressRatio()
@@ -2245,6 +2421,14 @@ namespace ProjectW.IngameMvp
                 situationText = situationGo != null ? situationGo.GetComponent<Text>() : null;
             }
 
+            if (currentTimeText == null)
+            {
+                var timeGo = GameObject.Find("CurrentTimeText");
+                currentTimeText = timeGo != null ? timeGo.GetComponent<Text>() : null;
+            }
+
+            EnsureChronicleTextReference();
+
             if (!autoCreateDashboardUi || (goalText != null && progressText != null && situationText != null))
             {
                 return;
@@ -2260,6 +2444,9 @@ namespace ProjectW.IngameMvp
             {
                 return;
             }
+
+            var createdSituationText = false;
+            var createdCurrentTimeText = false;
 
             var panelTransform = canvas.transform.Find("RoutineDashboardPanel");
             if (panelTransform == null)
@@ -2293,6 +2480,28 @@ namespace ProjectW.IngameMvp
                 situationText = CreateDashboardLine(panelTransform, "SituationText", -88f);
                 situationText.horizontalOverflow = HorizontalWrapMode.Wrap;
                 situationText.verticalOverflow = VerticalWrapMode.Overflow;
+                createdSituationText = true;
+            }
+
+            if (chronicleText == null)
+            {
+                chronicleText = CreateChronicleText(canvas.transform);
+            }
+
+            if (currentTimeText == null)
+            {
+                currentTimeText = CreateDashboardLine(panelTransform, "CurrentTimeText", -132f);
+                createdCurrentTimeText = true;
+            }
+
+            if (createdCurrentTimeText)
+            {
+                ConfigureCurrentTimeTextLayout(currentTimeText);
+            }
+
+            if (createdSituationText)
+            {
+                ConfigureSituationTextLayout(situationText);
             }
         }
 
@@ -2327,6 +2536,122 @@ namespace ProjectW.IngameMvp
             text.verticalOverflow = VerticalWrapMode.Truncate;
             text.text = string.Empty;
             return text;
+        }
+
+        private void EnsureChronicleTextReference()
+        {
+            if (chronicleText != null)
+            {
+                return;
+            }
+
+            var chronicleGo = GameObject.Find("ChronicleText");
+            chronicleText = chronicleGo != null ? chronicleGo.GetComponent<Text>() : null;
+            if (chronicleText != null)
+            {
+                ConfigureChronicleTextLayout(chronicleText);
+                return;
+            }
+
+            var canvas = FindFirstObjectByType<Canvas>();
+            if (canvas == null)
+            {
+                return;
+            }
+
+            chronicleText = CreateChronicleText(canvas.transform);
+        }
+
+        private static Text CreateChronicleText(Transform canvasTransform)
+        {
+            var go = new GameObject("ChronicleText", typeof(RectTransform), typeof(Text));
+            go.transform.SetParent(canvasTransform, false);
+            var text = go.GetComponent<Text>();
+            try
+            {
+                text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            }
+            catch (ArgumentException)
+            {
+                text.font = null;
+            }
+
+            text.fontSize = 18;
+            text.alignment = TextAnchor.LowerRight;
+            text.color = new Color(0.92f, 0.96f, 1f, 1f);
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            text.verticalOverflow = VerticalWrapMode.Overflow;
+            text.text = string.Empty;
+            ConfigureChronicleTextLayout(text);
+            return text;
+        }
+
+        private static void ConfigureChronicleTextLayout(Text text)
+        {
+            if (text == null)
+            {
+                return;
+            }
+
+            var rect = text.transform as RectTransform;
+            if (rect == null)
+            {
+                return;
+            }
+
+            rect.anchorMin = new Vector2(1f, 0f);
+            rect.anchorMax = new Vector2(1f, 0f);
+            rect.pivot = new Vector2(1f, 0f);
+            rect.anchoredPosition = new Vector2(-16f, 16f);
+            rect.sizeDelta = new Vector2(520f, 220f);
+        }
+
+        private static void ConfigureCurrentTimeTextLayout(Text text)
+        {
+            if (text == null)
+            {
+                return;
+            }
+
+            var rect = text.transform as RectTransform;
+            if (rect == null)
+            {
+                return;
+            }
+
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = new Vector2(16f, -16f);
+            rect.sizeDelta = new Vector2(560f, 36f);
+
+            text.alignment = TextAnchor.UpperLeft;
+            text.horizontalOverflow = HorizontalWrapMode.Overflow;
+            text.verticalOverflow = VerticalWrapMode.Truncate;
+        }
+
+        private static void ConfigureSituationTextLayout(Text text)
+        {
+            if (text == null)
+            {
+                return;
+            }
+
+            var rect = text.transform as RectTransform;
+            if (rect == null)
+            {
+                return;
+            }
+
+            rect.anchorMin = new Vector2(0f, 0f);
+            rect.anchorMax = new Vector2(0f, 0f);
+            rect.pivot = new Vector2(0f, 0f);
+            rect.anchoredPosition = new Vector2(16f, 16f);
+            rect.sizeDelta = new Vector2(620f, 240f);
+
+            text.alignment = TextAnchor.LowerLeft;
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            text.verticalOverflow = VerticalWrapMode.Overflow;
         }
 
         private void BindZonesFromAnchors()
