@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Reflection;
 using System.Text;
 using UnityEngine;
+using ProjectW.IngameCore;
 using ProjectW.IngameCore.Config;
 using ProjectW.IngameCore.Meta;
 using ProjectW.IngameCore.Simulation;
@@ -210,6 +211,10 @@ namespace ProjectW.IngameMvp
         private int _cycleInterventionOutcomeChangedCount;
         private int _lastDayIndex = -1;
         private int _rememberedEventsSelfScore = 3;
+        private readonly InterventionQueueService _interventionQueueService = new InterventionQueueService();
+        private bool _sessionEndRequested;
+        private SessionEndResult _latestSessionEndResult;
+        private SnapshotPersistenceResult _latestPersistenceResult;
 
         private enum PanelKind
         {
@@ -759,8 +764,19 @@ namespace ProjectW.IngameMvp
             ExecuteState(CoreLoopState.AutoNarrative, CoreLoopState.CaptainIntervention, HandleAutoNarrative);
             ExecuteState(CoreLoopState.CaptainIntervention, CoreLoopState.NightDream, HandleCaptainIntervention);
             ExecuteState(CoreLoopState.NightDream, CoreLoopState.Resolve, HandleNightDream);
-            ExecuteState(CoreLoopState.Resolve, CoreLoopState.NextCycle, () => HandleResolve(hour, minute, resolveResult));
-            ExecuteState(CoreLoopState.NextCycle, CoreLoopState.Plan, HandleNextCycle);
+            if (_coreLoopCurrentState == CoreLoopState.Resolve)
+            {
+                var resolveGuard = HandleResolve(hour, minute, resolveResult);
+                ExecuteState(CoreLoopState.Resolve, resolveResult.RequestedNextState, () => resolveGuard);
+            }
+            if (resolveResult.RequestedNextState == CoreLoopState.NextCycle)
+            {
+                ExecuteState(CoreLoopState.NextCycle, CoreLoopState.Plan, HandleNextCycle);
+            }
+            else if (_coreLoopCurrentState == CoreLoopState.SessionEnd)
+            {
+                StopSession();
+            }
 
             defaultAction = resolveResult.Action;
             zoneName = resolveResult.ZoneName;
@@ -826,6 +842,20 @@ namespace ProjectW.IngameMvp
 
         private bool HandleCaptainIntervention()
         {
+            var queue = _runtimeConfigSet?.InterventionCommands;
+            var result = _interventionQueueService.ApplyInterventions(_absoluteTick, queue);
+            SetInterventionVisibility(result.PendingCount, result.LastAppliedTick, result.RecentRejectedReason);
+
+            for (int i = 0; i < result.AppliedCommandIds.Count; i++)
+            {
+                _coreLoopEventLog.Add($"[Intervention][Tick:{_absoluteTick}] applied:{result.AppliedCommandIds[i]}");
+            }
+
+            for (int i = 0; i < result.RejectedCommandIds.Count; i++)
+            {
+                _coreLoopEventLog.Add($"[Intervention][Tick:{_absoluteTick}] rejected:{result.RejectedCommandIds[i]} ({result.RecentRejectedReason})");
+            }
+
             return true;
         }
 
@@ -918,14 +948,108 @@ namespace ProjectW.IngameMvp
                 UpdateRuntimeStateTexts(binding);
             }
 
+            if (!EvaluateSessionEndAndPersist())
+            {
+                resolveResult.RequestedNextState = CoreLoopState.Resolve;
+                return false;
+            }
+
+            resolveResult.RequestedNextState = _sessionEndRequested
+                ? CoreLoopState.SessionEnd
+                : CoreLoopState.NextCycle;
             return true;
         }
 
+        private bool EvaluateSessionEndAndPersist()
+        {
+            bool objectiveComplete = GetMissionProgressRatio() >= 1f;
+            bool totalWipe = characters.Count > 0;
+            for (int i = 0; i < characters.Count; i++)
+            {
+                var binding = characters[i];
+                var active = binding.hunger > 0.01f || binding.sleep > 0.01f || binding.stress > 0.01f;
+                if (active)
+                {
+                    totalWipe = false;
+                    break;
+                }
+            }
+
+            bool emergencyExtract = _recentRejectedInterventionReason == "emergency_extract";
+            _latestSessionEndResult = SessionEndResolver.ResolveSessionEnd(totalWipe, emergencyExtract, objectiveComplete);
+            if (!_latestSessionEndResult.IsEnd)
+            {
+                _sessionEndRequested = false;
+                return true;
+            }
+
+            var runtimeConfig = _runtimeConfigSet?.SessionConfig;
+            var persistenceConfig = new ProjectW.IngameCore.SessionConfig(
+                runtimeConfig != null ? runtimeConfig.MaxPersistRetry : 0,
+                runtimeConfig != null ? runtimeConfig.PersistRetryBackoffMs : 0);
+
+            var snapshot = BuildSessionSnapshot(_latestSessionEndResult);
+            var writer = new JsonSnapshotWriter(maxSnapshotsPerSession: 3);
+            var service = new SnapshotPersistenceService(writer);
+            _latestPersistenceResult = service.PersistWithRetry(snapshot, persistenceConfig);
+
+            if (!_latestPersistenceResult.Success)
+            {
+                SetDashboardContext("Persistence", $"{_latestPersistenceResult.State}:{_latestPersistenceResult.ErrorCode}");
+                StopSession();
+                return false;
+            }
+
+            SetDashboardContext("Termination", _latestSessionEndResult.EndReasonCode);
+            SetDashboardContext("Persistence", _latestPersistenceResult.State.ToString());
+            _sessionEndRequested = true;
+            return true;
+        }
+
+        private SessionSnapshotDto BuildSessionSnapshot(SessionEndResult sessionEndResult)
+        {
+            var snapshot = new SessionSnapshotDto
+            {
+                SessionId = _runtimeConfigSet?.SessionConfig?.SessionId ?? "default",
+                TickIndex = _absoluteTick,
+                LoopState = _coreLoopCurrentState.ToString(),
+                TerminationResultCode = sessionEndResult.EndReasonCode,
+                LastAppliedTick = _lastAppliedInterventionTick
+            };
+
+            for (int i = 0; i < characters.Count; i++)
+            {
+                var binding = characters[i];
+                if (binding.actor == null)
+                {
+                    continue;
+                }
+
+                snapshot.CharactersSnapshot.Add(new CharacterSnapshotDto
+                {
+                    CharacterId = binding.actor.name,
+                    SerializedState = string.Format(CultureInfo.InvariantCulture, "H:{0:0.##}|S:{1:0.##}|T:{2:0.##}|M:{3}", binding.hunger, binding.sleep, binding.stress, binding.missionTicks)
+                });
+            }
+
+            for (int i = 0; i < _coreLoopEventLog.Count; i++)
+            {
+                snapshot.EventLog.Add(new EventLogEntryDto
+                {
+                    EventCode = "CORE",
+                    Message = _coreLoopEventLog[i],
+                    TimestampUtc = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture)
+                });
+            }
+
+            return snapshot;
+        }
 
         private sealed class CoreLoopResolveResult
         {
             public RoutineActionType Action;
             public string ZoneName;
+            public CoreLoopState RequestedNextState = CoreLoopState.NextCycle;
         }
 
         private bool HandleNextCycle()

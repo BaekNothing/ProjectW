@@ -31,11 +31,13 @@ namespace ProjectW.IngameCore.Simulation
     {
         public bool IsMatch { get; }
         public IReadOnlyList<string> ErrorCodes { get; }
+        public IReadOnlyList<string> Differences { get; }
 
-        public ReplayVerificationResult(bool isMatch, IReadOnlyList<string> errorCodes)
+        public ReplayVerificationResult(bool isMatch, IReadOnlyList<string> errorCodes, IReadOnlyList<string> differences)
         {
             IsMatch = isMatch;
             ErrorCodes = errorCodes;
+            Differences = differences ?? Array.Empty<string>();
         }
     }
 }
