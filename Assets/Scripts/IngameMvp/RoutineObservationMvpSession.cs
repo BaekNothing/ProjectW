@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Text;
 using UnityEngine;
 using ProjectW.IngameCore.Simulation;
+using ProjectW.IngameCore.StateMachine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 
@@ -191,6 +192,10 @@ namespace ProjectW.IngameMvp
         private Vector2 _templateCupScale;
         private PanelKind _lastOpenedPanel = PanelKind.None;
         private bool _didWarnMissingCharacterAnimatorController;
+        private CoreLoopState _coreLoopCurrentState = CoreLoopState.Plan;
+        private int _coreLoopStateStartedTick;
+        private readonly Dictionary<CoreLoopState, TransitionDecision> _coreLoopStateResults = new Dictionary<CoreLoopState, TransitionDecision>();
+        private readonly List<string> _coreLoopEventLog = new List<string>();
 
         private enum PanelKind
         {
@@ -201,6 +206,10 @@ namespace ProjectW.IngameMvp
 
         public IReadOnlyList<RoutineCharacterBinding> Characters => characters;
         public int AbsoluteTick => _absoluteTick;
+        public CoreLoopState CoreLoopCurrentState => _coreLoopCurrentState;
+        public int CoreLoopStateStartedTick => _coreLoopStateStartedTick;
+        public IReadOnlyDictionary<CoreLoopState, TransitionDecision> CoreLoopStateResults => _coreLoopStateResults;
+        public IReadOnlyList<string> CoreLoopEventLog => _coreLoopEventLog;
 
         public void SetInterventionVisibility(int pendingCount, int lastAppliedTick, string recentRejectedReason)
         {
@@ -627,9 +636,120 @@ namespace ProjectW.IngameMvp
             int totalMinutes = (GetSimulationStartMinutes() + (tickInDay - 1) * 15) % 1440;
             int hour = (totalMinutes / 60) % 24;
             int minute = totalMinutes % 60;
-            var defaultAction = ToRoutineAction(_neuronSystem.EvaluateRoutine(new RoutineNeuronContext("default", _absoluteTick, hour, minute, 0, 100f, 100f, 100f, 0f, 0f, 0f, false, CharacterNeuronIntent.Work)).ScheduledIntent);
-            RoutineZoneAnchor defaultZone = ResolveZone(defaultAction, Vector3.zero);
-            string zoneName = defaultZone != null ? defaultZone.ZoneId : "MissingZone";
+
+            var defaultAction = RoutineActionType.Mission;
+            string zoneName = "MissingZone";
+            ExecuteCoreLoopHandlers(hour, minute, ref defaultAction, ref zoneName);
+
+            string timeText = BuildTimeText(dayIndex, halfDayIndex, tickInHalfDay, totalMinutes);
+            UpdateDashboardUi(dayIndex, halfDayIndex, tickInHalfDay, timeText);
+            UpdateNeuronPanel();
+            UpdateObjectInfoPanel();
+
+            return new RoutineTickSnapshot
+            {
+                dayIndex = dayIndex,
+                halfDayIndex = halfDayIndex,
+                tickInHalfDay = tickInHalfDay,
+                timeText = timeText,
+                action = defaultAction,
+                zoneName = zoneName
+            };
+        }
+
+        private void ExecuteCoreLoopHandlers(int hour, int minute, ref RoutineActionType defaultAction, ref string zoneName)
+        {
+            var resolveResult = new CoreLoopResolveResult
+            {
+                Action = defaultAction,
+                ZoneName = zoneName
+            };
+
+            ExecuteState(CoreLoopState.Plan, CoreLoopState.Drop, HandlePlan);
+            ExecuteState(CoreLoopState.Drop, CoreLoopState.AutoNarrative, HandleDrop);
+            ExecuteState(CoreLoopState.AutoNarrative, CoreLoopState.CaptainIntervention, HandleAutoNarrative);
+            ExecuteState(CoreLoopState.CaptainIntervention, CoreLoopState.NightDream, HandleCaptainIntervention);
+            ExecuteState(CoreLoopState.NightDream, CoreLoopState.Resolve, HandleNightDream);
+            ExecuteState(CoreLoopState.Resolve, CoreLoopState.NextCycle, () => HandleResolve(hour, minute, resolveResult));
+            ExecuteState(CoreLoopState.NextCycle, CoreLoopState.Plan, HandleNextCycle);
+
+            defaultAction = resolveResult.Action;
+            zoneName = resolveResult.ZoneName;
+        }
+
+        private bool ExecuteState(CoreLoopState expectedState, CoreLoopState requestedState, Func<bool> stateHandler)
+        {
+            if (_coreLoopCurrentState != expectedState)
+            {
+                return false;
+            }
+
+            bool guardResult = stateHandler();
+            var executionContext = new CoreLoopExecutionContext(
+                entryHook: nextState => { _coreLoopStateStartedTick = _absoluteTick; },
+                updateHook: _ => { },
+                exitHook: _ => { },
+                guardHook: (_, __) => guardResult,
+                onFailHook: (from, to, errorCode) =>
+                {
+                    if (!string.IsNullOrWhiteSpace(errorCode))
+                    {
+                        var logMessage = string.Format(CultureInfo.InvariantCulture,
+                            "[CoreLoop][Tick:{0}] {1} -> {2} blocked ({3})",
+                            _absoluteTick,
+                            from,
+                            to,
+                            errorCode);
+                        _coreLoopEventLog.Add(logMessage);
+                        Debug.LogWarning(logMessage);
+                    }
+                });
+
+            var decision = CoreLoopStateMachine.EvaluateTransition(_coreLoopCurrentState, requestedState, executionContext);
+            _coreLoopStateResults[expectedState] = decision;
+            _coreLoopCurrentState = decision.NextState;
+            if (!decision.AppliedGuard && string.IsNullOrWhiteSpace(decision.ErrorCode))
+            {
+                _coreLoopEventLog.Add(string.Format(CultureInfo.InvariantCulture,
+                    "[CoreLoop][Tick:{0}] {1} -> {2} blocked (E-STATE-101)",
+                    _absoluteTick,
+                    expectedState,
+                    requestedState));
+            }
+
+            return decision.NextState != expectedState;
+        }
+
+        private bool HandlePlan()
+        {
+            return true;
+        }
+
+        private bool HandleDrop()
+        {
+            return true;
+        }
+
+        private bool HandleAutoNarrative()
+        {
+            return true;
+        }
+
+        private bool HandleCaptainIntervention()
+        {
+            return true;
+        }
+
+        private bool HandleNightDream()
+        {
+            return true;
+        }
+
+        private bool HandleResolve(int hour, int minute, CoreLoopResolveResult resolveResult)
+        {
+            resolveResult.Action = ToRoutineAction(_neuronSystem.EvaluateRoutine(new RoutineNeuronContext("default", _absoluteTick, hour, minute, 0, 100f, 100f, 100f, 0f, 0f, 0f, false, CharacterNeuronIntent.Work)).ScheduledIntent);
+            RoutineZoneAnchor defaultZone = ResolveZone(resolveResult.Action, Vector3.zero);
+            resolveResult.ZoneName = defaultZone != null ? defaultZone.ZoneId : "MissingZone";
             CleanupZoneLocks();
 
             for (int i = 0; i < characters.Count; i++)
@@ -709,21 +829,19 @@ namespace ProjectW.IngameMvp
                 UpdateRuntimeStateTexts(binding);
             }
 
-            string timeText = BuildTimeText(dayIndex, halfDayIndex, tickInHalfDay, totalMinutes);
-            UpdateDashboardUi(dayIndex, halfDayIndex, tickInHalfDay, timeText);
-            UpdateNeuronPanel();
-            UpdateObjectInfoPanel();
-            // Tick log intentionally disabled to reduce console noise.
+            return true;
+        }
 
-            return new RoutineTickSnapshot
-            {
-                dayIndex = dayIndex,
-                halfDayIndex = halfDayIndex,
-                tickInHalfDay = tickInHalfDay,
-                timeText = timeText,
-                action = defaultAction,
-                zoneName = zoneName
-            };
+
+        private sealed class CoreLoopResolveResult
+        {
+            public RoutineActionType Action;
+            public string ZoneName;
+        }
+
+        private bool HandleNextCycle()
+        {
+            return true;
         }
 
         private IEnumerator RunLoop()
