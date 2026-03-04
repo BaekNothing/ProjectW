@@ -1,0 +1,2 @@
+rule_id,condition_type,threshold_expr,result_code,enabled,priority
+term_total_wipe,TotalWipe,all_dead,END_TOTAL_WIPE,true,10

@@ -1,0 +1,3 @@
+from_state,to_state,entry_condition,exit_condition,guard,priority,enabled
+Plan,Drop,always,tick_done,none,10,true
+Drop,AutoNarrative,always,tick_done,none,20,true
