@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Text;
 using UnityEngine;
 using ProjectW.IngameCore.Config;
+using ProjectW.IngameCore.Meta;
 using ProjectW.IngameCore.Simulation;
 using ProjectW.IngameCore.StateMachine;
 using UnityEngine.UI;
@@ -199,6 +200,16 @@ namespace ProjectW.IngameMvp
         private readonly List<string> _coreLoopEventLog = new List<string>();
         private IngameCsvConfigSet _runtimeConfigSet;
         private bool _isReadOnlyRecoveryMode;
+        private readonly SessionMetaState _sessionMetaState = new SessionMetaState();
+        private readonly List<ChronicleEvent> _cycleChronicleEvents = new List<ChronicleEvent>();
+        private ChronicleSummary _latestChronicleSummary;
+        private CycleKpiSnapshot _latestCycleKpi = new CycleKpiSnapshot();
+        private readonly PlaytestSurveyForm _playtestSurveyForm = new PlaytestSurveyForm();
+        private int _cycleInterventionOfferCount;
+        private int _cycleInterventionUseCount;
+        private int _cycleInterventionOutcomeChangedCount;
+        private int _lastDayIndex = -1;
+        private int _rememberedEventsSelfScore = 3;
 
         private enum PanelKind
         {
@@ -213,14 +224,47 @@ namespace ProjectW.IngameMvp
         public int CoreLoopStateStartedTick => _coreLoopStateStartedTick;
         public IReadOnlyDictionary<CoreLoopState, TransitionDecision> CoreLoopStateResults => _coreLoopStateResults;
         public IReadOnlyList<string> CoreLoopEventLog => _coreLoopEventLog;
+        public ChronicleSummary LatestChronicleSummary => _latestChronicleSummary;
+        public CycleKpiSnapshot LatestCycleKpi => _latestCycleKpi;
+        public IReadOnlyList<MetaChoice> AvailableMetaChoices => MetaChoiceCatalog.BuildDefaultChoices();
 
         public void SetInterventionVisibility(int pendingCount, int lastAppliedTick, string recentRejectedReason)
         {
+            _cycleInterventionOfferCount += Mathf.Max(0, pendingCount);
+            if (lastAppliedTick > _lastAppliedInterventionTick)
+            {
+                _cycleInterventionUseCount += 1;
+            }
+
             _pendingInterventionCount = Mathf.Max(0, pendingCount);
             _lastAppliedInterventionTick = Mathf.Max(-1, lastAppliedTick);
             _recentRejectedInterventionReason = string.IsNullOrWhiteSpace(recentRejectedReason)
                 ? "None"
                 : recentRejectedReason.Trim();
+        }
+
+        public void SelectMetaChoice(string choiceId)
+        {
+            var choice = MetaChoiceCatalog.ResolveOrDefault(choiceId);
+            _sessionMetaState.ApplyChoice(choice);
+            if (_runtimeConfigSet != null)
+            {
+                _sessionMetaState.ApplyToSessionConfig(_runtimeConfigSet.SessionConfig);
+                tickIntervalSeconds = Mathf.Max(0.01f, _runtimeConfigSet.SessionConfig.TickSeconds);
+            }
+
+            SetDashboardContext("MetaChoice", choice.Label);
+        }
+
+        public void SetRememberedEventsSelfScore(int score1To5)
+        {
+            _rememberedEventsSelfScore = Mathf.Clamp(score1To5, 1, 5);
+        }
+
+        public void SetPlaytestSurveyResponse(int questionIndex, int score1To5)
+        {
+            _playtestSurveyForm.SetResponse(questionIndex, score1To5);
+            SetDashboardContext("PlaytestSurvey", _playtestSurveyForm.ToCompactText());
         }
 
         public void SetDashboardContext(string key, string value)
@@ -425,6 +469,7 @@ namespace ProjectW.IngameMvp
             if (result.Success)
             {
                 _runtimeConfigSet = result.ConfigSet;
+                _sessionMetaState.ApplyToSessionConfig(_runtimeConfigSet.SessionConfig);
                 tickIntervalSeconds = Mathf.Max(0.01f, result.ConfigSet.SessionConfig.TickSeconds);
                 return true;
             }
@@ -682,6 +727,8 @@ namespace ProjectW.IngameMvp
             var defaultAction = RoutineActionType.Mission;
             string zoneName = "MissingZone";
             ExecuteCoreLoopHandlers(hour, minute, ref defaultAction, ref zoneName);
+            TrackCycleTelemetry(dayIndex, defaultAction);
+            HandleCycleBoundary(dayIndex);
 
             string timeText = BuildTimeText(dayIndex, halfDayIndex, tickInHalfDay, totalMinutes);
             UpdateDashboardUi(dayIndex, halfDayIndex, tickInHalfDay, timeText);
@@ -884,6 +931,128 @@ namespace ProjectW.IngameMvp
         private bool HandleNextCycle()
         {
             return true;
+        }
+
+        private void HandleCycleBoundary(int dayIndex)
+        {
+            if (_lastDayIndex < 0)
+            {
+                _lastDayIndex = dayIndex;
+                return;
+            }
+
+            if (dayIndex == _lastDayIndex)
+            {
+                return;
+            }
+
+            FinalizeCycleAndPrepareNext();
+            _lastDayIndex = dayIndex;
+        }
+
+        private void FinalizeCycleAndPrepareNext()
+        {
+            _cycleChronicleEvents.Add(new ChronicleEvent
+            {
+                Category = ChronicleEventCategory.Termination,
+                Description = "사이클 종료: Day 전환으로 자동 종료 처리되었습니다.",
+                Severity = 5,
+                TerminationReason = "DAY_ROLLOVER"
+            });
+
+            _latestChronicleSummary = ChronicleSummarizer.Summarize(_cycleChronicleEvents, 3, 5);
+            _latestCycleKpi = new CycleKpiSnapshot
+            {
+                InterventionUsageRate = _cycleInterventionOfferCount <= 0
+                    ? 0f
+                    : Mathf.Clamp01(_cycleInterventionUseCount / (float)_cycleInterventionOfferCount),
+                InterventionOutcomeChangeRate = _cycleInterventionUseCount <= 0
+                    ? 0f
+                    : Mathf.Clamp01(_cycleInterventionOutcomeChangedCount / (float)_cycleInterventionUseCount),
+                RememberedEventSelfScore = Mathf.Clamp(_rememberedEventsSelfScore, 1, 5)
+            };
+
+            SetDashboardContext("Chronicle", _latestChronicleSummary.RawSummary);
+            SetDashboardContext("KPI", string.Format(CultureInfo.InvariantCulture,
+                "UseRate:{0:0.00}, ChangeRate:{1:0.00}, Recall:{2}",
+                _latestCycleKpi.InterventionUsageRate,
+                _latestCycleKpi.InterventionOutcomeChangeRate,
+                _latestCycleKpi.RememberedEventSelfScore));
+            SetDashboardContext("ReplayIntent", _playtestSurveyForm.WantsReplay() ? "YES" : "NO");
+
+            var defaultMeta = MetaChoiceCatalog.BuildDefaultChoices()[0];
+            SelectMetaChoice(defaultMeta.ChoiceId);
+
+            for (int i = 0; i < characters.Count; i++)
+            {
+                characters[i].stress = Mathf.Clamp(characters[i].stress + _sessionMetaState.StressBiasDelta, 0f, GaugeMax);
+            }
+
+            _cycleChronicleEvents.Clear();
+            _cycleInterventionOfferCount = 0;
+            _cycleInterventionUseCount = 0;
+            _cycleInterventionOutcomeChangedCount = 0;
+        }
+
+        private void TrackCycleTelemetry(int dayIndex, RoutineActionType defaultAction)
+        {
+            if (characters.Count >= 2)
+            {
+                var tension = Mathf.Abs(characters[0].stress - characters[1].stress);
+                if (tension >= 20f)
+                {
+                    _cycleChronicleEvents.Add(new ChronicleEvent
+                    {
+                        Category = ChronicleEventCategory.RelationshipChange,
+                        Severity = 3,
+                        Description = string.Format(CultureInfo.InvariantCulture,
+                            "관계 변화 감지: {0}↔{1} 긴장도 격차 {2:0}",
+                            ResolveDisplayName(characters[0]),
+                            ResolveDisplayName(characters[1]),
+                            tension)
+                    });
+                }
+            }
+
+            if (_lastAppliedInterventionTick == _absoluteTick)
+            {
+                var changed = defaultAction != RoutineActionType.Mission;
+                if (changed)
+                {
+                    _cycleInterventionOutcomeChangedCount += 1;
+                }
+
+                _cycleChronicleEvents.Add(new ChronicleEvent
+                {
+                    Category = ChronicleEventCategory.Intervention,
+                    Severity = changed ? 4 : 2,
+                    InterventionSucceeded = changed,
+                    Description = changed
+                        ? "개입 성공: 기본 미션 흐름에서 다른 행동으로 분기되었습니다."
+                        : "개입 실패: 행동 흐름이 유지되었습니다."
+                });
+            }
+
+            if (_absoluteTick % ticksPerHalfDay == 0)
+            {
+                _cycleChronicleEvents.Add(new ChronicleEvent
+                {
+                    Category = ChronicleEventCategory.Progress,
+                    Severity = 2,
+                    Description = string.Format(CultureInfo.InvariantCulture,
+                        "Day {0} 중간 점검: 주요 루틴이 HalfDay 경계에 도달했습니다.", dayIndex)
+                });
+            }
+        }
+
+        private static string ResolveDisplayName(RoutineCharacterBinding binding)
+        {
+            if (!string.IsNullOrWhiteSpace(binding.displayName))
+            {
+                return binding.displayName;
+            }
+
+            return binding.actor != null ? binding.actor.name : "Unknown";
         }
 
         private IEnumerator RunLoop()
