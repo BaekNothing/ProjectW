@@ -117,6 +117,7 @@ namespace ProjectW.IngameCore.Simulation
         public ReplayVerificationResult Verify(IReadOnlyList<TickLogRecord> expected, IReadOnlyList<TickLogRecord> actual)
         {
             var errorCodes = new List<string>();
+            var differences = new List<string>();
             var max = Math.Max(expected?.Count ?? 0, actual?.Count ?? 0);
 
             for (var i = 0; i < max; i++)
@@ -124,27 +125,78 @@ namespace ProjectW.IngameCore.Simulation
                 var left = i < (expected?.Count ?? 0) ? expected[i] : null;
                 var right = i < (actual?.Count ?? 0) ? actual[i] : null;
 
-                if (!CoreFieldsMatch(left, right))
+                if (!CoreFieldsMatch(left, right, out var difference))
                 {
                     errorCodes.Add("E-RPL-001");
+                    if (!string.IsNullOrWhiteSpace(difference))
+                    {
+                        differences.Add($"tick[{i}]: {difference}");
+                    }
                 }
             }
 
-            return new ReplayVerificationResult(errorCodes.Count == 0, errorCodes);
+            return new ReplayVerificationResult(errorCodes.Count == 0, errorCodes, differences);
         }
 
-        private static bool CoreFieldsMatch(TickLogRecord left, TickLogRecord right)
+        private static bool CoreFieldsMatch(TickLogRecord left, TickLogRecord right, out string difference)
         {
+            difference = string.Empty;
             if (left == null || right == null)
             {
+                difference = "missing_tick_record";
                 return false;
             }
 
-            return left.TickIndex == right.TickIndex
-                   && string.Equals(left.LoopState, right.LoopState, StringComparison.Ordinal)
-                   && string.Equals(left.StateTransition, right.StateTransition, StringComparison.Ordinal)
-                   && string.Equals(left.SelectedActionId, right.SelectedActionId, StringComparison.Ordinal)
-                   && left.Seed == right.Seed;
+            if (left.TickIndex != right.TickIndex)
+            {
+                difference = $"tick_index({left.TickIndex}!={right.TickIndex})";
+                return false;
+            }
+
+            if (!string.Equals(left.LoopState, right.LoopState, StringComparison.Ordinal))
+            {
+                difference = $"loop_state({left.LoopState}!={right.LoopState})";
+                return false;
+            }
+
+            if (!string.Equals(left.StateTransition, right.StateTransition, StringComparison.Ordinal))
+            {
+                difference = $"state_transition({left.StateTransition}!={right.StateTransition})";
+                return false;
+            }
+
+            if (!string.Equals(left.SelectedActionId, right.SelectedActionId, StringComparison.Ordinal))
+            {
+                difference = $"selected_action({left.SelectedActionId}!={right.SelectedActionId})";
+                return false;
+            }
+
+            if (left.Seed != right.Seed)
+            {
+                difference = $"seed({left.Seed}!={right.Seed})";
+                return false;
+            }
+
+            if (!SetEquals(left.AppliedInterventionIds, right.AppliedInterventionIds))
+            {
+                difference = "applied_interventions_mismatch";
+                return false;
+            }
+
+            if (!SetEquals(left.RejectedInterventionIds, right.RejectedInterventionIds))
+            {
+                difference = "rejected_interventions_mismatch";
+                return false;
+            }
+
+            return true;
+        }
+
+        private static bool SetEquals(IReadOnlyList<string> left, IReadOnlyList<string> right)
+        {
+            var leftSet = new HashSet<string>(left ?? Array.Empty<string>(), StringComparer.Ordinal);
+            var rightSet = new HashSet<string>(right ?? Array.Empty<string>(), StringComparer.Ordinal);
+            return leftSet.SetEquals(rightSet);
         }
     }
 }

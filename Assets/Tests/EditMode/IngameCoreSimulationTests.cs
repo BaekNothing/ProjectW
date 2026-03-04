@@ -89,6 +89,7 @@ namespace ProjectW.Tests.EditMode
 
             Assert.IsTrue(result.IsMatch);
             Assert.IsEmpty(result.ErrorCodes);
+            Assert.IsEmpty(result.Differences);
         }
 
         [Test]
@@ -108,6 +109,44 @@ namespace ProjectW.Tests.EditMode
 
             Assert.IsFalse(result.IsMatch);
             CollectionAssert.Contains(result.ErrorCodes, "E-RPL-001");
+        }
+
+
+        [Test]
+        public void ReplayVerifier_FailsWhenAppliedInterventionSetsDiffer()
+        {
+            var verifier = new ReplayVerifier();
+            var expected = new List<TickLogRecord>
+            {
+                new TickLogRecord
+                {
+                    TickIndex = 1,
+                    LoopState = "SimulationTick",
+                    StateTransition = "Resolve->Resolve",
+                    SelectedActionId = "work-0",
+                    Seed = 42,
+                    AppliedInterventionIds = new List<string> { "cmd-a", "cmd-b" }
+                }
+            };
+
+            var actual = new List<TickLogRecord>
+            {
+                new TickLogRecord
+                {
+                    TickIndex = 1,
+                    LoopState = "SimulationTick",
+                    StateTransition = "Resolve->Resolve",
+                    SelectedActionId = "work-0",
+                    Seed = 42,
+                    AppliedInterventionIds = new List<string> { "cmd-a" }
+                }
+            };
+
+            var result = verifier.Verify(expected, actual);
+
+            Assert.IsFalse(result.IsMatch);
+            CollectionAssert.Contains(result.ErrorCodes, "E-RPL-001");
+            Assert.That(result.Differences[0], Does.Contain("applied_interventions_mismatch"));
         }
 
         [Test]

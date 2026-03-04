@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using UnityEngine;
 
 namespace ProjectW.IngameCore
 {
@@ -86,6 +88,54 @@ namespace ProjectW.IngameCore
         }
     }
 
+
+    public sealed class JsonSnapshotWriter : ISnapshotWriter
+    {
+        private readonly string rootDirectory;
+        private readonly int maxSnapshotsPerSession;
+
+        public JsonSnapshotWriter(string rootDirectory = null, int maxSnapshotsPerSession = 3)
+        {
+            this.rootDirectory = string.IsNullOrWhiteSpace(rootDirectory)
+                ? Path.Combine(Application.persistentDataPath, "IngameSnapshots")
+                : rootDirectory;
+            this.maxSnapshotsPerSession = Math.Max(1, maxSnapshotsPerSession);
+        }
+
+        public SnapshotWriteResult PersistSnapshot(SessionSnapshotDto snapshot)
+        {
+            if (snapshot == null || string.IsNullOrWhiteSpace(snapshot.SessionId))
+            {
+                return new SnapshotWriteResult(false, "E-PST-302");
+            }
+
+            try
+            {
+                var sessionDirectory = Path.Combine(rootDirectory, snapshot.SessionId.Trim());
+                Directory.CreateDirectory(sessionDirectory);
+                var fileName = $"tick_{snapshot.TickIndex:D8}_{DateTime.UtcNow:yyyyMMddTHHmmssfff}.json";
+                var filePath = Path.Combine(sessionDirectory, fileName);
+                var json = JsonUtility.ToJson(snapshot, true);
+                File.WriteAllText(filePath, json);
+
+                var files = new DirectoryInfo(sessionDirectory)
+                    .GetFiles("tick_*.json", SearchOption.TopDirectoryOnly);
+                Array.Sort(files, (left, right) => StringComparer.Ordinal.Compare(left.Name, right.Name));
+
+                var deleteCount = Math.Max(0, files.Length - maxSnapshotsPerSession);
+                for (int i = 0; i < deleteCount; i++)
+                {
+                    files[i].Delete();
+                }
+
+                return new SnapshotWriteResult(true);
+            }
+            catch
+            {
+                return new SnapshotWriteResult(false, "E-PST-301");
+            }
+        }
+    }
     public sealed class SnapshotPersistenceService
     {
         private readonly ISnapshotWriter snapshotWriter;
