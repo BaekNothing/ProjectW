@@ -76,3 +76,25 @@
   - `Assets/Specification/Ingame/CoreLoop/04 – Autonomy Decision.md`
   - `Assets/Specification/Ingame/CoreLoop/11 – Test Matrix (MVP).md`
   - `Assets/Specification/Ingame/CoreLoop/12 – Spatial Interaction and Entity Scaling.md`
+
+
+### 2026-03-04 – MVP 판정 기준(Go/No-Go) 확정
+
+- 결정 사항:
+  - MVP 판정은 **재미 가설 충족 + KPI 하한 충족**의 이중 게이트로 운영한다.
+  - 1차 판정은 20세션, 최종 판정은 50세션 누적으로 수행한다.
+- Go 기준:
+  - `U01(지연 개입 긴장감)` 65% 이상
+  - `U02(관계 붕괴 관찰 흥미)` 60% 이상
+  - `K02(사이클 완주율)` 55% 이상
+  - `K03(전멸 비율)` 45% 이하
+  - `K04(실패 후 재도전율)` 70% 이상
+- No-Go 기준:
+  - 상기 핵심 지표 중 2개 이상 미달하거나,
+  - UX 지표(U01/U02) 중 하나라도 50% 미만일 경우
+- 후속 조치 원칙:
+  - No-Go 시 개입 피드백 가시성/실패 보상 체감 개선을 우선 수정하고 2주 내 재측정한다.
+- 추적 문서:
+  - `Assets/Specification/Kickoff.md`
+  - `Assets/Specification/Ingame/SSOT – Ingame.md`
+  - `Assets/Specification/Ingame/CoreLoop/11 – Test Matrix (MVP).md`
