@@ -121,6 +121,13 @@ namespace ProjectW.IngameCore.Simulation
 
     public sealed class CharacterNeuronSystem
     {
+        private readonly EventLogCollector eventLogCollector;
+
+        public CharacterNeuronSystem(EventLogCollector eventLogCollector = null)
+        {
+            this.eventLogCollector = eventLogCollector;
+        }
+
         public CharacterNeuronSnapshot EvaluateRoutine(RoutineNeuronContext context)
         {
             var scheduled = ResolveScheduledIntent(context.Hour, context.Minute, context.RoutineOffsetTicks, out var isMealWindow, out var isSleepWindow);
@@ -196,16 +203,19 @@ namespace ProjectW.IngameCore.Simulation
 
             if (isMealTime || context.Satiety <= context.SatietyThreshold)
             {
+                eventLogCollector?.RecordNeuronDecision(CharacterNeuronIntent.Eat);
                 return CharacterNeuronIntent.Eat;
             }
 
             if (inWorkHours)
             {
+                eventLogCollector?.RecordNeuronDecision(CharacterNeuronIntent.Work);
                 return CharacterNeuronIntent.Work;
             }
 
             if (!context.CanOvertime)
             {
+                eventLogCollector?.RecordNeuronDecision(CharacterNeuronIntent.Sleep);
                 return CharacterNeuronIntent.Sleep;
             }
 
@@ -213,12 +223,15 @@ namespace ProjectW.IngameCore.Simulation
                                || context.DeadlinePressure > SimulationConstants.DeadlinePressureThreshold;
             if (!overtimeNeed)
             {
+                eventLogCollector?.RecordNeuronDecision(CharacterNeuronIntent.Sleep);
                 return CharacterNeuronIntent.Sleep;
             }
 
             var burnoutPenalty = context.Burnout * SimulationConstants.BurnoutPenaltyFactor;
             var utility = context.DeadlinePressure - burnoutPenalty;
-            return utility > 0f ? CharacterNeuronIntent.Work : CharacterNeuronIntent.Sleep;
+            var intent = utility > 0f ? CharacterNeuronIntent.Work : CharacterNeuronIntent.Sleep;
+            eventLogCollector?.RecordNeuronDecision(intent);
+            return intent;
         }
 
         private static CharacterNeuronIntent ResolveScheduledIntent(int hour, int minute, int routineOffsetTicks, out bool isMealWindow, out bool isSleepWindow)

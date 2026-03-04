@@ -9,17 +9,22 @@ namespace ProjectW.IngameCore.Simulation
         private readonly CharacterNeuronSystem _neuronSystem;
         private readonly JobSystem _jobSystem;
         private readonly List<WorldItem> _officeItems;
+        private readonly EventLogCollector _eventLogCollector;
+        private readonly int _seed;
 
-        public SimulationTickEngine(int seed)
+        public SimulationTickEngine(int seed, EventLogCollector eventLogCollector = null)
         {
+            _seed = seed;
             _random = new Random(seed);
-            _neuronSystem = new CharacterNeuronSystem();
+            _neuronSystem = new CharacterNeuronSystem(eventLogCollector);
             _jobSystem = new JobSystem();
             _officeItems = OfficeItemFactory.GenerateOfficeItems(_random, 12, Array.Empty<string>());
+            _eventLogCollector = eventLogCollector;
         }
 
         public int AdvanceTick(DateTime simTime, int tickIndex, TaskModel task, IReadOnlyList<AgentRuntimeState> agents)
         {
+            _eventLogCollector?.BeginTick("simulation", tickIndex, "SimulationTick", _seed);
             var hour = simTime.Hour;
             var minute = simTime.Minute;
             task.AdvanceElapsedHours(SimulationConstants.TickMinutes / 60f);
@@ -58,7 +63,8 @@ namespace ProjectW.IngameCore.Simulation
                 }
 
                 var loadRatio = Math.Max(0f, agent.SubtaskWork) / avgSubtask;
-                var assignedJob = _jobSystem.AssignBestJob(agent, jobs, _officeItems);
+                var assignedJob = _jobSystem.AssignBestJob(agent, jobs, _officeItems, out var jobTrace);
+                _eventLogCollector?.RecordJobDecision(jobTrace);
                 var intent = ResolveIntentFromJob(assignedJob, agent, tickIndex, hour, minute, loadRatio, deadlinePressure);
 
                 var shouldWork = intent == CharacterNeuronIntent.Work;
@@ -113,6 +119,8 @@ namespace ProjectW.IngameCore.Simulation
             }
 
             task.ApplyProgress(totalProgress);
+            _eventLogCollector?.RecordStateTransition(ProjectW.IngameCore.StateMachine.CoreLoopState.Resolve, ProjectW.IngameCore.StateMachine.CoreLoopState.Resolve);
+            _eventLogCollector?.EndTick();
             return totalProgress;
         }
 
