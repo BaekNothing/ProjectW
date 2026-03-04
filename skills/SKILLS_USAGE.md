@@ -5,6 +5,7 @@ This is a short usage guide for the skills created in this project, with Claude/
 ## Environment Assumptions
 
 - AI client: Claude/Cursor style agent
+- Default integration branch: `ai-integration` (unless explicitly overridden)
 - MCP: `unityMCP` enabled
   - config: `c:\Users\king0\.cursor\mcp.json`
   - endpoint: `http://127.0.0.1:8080/mcp`

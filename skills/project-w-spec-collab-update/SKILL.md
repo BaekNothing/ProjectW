@@ -106,7 +106,7 @@ Run git preflight before any git write command:
 After task completion, finish version-control flow unless the user explicitly says not to:
 1. `git add` updated specification files
 2. `git commit` with `Spec Ref` linkage
-3. `git push` current branch
+3. `git push` current branch (`ai-integration` by default unless explicitly overridden)
 
 If push fails, report the failure reason and required user action.
 

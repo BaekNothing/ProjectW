@@ -1,0 +1,28 @@
+name: Auto merge PRs into ai-integration
+
+on:
+  pull_request_target:
+    branches:
+      - ai-integration
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Enable auto-merge for PRs targeting ai-integration
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --squash --auto

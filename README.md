@@ -35,3 +35,9 @@ Current dummy white PNG files (editable in-place):
 - Item tags: `item_desk.png`, `item_computer.png`, `item_bed.png`, `item_pillow.png`, `item_blanket.png`, `item_table.png`, `item_tray.png`, `item_cup.png`
 
 `RoutineObservationMvpSession` auto-loads these sprites (runtime square fallback if missing).
+
+## GitHub PR flow
+
+- PRs with base branch `ai-integration` automatically get `auto-merge` enabled via `.github/workflows/auto-merge-ai-integration.yml`.
+- Merge method is `squash`.
+- Keep `main` updates manual by merging from `ai-integration` when ready.
