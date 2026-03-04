@@ -170,7 +170,7 @@ namespace ProjectW.IngameCore.Meta
             LastChoiceId = choice.ChoiceId;
         }
 
-        public void ApplyToSessionConfig(SessionConfig config)
+        public void ApplyToSessionConfig(ProjectW.IngameCore.Config.SessionConfig config)
         {
             if (config == null)
             {
