@@ -1,13 +1,15 @@
 using System.Collections.Generic;
+using ProjectW.IngameCore.Config;
 
 namespace ProjectW.IngameCore.Contracts
 {
     public interface ICsvConfigProvider
     {
-        object LoadSessionConfig();
-        IReadOnlyList<object> LoadStateTransitionRules();
-        IReadOnlyList<object> LoadInterventionRules();
-        IReadOnlyList<object> LoadTerminationRules();
+        SessionConfig LoadSessionConfig();
+        IReadOnlyList<StateTransitionRuleRow> LoadStateTransitionRules();
+        IReadOnlyList<CharacterProfileRow> LoadCharacterProfiles();
+        IReadOnlyList<InterventionCommandRow> LoadInterventionRules();
+        IReadOnlyList<TerminationRuleRow> LoadTerminationRules();
     }
 
     public interface IDataSnapshotProvider

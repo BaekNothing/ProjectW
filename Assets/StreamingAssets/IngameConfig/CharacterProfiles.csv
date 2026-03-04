@@ -1,0 +1,3 @@
+character_id,trait_weights_json,stress,health,trauma_level,enabled
+character_a,"{""focus"":0.6}",10,95,1,true
+character_b,"{""focus"":0.4}",20,90,2,true

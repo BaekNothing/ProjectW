@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Reflection;
 using System.Text;
 using UnityEngine;
+using ProjectW.IngameCore.Config;
 using ProjectW.IngameCore.Simulation;
 using ProjectW.IngameCore.StateMachine;
 using UnityEngine.UI;
@@ -196,6 +197,8 @@ namespace ProjectW.IngameMvp
         private int _coreLoopStateStartedTick;
         private readonly Dictionary<CoreLoopState, TransitionDecision> _coreLoopStateResults = new Dictionary<CoreLoopState, TransitionDecision>();
         private readonly List<string> _coreLoopEventLog = new List<string>();
+        private IngameCsvConfigSet _runtimeConfigSet;
+        private bool _isReadOnlyRecoveryMode;
 
         private enum PanelKind
         {
@@ -395,9 +398,48 @@ namespace ProjectW.IngameMvp
                 return;
             }
 
+            if (!TryBootstrapRuntimeConfig())
+            {
+                return;
+            }
+
+            if (_isReadOnlyRecoveryMode)
+            {
+                return;
+            }
+
             EnsureOfficeItemsAndJobBindings();
 
             _loopCoroutine = StartCoroutine(RunLoop());
+        }
+
+        private bool TryBootstrapRuntimeConfig()
+        {
+            if (_runtimeConfigSet != null || _isReadOnlyRecoveryMode)
+            {
+                return true;
+            }
+
+            var bootstrap = new IngameCsvBootstrapService(new StreamingAssetsCsvConfigProvider(), new PersistentSnapshotRecoveryProbe());
+            var result = bootstrap.Load();
+            if (result.Success)
+            {
+                _runtimeConfigSet = result.ConfigSet;
+                tickIntervalSeconds = Mathf.Max(0.01f, result.ConfigSet.SessionConfig.TickSeconds);
+                return true;
+            }
+
+            if (result.IsReadOnlyRecoveryMode)
+            {
+                _isReadOnlyRecoveryMode = true;
+                SetDashboardContext("RecoveryMode", "ReadOnly");
+                SetDashboardContext("StartupError", string.IsNullOrWhiteSpace(result.ErrorCode) ? "CSVError" : result.ErrorCode);
+                Debug.LogWarning($"[RoutineMVP] CSV validation failed ({result.ErrorCode}). Session start blocked and switched to read-only recovery mode.");
+                return false;
+            }
+
+            Debug.LogError($"[RoutineMVP] CSV validation failed ({result.ErrorCode}). Session start blocked.");
+            return false;
         }
 
         public void StopSession()

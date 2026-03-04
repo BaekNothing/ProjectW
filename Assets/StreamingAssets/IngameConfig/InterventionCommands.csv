@@ -1,0 +1,2 @@
+command_id,issued_tick,apply_tick,command_type,target_scope,payload_json,priority,supersedes_command_id
+cmd_001,0,1,PolicyChange,global,"{""policy"":""calm""}",100,
