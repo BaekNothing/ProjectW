@@ -55,6 +55,61 @@ namespace ProjectW.Tests.EditMode
             Assert.AreEqual(0, progress);
         }
 
+
+        [Test]
+        public void T23_DeterministicReplay_LogCoreFieldsMatchForSameSeedAndInput()
+        {
+            var firstCollector = new EventLogCollector();
+            var secondCollector = new EventLogCollector();
+            var firstEngine = new SimulationTickEngine(seed: 2026, firstCollector);
+            var secondEngine = new SimulationTickEngine(seed: 2026, secondCollector);
+
+            var firstTask = new TaskModel(100, 10f);
+            var secondTask = new TaskModel(100, 10f);
+            var firstAgents = new List<AgentRuntimeState>
+            {
+                new AgentRuntimeState("A", 6) { Position = (int)RoutineZone.Work, TargetZone = (int)RoutineZone.Work },
+                new AgentRuntimeState("B", 6) { Position = (int)RoutineZone.Work, TargetZone = (int)RoutineZone.Work }
+            };
+            var secondAgents = new List<AgentRuntimeState>
+            {
+                new AgentRuntimeState("A", 6) { Position = (int)RoutineZone.Work, TargetZone = (int)RoutineZone.Work },
+                new AgentRuntimeState("B", 6) { Position = (int)RoutineZone.Work, TargetZone = (int)RoutineZone.Work }
+            };
+
+            for (var tick = 1; tick <= 4; tick++)
+            {
+                var simTime = new DateTime(2026, 1, 1, 9, 0, 0).AddMinutes((tick - 1) * SimulationConstants.TickMinutes);
+                firstEngine.AdvanceTick(simTime, tick, firstTask, firstAgents);
+                secondEngine.AdvanceTick(simTime, tick, secondTask, secondAgents);
+            }
+
+            var verifier = new ReplayVerifier();
+            var result = verifier.Verify(firstCollector.TickLogs, secondCollector.TickLogs);
+
+            Assert.IsTrue(result.IsMatch);
+            Assert.IsEmpty(result.ErrorCodes);
+        }
+
+        [Test]
+        public void ReplayVerifier_RecordsERPL001OnCoreFieldMismatch()
+        {
+            var verifier = new ReplayVerifier();
+            var expected = new List<TickLogRecord>
+            {
+                new TickLogRecord { TickIndex = 1, LoopState = "SimulationTick", StateTransition = "Resolve->Resolve", SelectedActionId = "work-0", Seed = 10 }
+            };
+            var actual = new List<TickLogRecord>
+            {
+                new TickLogRecord { TickIndex = 1, LoopState = "SimulationTick", StateTransition = "Resolve->Resolve", SelectedActionId = "work-0", Seed = 11 }
+            };
+
+            var result = verifier.Verify(expected, actual);
+
+            Assert.IsFalse(result.IsMatch);
+            CollectionAssert.Contains(result.ErrorCodes, "E-RPL-001");
+        }
+
         [Test]
         public void SpatialQuery_SortsByDistanceThenPriorityThenId()
         {

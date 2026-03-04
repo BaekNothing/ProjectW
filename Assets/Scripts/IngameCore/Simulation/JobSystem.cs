@@ -20,6 +20,15 @@ namespace ProjectW.IngameCore.Simulation
         public bool Claimed;
     }
 
+    public sealed class JobDecisionTrace
+    {
+        public string DecisionTraceId;
+        public string SelectedActionId;
+        public List<string> CandidateActions = new List<string>();
+        public List<float> CandidateScores = new List<float>();
+        public List<string> BlockedActions = new List<string>();
+    }
+
     public sealed class JobSystem
     {
         public List<AtomicJob> BuildJobs(DateTime simTime, TaskModel task, IReadOnlyList<AgentRuntimeState> agents)
@@ -62,23 +71,40 @@ namespace ProjectW.IngameCore.Simulation
 
         public AtomicJob AssignBestJob(AgentRuntimeState agent, List<AtomicJob> jobs, IReadOnlyList<WorldItem> officeItems)
         {
+            return AssignBestJob(agent, jobs, officeItems, out _);
+        }
+
+        public AtomicJob AssignBestJob(AgentRuntimeState agent, List<AtomicJob> jobs, IReadOnlyList<WorldItem> officeItems, out JobDecisionTrace trace)
+        {
+            trace = new JobDecisionTrace
+            {
+                DecisionTraceId = $"dec-{agent.Id}-{jobs.Count}",
+                SelectedActionId = null
+            };
+
             AtomicJob bestFallback = null;
             for (var i = 0; i < jobs.Count; i++)
             {
                 var job = jobs[i];
                 if (job.Claimed)
                 {
+                    trace.BlockedActions.Add(job.JobId);
                     continue;
                 }
 
+                trace.CandidateActions.Add(job.JobId);
+                trace.CandidateScores.Add(ScoreJob(agent, job));
+
                 if (job.Requirement != null && !job.Requirement.IsSatisfied(officeItems, agent.Id))
                 {
+                    trace.BlockedActions.Add(job.JobId);
                     continue;
                 }
 
                 if (job.JobType == AtomicJobType.Work)
                 {
                     job.Claimed = true;
+                    trace.SelectedActionId = job.JobId;
                     return job;
                 }
 
@@ -91,9 +117,25 @@ namespace ProjectW.IngameCore.Simulation
             if (bestFallback != null)
             {
                 bestFallback.Claimed = true;
+                trace.SelectedActionId = bestFallback.JobId;
             }
 
             return bestFallback;
+        }
+
+        private static float ScoreJob(AgentRuntimeState agent, AtomicJob job)
+        {
+            switch (job.JobType)
+            {
+                case AtomicJobType.Work:
+                    return 1f + Math.Max(0, job.WorkUnits) * 0.01f;
+                case AtomicJobType.Eat:
+                    return Math.Max(0f, (100f - agent.Satiety) / 100f);
+                case AtomicJobType.Sleep:
+                    return Math.Max(0f, (100f - agent.Stress) / 100f);
+                default:
+                    return 0f;
+            }
         }
 
         private static List<AtomicJob> BuildWorkJobs(TaskModel task, IReadOnlyList<AgentRuntimeState> agents)
