@@ -41,3 +41,33 @@ Current dummy white PNG files (editable in-place):
 - PRs with base branch `ai-integration` automatically get `auto-merge` enabled via `.github/workflows/auto-merge-ai-integration.yml`.
 - Merge method is `squash`.
 - Keep `main` updates manual by merging from `ai-integration` when ready.
+
+## Recommended branch strategy
+
+If your repository currently only has `main`, create `ai-integration` first and use it as the default PR base for AI-generated changes.
+
+### 1) Create `ai-integration`
+
+```bash
+git checkout main
+git pull origin main
+git checkout -b ai-integration
+git push -u origin ai-integration
+```
+
+### 2) Protect branches (GitHub Settings)
+
+- `main` (strict):
+  - Require pull request before merging
+  - Require approvals (at least 1)
+  - Optionally restrict who can push
+  - Optionally include administrators
+- `ai-integration` (operational):
+  - Keep required checks aligned with your CI
+  - Allow auto-merge to complete after checks pass
+
+This keeps `main` hard to modify by mistake while still allowing fast AI iteration on `ai-integration`.
+
+### 3) Open PRs with base=`ai-integration`
+
+The workflow `.github/workflows/auto-merge-ai-integration.yml` triggers only when the PR base branch is `ai-integration`.
