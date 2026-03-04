@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using ProjectW.IngameCore.StateMachine;
 using ProjectW.IngameMvp;
 using System.Reflection;
 using UnityEngine;
@@ -8,6 +9,45 @@ namespace ProjectW.Tests.EditMode
 {
     public class RoutineObservationMvpSessionTests
     {
+
+        [Test]
+        public void T01_ThreeConsecutiveCycles_EnforcesRequiredCoreLoopOrder()
+        {
+            var zones = new GameObject("Zones");
+            CreateZone(zones.transform, "Mission", "zone.mission.main", new[] { "zone.mission" }, new Vector3(-4f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            CreateZone(zones.transform, "Cafeteria", "zone.meal.main", new[] { "need.hunger" }, new Vector3(0f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            CreateZone(zones.transform, "Sleep", "zone.sleep.main", new[] { "need.sleep" }, new Vector3(4f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            var root = new GameObject("Characters");
+
+            var actor = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            actor.name = "Character_A";
+            actor.transform.SetParent(root.transform, false);
+
+            var go = new GameObject("RoutineSession_CoreLoopT01");
+            var session = go.AddComponent<RoutineObservationMvpSession>();
+
+            for (int i = 0; i < 3; i++)
+            {
+                session.AdvanceOneTick();
+
+                Assert.AreEqual(CoreLoopState.Plan, session.CoreLoopCurrentState);
+                Assert.AreEqual(i + 1, session.CoreLoopStateStartedTick);
+                Assert.AreEqual(CoreLoopState.Drop, session.CoreLoopStateResults[CoreLoopState.Plan].NextState);
+                Assert.AreEqual(CoreLoopState.AutoNarrative, session.CoreLoopStateResults[CoreLoopState.Drop].NextState);
+                Assert.AreEqual(CoreLoopState.CaptainIntervention, session.CoreLoopStateResults[CoreLoopState.AutoNarrative].NextState);
+                Assert.AreEqual(CoreLoopState.NightDream, session.CoreLoopStateResults[CoreLoopState.CaptainIntervention].NextState);
+                Assert.AreEqual(CoreLoopState.Resolve, session.CoreLoopStateResults[CoreLoopState.NightDream].NextState);
+                Assert.AreEqual(CoreLoopState.NextCycle, session.CoreLoopStateResults[CoreLoopState.Resolve].NextState);
+                Assert.AreEqual(CoreLoopState.Plan, session.CoreLoopStateResults[CoreLoopState.NextCycle].NextState);
+            }
+
+            Assert.IsEmpty(session.CoreLoopEventLog);
+
+            Object.DestroyImmediate(go);
+            Object.DestroyImmediate(zones);
+            Object.DestroyImmediate(root);
+        }
+
         [Test]
         public void ResolveAction_UsesMealSleepMissionSchedule()
         {
