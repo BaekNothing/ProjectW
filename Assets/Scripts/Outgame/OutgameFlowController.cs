@@ -70,6 +70,7 @@ namespace ProjectW.Outgame
                 BuildUi(_canvas.transform);
             }
 
+            EnsureStartButtonPinned(_canvas.transform);
             WireUiEvents();
         }
 
@@ -254,6 +255,10 @@ namespace ProjectW.Outgame
             BindSelectionButtons(panel);
 
             _startButton = FindButtonByText(panel, "Start Ingame Loop");
+            if (_startButton == null)
+            {
+                _startButton = FindButtonByText(canvasRoot, "Start Ingame Loop");
+            }
             _resultText = FindTextByPrefix(panel, "Last Result", "No result yet");
 
             if (_resourceSlider != null)
@@ -341,11 +346,60 @@ namespace ProjectW.Outgame
             BuildPriorityButtons(panel.transform, new Vector2(controlX, y), _prioritySecondaryButtons, "Priority2");
 
             y -= 70f;
-            _startButton = CreateButton(panel.transform, "StartButton", "Start Ingame Loop", new Vector2(controlX, y));
-            _startButton.GetComponent<RectTransform>().sizeDelta = new Vector2(220f, 44f);
 
             _resultText = CreateLabel(panel.transform, "ResultText", "No result yet.", new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-20f, 20f), 15, TextAnchor.LowerRight);
             _resultText.GetComponent<RectTransform>().sizeDelta = new Vector2(rightValueX - 220f, 140f);
+        }
+
+        private void EnsureStartButtonPinned(Transform canvasRoot)
+        {
+            if (canvasRoot == null)
+            {
+                return;
+            }
+
+            var rootTransform = canvasRoot.Find("PinnedStartButtonRoot") as RectTransform;
+            if (rootTransform == null)
+            {
+                var rootGo = CreateUiObject("PinnedStartButtonRoot", canvasRoot);
+                rootTransform = rootGo.GetComponent<RectTransform>();
+                var rootImage = rootGo.AddComponent<Image>();
+                rootImage.color = new Color(0.07f, 0.09f, 0.12f, 0.82f);
+            }
+
+            rootTransform.anchorMin = new Vector2(1f, 1f);
+            rootTransform.anchorMax = new Vector2(1f, 1f);
+            rootTransform.pivot = new Vector2(1f, 1f);
+            rootTransform.anchoredPosition = new Vector2(-20f, -20f);
+            rootTransform.sizeDelta = new Vector2(260f, 64f);
+            if (_startButton == null)
+            {
+                _startButton = FindButtonByName(canvasRoot, "StartButton");
+            }
+
+            if (_startButton == null)
+            {
+                _startButton = FindButtonByText(canvasRoot, "Start Ingame Loop");
+            }
+
+            if (_startButton == null)
+            {
+                _startButton = CreateButton(rootTransform, "StartButton", "Start Ingame Loop", Vector2.zero);
+            }
+
+            var buttonRect = _startButton.transform as RectTransform;
+            if (buttonRect == null)
+            {
+                return;
+            }
+
+            buttonRect.SetParent(rootTransform, false);
+            buttonRect.anchorMin = Vector2.zero;
+            buttonRect.anchorMax = Vector2.one;
+            buttonRect.pivot = new Vector2(0.5f, 0.5f);
+            buttonRect.anchoredPosition = Vector2.zero;
+            buttonRect.offsetMin = new Vector2(10f, 10f);
+            buttonRect.offsetMax = new Vector2(-10f, -10f);
         }
 
         private void OnClickStartSession()
@@ -475,7 +529,32 @@ namespace ProjectW.Outgame
                 }
             }
 
-            return buttons.Length > 0 ? buttons[0] : null;
+            return null;
+        }
+
+        private static Button FindButtonByName(Transform root, string objectName)
+        {
+            if (root == null || string.IsNullOrWhiteSpace(objectName))
+            {
+                return null;
+            }
+
+            var transform = root.Find(objectName);
+            if (transform != null)
+            {
+                return transform.GetComponent<Button>();
+            }
+
+            var buttons = root.GetComponentsInChildren<Button>(true);
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                if (buttons[i] != null && string.Equals(buttons[i].name, objectName, StringComparison.Ordinal))
+                {
+                    return buttons[i];
+                }
+            }
+
+            return null;
         }
 
         private static Text FindTextByPrefix(Transform root, params string[] prefixes)

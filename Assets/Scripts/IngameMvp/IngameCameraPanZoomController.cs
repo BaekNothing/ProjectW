@@ -26,6 +26,8 @@ namespace ProjectW.IngameMvp
         private bool _isPinching;
         private float _pinchStartDistance;
         private float _pinchStartSize;
+        private bool _didWarnMissingTargetCamera;
+        private bool _didWarnNonOrthographicCamera;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void EnsureAttached()
@@ -43,12 +45,24 @@ namespace ProjectW.IngameMvp
             }
 
             var cam = Camera.main ?? FindFirstObjectByType<Camera>();
+            EnsureAttachedTo(cam);
+        }
+
+        public static IngameCameraPanZoomController EnsureAttachedTo(Camera cam)
+        {
             if (cam == null)
             {
-                return;
+                Debug.LogWarning("[IngameCameraPanZoomController] Cannot attach camera pan/zoom controller because camera is null.");
+                return null;
             }
 
-            cam.gameObject.AddComponent<IngameCameraPanZoomController>();
+            var existing = cam.GetComponent<IngameCameraPanZoomController>();
+            if (existing != null)
+            {
+                return existing;
+            }
+
+            return cam.gameObject.AddComponent<IngameCameraPanZoomController>();
         }
 
         private void Awake()
@@ -62,13 +76,31 @@ namespace ProjectW.IngameMvp
             {
                 targetCamera = Camera.main;
             }
+
+            if (targetCamera == null && !_didWarnMissingTargetCamera)
+            {
+                Debug.LogWarning("[IngameCameraPanZoomController] targetCamera is not resolved. Camera pan/zoom is disabled.");
+                _didWarnMissingTargetCamera = true;
+            }
         }
 
         private void Update()
         {
             if (targetCamera == null)
             {
+                if (!_didWarnMissingTargetCamera)
+                {
+                    Debug.LogWarning("[IngameCameraPanZoomController] Update skipped because targetCamera is null.");
+                    _didWarnMissingTargetCamera = true;
+                }
+
                 return;
+            }
+
+            if (!targetCamera.orthographic && !_didWarnNonOrthographicCamera)
+            {
+                Debug.LogWarning("[IngameCameraPanZoomController] targetCamera is perspective. Zoom path is disabled (orthographic required).");
+                _didWarnNonOrthographicCamera = true;
             }
 
             HandleMouseControls();
@@ -199,6 +231,12 @@ namespace ProjectW.IngameMvp
         {
             if (!targetCamera.orthographic)
             {
+                if (!_didWarnNonOrthographicCamera)
+                {
+                    Debug.LogWarning("[IngameCameraPanZoomController] ApplyZoom ignored because targetCamera is not orthographic.");
+                    _didWarnNonOrthographicCamera = true;
+                }
+
                 return;
             }
 

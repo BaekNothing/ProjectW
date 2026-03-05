@@ -413,6 +413,20 @@ namespace ProjectW.IngameMvp
             showDebugOnGui = false;
             _resolvedWorldSeed = fallbackWorldSeed == 0 ? DefaultWorldSeed : fallbackWorldSeed;
             AutoBindSceneReferences();
+            var cameraForInteraction = interactionCamera != null ? interactionCamera : (Camera.main != null ? Camera.main : FindFirstObjectByType<Camera>());
+            if (cameraForInteraction == null)
+            {
+                Debug.LogWarning("[RoutineMVP] No camera found in Awake. Camera pan/zoom controller fallback attach skipped.");
+            }
+            else
+            {
+                IngameCameraPanZoomController.EnsureAttachedTo(cameraForInteraction);
+                if (interactionCamera == null)
+                {
+                    interactionCamera = cameraForInteraction;
+                }
+            }
+
             visualResources?.EnsureLoadedFromResources();
             EnsureCharacterAnimatorControllerLoaded();
             EnsureOfficeItemsAndJobBindings();
