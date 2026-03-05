@@ -143,7 +143,8 @@ namespace ProjectW.IngameMvp
                 for (var i = 0; i < Input.touchCount; i++)
                 {
                     var touch = Input.GetTouch(i);
-                    if (touch.phase == TouchPhase.Began && panelRect.Contains(touch.position))
+                    var touchPosition = new Vector2(touch.position.x, Screen.height - touch.position.y);
+                    if (touch.phase == TouchPhase.Began && panelRect.Contains(touchPosition))
                     {
                         return true;
                     }
