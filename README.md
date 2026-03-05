@@ -36,6 +36,14 @@ Current dummy white PNG files (editable in-place):
 
 `RoutineObservationMvpSession` auto-loads these sprites (runtime square fallback if missing).
 
+
+## Runtime crash/error console (build)
+
+- A runtime log overlay is auto-created by `RuntimeErrorConsole` in builds and editor play mode.
+- Toggle overlay with **` (BackQuote)** or **F1**.
+- It captures `Debug.Log*`, warnings, exceptions, and unhandled exceptions.
+- Logs are also saved to `Application.persistentDataPath/runtime-log-YYYYMMDD-HHMMSS.txt`.
+
 ## GitHub PR flow
 
 - PRs with base branch `ai-integration` automatically get `auto-merge` enabled via `.github/workflows/auto-merge-ai-integration.yml`.
