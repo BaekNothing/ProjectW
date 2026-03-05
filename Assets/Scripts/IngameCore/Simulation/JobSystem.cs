@@ -33,8 +33,18 @@ namespace ProjectW.IngameCore.Simulation
     {
         public List<AtomicJob> BuildJobs(DateTime simTime, TaskModel task, IReadOnlyList<AgentRuntimeState> agents)
         {
+            return BuildJobs(simTime, task, agents, null, null);
+        }
+
+        public List<AtomicJob> BuildJobs(
+            DateTime simTime,
+            TaskModel task,
+            IReadOnlyList<AgentRuntimeState> agents,
+            TaskGenerationRuleSet taskRuleSet,
+            Random random)
+        {
             var jobs = new List<AtomicJob>();
-            var workJobs = BuildWorkJobs(task, agents);
+            var workJobs = BuildWorkJobs(task, agents, taskRuleSet, random);
             jobs.AddRange(workJobs);
 
             for (var i = 0; i < agents.Count; i++)
@@ -138,9 +148,18 @@ namespace ProjectW.IngameCore.Simulation
             }
         }
 
-        private static List<AtomicJob> BuildWorkJobs(TaskModel task, IReadOnlyList<AgentRuntimeState> agents)
+        private static List<AtomicJob> BuildWorkJobs(
+            TaskModel task,
+            IReadOnlyList<AgentRuntimeState> agents,
+            TaskGenerationRuleSet taskRuleSet,
+            Random random)
         {
             var jobs = new List<AtomicJob>();
+            if (task == null || agents == null || agents.Count == 0)
+            {
+                return jobs;
+            }
+
             var assigned = 0;
             for (var i = 0; i < agents.Count; i++)
             {
@@ -167,21 +186,128 @@ namespace ProjectW.IngameCore.Simulation
                 return jobs;
             }
 
-            var perJob = Math.Max(1, remaining / freeAgentCount);
-            for (var i = 0; i < freeAgentCount; i++)
+            var jobCount = Math.Max(1, Math.Min(remaining, freeAgentCount));
+            var rng = random ?? new Random(1);
+            var jitterRatio = Math.Max(0d, taskRuleSet != null ? taskRuleSet.WorkUnitJitterRatio : 0.2d);
+            var allocation = AllocateWorkUnits(remaining, jobCount, jitterRatio, rng);
+            var plannedTemplates = new TaskTemplateRule[jobCount];
+            var plannedUnits = new int[jobCount];
+            for (var i = 0; i < jobCount; i++)
             {
-                var units = i == freeAgentCount - 1 ? Math.Max(1, remaining - (perJob * i)) : perJob;
+                var template = PickTemplate(taskRuleSet, rng);
+                var units = allocation[i];
+                if (template != null)
+                {
+                    var minUnits = 1;
+                    var maxUnits = Math.Max(minUnits, template.MaxWorkUnits);
+                    units = Math.Max(minUnits, Math.Min(maxUnits, units));
+                }
+
+                plannedTemplates[i] = template;
+                plannedUnits[i] = units;
+            }
+
+            var sumUnits = 0;
+            for (var i = 0; i < plannedUnits.Length; i++)
+            {
+                sumUnits += Math.Max(1, plannedUnits[i]);
+            }
+
+            var delta = remaining - sumUnits;
+            plannedUnits[plannedUnits.Length - 1] = Math.Max(1, plannedUnits[plannedUnits.Length - 1] + delta);
+
+            for (var i = 0; i < jobCount; i++)
+            {
+                var template = plannedTemplates[i];
                 jobs.Add(new AtomicJob
                 {
-                    JobId = $"work-{i}",
+                    JobId = template != null
+                        ? $"work-{template.TemplateId}-{i}"
+                        : $"work-{i}",
                     JobType = AtomicJobType.Work,
-                    ZoneKey = "workzone",
-                    Requirement = new NeedRequirement("work", "workzone", new[] { "desk", "computer" }),
-                    WorkUnits = units
+                    ZoneKey = string.IsNullOrWhiteSpace(template?.ZoneKey) ? "workzone" : template.ZoneKey.Trim(),
+                    Requirement = BuildRequirementFromTemplate(template),
+                    WorkUnits = plannedUnits[i]
                 });
             }
 
             return jobs;
+        }
+
+        private static NeedRequirement BuildRequirementFromTemplate(TaskTemplateRule template)
+        {
+            if (template == null)
+            {
+                return new NeedRequirement("work", "workzone", new[] { "desk", "computer" });
+            }
+
+            var needKey = string.IsNullOrWhiteSpace(template.NeedKey) ? "work" : template.NeedKey.Trim();
+            var zoneKey = string.IsNullOrWhiteSpace(template.ZoneKey) ? "workzone" : template.ZoneKey.Trim();
+            var tags = template.RequiredTags ?? Array.Empty<string>();
+            return new NeedRequirement(needKey, zoneKey, tags);
+        }
+
+        private static TaskTemplateRule PickTemplate(TaskGenerationRuleSet ruleSet, Random random)
+        {
+            if (ruleSet == null || !ruleSet.HasTemplates())
+            {
+                return null;
+            }
+
+            var templates = ruleSet.Templates;
+            var total = 0f;
+            for (var i = 0; i < templates.Count; i++)
+            {
+                total += Math.Max(0f, templates[i]?.Weight ?? 0f);
+            }
+
+            if (total <= 0.0001f)
+            {
+                return templates[random.Next(0, templates.Count)];
+            }
+
+            var roll = (float)random.NextDouble() * total;
+            var sum = 0f;
+            for (var i = 0; i < templates.Count; i++)
+            {
+                sum += Math.Max(0f, templates[i]?.Weight ?? 0f);
+                if (roll <= sum)
+                {
+                    return templates[i];
+                }
+            }
+
+            return templates[templates.Count - 1];
+        }
+
+        private static int[] AllocateWorkUnits(int totalUnits, int workerCount, double jitterRatio, Random random)
+        {
+            var allocation = new int[Math.Max(1, workerCount)];
+            var baseUnits = Math.Max(1, totalUnits / Math.Max(1, workerCount));
+            var consumed = 0;
+
+            for (var i = 0; i < allocation.Length; i++)
+            {
+                var remainingWorkers = allocation.Length - i;
+                var remainingUnits = Math.Max(1, totalUnits - consumed);
+                if (remainingWorkers == 1)
+                {
+                    allocation[i] = remainingUnits;
+                    consumed += allocation[i];
+                    continue;
+                }
+
+                var jitter = (random.NextDouble() * 2d) - 1d;
+                var candidate = (int)Math.Round(baseUnits * (1d + (jitterRatio * jitter)));
+                var minForThis = 1;
+                var maxForThis = Math.Max(1, remainingUnits - (remainingWorkers - 1));
+                allocation[i] = Math.Max(minForThis, Math.Min(maxForThis, candidate));
+                consumed += allocation[i];
+            }
+
+            var diff = totalUnits - consumed;
+            allocation[allocation.Length - 1] = Math.Max(1, allocation[allocation.Length - 1] + diff);
+            return allocation;
         }
 
         private static bool IsMealWindow(int hour, int minute)

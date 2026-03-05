@@ -18,14 +18,16 @@ namespace ProjectW.IngameCore.Simulation
         public string DisplayName { get; }
         public ItemUsagePolicy UsagePolicy { get; }
         public string OwnerAgentId { get; }
+        public string ZoneKey { get; }
         public IReadOnlyCollection<string> Tags => _tags;
 
-        public WorldItem(string id, string displayName, ItemUsagePolicy usagePolicy, string ownerAgentId, IEnumerable<string> tags)
+        public WorldItem(string id, string displayName, ItemUsagePolicy usagePolicy, string ownerAgentId, IEnumerable<string> tags, string zoneKey = "unknown")
         {
             Id = string.IsNullOrWhiteSpace(id) ? Guid.NewGuid().ToString("N") : id.Trim();
             DisplayName = string.IsNullOrWhiteSpace(displayName) ? Id : displayName.Trim();
             UsagePolicy = usagePolicy;
             OwnerAgentId = string.IsNullOrWhiteSpace(ownerAgentId) ? string.Empty : ownerAgentId.Trim();
+            ZoneKey = string.IsNullOrWhiteSpace(zoneKey) ? "unknown" : zoneKey.Trim();
             _tags = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             if (tags == null)
@@ -68,7 +70,7 @@ namespace ProjectW.IngameCore.Simulation
         {
             var ownerLabel = string.IsNullOrWhiteSpace(OwnerAgentId) ? "None" : OwnerAgentId;
             var tagsLabel = _tags.Count == 0 ? "-" : string.Join(", ", _tags);
-            return $"{DisplayName} ({Id}) | policy:{UsagePolicy} | owner:{ownerLabel} | tags:{tagsLabel}";
+            return $"{DisplayName} ({Id}) | zone:{ZoneKey} | policy:{UsagePolicy} | owner:{ownerLabel} | tags:{tagsLabel}";
         }
     }
 

@@ -13,10 +13,13 @@ namespace ProjectW.Outgame
     [Serializable]
     public sealed class OutgameSessionSetup
     {
+        public const int NoWorldSeed = int.MinValue;
+
         public List<string> SelectedCharacterIds = new List<string>();
         public MissionType InitialMissionType = MissionType.Recon;
         public int ResourcePriority = 50;
         public int SafetyPriority = 50;
+        public int WorldSeed = NoWorldSeed;
 
         public OutgameSessionSetup Clone()
         {
@@ -25,7 +28,8 @@ namespace ProjectW.Outgame
                 SelectedCharacterIds = new List<string>(SelectedCharacterIds ?? new List<string>()),
                 InitialMissionType = InitialMissionType,
                 ResourcePriority = ResourcePriority,
-                SafetyPriority = SafetyPriority
+                SafetyPriority = SafetyPriority,
+                WorldSeed = WorldSeed
             };
         }
 
@@ -36,8 +40,14 @@ namespace ProjectW.Outgame
                 SelectedCharacterIds = new List<string> { "Character_A", "Character_B", "Character_C" },
                 InitialMissionType = MissionType.Recon,
                 ResourcePriority = 50,
-                SafetyPriority = 50
+                SafetyPriority = 50,
+                WorldSeed = NoWorldSeed
             };
+        }
+
+        public int ResolveWorldSeed(int fallbackSeed)
+        {
+            return WorldSeed == NoWorldSeed ? fallbackSeed : WorldSeed;
         }
     }
 

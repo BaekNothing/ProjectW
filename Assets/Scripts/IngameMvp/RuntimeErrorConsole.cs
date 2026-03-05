@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using System.Text;
 using UnityEngine;
 
@@ -73,13 +74,56 @@ namespace ProjectW.IngameMvp
 
         private void Update()
         {
-            if (Input.GetKeyDown(KeyCode.BackQuote) || Input.GetKeyDown(KeyCode.F1))
+            if (WasToggleKeyPressed())
             {
                 visible = !visible;
             }
 
             FlushThreadedEntries();
         }
+
+        private static bool WasToggleKeyPressed()
+        {
+#if ENABLE_LEGACY_INPUT_MANAGER
+            if (Input.GetKeyDown(KeyCode.BackQuote) || Input.GetKeyDown(KeyCode.F1))
+            {
+                return true;
+            }
+#endif
+#if ENABLE_INPUT_SYSTEM
+            var keyboardType = Type.GetType("UnityEngine.InputSystem.Keyboard, Unity.InputSystem");
+            if (keyboardType == null)
+            {
+                return false;
+            }
+
+            var keyboard = keyboardType.GetProperty("current", BindingFlags.Public | BindingFlags.Static)?.GetValue(null);
+            if (keyboard == null)
+            {
+                return false;
+            }
+
+            if (WasKeyPressedThisFrame(keyboard, "backquoteKey") || WasKeyPressedThisFrame(keyboard, "f1Key"))
+            {
+                return true;
+            }
+#endif
+            return false;
+        }
+
+#if ENABLE_INPUT_SYSTEM
+        private static bool WasKeyPressedThisFrame(object keyDevice, string keyPropertyName)
+        {
+            var keyControl = keyDevice.GetType().GetProperty(keyPropertyName, BindingFlags.Public | BindingFlags.Instance)?.GetValue(keyDevice);
+            if (keyControl == null)
+            {
+                return false;
+            }
+
+            var prop = keyControl.GetType().GetProperty("wasPressedThisFrame", BindingFlags.Public | BindingFlags.Instance);
+            return prop != null && prop.GetValue(keyControl) is bool pressed && pressed;
+        }
+#endif
 
         private void OnGUI()
         {

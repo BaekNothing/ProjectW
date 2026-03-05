@@ -108,6 +108,7 @@ namespace ProjectW.IngameMvp
         private const string JobZoneEat = "eatzone";
         private const string JobZoneSleep = "sleepzone";
         private const string DefaultCharacterAnimatorControllerPath = "AnimatorControllers/routine_character_default";
+        private const int DefaultWorldSeed = 17;
 
         [Header("Tick")]
         [SerializeField] private bool autoRunOnStart = true;
@@ -145,6 +146,11 @@ namespace ProjectW.IngameMvp
         [SerializeField] private RoutineVisualResourceSet visualResources = new RoutineVisualResourceSet();
         [SerializeField] private RuntimeAnimatorController characterAnimatorController;
         [SerializeField, Min(0.5f)] private float zoneSpriteAnimationFps = 4f;
+
+        [Header("Procedural Rules")]
+        [SerializeField] private ZoneGenerationRuleSet zoneGenerationRuleSet;
+        [SerializeField] private TaskGenerationRuleSet taskGenerationRuleSet;
+        [SerializeField] private int fallbackWorldSeed = DefaultWorldSeed;
 
         [Header("Generation")]
         [SerializeField] private bool persistGeneratedObjectsInScene = true;
@@ -187,6 +193,8 @@ namespace ProjectW.IngameMvp
         private readonly Dictionary<RoutineCharacterBinding, CharacterNeuronSnapshot> _latestNeuronSnapshots = new Dictionary<RoutineCharacterBinding, CharacterNeuronSnapshot>();
         private readonly Dictionary<RoutineActionType, NeedRequirement> _actionJobRequirements = new Dictionary<RoutineActionType, NeedRequirement>();
         private readonly List<WorldItem> _officeItems = new List<WorldItem>();
+        private readonly Dictionary<string, List<WorldItem>> _officeItemsByZoneKey = new Dictionary<string, List<WorldItem>>(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<int> _boundCloseButtons = new HashSet<int>();
         private RoutineCharacterBinding _selectedCharacter;
         private RoutineCharacterBinding _pinnedNeuronCharacter;
         private RoutineInspectableWorldObject _selectedWorldObject;
@@ -220,6 +228,7 @@ namespace ProjectW.IngameMvp
         private SnapshotPersistenceResult _latestPersistenceResult;
         private bool _sessionEndEventRaised;
         private bool _outgameSetupApplied;
+        private int _resolvedWorldSeed = DefaultWorldSeed;
 
         private enum PanelKind
         {
@@ -302,6 +311,7 @@ namespace ProjectW.IngameMvp
 
             _outgameSetupApplied = true;
             var resolvedSetup = setup ?? OutgameSessionSetup.CreateDefault();
+            _resolvedWorldSeed = resolvedSetup.ResolveWorldSeed(fallbackWorldSeed);
             var selectedIds = new HashSet<string>(
                 (resolvedSetup.SelectedCharacterIds != null && resolvedSetup.SelectedCharacterIds.Count > 0)
                     ? resolvedSetup.SelectedCharacterIds
@@ -366,12 +376,16 @@ namespace ProjectW.IngameMvp
             SetDashboardContext("InitialMission", resolvedSetup.InitialMissionType.ToString());
             SetDashboardContext("Priority", $"R:{resource}, S:{safety}");
             SetDashboardContext("SelectedCharacters", string.Join(",", selectedIds));
+            SetDashboardContext("WorldSeed", _resolvedWorldSeed.ToString(CultureInfo.InvariantCulture));
+            ResetProceduralGenerationState();
+            EnsureOfficeItemsAndJobBindings();
         }
 
         private void Awake()
         {
             Application.runInBackground = true;
             showDebugOnGui = false;
+            _resolvedWorldSeed = fallbackWorldSeed == 0 ? DefaultWorldSeed : fallbackWorldSeed;
             AutoBindSceneReferences();
             visualResources?.EnsureLoadedFromResources();
             EnsureCharacterAnimatorControllerLoaded();
@@ -2091,7 +2105,12 @@ namespace ProjectW.IngameMvp
 
             if (neuronPanelView == null)
             {
-                neuronPanelView = FindFirstObjectByType<RoutineNeuronPanelView>();
+                neuronPanelView = TryBindExistingNeuronPanelView();
+                if (neuronPanelView == null)
+                {
+                    neuronPanelView = FindFirstObjectByType<RoutineNeuronPanelView>();
+                }
+
                 if (neuronPanelView == null && Application.isPlaying)
                 {
                     neuronPanelView = CreateRuntimeNeuronPanelView();
@@ -2105,7 +2124,12 @@ namespace ProjectW.IngameMvp
 
             if (objectInfoPanelView == null)
             {
-                objectInfoPanelView = FindFirstObjectByType<RoutineObjectInfoPanelView>();
+                objectInfoPanelView = TryBindExistingObjectInfoPanelView();
+                if (objectInfoPanelView == null)
+                {
+                    objectInfoPanelView = FindFirstObjectByType<RoutineObjectInfoPanelView>();
+                }
+
                 if (objectInfoPanelView == null && Application.isPlaying)
                 {
                     objectInfoPanelView = CreateRuntimeObjectInfoPanelView();
@@ -2115,6 +2139,99 @@ namespace ProjectW.IngameMvp
             if (objectInfoPanelView != null)
             {
                 objectInfoPanelView.Hide();
+            }
+        }
+
+        private RoutineNeuronPanelView TryBindExistingNeuronPanelView()
+        {
+            var panelGo = GameObject.Find("RoutineNeuronPanel");
+            if (panelGo == null)
+            {
+                return null;
+            }
+
+            var view = panelGo.GetComponent<RoutineNeuronPanelView>();
+            if (view == null)
+            {
+                view = panelGo.AddComponent<RoutineNeuronPanelView>();
+            }
+
+            var title = FindTextByName(panelGo.transform, "TitleText");
+            var intent = FindTextByName(panelGo.transform, "IntentText");
+            var reason = FindTextByName(panelGo.transform, "ReasonText");
+            var condition = FindTextByName(panelGo.transform, "ConditionText");
+            var gauge = FindTextByName(panelGo.transform, "GaugeText");
+            view.Configure(panelGo, title, intent, reason, condition, gauge);
+            EnsureCloseButtonBinding(panelGo.transform, CloseNeuronPanel);
+            return view;
+        }
+
+        private RoutineObjectInfoPanelView TryBindExistingObjectInfoPanelView()
+        {
+            var panelGo = GameObject.Find("RoutineObjectInfoPanel");
+            if (panelGo == null)
+            {
+                return null;
+            }
+
+            var view = panelGo.GetComponent<RoutineObjectInfoPanelView>();
+            if (view == null)
+            {
+                view = panelGo.AddComponent<RoutineObjectInfoPanelView>();
+            }
+
+            var title = FindTextByName(panelGo.transform, "TitleText");
+            var body = FindTextByName(panelGo.transform, "BodyText");
+            view.Configure(panelGo, title, body);
+            EnsureCloseButtonBinding(panelGo.transform, CloseObjectInfoPanel);
+            return view;
+        }
+
+        private static Text FindTextByName(Transform root, string objectName)
+        {
+            if (root == null || string.IsNullOrWhiteSpace(objectName))
+            {
+                return null;
+            }
+
+            var candidates = root.GetComponentsInChildren<Text>(true);
+            for (var i = 0; i < candidates.Length; i++)
+            {
+                var candidate = candidates[i];
+                if (candidate != null && string.Equals(candidate.name, objectName, StringComparison.Ordinal))
+                {
+                    return candidate;
+                }
+            }
+
+            return null;
+        }
+
+        private void EnsureCloseButtonBinding(Transform panelRoot, Action onClick)
+        {
+            if (panelRoot == null || onClick == null)
+            {
+                return;
+            }
+
+            var candidates = panelRoot.GetComponentsInChildren<Button>(true);
+            for (var i = 0; i < candidates.Length; i++)
+            {
+                var button = candidates[i];
+                if (button == null || !string.Equals(button.name, "CloseButton", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var key = button.GetInstanceID();
+                if (_boundCloseButtons.Contains(key))
+                {
+                    return;
+                }
+
+                button.onClick.AddListener(() => onClick());
+                _boundCloseButtons.Add(key);
+                return;
             }
         }
 
@@ -2745,9 +2862,9 @@ namespace ProjectW.IngameMvp
         {
             if (_actionJobRequirements.Count == 0)
             {
-                var workRequirement = new NeedRequirement("work", JobZoneWork, new[] { "desk", "computer" });
-                var eatRequirement = new NeedRequirement("eat", JobZoneEat, new[] { "table", "tray", "cup" });
-                var sleepRequirement = new NeedRequirement("sleep", JobZoneSleep, new[] { "bed", "pillow", "blanket" });
+                var workRequirement = ResolveTaskRequirement("work", JobZoneWork, new[] { "desk", "computer" });
+                var eatRequirement = ResolveTaskRequirement("eat", JobZoneEat, new[] { "table", "tray", "cup" });
+                var sleepRequirement = ResolveTaskRequirement("sleep", JobZoneSleep, new[] { "bed", "pillow", "blanket" });
                 _actionJobRequirements[RoutineActionType.Mission] = workRequirement;
                 _actionJobRequirements[RoutineActionType.Eat] = eatRequirement;
                 _actionJobRequirements[RoutineActionType.Breakfast] = eatRequirement;
@@ -2771,14 +2888,72 @@ namespace ProjectW.IngameMvp
                 }
             }
 
-            _officeItems.AddRange(OfficeItemFactory.GenerateOfficeItems(new System.Random(17), 12, owners));
+            _officeItems.AddRange(OfficeItemFactory.GenerateOfficeItems(new System.Random(_resolvedWorldSeed), 12, owners, zoneGenerationRuleSet));
+            RebuildOfficeItemsByZoneCache();
             var itemDump = new StringBuilder();
             for (int i = 0; i < _officeItems.Count; i++)
             {
                 itemDump.AppendLine(_officeItems[i].BuildInspectorSummary());
             }
 
+            var zoneRulesId = zoneGenerationRuleSet != null ? zoneGenerationRuleSet.RuleSetId : "fallback";
+            var taskRulesId = taskGenerationRuleSet != null ? taskGenerationRuleSet.RuleSetId : "fallback";
+            SetDashboardContext("RuleSet", $"zone:{zoneRulesId}, task:{taskRulesId}");
+            SetDashboardContext("WorldSeed", _resolvedWorldSeed.ToString(CultureInfo.InvariantCulture));
             Debug.Log("[RoutineMVP] Generated office items for job system:\n" + itemDump);
+        }
+
+        private NeedRequirement ResolveTaskRequirement(string needKey, string fallbackZoneKey, IReadOnlyList<string> fallbackTags)
+        {
+            if (taskGenerationRuleSet == null || !taskGenerationRuleSet.HasTemplates())
+            {
+                return new NeedRequirement(needKey, fallbackZoneKey, fallbackTags);
+            }
+
+            var templates = taskGenerationRuleSet.Templates;
+            for (var i = 0; i < templates.Count; i++)
+            {
+                var template = templates[i];
+                if (template == null || !string.Equals(template.NeedKey, needKey, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var zoneKey = string.IsNullOrWhiteSpace(template.ZoneKey) ? fallbackZoneKey : template.ZoneKey.Trim();
+                var tags = (template.RequiredTags == null || template.RequiredTags.Length == 0) ? fallbackTags : template.RequiredTags;
+                return new NeedRequirement(needKey, zoneKey, tags);
+            }
+
+            return new NeedRequirement(needKey, fallbackZoneKey, fallbackTags);
+        }
+
+        private void RebuildOfficeItemsByZoneCache()
+        {
+            _officeItemsByZoneKey.Clear();
+            for (var i = 0; i < _officeItems.Count; i++)
+            {
+                var item = _officeItems[i];
+                if (item == null)
+                {
+                    continue;
+                }
+
+                var zoneKey = string.IsNullOrWhiteSpace(item.ZoneKey) ? "unknown" : item.ZoneKey.Trim();
+                if (!_officeItemsByZoneKey.TryGetValue(zoneKey, out var bucket))
+                {
+                    bucket = new List<WorldItem>();
+                    _officeItemsByZoneKey[zoneKey] = bucket;
+                }
+
+                bucket.Add(item);
+            }
+        }
+
+        private void ResetProceduralGenerationState()
+        {
+            _actionJobRequirements.Clear();
+            _officeItems.Clear();
+            _officeItemsByZoneKey.Clear();
         }
 
         private void EnsureDefaultCharactersExist()
@@ -3213,7 +3388,10 @@ namespace ProjectW.IngameMvp
 
             var activeNames = new HashSet<string>(StringComparer.Ordinal);
 
-            if (zone.HasTag(ZoneTagMission))
+            if (TryEnsureProceduralZoneFurniture(zone, objectRoot, activeNames))
+            {
+            }
+            else if (zone.HasTag(ZoneTagMission))
             {
                 EnsureMissionZoneFurniture(zone, objectRoot, activeNames);
             }
@@ -3239,6 +3417,91 @@ namespace ProjectW.IngameMvp
                     SafeDestroyGameObject(child.gameObject);
                 }
             }
+        }
+
+        private bool TryEnsureProceduralZoneFurniture(RoutineZoneAnchor zone, Transform objectRoot, HashSet<string> activeNames)
+        {
+            if (zone == null)
+            {
+                return false;
+            }
+
+            var zoneKey = GetZoneReservationKey(zone);
+            if (string.IsNullOrWhiteSpace(zoneKey)
+                || !_officeItemsByZoneKey.TryGetValue(zoneKey.Trim(), out var items)
+                || items == null
+                || items.Count == 0)
+            {
+                return false;
+            }
+
+            var positions = GenerateScatteredPositions(zone, items.Count, 0.20f);
+            var anchorPositions = new List<Vector3>();
+            var anchorTag = ResolvePrimaryAnchorTag(zone);
+            for (var i = 0; i < items.Count; i++)
+            {
+                var item = items[i];
+                var pos = positions[Mathf.Min(i, positions.Count - 1)];
+                var tag = ResolvePrimaryItemTag(item);
+                var objectName = string.Format(CultureInfo.InvariantCulture, "{0}_{1:D2}_{2}", zoneKey, i + 1, tag);
+                var go = CreateFurnitureObject(
+                    objectRoot,
+                    objectName,
+                    pos,
+                    tag,
+                    ResolveObjectScaleForTag(tag),
+                    zoneKey,
+                    item != null ? item.BuildInspectorSummary() : "generated",
+                    activeNames);
+                if (go != null && string.Equals(tag, anchorTag, StringComparison.OrdinalIgnoreCase))
+                {
+                    anchorPositions.Add(go.transform.position);
+                }
+            }
+
+            if (anchorPositions.Count == 0)
+            {
+                anchorPositions.AddRange(positions);
+            }
+
+            _zoneDeskPositions[zoneKey] = anchorPositions;
+            return true;
+        }
+
+        private static string ResolvePrimaryItemTag(WorldItem item)
+        {
+            if (item?.Tags == null)
+            {
+                return "desk";
+            }
+
+            foreach (var tag in item.Tags)
+            {
+                if (!string.IsNullOrWhiteSpace(tag))
+                {
+                    return tag.Trim();
+                }
+            }
+
+            return "desk";
+        }
+
+        private static string ResolvePrimaryAnchorTag(RoutineZoneAnchor zone)
+        {
+            if (zone != null)
+            {
+                if (zone.HasTag(ZoneTagNeedHunger))
+                {
+                    return "table";
+                }
+
+                if (zone.HasTag(ZoneTagNeedSleep))
+                {
+                    return "bed";
+                }
+            }
+
+            return "desk";
         }
 
         private void EnsureMissionZoneFurniture(RoutineZoneAnchor zone, Transform objectRoot, HashSet<string> activeNames)
@@ -3513,6 +3776,15 @@ namespace ProjectW.IngameMvp
             go.SetActive(true);
             activeNames?.Add(objectName);
             var sprite = visualResources != null ? visualResources.ResolveItemSprite(tag) : null;
+            if (sprite == null && zoneGenerationRuleSet != null)
+            {
+                var resourcePath = zoneGenerationRuleSet.ResolveSpriteResourcePath(tag);
+                if (!string.IsNullOrWhiteSpace(resourcePath))
+                {
+                    sprite = Resources.Load<Sprite>(resourcePath);
+                }
+            }
+
             EnsureSpriteRenderer(go, ResolveObjectColor(tag), scale, true, sprite);
             EnsureClickableObjectCollider(go, scale);
             EnsureInspectableWorldObject(go, objectName, zoneKey, tag, detail);

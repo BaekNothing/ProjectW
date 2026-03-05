@@ -5,6 +5,7 @@ using System.IO;
 using System.Text;
 using ProjectW.IngameCore.Contracts;
 using UnityEngine;
+using UnityEngine.Networking;
 
 namespace ProjectW.IngameCore.Config
 {
@@ -32,9 +33,10 @@ namespace ProjectW.IngameCore.Config
 
         public StreamingAssetsCsvConfigProvider(string configRootPath = null)
         {
-            rootPath = string.IsNullOrWhiteSpace(configRootPath)
-                ? Path.Combine(Application.streamingAssetsPath, "IngameConfig")
+            var basePath = string.IsNullOrWhiteSpace(configRootPath)
+                ? Application.streamingAssetsPath
                 : configRootPath;
+            rootPath = CombinePath(basePath, "IngameConfig");
         }
 
         public SessionConfig LoadSessionConfig()
@@ -143,12 +145,12 @@ namespace ProjectW.IngameCore.Config
 
         private static IReadOnlyList<string[]> ParseFile(string path)
         {
-            if (!File.Exists(path))
+            var text = TryReadText(path);
+            if (string.IsNullOrWhiteSpace(text))
             {
                 throw new CsvValidationException(CsvErrorCodes.RequiredRowMissing, "CSV file missing: " + path);
             }
 
-            var text = File.ReadAllText(path, new UTF8Encoding(false, true));
             var lines = text.Replace("\r\n", "\n").Split('\n');
             var rows = new List<string[]>();
             for (int i = 0; i < lines.Length; i++)
@@ -162,6 +164,61 @@ namespace ProjectW.IngameCore.Config
             }
 
             return rows;
+        }
+
+        private static string TryReadText(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return string.Empty;
+            }
+
+            if (!path.Contains("://"))
+            {
+                if (!File.Exists(path))
+                {
+                    return string.Empty;
+                }
+
+                return File.ReadAllText(path, new UTF8Encoding(false, true));
+            }
+
+            using (var request = UnityWebRequest.Get(path))
+            {
+                var operation = request.SendWebRequest();
+                while (!operation.isDone)
+                {
+                }
+
+#if UNITY_2020_1_OR_NEWER
+                if (request.result != UnityWebRequest.Result.Success)
+                {
+                    return string.Empty;
+                }
+#else
+                if (request.isNetworkError || request.isHttpError)
+                {
+                    return string.Empty;
+                }
+#endif
+
+                return request.downloadHandler != null ? request.downloadHandler.text : string.Empty;
+            }
+        }
+
+        private static string CombinePath(string basePath, string segment)
+        {
+            if (string.IsNullOrWhiteSpace(basePath))
+            {
+                return segment ?? string.Empty;
+            }
+
+            if (basePath.Contains("://"))
+            {
+                return basePath.TrimEnd('/', '\\') + "/" + (segment ?? string.Empty).TrimStart('/', '\\');
+            }
+
+            return Path.Combine(basePath, segment ?? string.Empty);
         }
 
         private static string[] ParseCsvLine(string line)

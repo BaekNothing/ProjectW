@@ -11,8 +11,14 @@ namespace ProjectW.IngameCore.Simulation
         private readonly List<WorldItem> _officeItems;
         private readonly EventLogCollector _eventLogCollector;
         private readonly int _seed;
+        private readonly TaskGenerationRuleSet _taskGenerationRuleSet;
 
         public SimulationTickEngine(int seed, EventLogCollector eventLogCollector = null)
+            : this(seed, null, eventLogCollector)
+        {
+        }
+
+        public SimulationTickEngine(int seed, TaskGenerationRuleSet taskGenerationRuleSet, EventLogCollector eventLogCollector = null)
         {
             _seed = seed;
             _random = new Random(seed);
@@ -20,6 +26,7 @@ namespace ProjectW.IngameCore.Simulation
             _jobSystem = new JobSystem();
             _officeItems = OfficeItemFactory.GenerateOfficeItems(_random, 12, Array.Empty<string>());
             _eventLogCollector = eventLogCollector;
+            _taskGenerationRuleSet = taskGenerationRuleSet;
         }
 
         public int AdvanceTick(DateTime simTime, int tickIndex, TaskModel task, IReadOnlyList<AgentRuntimeState> agents)
@@ -41,7 +48,7 @@ namespace ProjectW.IngameCore.Simulation
                 _officeItems.AddRange(OfficeItemFactory.GenerateOfficeItems(_random, 12, ownerIds));
             }
 
-            var jobs = _jobSystem.BuildJobs(simTime, task, agents);
+            var jobs = _jobSystem.BuildJobs(simTime, task, agents, _taskGenerationRuleSet, _random);
 
             var sumSubtask = 0f;
             for (var i = 0; i < agents.Count; i++)
