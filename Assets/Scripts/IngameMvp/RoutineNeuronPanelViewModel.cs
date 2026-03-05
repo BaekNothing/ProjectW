@@ -22,10 +22,20 @@ namespace ProjectW.IngameMvp
 
         public static RoutineNeuronPanelViewModel FromSnapshot(CharacterNeuronSnapshot snapshot, string currentAction, string intendedAction)
         {
+            return FromSnapshot(snapshot, currentAction, intendedAction, string.Empty, string.Empty);
+        }
+
+        public static RoutineNeuronPanelViewModel FromSnapshot(
+            CharacterNeuronSnapshot snapshot,
+            string currentAction,
+            string intendedAction,
+            string aptitudeLine,
+            string subtaskLine)
+        {
             var title = string.Format(CultureInfo.InvariantCulture, "Neuron | {0} | Tick {1}", snapshot.CharacterId, snapshot.Tick);
             var intentLine = string.Format(CultureInfo.InvariantCulture, "scheduled={0} intended={1} current={2}", snapshot.ScheduledIntent, intendedAction, currentAction);
-            var reasonLine = string.Format(CultureInfo.InvariantCulture, "reason={0} latch={1}({2})", snapshot.DecisionReason, snapshot.HasLatch, snapshot.LatchedIntent);
-            var conditionLine = string.Format(CultureInfo.InvariantCulture, "mealWindow={0} sleepWindow={1} hungry={2} stressed={3}", snapshot.IsMealWindow, snapshot.IsSleepWindow, snapshot.IsHungry, snapshot.IsStressed);
+            var reasonLine = string.Format(CultureInfo.InvariantCulture, "reason={0} latch={1}({2}) {3}", snapshot.DecisionReason, snapshot.HasLatch, snapshot.LatchedIntent, aptitudeLine ?? string.Empty).Trim();
+            var conditionLine = string.Format(CultureInfo.InvariantCulture, "mealWindow={0} sleepWindow={1} hungry={2} stressed={3} {4}", snapshot.IsMealWindow, snapshot.IsSleepWindow, snapshot.IsHungry, snapshot.IsStressed, subtaskLine ?? string.Empty).Trim();
             var gaugeLine = string.Format(CultureInfo.InvariantCulture, "hunger={0:0.0}/{1:0.0} sleep={2:0.0}/{3:0.0} stress={4:0.0}/{5:0.0}",
                 snapshot.Hunger,
                 snapshot.HungerThreshold,

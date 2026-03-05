@@ -135,42 +135,6 @@ namespace ProjectW.Tests.EditMode
         }
 
         [Test]
-        public void ExplicitGaugeObjects_AreUpdatedWithoutDynamicCreation()
-        {
-            var zones = new GameObject("Zones");
-            CreateZone(zones.transform, "Mission", "zone.mission.main", new[] { "zone.mission" }, new Vector3(0f, 0f, 0f), new Vector3(4f, 4f, 2f));
-            CreateZone(zones.transform, "Cafeteria", "zone.meal.main", new[] { "need.hunger" }, new Vector3(6f, 0f, 0f), new Vector3(4f, 4f, 2f));
-            CreateZone(zones.transform, "Sleep", "zone.sleep.main", new[] { "need.sleep" }, new Vector3(-6f, 0f, 0f), new Vector3(4f, 4f, 2f));
-            var root = new GameObject("Characters");
-            var actorGo = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            actorGo.name = "Character_A";
-            actorGo.transform.SetParent(root.transform, false);
-            actorGo.transform.localPosition = new Vector3(0f, 1.6f, 0f);
-            var gaugeRoot = new GameObject("GaugeRoot").transform;
-            gaugeRoot.SetParent(actorGo.transform, false);
-            CreateGaugeBar(gaugeRoot, "HungerBar", 0.4f);
-            CreateGaugeBar(gaugeRoot, "SleepBar", 0f);
-            CreateGaugeBar(gaugeRoot, "StressBar", -0.4f);
-
-            var go = new GameObject("RoutineSession_Gauge");
-            var session = go.AddComponent<RoutineObservationMvpSession>();
-            session.AdvanceOneTick();
-            var binding = session.Characters[0];
-            binding.hunger = 10f;
-            binding.sleep = 60f;
-            binding.stress = 90f;
-
-            InvokePrivateMethod(session, "UpdateRuntimeStateTexts", binding);
-
-            Assert.Less(actorGo.transform.Find("GaugeRoot/HungerBar").localScale.x, actorGo.transform.Find("GaugeRoot/SleepBar").localScale.x);
-            Assert.Less(actorGo.transform.Find("GaugeRoot/SleepBar").localScale.x, actorGo.transform.Find("GaugeRoot/StressBar").localScale.x);
-
-            Object.DestroyImmediate(go);
-            Object.DestroyImmediate(zones);
-            Object.DestroyImmediate(root);
-        }
-
-        [Test]
         public void AdvanceTick_CreatesAndEnablesTargetPathLine()
         {
             var zones = new GameObject("Zones");
@@ -461,15 +425,6 @@ namespace ProjectW.Tests.EditMode
         {
             var method = target.GetType().GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Instance);
             method.Invoke(target, new[] { arg0, arg1, arg2 });
-        }
-
-        private static void CreateGaugeBar(Transform parent, string name, float y)
-        {
-            var bar = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            bar.name = name;
-            bar.transform.SetParent(parent, false);
-            bar.transform.localPosition = new Vector3(0f, y, 0f);
-            bar.transform.localScale = new Vector3(1f, 0.15f, 0.1f);
         }
 
         private static void DestroyIfExists(string objectName)

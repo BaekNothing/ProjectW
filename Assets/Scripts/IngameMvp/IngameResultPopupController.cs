@@ -8,6 +8,7 @@ namespace ProjectW.IngameMvp
     public sealed class IngameResultPopupController : MonoBehaviour
     {
         private const string LegacyRuntimeFontName = "LegacyRuntime.ttf";
+        private static readonly Vector2 ReferenceResolution = new Vector2(1280f, 720f);
         private Canvas _canvas;
         private GameObject _panel;
         private Text _bodyText;
@@ -59,10 +60,15 @@ namespace ProjectW.IngameMvp
             _canvas.renderMode = RenderMode.ScreenSpaceCamera;
             _canvas.worldCamera = ResolveMainCamera();
             _canvas.planeDistance = 100f;
-            if (canvasGo.GetComponent<CanvasScaler>() == null)
+            var scaler = canvasGo.GetComponent<CanvasScaler>();
+            if (scaler == null)
             {
-                canvasGo.AddComponent<CanvasScaler>().uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler = canvasGo.AddComponent<CanvasScaler>();
             }
+
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = ReferenceResolution;
+            scaler.matchWidthOrHeight = 0.5f;
 
             if (canvasGo.GetComponent<GraphicRaycaster>() == null)
             {

@@ -1,5 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using ProjectW.IngameCore.Simulation;
+using ProjectW.IngameMvp;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -11,6 +13,7 @@ namespace ProjectW.Outgame
         private const string OutgameSceneName = "Outgame Scene";
         private const string IngameSceneName = "MVP Scene";
         private const string LegacyRuntimeFontName = "LegacyRuntime.ttf";
+        private static readonly Vector2 ReferenceResolution = new Vector2(1280f, 720f);
 
         private Canvas _canvas;
         private Toggle _toggleA;
@@ -23,6 +26,12 @@ namespace ProjectW.Outgame
         private Text _safetyValueText;
         private Text _resultText;
         private Button _startButton;
+        private readonly Dictionary<SessionDifficulty, Button> _difficultyButtons = new Dictionary<SessionDifficulty, Button>();
+        private readonly Dictionary<WorkType, Button> _priorityPrimaryButtons = new Dictionary<WorkType, Button>();
+        private readonly Dictionary<WorkType, Button> _prioritySecondaryButtons = new Dictionary<WorkType, Button>();
+        private SessionDifficulty _selectedDifficulty = SessionDifficulty.Normal;
+        private WorkType? _selectedPrimaryPriority = WorkType.Routine;
+        private WorkType? _selectedSecondaryPriority = WorkType.Labor;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void EnsureController()
@@ -51,6 +60,7 @@ namespace ProjectW.Outgame
                 return;
             }
 
+            CleanupIngameRuntimeArtifacts();
             var mainCamera = ResolveMainCamera();
             _canvas = GetOrCreateCanvas(mainCamera);
             EnsureEventSystem();
@@ -61,6 +71,49 @@ namespace ProjectW.Outgame
             }
 
             WireUiEvents();
+        }
+
+        private static void CleanupIngameRuntimeArtifacts()
+        {
+            DestroyRootIfExists("Zones");
+            DestroyRootIfExists("Characters");
+            DestroyRootIfExists("Zones_Dynamic");
+            DestroyRootIfExists("Characters_Dynamic");
+            DestroyRootIfExists("MvpDashboardCanvas");
+            DestroyRootIfExists("MvpCanvas");
+
+            DestroyObjectsByType<RoutineObservationMvpSession>();
+            DestroyObjectsByType<RoutineZoneAnchor>();
+            DestroyObjectsByType<RoutineInspectableWorldObject>();
+            DestroyObjectsByType<IngameFlowBridge>();
+            DestroyObjectsByType<IngameResultPopupController>();
+        }
+
+        private static void DestroyRootIfExists(string objectName)
+        {
+            if (string.IsNullOrWhiteSpace(objectName))
+            {
+                return;
+            }
+
+            var go = GameObject.Find(objectName);
+            if (go != null)
+            {
+                DestroyImmediate(go);
+            }
+        }
+
+        private static void DestroyObjectsByType<T>() where T : Component
+        {
+            var found = UnityEngine.Object.FindObjectsByType<T>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (var i = 0; i < found.Length; i++)
+            {
+                var component = found[i];
+                if (component != null && component.gameObject != null)
+                {
+                    DestroyImmediate(component.gameObject);
+                }
+            }
         }
 
         private void Start()
@@ -96,11 +149,15 @@ namespace ProjectW.Outgame
                 canvas = canvasGo.AddComponent<Canvas>();
             }
 
-            if (canvasGo.GetComponent<CanvasScaler>() == null)
+            var scaler = canvasGo.GetComponent<CanvasScaler>();
+            if (scaler == null)
             {
-                var scaler = canvasGo.AddComponent<CanvasScaler>();
-                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler = canvasGo.AddComponent<CanvasScaler>();
             }
+
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = ReferenceResolution;
+            scaler.matchWidthOrHeight = 0.5f;
 
             if (canvasGo.GetComponent<GraphicRaycaster>() == null)
             {
@@ -194,6 +251,8 @@ namespace ProjectW.Outgame
                 _safetySlider = sliders[1];
             }
 
+            BindSelectionButtons(panel);
+
             _startButton = FindButtonByText(panel, "Start Ingame Loop");
             _resultText = FindTextByPrefix(panel, "Last Result", "No result yet");
 
@@ -211,8 +270,7 @@ namespace ProjectW.Outgame
                    && _toggleB != null
                    && _toggleC != null
                    && _missionDropdown != null
-                   && _resourceSlider != null
-                   && _safetySlider != null
+                   && _difficultyButtons.Count == 3
                    && _startButton != null;
         }
 
@@ -221,16 +279,13 @@ namespace ProjectW.Outgame
             _toggleA.onValueChanged.RemoveAllListeners();
             _toggleB.onValueChanged.RemoveAllListeners();
             _toggleC.onValueChanged.RemoveAllListeners();
-            _resourceSlider.onValueChanged.RemoveAllListeners();
-            _safetySlider.onValueChanged.RemoveAllListeners();
             _startButton.onClick.RemoveAllListeners();
 
             _toggleA.onValueChanged.AddListener(_ => ValidateStartButton());
             _toggleB.onValueChanged.AddListener(_ => ValidateStartButton());
             _toggleC.onValueChanged.AddListener(_ => ValidateStartButton());
-            _resourceSlider.onValueChanged.AddListener(_ => RefreshPriorityLabels());
-            _safetySlider.onValueChanged.AddListener(_ => RefreshPriorityLabels());
             _startButton.onClick.AddListener(OnClickStartSession);
+            WireSelectionButtonEvents();
         }
 
         private void BuildUi(Transform canvasRoot)
@@ -239,51 +294,58 @@ namespace ProjectW.Outgame
             var panelImage = panel.AddComponent<Image>();
             panelImage.color = new Color(0.07f, 0.09f, 0.12f, 0.95f);
             var panelRect = panel.GetComponent<RectTransform>();
-            panelRect.anchorMin = new Vector2(0.1f, 0.1f);
-            panelRect.anchorMax = new Vector2(0.9f, 0.9f);
+            // Keep a wide safe margin, but maximize usable vertical area for 1280x720 baseline.
+            panelRect.anchorMin = new Vector2(0.02f, 0.02f);
+            panelRect.anchorMax = new Vector2(0.98f, 0.98f);
             panelRect.offsetMin = Vector2.zero;
             panelRect.offsetMax = Vector2.zero;
+            const float labelX = 300f;
+            const float controlX = 320f;
+            const float rightValueX = 680f;
 
             var y = -30f;
             CreateLabel(panel.transform, "TitleText", "Outgame Setup", new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, y), 26, TextAnchor.MiddleCenter);
 
             y -= 55f;
-            CreateLabel(panel.transform, "CharactersLabel", "Characters", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(20f, y), 18, TextAnchor.MiddleLeft);
+            CreateLabel(panel.transform, "CharactersLabel", "Characters", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(labelX, y), 18, TextAnchor.MiddleLeft);
             y -= 40f;
-            _toggleA = CreateToggle(panel.transform, "CharacterToggle_A", "A (Character_A)", new Vector2(30f, y));
+            _toggleA = CreateToggle(panel.transform, "CharacterToggle_A", "A (Character_A)", new Vector2(controlX, y));
             y -= 35f;
-            _toggleB = CreateToggle(panel.transform, "CharacterToggle_B", "B (Character_B)", new Vector2(30f, y));
+            _toggleB = CreateToggle(panel.transform, "CharacterToggle_B", "B (Character_B)", new Vector2(controlX, y));
             y -= 35f;
-            _toggleC = CreateToggle(panel.transform, "CharacterToggle_C", "C (Character_C)", new Vector2(30f, y));
+            _toggleC = CreateToggle(panel.transform, "CharacterToggle_C", "C (Character_C)", new Vector2(controlX, y));
 
             _toggleA.isOn = true;
             _toggleB.isOn = true;
             _toggleC.isOn = true;
 
             y -= 55f;
-            CreateLabel(panel.transform, "MissionLabel", "Initial Mission", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(20f, y), 18, TextAnchor.MiddleLeft);
+            CreateLabel(panel.transform, "MissionLabel", "Initial Mission", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(labelX, y), 18, TextAnchor.MiddleLeft);
             y -= 40f;
-            _missionDropdown = CreateDropdown(panel.transform, new Vector2(30f, y), new List<string> { "ResourceSweep", "Recon", "SafetyPatrol" });
+            _missionDropdown = CreateDropdown(panel.transform, new Vector2(controlX, y), new List<string> { "ResourceSweep", "Recon", "SafetyPatrol" });
             _missionDropdown.value = 1;
 
             y -= 55f;
-            CreateLabel(panel.transform, "ResourcePriorityLabel", "Priority - Resource", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(20f, y), 18, TextAnchor.MiddleLeft);
-            y -= 35f;
-            _resourceSlider = CreateSlider(panel.transform, "ResourceSlider", new Vector2(30f, y), 50);
-            _resourceValueText = CreateLabel(panel.transform, "ResourceValueText", "50", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(410f, y), 16, TextAnchor.MiddleLeft);
+            CreateLabel(panel.transform, "DifficultyLabel", "Difficulty", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(labelX, y), 18, TextAnchor.MiddleLeft);
+            y -= 42f;
+            BuildDifficultyButtons(panel.transform, new Vector2(controlX, y));
 
-            y -= 50f;
-            CreateLabel(panel.transform, "SafetyPriorityLabel", "Priority - Safety", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(20f, y), 18, TextAnchor.MiddleLeft);
-            y -= 35f;
-            _safetySlider = CreateSlider(panel.transform, "SafetySlider", new Vector2(30f, y), 50);
-            _safetyValueText = CreateLabel(panel.transform, "SafetyValueText", "50", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(410f, y), 16, TextAnchor.MiddleLeft);
+            y -= 60f;
+            CreateLabel(panel.transform, "Priority1Label", "Priority 1 (WorkType)", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(labelX, y), 18, TextAnchor.MiddleLeft);
+            y -= 42f;
+            BuildPriorityButtons(panel.transform, new Vector2(controlX, y), _priorityPrimaryButtons, "Priority1");
+
+            y -= 60f;
+            CreateLabel(panel.transform, "Priority2Label", "Priority 2 (WorkType)", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(labelX, y), 18, TextAnchor.MiddleLeft);
+            y -= 42f;
+            BuildPriorityButtons(panel.transform, new Vector2(controlX, y), _prioritySecondaryButtons, "Priority2");
 
             y -= 70f;
-            _startButton = CreateButton(panel.transform, "StartButton", "Start Ingame Loop", new Vector2(30f, y));
+            _startButton = CreateButton(panel.transform, "StartButton", "Start Ingame Loop", new Vector2(controlX, y));
             _startButton.GetComponent<RectTransform>().sizeDelta = new Vector2(220f, 44f);
 
             _resultText = CreateLabel(panel.transform, "ResultText", "No result yet.", new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-20f, 20f), 15, TextAnchor.LowerRight);
-            _resultText.GetComponent<RectTransform>().sizeDelta = new Vector2(460f, 180f);
+            _resultText.GetComponent<RectTransform>().sizeDelta = new Vector2(rightValueX - 220f, 140f);
         }
 
         private void OnClickStartSession()
@@ -302,8 +364,13 @@ namespace ProjectW.Outgame
             {
                 SelectedCharacterIds = selected,
                 InitialMissionType = (MissionType)Mathf.Clamp(_missionDropdown.value, 0, 2),
-                ResourcePriority = Mathf.RoundToInt(_resourceSlider.value),
-                SafetyPriority = Mathf.RoundToInt(_safetySlider.value)
+                ResourcePriority = 50,
+                SafetyPriority = 50,
+                SelectedDifficulty = _selectedDifficulty,
+                PriorityPair = new PriorityPair(
+                    _selectedPrimaryPriority ?? WorkType.Routine,
+                    _selectedSecondaryPriority ?? WorkType.Labor),
+                SelectedCharacterCount = selected.Count
             };
 
             SessionFlowRuntimeContext.SetPendingSetup(setup);
@@ -322,6 +389,10 @@ namespace ProjectW.Outgame
             var valid = (_toggleA != null && _toggleA.isOn)
                         || (_toggleB != null && _toggleB.isOn)
                         || (_toggleC != null && _toggleC.isOn);
+            valid = valid
+                    && _selectedPrimaryPriority.HasValue
+                    && _selectedSecondaryPriority.HasValue
+                    && _selectedPrimaryPriority.Value != _selectedSecondaryPriority.Value;
             if (_startButton != null)
             {
                 _startButton.interactable = valid;
@@ -332,14 +403,25 @@ namespace ProjectW.Outgame
 
         private void RefreshPriorityLabels()
         {
-            if (_resourceValueText != null)
+            foreach (var pair in _difficultyButtons)
             {
-                _resourceValueText.text = Mathf.RoundToInt(_resourceSlider.value).ToString();
+                TintSelectableButton(pair.Value, pair.Key == _selectedDifficulty);
             }
 
-            if (_safetyValueText != null)
+            foreach (var pair in _priorityPrimaryButtons)
             {
-                _safetyValueText.text = Mathf.RoundToInt(_safetySlider.value).ToString();
+                TintSelectableButton(pair.Value, _selectedPrimaryPriority.HasValue && pair.Key == _selectedPrimaryPriority.Value);
+            }
+
+            foreach (var pair in _prioritySecondaryButtons)
+            {
+                var selected = _selectedSecondaryPriority.HasValue && pair.Key == _selectedSecondaryPriority.Value;
+                if (_selectedPrimaryPriority.HasValue && pair.Key == _selectedPrimaryPriority.Value)
+                {
+                    selected = false;
+                }
+
+                TintSelectableButton(pair.Value, selected);
             }
         }
 
@@ -454,6 +536,180 @@ namespace ProjectW.Outgame
             }
 
             return best;
+        }
+
+        private void BindSelectionButtons(Transform root)
+        {
+            _difficultyButtons.Clear();
+            _priorityPrimaryButtons.Clear();
+            _prioritySecondaryButtons.Clear();
+
+            TryBindButton(root, "Difficulty_Easy", button => _difficultyButtons[SessionDifficulty.Easy] = button);
+            TryBindButton(root, "Difficulty_Normal", button => _difficultyButtons[SessionDifficulty.Normal] = button);
+            TryBindButton(root, "Difficulty_Risky", button => _difficultyButtons[SessionDifficulty.Risky] = button);
+
+            TryBindButton(root, "Priority1_Observe", button => _priorityPrimaryButtons[WorkType.Observe] = button);
+            TryBindButton(root, "Priority1_Labor", button => _priorityPrimaryButtons[WorkType.Labor] = button);
+            TryBindButton(root, "Priority1_Routine", button => _priorityPrimaryButtons[WorkType.Routine] = button);
+            TryBindButton(root, "Priority1_Reflex", button => _priorityPrimaryButtons[WorkType.Reflex] = button);
+
+            TryBindButton(root, "Priority2_Observe", button => _prioritySecondaryButtons[WorkType.Observe] = button);
+            TryBindButton(root, "Priority2_Labor", button => _prioritySecondaryButtons[WorkType.Labor] = button);
+            TryBindButton(root, "Priority2_Routine", button => _prioritySecondaryButtons[WorkType.Routine] = button);
+            TryBindButton(root, "Priority2_Reflex", button => _prioritySecondaryButtons[WorkType.Reflex] = button);
+        }
+
+        private static void TryBindButton(Transform root, string objectName, Action<Button> onFound)
+        {
+            var transform = root.Find(objectName);
+            if (transform == null)
+            {
+                return;
+            }
+
+            var button = transform.GetComponent<Button>();
+            if (button != null)
+            {
+                onFound?.Invoke(button);
+            }
+        }
+
+        private void WireSelectionButtonEvents()
+        {
+            foreach (var pair in _difficultyButtons)
+            {
+                var captured = pair.Key;
+                pair.Value.onClick.RemoveAllListeners();
+                pair.Value.onClick.AddListener(() =>
+                {
+                    _selectedDifficulty = captured;
+                    RefreshPriorityLabels();
+                    ValidateStartButton();
+                });
+            }
+
+            foreach (var pair in _priorityPrimaryButtons)
+            {
+                var captured = pair.Key;
+                pair.Value.onClick.RemoveAllListeners();
+                pair.Value.onClick.AddListener(() =>
+                {
+                    _selectedPrimaryPriority = captured;
+                    if (_selectedSecondaryPriority.HasValue && _selectedSecondaryPriority.Value == captured)
+                    {
+                        _selectedSecondaryPriority = null;
+                    }
+
+                    RefreshPriorityLabels();
+                    ValidateStartButton();
+                });
+            }
+
+            foreach (var pair in _prioritySecondaryButtons)
+            {
+                var captured = pair.Key;
+                pair.Value.onClick.RemoveAllListeners();
+                pair.Value.onClick.AddListener(() =>
+                {
+                    if (_selectedPrimaryPriority.HasValue && _selectedPrimaryPriority.Value == captured)
+                    {
+                        return;
+                    }
+
+                    _selectedSecondaryPriority = captured;
+                    RefreshPriorityLabels();
+                    ValidateStartButton();
+                });
+            }
+
+            RefreshPriorityLabels();
+        }
+
+        private void BuildDifficultyButtons(Transform parent, Vector2 anchoredPosition)
+        {
+            BuildWorkTypeLikeRow(
+                parent,
+                anchoredPosition,
+                new[]
+                {
+                    (Name: "Difficulty_Easy", Label: "Easy"),
+                    (Name: "Difficulty_Normal", Label: "Normal"),
+                    (Name: "Difficulty_Risky", Label: "Risky")
+                },
+                buttonMap: null,
+                difficultyMap: _difficultyButtons);
+        }
+
+        private void BuildPriorityButtons(Transform parent, Vector2 anchoredPosition, Dictionary<WorkType, Button> destination, string prefix)
+        {
+            BuildWorkTypeLikeRow(
+                parent,
+                anchoredPosition,
+                new[]
+                {
+                    (Name: prefix + "_Observe", Label: "Observe"),
+                    (Name: prefix + "_Labor", Label: "Labor"),
+                    (Name: prefix + "_Routine", Label: "Routine"),
+                    (Name: prefix + "_Reflex", Label: "Reflex")
+                },
+                destination,
+                difficultyMap: null);
+        }
+
+        private void BuildWorkTypeLikeRow(
+            Transform parent,
+            Vector2 anchoredPosition,
+            (string Name, string Label)[] descriptors,
+            Dictionary<WorkType, Button> buttonMap,
+            Dictionary<SessionDifficulty, Button> difficultyMap)
+        {
+            for (var i = 0; i < descriptors.Length; i++)
+            {
+                var button = CreateBlockButton(parent, descriptors[i].Name, descriptors[i].Label, anchoredPosition + new Vector2(128f * i, 0f));
+                if (buttonMap != null)
+                {
+                    buttonMap[(WorkType)i] = button;
+                }
+
+                if (difficultyMap != null)
+                {
+                    difficultyMap[(SessionDifficulty)i] = button;
+                }
+            }
+        }
+
+        private static Button CreateBlockButton(Transform parent, string name, string text, Vector2 anchoredPos)
+        {
+            var go = CreateUiObject(name, parent);
+            var rect = go.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.anchoredPosition = anchoredPos;
+            rect.sizeDelta = new Vector2(116f, 34f);
+            var image = go.AddComponent<Image>();
+            image.color = new Color(0.20f, 0.23f, 0.28f, 1f);
+            var button = go.AddComponent<Button>();
+            var label = CreateLabel(go.transform, "Label", text, Vector2.zero, Vector2.one, Vector2.zero, 14, TextAnchor.MiddleCenter);
+            label.GetComponent<RectTransform>().sizeDelta = Vector2.zero;
+            return button;
+        }
+
+        private static void TintSelectableButton(Button button, bool selected)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            var image = button.GetComponent<Image>();
+            if (image == null)
+            {
+                return;
+            }
+
+            image.color = selected
+                ? new Color(0.22f, 0.61f, 0.86f, 1f)
+                : new Color(0.20f, 0.23f, 0.28f, 1f);
         }
 
         private static GameObject CreateUiObject(string name, Transform parent)
@@ -678,3 +934,5 @@ namespace ProjectW.Outgame
         }
     }
 }
+
+

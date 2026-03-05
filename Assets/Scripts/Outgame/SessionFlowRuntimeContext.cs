@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using ProjectW.IngameCore.Simulation;
 
 namespace ProjectW.Outgame
 {
@@ -20,6 +21,9 @@ namespace ProjectW.Outgame
         public int ResourcePriority = 50;
         public int SafetyPriority = 50;
         public int WorldSeed = NoWorldSeed;
+        public SessionDifficulty SelectedDifficulty = SessionDifficulty.Normal;
+        public PriorityPair PriorityPair = new PriorityPair(WorkType.Routine, WorkType.Labor);
+        public int SelectedCharacterCount = 3;
 
         public OutgameSessionSetup Clone()
         {
@@ -29,7 +33,10 @@ namespace ProjectW.Outgame
                 InitialMissionType = InitialMissionType,
                 ResourcePriority = ResourcePriority,
                 SafetyPriority = SafetyPriority,
-                WorldSeed = WorldSeed
+                WorldSeed = WorldSeed,
+                SelectedDifficulty = SelectedDifficulty,
+                PriorityPair = PriorityPair,
+                SelectedCharacterCount = SelectedCharacterCount
             };
         }
 
@@ -41,7 +48,10 @@ namespace ProjectW.Outgame
                 InitialMissionType = MissionType.Recon,
                 ResourcePriority = 50,
                 SafetyPriority = 50,
-                WorldSeed = NoWorldSeed
+                WorldSeed = NoWorldSeed,
+                SelectedDifficulty = SessionDifficulty.Normal,
+                PriorityPair = new PriorityPair(WorkType.Routine, WorkType.Labor),
+                SelectedCharacterCount = 3
             };
         }
 

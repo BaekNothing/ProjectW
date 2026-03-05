@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using ProjectW.IngameMvp;
+using ProjectW.IngameCore.Simulation;
 using ProjectW.Outgame;
 using System.Reflection;
 using UnityEngine;
@@ -90,6 +91,23 @@ namespace ProjectW.Tests.EditMode
             Assert.AreEqual("ObjectiveComplete", SessionFlowRuntimeContext.LastResult.TerminationReasonCode);
 
             SessionFlowRuntimeContext.ClearLastResult();
+        }
+
+        [Test]
+        public void OutgameSessionSetup_ClonesDifficultyAndPriorityFields()
+        {
+            var setup = new OutgameSessionSetup
+            {
+                SelectedDifficulty = SessionDifficulty.Risky,
+                PriorityPair = new PriorityPair(WorkType.Reflex, WorkType.Observe),
+                SelectedCharacterCount = 2
+            };
+
+            var cloned = setup.Clone();
+            Assert.AreEqual(SessionDifficulty.Risky, cloned.SelectedDifficulty);
+            Assert.AreEqual(WorkType.Reflex, cloned.PriorityPair.PrimaryWorkType);
+            Assert.AreEqual(WorkType.Observe, cloned.PriorityPair.SecondaryWorkType);
+            Assert.AreEqual(2, cloned.SelectedCharacterCount);
         }
 
         private static GameObject CreateZone(Transform parent, string objectName, string zoneId, string[] tags, Vector3 position, Vector3 boundarySize)

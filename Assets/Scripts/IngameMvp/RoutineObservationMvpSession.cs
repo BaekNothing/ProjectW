@@ -93,12 +93,13 @@ namespace ProjectW.IngameMvp
         private const float HumanFatigueDaysToZero = 3f;
         private const float DefaultMoveSpeed = 5f;
         private const float CharacterSpawnHeight = 1.6f;
-        private const float GaugeBarMaxWidth = 0.62f;
-        private const float GaugeBarMinWidth = 0.03f;
         private const float TargetLineY = 0.35f;
         private const float ZoneActionSpacing = 0.9f;
         private const float DefaultCharacterSpriteSize = 1f;
         private const float DefaultZoneAlpha = 0.4f;
+        private const float TargetZoneSize = 4f;
+        private const float MinZoneSizeNearTarget = 3.2f;
+        private const float MaxZoneSizeNearTarget = 4.8f;
         private const float DeskActionArrivalThresholdSqr = 0.01f;
         private const string ZoneObjectRootName = "ObjectSlots";
         private const string ZoneTagMission = "zone.mission";
@@ -109,6 +110,7 @@ namespace ProjectW.IngameMvp
         private const string JobZoneSleep = "sleepzone";
         private const string DefaultCharacterAnimatorControllerPath = "AnimatorControllers/routine_character_default";
         private const int DefaultWorldSeed = 17;
+        private static readonly Vector2 UiReferenceResolution = new Vector2(1280f, 720f);
 
         [Header("Tick")]
         [SerializeField] private bool autoRunOnStart = true;
@@ -150,7 +152,12 @@ namespace ProjectW.IngameMvp
         [Header("Procedural Rules")]
         [SerializeField] private ZoneGenerationRuleSet zoneGenerationRuleSet;
         [SerializeField] private TaskGenerationRuleSet taskGenerationRuleSet;
+        [SerializeField] private ScriptableObject dynamicGenerationRuleSet;
+        [SerializeField] private ScriptableObject difficultyProfileSet;
+        [SerializeField] private ScriptableObject spawnLayoutRuleSet;
+        [SerializeField] private Text taskUiBinding;
         [SerializeField] private int fallbackWorldSeed = DefaultWorldSeed;
+        [SerializeField] private bool dynamicWorldEnabled = true;
 
         [Header("Generation")]
         [SerializeField] private bool persistGeneratedObjectsInScene = true;
@@ -160,7 +167,9 @@ namespace ProjectW.IngameMvp
         [SerializeField] private bool use2DWorld = true;
         [SerializeField] private bool disableLegacy3DRenderers = true;
         [SerializeField] private float zoneGap = 2f;
-        [SerializeField] private Vector2 zoneScale = new Vector2(0.5f, 0.4f);
+        [SerializeField, Min(1f)] private float zoneSizeMultiplier = 4f;
+        [SerializeField, Range(0f, 0.8f)] private float zoneSizeRandomJitter = 0.15f;
+        [SerializeField] private Vector2 minimumZoneSize = new Vector2(1f, 1f);
         [SerializeField] private Vector2 deskVisualScale = new Vector2(0.95f, 0.95f);
         [SerializeField] private Vector2 objectVisualScale = new Vector2(0.55f, 0.55f);
         [SerializeField, Min(0.5f)] private float minimumCharacterSeparation = 0.5f;
@@ -195,6 +204,7 @@ namespace ProjectW.IngameMvp
         private readonly List<WorldItem> _officeItems = new List<WorldItem>();
         private readonly Dictionary<string, List<WorldItem>> _officeItemsByZoneKey = new Dictionary<string, List<WorldItem>>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<int> _boundCloseButtons = new HashSet<int>();
+        private readonly Dictionary<string, CharacterAptitudeProfile> _characterAptitudeByActorName = new Dictionary<string, CharacterAptitudeProfile>(StringComparer.OrdinalIgnoreCase);
         private RoutineCharacterBinding _selectedCharacter;
         private RoutineCharacterBinding _pinnedNeuronCharacter;
         private RoutineInspectableWorldObject _selectedWorldObject;
@@ -229,6 +239,11 @@ namespace ProjectW.IngameMvp
         private bool _sessionEndEventRaised;
         private bool _outgameSetupApplied;
         private int _resolvedWorldSeed = DefaultWorldSeed;
+        private SessionDifficulty _selectedDifficulty = SessionDifficulty.Normal;
+        private PriorityPair _selectedPriorityPair = new PriorityPair(WorkType.Routine, WorkType.Labor);
+        private int _selectedCharacterCount = 3;
+        private DynamicTaskModel _currentDynamicTask;
+        private int _lastDynamicTaskSeedTick = -1;
 
         private enum PanelKind
         {
@@ -312,11 +327,14 @@ namespace ProjectW.IngameMvp
             _outgameSetupApplied = true;
             var resolvedSetup = setup ?? OutgameSessionSetup.CreateDefault();
             _resolvedWorldSeed = resolvedSetup.ResolveWorldSeed(fallbackWorldSeed);
+            _selectedDifficulty = resolvedSetup.SelectedDifficulty;
+            _selectedPriorityPair = resolvedSetup.PriorityPair;
             var selectedIds = new HashSet<string>(
                 (resolvedSetup.SelectedCharacterIds != null && resolvedSetup.SelectedCharacterIds.Count > 0)
                     ? resolvedSetup.SelectedCharacterIds
                     : OutgameSessionSetup.CreateDefault().SelectedCharacterIds,
                 StringComparer.Ordinal);
+            _selectedCharacterCount = Mathf.Max(1, resolvedSetup.SelectedCharacterCount > 0 ? resolvedSetup.SelectedCharacterCount : selectedIds.Count);
 
             var hasMatchingSelection = false;
             for (int i = 0; i < characters.Count; i++)
@@ -364,7 +382,22 @@ namespace ProjectW.IngameMvp
             var safety = Mathf.Clamp(resolvedSetup.SafetyPriority, 0, 100);
             var resource = Mathf.Clamp(resolvedSetup.ResourcePriority, 0, 100);
             var bias = Mathf.Clamp((safety - resource) / 100f, -1f, 1f);
+            ApplyPriorityBiasToCharacters(bias);
 
+            SetDashboardContext("InitialMission", resolvedSetup.InitialMissionType.ToString());
+            SetDashboardContext("Priority", $"R:{resource}, S:{safety}");
+            SetDashboardContext("SelectedCharacters", string.Join(",", selectedIds));
+            SetDashboardContext("WorldSeed", _resolvedWorldSeed.ToString(CultureInfo.InvariantCulture));
+            SetDashboardContext("Difficulty", _selectedDifficulty.ToString());
+            SetDashboardContext("PriorityPair", $"{_selectedPriorityPair.PrimaryWorkType}>{_selectedPriorityPair.SecondaryWorkType}");
+            RebuildDynamicWorldIfEnabled();
+            ApplyPriorityBiasToCharacters(bias);
+            ResetProceduralGenerationState();
+            EnsureOfficeItemsAndJobBindings();
+        }
+
+        private void ApplyPriorityBiasToCharacters(float bias)
+        {
             for (int i = 0; i < characters.Count; i++)
             {
                 var binding = characters[i];
@@ -372,13 +405,6 @@ namespace ProjectW.IngameMvp
                 binding.sleepThreshold = Mathf.Clamp(binding.sleepThreshold + (bias * 10f), 0f, GaugeMax);
                 binding.stressThreshold = Mathf.Clamp(binding.stressThreshold + (bias * 10f), 0f, GaugeMax);
             }
-
-            SetDashboardContext("InitialMission", resolvedSetup.InitialMissionType.ToString());
-            SetDashboardContext("Priority", $"R:{resource}, S:{safety}");
-            SetDashboardContext("SelectedCharacters", string.Join(",", selectedIds));
-            SetDashboardContext("WorldSeed", _resolvedWorldSeed.ToString(CultureInfo.InvariantCulture));
-            ResetProceduralGenerationState();
-            EnsureOfficeItemsAndJobBindings();
         }
 
         private void Awake()
@@ -647,8 +673,11 @@ namespace ProjectW.IngameMvp
             _zonePreferredDeskPositions.Clear();
 
             var missionPos = missionZone.transform.position;
-            var missionScale = missionZone.transform.localScale;
-            var offsetX = Mathf.Max(Mathf.Abs(missionScale.x) + zoneGap, Mathf.Abs(missionScale.x) * 1.75f);
+            var missionBaseSize = ResolveZoneBaseSize(missionZone);
+            var missionSize = ResolveRandomizedLargeZoneSize(missionBaseSize, 101);
+            ApplyZoneAreaSize(missionZone.gameObject, missionSize);
+            var desiredOffset = Mathf.Max(Mathf.Abs(missionSize.x) + zoneGap, Mathf.Abs(missionSize.x) * 1.75f);
+            var offsetX = ResolveZoneSpacingForViewport(missionSize, missionSize, missionSize, desiredOffset);
             var cafeteriaPos = new Vector3(missionPos.x - offsetX, missionPos.y - 0.08f, zoneDepthZ);
             var sleepPos = new Vector3(missionPos.x + offsetX, missionPos.y + 0.08f, zoneDepthZ);
 
@@ -657,7 +686,7 @@ namespace ProjectW.IngameMvp
                 "need.hunger",
                 new[] { ZoneTagNeedHunger },
                 cafeteriaPos,
-                missionScale,
+                missionSize,
                 new Color(0.12f, 0.53f, 0.9f, DefaultZoneAlpha),
                 false);
 
@@ -666,7 +695,7 @@ namespace ProjectW.IngameMvp
                 "need.sleep",
                 new[] { ZoneTagNeedSleep },
                 sleepPos,
-                missionScale,
+                missionSize,
                 new Color(0.26f, 0.66f, 0.29f, DefaultZoneAlpha),
                 false);
 
@@ -699,8 +728,11 @@ namespace ProjectW.IngameMvp
             }
 
             var missionPos = missionZone.transform.position;
-            var missionScale = missionZone.transform.localScale;
-            var offsetX = Mathf.Max(Mathf.Abs(missionScale.x) + zoneGap, Mathf.Abs(missionScale.x) * 1.75f);
+            var missionBaseSize = ResolveZoneBaseSize(missionZone);
+            var missionSize = ResolveRandomizedLargeZoneSize(missionBaseSize, 101);
+            ApplyZoneAreaSize(missionZone.gameObject, missionSize);
+            var desiredOffset = Mathf.Max(Mathf.Abs(missionSize.x) + zoneGap, Mathf.Abs(missionSize.x) * 1.75f);
+            var offsetX = ResolveZoneSpacingForViewport(missionSize, missionSize, missionSize, desiredOffset);
             var cafeteriaPos = new Vector3(missionPos.x - offsetX, missionPos.y - 0.08f, zoneDepthZ);
             var sleepPos = new Vector3(missionPos.x + offsetX, missionPos.y + 0.08f, zoneDepthZ);
 
@@ -709,7 +741,7 @@ namespace ProjectW.IngameMvp
                 "need.hunger",
                 new[] { ZoneTagNeedHunger },
                 cafeteriaPos,
-                missionScale,
+                missionSize,
                 new Color(0.12f, 0.53f, 0.9f, DefaultZoneAlpha),
                 true);
 
@@ -718,7 +750,7 @@ namespace ProjectW.IngameMvp
                 "need.sleep",
                 new[] { ZoneTagNeedSleep },
                 sleepPos,
-                missionScale,
+                missionSize,
                 new Color(0.26f, 0.66f, 0.29f, DefaultZoneAlpha),
                 true);
 
@@ -766,7 +798,7 @@ namespace ProjectW.IngameMvp
             string zoneId,
             string[] tags,
             Vector3 worldPosition,
-            Vector3 localScale,
+            Vector2 areaSize,
             Color color,
             bool keepExistingTransform)
         {
@@ -785,7 +817,8 @@ namespace ProjectW.IngameMvp
             if (existing == null || !keepExistingTransform)
             {
                 zoneGo.transform.position = new Vector3(worldPosition.x, worldPosition.y, zoneDepthZ);
-                zoneGo.transform.localScale = new Vector3(Mathf.Abs(localScale.x), Mathf.Abs(localScale.y), 1f);
+                var scaled = ResolveRandomizedLargeZoneSize(areaSize, zoneId != null ? zoneId.GetHashCode() : 0);
+                ApplyZoneAreaSize(zoneGo, scaled);
             }
             else
             {
@@ -826,6 +859,7 @@ namespace ProjectW.IngameMvp
             int totalMinutes = (GetSimulationStartMinutes() + (tickInDay - 1) * 15) % 1440;
             int hour = (totalMinutes / 60) % 24;
             int minute = totalMinutes % 60;
+            EnsureDynamicTaskForTick(dayIndex, tickInHalfDay);
 
             var defaultAction = RoutineActionType.Mission;
             string zoneName = "MissingZone";
@@ -1420,6 +1454,7 @@ namespace ProjectW.IngameMvp
                     if (canResolveNeed)
                     {
                         binding.missionTicks += 1;
+                        ApplyDynamicSubtaskProgress(binding.actor != null ? binding.actor.name : string.Empty, 1);
                         if (binding.missionTicks >= 100)
                         {
                             binding.completedWorkCount += 1;
@@ -1453,6 +1488,31 @@ namespace ProjectW.IngameMvp
             binding.hunger = Mathf.Clamp(binding.hunger, 0f, GaugeMax);
             binding.sleep = Mathf.Clamp(binding.sleep, 0f, GaugeMax);
             binding.stress = Mathf.Clamp(binding.stress, 0f, GaugeMax);
+        }
+
+        private void ApplyDynamicSubtaskProgress(string actorName, int baseProgress)
+        {
+            if (_currentDynamicTask == null || baseProgress <= 0)
+            {
+                return;
+            }
+
+            var subtask = _currentDynamicTask.FirstIncomplete();
+            if (subtask == null)
+            {
+                return;
+            }
+
+            var multiplier = 1f;
+            if (!string.IsNullOrWhiteSpace(actorName) && _characterAptitudeByActorName.TryGetValue(actorName, out var profile) && profile != null)
+            {
+                multiplier = Mathf.Max(0.5f, profile.GetMultiplier(subtask.WorkType));
+            }
+
+            var delta = Mathf.Max(1, Mathf.RoundToInt(baseProgress * multiplier));
+            subtask.Progress = Mathf.Min(subtask.RequiredWork, subtask.Progress + delta);
+            ApplyDynamicTaskRequirementBinding();
+            UpdateTaskDashboardContext();
         }
 
         private static bool HasArrived(Vector3 currentPosition, Vector3 targetPosition)
@@ -2025,7 +2085,25 @@ namespace ProjectW.IngameMvp
         private float GetMissionProgressRatio()
         {
             var target = Mathf.Max(1, dashboardMissionGoalTicks);
-            return Mathf.Clamp01(GetTotalMissionTicks() / (float)target);
+            var missionProgress = Mathf.Clamp01(GetTotalMissionTicks() / (float)target);
+            if (!IsDynamicWorldRuntimeEnabled())
+            {
+                return missionProgress;
+            }
+
+            var taskProgress = GetDynamicTaskCompletionRatio();
+            return Mathf.Clamp01((missionProgress * 0.6f) + (taskProgress * 0.4f));
+        }
+
+        private float GetDynamicTaskCompletionRatio()
+        {
+            if (_currentDynamicTask == null)
+            {
+                return 0f;
+            }
+
+            var total = Mathf.Max(1, _currentDynamicTask.TotalRequiredWork);
+            return Mathf.Clamp01(_currentDynamicTask.TotalProgress / (float)total);
         }
 
         private int CountCurrentAction(RoutineActionType action)
@@ -2067,6 +2145,8 @@ namespace ProjectW.IngameMvp
 
         private void AutoBindSceneReferences()
         {
+            RebuildDynamicWorldIfEnabled();
+
             if (zonesRoot == null)
             {
                 var zones = GameObject.Find("Zones");
@@ -2090,6 +2170,351 @@ namespace ProjectW.IngameMvp
             Ensure2DWorldSetup();
             EnsureZoneDesks();
             ApplyDepthLayout();
+        }
+
+        private bool IsDynamicWorldRuntimeEnabled()
+        {
+            return dynamicWorldEnabled && _outgameSetupApplied;
+        }
+
+        private void RebuildDynamicWorldIfEnabled()
+        {
+            if (!IsDynamicWorldRuntimeEnabled())
+            {
+                return;
+            }
+
+            CleanupLegacySceneWorldForDynamicMode();
+            var dynamicZones = EnsureDynamicRoot("Zones_Dynamic");
+            var dynamicCharacters = EnsureDynamicRoot("Characters_Dynamic");
+            ClearChildrenImmediate(dynamicZones);
+            ClearChildrenImmediate(dynamicCharacters);
+
+            zonesRoot = dynamicZones;
+            charactersRoot = dynamicCharacters;
+
+            EnsureMainCamera2D();
+            var layout = ResolveDynamicLayoutBounds();
+            var missionSize = ResolveRandomizedLargeZoneSize(layout.zoneSize, 211);
+            var cafeteriaSize = ResolveRandomizedLargeZoneSize(layout.zoneSize, 223);
+            var sleepSize = ResolveRandomizedLargeZoneSize(layout.zoneSize, 227);
+            var spacing = ResolveZoneSpacingForViewport(missionSize, cafeteriaSize, sleepSize, layout.zoneSpacing);
+            missionZone = CreateZone2D(dynamicZones, "WorkZone", JobZoneWork, new[] { ZoneTagMission }, new Vector2(0f, 0f), missionSize, new Color(0.88f, 0.34f, 0.34f, DefaultZoneAlpha));
+            cafeteriaZone = CreateZone2D(dynamicZones, "EatZone", JobZoneEat, new[] { ZoneTagNeedHunger }, new Vector2(-spacing, -0.4f), cafeteriaSize, new Color(0.12f, 0.53f, 0.9f, DefaultZoneAlpha));
+            sleepZone = CreateZone2D(dynamicZones, "SleepZone", JobZoneSleep, new[] { ZoneTagNeedSleep }, new Vector2(spacing, 0.4f), sleepSize, new Color(0.26f, 0.66f, 0.29f, DefaultZoneAlpha));
+            BindZonesFromAnchors();
+
+            var spawnCount = Mathf.Clamp(_selectedCharacterCount, 1, 6);
+            var rng = new System.Random(_resolvedWorldSeed ^ 0x5A91);
+            for (var i = 0; i < spawnCount; i++)
+            {
+                var x = Mathf.Lerp(-layout.characterXSpan, layout.characterXSpan, (i + 0.5f) / Mathf.Max(1f, spawnCount));
+                var y = layout.characterYMin + (float)(rng.NextDouble() * (layout.characterYMax - layout.characterYMin));
+                CreateCharacter2D(dynamicCharacters, $"DynamicCharacter_{i + 1:D2}", new Vector2(x, y), GetLineColor(i));
+            }
+
+            characters.Clear();
+            _characterAptitudeByActorName.Clear();
+            EnsureCharacterBindingsFromRoot();
+            for (var i = 0; i < characters.Count; i++)
+            {
+                var binding = characters[i];
+                if (binding?.actor == null)
+                {
+                    continue;
+                }
+
+                _characterAptitudeByActorName[binding.actor.name] = BuildCharacterAptitude(binding.actor.name, _resolvedWorldSeed + (i * 37));
+            }
+
+            SetDashboardContext("DynamicWorld", $"enabled/{spawnCount}chars");
+            Ensure2DWorldSetup();
+            EnsureZoneWidthsForCharacterSeparation();
+            EnsureZoneDesks();
+            ApplyDepthLayout();
+        }
+
+        private (float zoneSpacing, Vector2 zoneSize, float characterXSpan, float characterYMin, float characterYMax) ResolveDynamicLayoutBounds()
+        {
+            var cam = Camera.main != null ? Camera.main : FindFirstObjectByType<Camera>();
+            if (cam == null || !cam.orthographic)
+            {
+                return (Mathf.Max(TargetZoneSize + 0.5f, zoneGap * 2.4f), new Vector2(TargetZoneSize, TargetZoneSize), 1f, 0.4f, 1.0f);
+            }
+
+            var halfHeight = Mathf.Max(2f, cam.orthographicSize * 0.82f);
+            var halfWidth = Mathf.Max(3f, halfHeight * Mathf.Max(1f, cam.aspect) * 0.86f);
+            var zoneWidth = Mathf.Clamp(halfWidth * 0.32f, MinZoneSizeNearTarget, MaxZoneSizeNearTarget);
+            var zoneHeight = Mathf.Clamp(halfHeight * 0.58f, MinZoneSizeNearTarget, MaxZoneSizeNearTarget);
+            // Keep zones well inside the viewport and avoid excessive left/right spread.
+            var minSpacing = (zoneWidth * 0.75f) + 0.45f;
+            var maxSpacing = halfWidth - (zoneWidth * 0.42f) - 0.15f;
+            var preferredSpacing = Mathf.Min(halfWidth * 0.82f, ((zoneWidth * 1.05f) + 0.70f) * 2f);
+            var zoneSpacing = Mathf.Clamp(preferredSpacing, minSpacing, Mathf.Max(minSpacing, maxSpacing));
+            var characterXSpan = Mathf.Clamp(zoneWidth * 0.60f, 0.9f, 2.2f);
+            var characterYMin = Mathf.Clamp(zoneHeight * 0.12f, 0.2f, 0.7f);
+            var characterYMax = Mathf.Clamp(zoneHeight * 0.72f, 0.9f, 1.9f);
+            if (characterYMax < characterYMin + 0.1f)
+            {
+                characterYMax = characterYMin + 0.1f;
+            }
+
+            return (zoneSpacing, new Vector2(zoneWidth, zoneHeight), characterXSpan, characterYMin, characterYMax);
+        }
+
+        private Vector2 ResolveRandomizedLargeZoneSize(Vector2 baseSize, int salt)
+        {
+            var baseX = Mathf.Max(0.1f, Mathf.Abs(baseSize.x));
+            var baseY = Mathf.Max(0.1f, Mathf.Abs(baseSize.y));
+            var targetX = Mathf.Clamp(baseX * Mathf.Max(1f, zoneSizeMultiplier), MinZoneSizeNearTarget, MaxZoneSizeNearTarget);
+            var targetY = Mathf.Clamp(baseY * Mathf.Max(1f, zoneSizeMultiplier), MinZoneSizeNearTarget, MaxZoneSizeNearTarget);
+
+            var jitter = Mathf.Clamp(zoneSizeRandomJitter, 0f, 0.25f);
+            var minFactor = 1f - jitter;
+            var maxFactor = 1f + jitter;
+            var seed = _resolvedWorldSeed != 0 ? _resolvedWorldSeed : DefaultWorldSeed;
+            var rng = new System.Random(unchecked((seed * 397) ^ salt));
+            var randomX = Mathf.Lerp(minFactor, maxFactor, (float)rng.NextDouble());
+            var randomY = Mathf.Lerp(minFactor, maxFactor, (float)rng.NextDouble());
+
+            var finalX = Mathf.Clamp(Mathf.Max(minimumZoneSize.x, targetX * randomX), MinZoneSizeNearTarget, MaxZoneSizeNearTarget);
+            var finalY = Mathf.Clamp(Mathf.Max(minimumZoneSize.y, targetY * randomY), MinZoneSizeNearTarget, MaxZoneSizeNearTarget);
+            return new Vector2(finalX, finalY);
+        }
+
+        private float ResolveZoneSpacingForViewport(Vector2 missionSize, Vector2 cafeteriaSize, Vector2 sleepSize, float baseSpacing)
+        {
+            var desired = Mathf.Max(baseSpacing, Mathf.Max((missionSize.x + cafeteriaSize.x) * 0.55f, (missionSize.x + sleepSize.x) * 0.55f));
+            var cam = Camera.main != null ? Camera.main : FindFirstObjectByType<Camera>();
+            if (cam == null || !cam.orthographic)
+            {
+                return desired;
+            }
+
+            var halfHeight = Mathf.Max(2f, cam.orthographicSize * 0.9f);
+            var halfWidth = Mathf.Max(3f, halfHeight * Mathf.Max(1f, cam.aspect) * 0.9f);
+            var sideHalfWidth = Mathf.Max(cafeteriaSize.x, sleepSize.x) * 0.5f;
+            var maxVisibleSpacing = Mathf.Max(0.5f, halfWidth - sideHalfWidth - 0.15f);
+            return Mathf.Min(desired, maxVisibleSpacing);
+        }
+
+        private static Vector2 ResolveZoneBaseSize(RoutineZoneAnchor zone)
+        {
+            if (zone == null)
+            {
+                return new Vector2(TargetZoneSize, TargetZoneSize);
+            }
+
+            var box2D = zone.GetComponent<BoxCollider2D>();
+            if (box2D != null && box2D.size.x > 0.0001f && box2D.size.y > 0.0001f)
+            {
+                return new Vector2(Mathf.Abs(box2D.size.x), Mathf.Abs(box2D.size.y));
+            }
+
+            var spriteRenderer = zone.GetComponent<SpriteRenderer>();
+            if (spriteRenderer != null)
+            {
+                var drawSize = spriteRenderer.drawMode == SpriteDrawMode.Simple
+                    ? (spriteRenderer.sprite != null ? (Vector2)spriteRenderer.sprite.bounds.size : Vector2.zero)
+                    : spriteRenderer.size;
+                if (drawSize.x > 0.0001f && drawSize.y > 0.0001f)
+                {
+                    return new Vector2(Mathf.Abs(drawSize.x), Mathf.Abs(drawSize.y));
+                }
+            }
+
+            return new Vector2(TargetZoneSize, TargetZoneSize);
+        }
+
+        private void ApplyZoneAreaSize(GameObject zoneGo, Vector2 size)
+        {
+            if (zoneGo == null)
+            {
+                return;
+            }
+
+            var width = Mathf.Max(minimumZoneSize.x, Mathf.Abs(size.x));
+            var height = Mathf.Max(minimumZoneSize.y, Mathf.Abs(size.y));
+            zoneGo.transform.localScale = Vector3.one;
+
+            var box2D = zoneGo.GetComponent<BoxCollider2D>();
+            if (box2D == null)
+            {
+                box2D = zoneGo.AddComponent<BoxCollider2D>();
+            }
+
+            box2D.size = new Vector2(width, height);
+            box2D.offset = Vector2.zero;
+
+            var spriteRenderer = zoneGo.GetComponent<SpriteRenderer>();
+            if (spriteRenderer != null)
+            {
+                spriteRenderer.drawMode = SpriteDrawMode.Sliced;
+                spriteRenderer.size = new Vector2(width, height);
+            }
+        }
+
+        private void NormalizeZoneAreaFromLegacyScale(RoutineZoneAnchor zone)
+        {
+            if (zone == null)
+            {
+                return;
+            }
+
+            var scale = zone.transform.localScale;
+            if (Mathf.Abs(scale.x - 1f) < 0.001f && Mathf.Abs(scale.y - 1f) < 0.001f)
+            {
+                return;
+            }
+
+            var box2D = zone.GetComponent<BoxCollider2D>();
+            var size = box2D != null && box2D.size.x > 0.0001f && box2D.size.y > 0.0001f
+                ? new Vector2(Mathf.Abs(box2D.size.x * scale.x), Mathf.Abs(box2D.size.y * scale.y))
+                : new Vector2(Mathf.Abs(scale.x), Mathf.Abs(scale.y));
+            ApplyZoneAreaSize(zone.gameObject, size);
+        }
+
+        private void CleanupLegacySceneWorldForDynamicMode()
+        {
+            DestroyRootIfExists("Zones");
+            DestroyRootIfExists("Characters");
+
+            var allZones = FindObjectsByType<RoutineZoneAnchor>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (var i = 0; i < allZones.Length; i++)
+            {
+                var zone = allZones[i];
+                if (zone == null || zone.transform == null)
+                {
+                    continue;
+                }
+
+                var parent = zone.transform.parent;
+                if (parent != null && string.Equals(parent.name, "Zones_Dynamic", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                SafeDestroyGameObject(zone.gameObject);
+            }
+
+            var roots = new[] { "Zones_Dynamic", "Characters_Dynamic" };
+            for (var r = 0; r < roots.Length; r++)
+            {
+                var rootGo = GameObject.Find(roots[r]);
+                if (rootGo == null)
+                {
+                    continue;
+                }
+
+                var objectSlots = rootGo.GetComponentsInChildren<Transform>(true);
+                for (var i = 0; i < objectSlots.Length; i++)
+                {
+                    var t = objectSlots[i];
+                    if (t != null && string.Equals(t.name, ZoneObjectRootName, StringComparison.Ordinal))
+                    {
+                        SafeDestroyGameObject(t.gameObject);
+                    }
+                }
+            }
+        }
+
+        private static void DestroyRootIfExists(string rootName)
+        {
+            if (string.IsNullOrWhiteSpace(rootName))
+            {
+                return;
+            }
+
+            var root = GameObject.Find(rootName);
+            if (root != null)
+            {
+                SafeDestroyGameObject(root);
+            }
+        }
+
+        private static Transform EnsureDynamicRoot(string objectName)
+        {
+            var existing = GameObject.Find(objectName);
+            if (existing != null)
+            {
+                return existing.transform;
+            }
+
+            return new GameObject(objectName).transform;
+        }
+
+        private static void ClearChildrenImmediate(Transform root)
+        {
+            if (root == null)
+            {
+                return;
+            }
+
+            var toDelete = new List<GameObject>();
+            for (var i = 0; i < root.childCount; i++)
+            {
+                var child = root.GetChild(i);
+                if (child != null)
+                {
+                    toDelete.Add(child.gameObject);
+                }
+            }
+
+            for (var i = 0; i < toDelete.Count; i++)
+            {
+                if (Application.isPlaying)
+                {
+                    DestroyImmediate(toDelete[i]);
+                }
+                else
+                {
+                    DestroyImmediate(toDelete[i]);
+                }
+            }
+        }
+
+        private CharacterAptitudeProfile BuildCharacterAptitude(string actorName, int seed)
+        {
+            var rng = new System.Random(seed ^ (actorName?.GetHashCode() ?? 0));
+            var all = new[] { WorkType.Observe, WorkType.Labor, WorkType.Routine, WorkType.Reflex };
+            var primary = all[rng.Next(0, all.Length)];
+            var secondary = all[rng.Next(0, all.Length)];
+            if (secondary == primary)
+            {
+                secondary = all[(Array.IndexOf(all, primary) + 1) % all.Length];
+            }
+
+            var profile = new CharacterAptitudeProfile
+            {
+                PrimaryType = primary,
+                SecondaryType = secondary,
+                ObserveMultiplier = 1f,
+                LaborMultiplier = 1f,
+                RoutineMultiplier = 1f,
+                ReflexMultiplier = 1f
+            };
+            ApplyAptitudeBonus(profile, primary, 1.2f);
+            ApplyAptitudeBonus(profile, secondary, 1.1f);
+            return profile;
+        }
+
+        private static void ApplyAptitudeBonus(CharacterAptitudeProfile profile, WorkType type, float value)
+        {
+            switch (type)
+            {
+                case WorkType.Observe:
+                    profile.ObserveMultiplier = value;
+                    break;
+                case WorkType.Labor:
+                    profile.LaborMultiplier = value;
+                    break;
+                case WorkType.Routine:
+                    profile.RoutineMultiplier = value;
+                    break;
+                case WorkType.Reflex:
+                    profile.ReflexMultiplier = value;
+                    break;
+            }
         }
 
         private void EnsureInteractionReferences()
@@ -2393,6 +2818,8 @@ namespace ProjectW.IngameMvp
                         existingCanvas.gameObject.AddComponent<CanvasScaler>();
                     }
 
+                    ConfigureCanvasScaler(existingCanvas.gameObject.GetComponent<CanvasScaler>());
+
                     EnsureEventSystemExists();
                     return existingCanvas;
                 }
@@ -2407,10 +2834,21 @@ namespace ProjectW.IngameMvp
 
             var scaler = canvasGo.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
-            scaler.matchWidthOrHeight = 0.5f;
+            ConfigureCanvasScaler(scaler);
             EnsureEventSystemExists();
             return canvas;
+        }
+
+        private static void ConfigureCanvasScaler(CanvasScaler scaler)
+        {
+            if (scaler == null)
+            {
+                return;
+            }
+
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = UiReferenceResolution;
+            scaler.matchWidthOrHeight = 0.5f;
         }
 
         private static void EnsureEventSystemExists()
@@ -2507,15 +2945,14 @@ namespace ProjectW.IngameMvp
             var minGap = Mathf.Max(0.5f, minimumCharacterSeparation);
             var margin = 0.08f;
             var requiredWidth = ((occupants - 1) * minGap) + (margin * 2f);
-            var scale = zone.transform.localScale;
-            var currentWidth = Mathf.Abs(scale.x);
+            var currentSize = ResolveZoneBaseSize(zone);
+            var currentWidth = Mathf.Abs(currentSize.x);
             if (currentWidth >= requiredWidth)
             {
                 return;
             }
 
-            scale.x = Mathf.Sign(scale.x == 0f ? 1f : scale.x) * requiredWidth;
-            zone.transform.localScale = scale;
+            ApplyZoneAreaSize(zone.gameObject, new Vector2(requiredWidth, currentSize.y));
         }
 
         private void EnsureDashboardUiReferences()
@@ -2888,8 +3325,10 @@ namespace ProjectW.IngameMvp
                 }
             }
 
-            _officeItems.AddRange(OfficeItemFactory.GenerateOfficeItems(new System.Random(_resolvedWorldSeed), 12, owners, zoneGenerationRuleSet));
+            var desiredCount = ResolveDesiredOfficeItemCount();
+            _officeItems.AddRange(OfficeItemFactory.GenerateOfficeItems(new System.Random(_resolvedWorldSeed), desiredCount, owners, zoneGenerationRuleSet));
             RebuildOfficeItemsByZoneCache();
+            EnsureRequiredTagCoverageForNeedRequirements();
             var itemDump = new StringBuilder();
             for (int i = 0; i < _officeItems.Count; i++)
             {
@@ -2900,7 +3339,317 @@ namespace ProjectW.IngameMvp
             var taskRulesId = taskGenerationRuleSet != null ? taskGenerationRuleSet.RuleSetId : "fallback";
             SetDashboardContext("RuleSet", $"zone:{zoneRulesId}, task:{taskRulesId}");
             SetDashboardContext("WorldSeed", _resolvedWorldSeed.ToString(CultureInfo.InvariantCulture));
+            SetDashboardContext("ItemCount", _officeItems.Count.ToString(CultureInfo.InvariantCulture));
             Debug.Log("[RoutineMVP] Generated office items for job system:\n" + itemDump);
+        }
+
+        private int ResolveDesiredOfficeItemCount()
+        {
+            var baseCount = 12;
+            if (taskGenerationRuleSet != null)
+            {
+                var scale = taskGenerationRuleSet.GetDifficultySupplyScale(_selectedDifficulty);
+                baseCount = Mathf.RoundToInt(baseCount * scale);
+            }
+            else
+            {
+                if (_selectedDifficulty == SessionDifficulty.Easy) baseCount = 15;
+                if (_selectedDifficulty == SessionDifficulty.Risky) baseCount = 8;
+            }
+
+            return Mathf.Clamp(baseCount, 6, 24);
+        }
+
+        private void EnsureRequiredTagCoverageForNeedRequirements()
+        {
+            var requiredTags = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var pair in _actionJobRequirements)
+            {
+                var requirement = pair.Value;
+                if (requirement?.RequiredTags == null)
+                {
+                    continue;
+                }
+
+                for (var i = 0; i < requirement.RequiredTags.Count; i++)
+                {
+                    if (!string.IsNullOrWhiteSpace(requirement.RequiredTags[i]))
+                    {
+                        requiredTags.Add(requirement.RequiredTags[i].Trim());
+                    }
+                }
+            }
+
+            foreach (var tag in requiredTags)
+            {
+                var found = false;
+                for (var i = 0; i < _officeItems.Count; i++)
+                {
+                    if (_officeItems[i] != null && _officeItems[i].HasTag(tag))
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (found)
+                {
+                    continue;
+                }
+
+                var fallbackZone = ResolveDefaultZoneByTag(tag);
+                _officeItems.Add(new WorldItem($"guarantee-{tag}", $"Guaranteed {tag}", ItemUsagePolicy.Public, string.Empty, new[] { tag }, fallbackZone));
+            }
+
+            RebuildOfficeItemsByZoneCache();
+        }
+
+        private static string ResolveDefaultZoneByTag(string tag)
+        {
+            if (string.Equals(tag, "desk", StringComparison.OrdinalIgnoreCase) || string.Equals(tag, "computer", StringComparison.OrdinalIgnoreCase))
+            {
+                return JobZoneWork;
+            }
+
+            if (string.Equals(tag, "table", StringComparison.OrdinalIgnoreCase) || string.Equals(tag, "tray", StringComparison.OrdinalIgnoreCase) || string.Equals(tag, "cup", StringComparison.OrdinalIgnoreCase))
+            {
+                return JobZoneEat;
+            }
+
+            if (string.Equals(tag, "bed", StringComparison.OrdinalIgnoreCase) || string.Equals(tag, "pillow", StringComparison.OrdinalIgnoreCase) || string.Equals(tag, "blanket", StringComparison.OrdinalIgnoreCase))
+            {
+                return JobZoneSleep;
+            }
+
+            return JobZoneWork;
+        }
+
+        private void EnsureDynamicTaskForTick(int dayIndex, int tickInHalfDay)
+        {
+            if (!IsDynamicWorldRuntimeEnabled())
+            {
+                return;
+            }
+
+            var shouldRegenerate = _currentDynamicTask == null || _currentDynamicTask.FirstIncomplete() == null;
+            if (!shouldRegenerate && (_absoluteTick - _lastDynamicTaskSeedTick) < 12)
+            {
+                return;
+            }
+
+            var seed = _resolvedWorldSeed ^ (dayIndex * 739) ^ (tickInHalfDay * 131);
+            _currentDynamicTask = BuildDynamicTask(seed);
+            _lastDynamicTaskSeedTick = _absoluteTick;
+            ApplyDynamicTaskRequirementBinding();
+            UpdateTaskDashboardContext();
+        }
+
+        private DynamicTaskModel BuildDynamicTask(int seed)
+        {
+            var rng = new System.Random(seed);
+            var task = new DynamicTaskModel
+            {
+                TaskId = $"task-{seed & 0x7FFF:X4}",
+                Difficulty = _selectedDifficulty
+            };
+
+            var subtaskCount = _selectedDifficulty == SessionDifficulty.Risky ? 4 : _selectedDifficulty == SessionDifficulty.Easy ? 2 : 3;
+            for (var i = 0; i < subtaskCount; i++)
+            {
+                var template = PickTaskTemplate(rng);
+                var type = template != null ? template.WorkType : (WorkType)rng.Next(0, 4);
+                var tags = ResolveSubtaskTags(template, type, rng);
+                var workMin = template != null ? Math.Max(1, template.BaseWorkUnitsRange.x) : 4;
+                var workMax = template != null ? Math.Max(workMin, template.BaseWorkUnitsRange.y) : 12;
+                var requiredWork = rng.Next(workMin, workMax + 1);
+                if (_selectedDifficulty == SessionDifficulty.Risky)
+                {
+                    requiredWork = Mathf.RoundToInt(requiredWork * 1.2f);
+                }
+                else if (_selectedDifficulty == SessionDifficulty.Easy)
+                {
+                    requiredWork = Mathf.Max(1, Mathf.RoundToInt(requiredWork * 0.85f));
+                }
+
+                task.Subtasks.Add(new DynamicSubtask
+                {
+                    SubtaskId = $"{task.TaskId}-s{i + 1}",
+                    RequiredWork = Math.Max(1, requiredWork),
+                    RequiredTags = tags,
+                    WorkType = type,
+                    AssignedZoneKey = ResolveZoneAffinity(template, tags),
+                    Progress = 0
+                });
+            }
+
+            return task;
+        }
+
+        private TaskTemplateRule PickTaskTemplate(System.Random rng)
+        {
+            if (taskGenerationRuleSet == null || !taskGenerationRuleSet.HasTemplates())
+            {
+                return null;
+            }
+
+            var templates = taskGenerationRuleSet.Templates;
+            var total = 0f;
+            for (var i = 0; i < templates.Count; i++)
+            {
+                var template = templates[i];
+                if (template == null)
+                {
+                    continue;
+                }
+
+                total += Mathf.Max(0f, template.Weight) * taskGenerationRuleSet.GetPriorityWeight(template.WorkType, _selectedPriorityPair);
+            }
+
+            if (total <= 0.0001f)
+            {
+                return templates[rng.Next(0, templates.Count)];
+            }
+
+            var roll = (float)rng.NextDouble() * total;
+            var cumulative = 0f;
+            for (var i = 0; i < templates.Count; i++)
+            {
+                var template = templates[i];
+                if (template == null)
+                {
+                    continue;
+                }
+
+                cumulative += Mathf.Max(0f, template.Weight) * taskGenerationRuleSet.GetPriorityWeight(template.WorkType, _selectedPriorityPair);
+                if (roll <= cumulative)
+                {
+                    return template;
+                }
+            }
+
+            return templates[templates.Count - 1];
+        }
+
+        private static List<string> ResolveSubtaskTags(TaskTemplateRule template, WorkType type, System.Random rng)
+        {
+            var tags = new List<string>();
+            if (template != null)
+            {
+                var pool = (template.RequiredTagPool != null && template.RequiredTagPool.Length > 0) ? template.RequiredTagPool : template.RequiredTags;
+                if (pool != null && pool.Length > 0)
+                {
+                    var count = Math.Min(2, pool.Length);
+                    for (var i = 0; i < count; i++)
+                    {
+                        var candidate = pool[rng.Next(0, pool.Length)];
+                        if (!string.IsNullOrWhiteSpace(candidate) && !tags.Contains(candidate))
+                        {
+                            tags.Add(candidate.Trim());
+                        }
+                    }
+                }
+            }
+
+            if (tags.Count == 0)
+            {
+                switch (type)
+                {
+                    case WorkType.Observe:
+                        tags.Add("computer");
+                        break;
+                    case WorkType.Labor:
+                        tags.Add("desk");
+                        break;
+                    case WorkType.Reflex:
+                        tags.Add("tray");
+                        break;
+                    default:
+                        tags.Add("table");
+                        break;
+                }
+            }
+
+            return tags;
+        }
+
+        private static string ResolveZoneAffinity(TaskTemplateRule template, IReadOnlyList<string> tags)
+        {
+            if (!string.IsNullOrWhiteSpace(template?.ZoneAffinity))
+            {
+                return template.ZoneAffinity.Trim();
+            }
+
+            if (!string.IsNullOrWhiteSpace(template?.ZoneKey))
+            {
+                return template.ZoneKey.Trim();
+            }
+
+            if (tags != null)
+            {
+                for (var i = 0; i < tags.Count; i++)
+                {
+                    var zone = ResolveDefaultZoneByTag(tags[i]);
+                    if (!string.IsNullOrWhiteSpace(zone))
+                    {
+                        return zone;
+                    }
+                }
+            }
+
+            return JobZoneWork;
+        }
+
+        private void ApplyDynamicTaskRequirementBinding()
+        {
+            if (_currentDynamicTask == null)
+            {
+                return;
+            }
+
+            var subtask = _currentDynamicTask.FirstIncomplete();
+            if (subtask == null)
+            {
+                return;
+            }
+
+            _actionJobRequirements[RoutineActionType.Mission] = new NeedRequirement("work", subtask.AssignedZoneKey, subtask.RequiredTags);
+        }
+
+        private void UpdateTaskDashboardContext()
+        {
+            if (_currentDynamicTask == null)
+            {
+                SetDashboardContext("CurrentTask", "-");
+                SetDashboardContext("Subtasks", "-");
+                if (taskUiBinding != null)
+                {
+                    taskUiBinding.text = "Current Task: -\nSubtasks: -";
+                }
+                return;
+            }
+
+            var header = $"{_currentDynamicTask.TaskId} ({_currentDynamicTask.TotalProgress}/{_currentDynamicTask.TotalRequiredWork})";
+            SetDashboardContext("CurrentTask", header);
+            var top = _currentDynamicTask.FirstIncomplete();
+            if (top == null)
+            {
+                SetDashboardContext("Subtasks", "completed");
+                if (taskUiBinding != null)
+                {
+                    taskUiBinding.text = $"Current Task: {header}\nSubtasks: completed";
+                }
+                return;
+            }
+
+            var tags = top.RequiredTags != null && top.RequiredTags.Count > 0
+                ? string.Join(",", top.RequiredTags)
+                : "-";
+            var subtaskText = $"{top.WorkType} {top.Progress}/{top.RequiredWork} tags[{tags}] zone[{top.AssignedZoneKey}]";
+            SetDashboardContext("Subtasks", subtaskText);
+            if (taskUiBinding != null)
+            {
+                taskUiBinding.text = $"Current Task: {header}\nSubtasks: {subtaskText}";
+            }
         }
 
         private NeedRequirement ResolveTaskRequirement(string needKey, string fallbackZoneKey, IReadOnlyList<string> fallbackTags)
@@ -2954,10 +3703,18 @@ namespace ProjectW.IngameMvp
             _actionJobRequirements.Clear();
             _officeItems.Clear();
             _officeItemsByZoneKey.Clear();
+            _currentDynamicTask = null;
+            _lastDynamicTaskSeedTick = -1;
+            _characterAptitudeByActorName.Clear();
         }
 
         private void EnsureDefaultCharactersExist()
         {
+            if (IsDynamicWorldRuntimeEnabled())
+            {
+                return;
+            }
+
             if (charactersRoot == null)
             {
                 return;
@@ -3114,12 +3871,9 @@ namespace ProjectW.IngameMvp
             var zone = new GameObject(objectName);
             zone.transform.SetParent(parent, false);
             zone.transform.localPosition = new Vector3(center.x, center.y, zoneDepthZ);
-            zone.transform.localScale = new Vector3(size.x, size.y, 1f);
+            zone.transform.localScale = Vector3.one;
             EnsureSpriteRenderer(zone, color, Vector2.one, false);
-
-            var collider2D = zone.AddComponent<BoxCollider2D>();
-            collider2D.size = Vector2.one;
-            collider2D.offset = Vector2.zero;
+            ApplyZoneAreaSize(zone, size);
 
             var anchor = zone.AddComponent<RoutineZoneAnchor>();
             anchor.SetZoneId(zoneId);
@@ -3136,23 +3890,6 @@ namespace ProjectW.IngameMvp
             actor.transform.localScale = new Vector3(DefaultCharacterSpriteSize, DefaultCharacterSpriteSize, 1f);
             EnsureSpriteRenderer(actor, color, new Vector2(DefaultCharacterSpriteSize, DefaultCharacterSpriteSize), true);
             actor.AddComponent<CapsuleCollider2D>();
-
-            var gaugeRoot = new GameObject("GaugeRoot");
-            gaugeRoot.transform.SetParent(actor.transform, false);
-            gaugeRoot.transform.localPosition = new Vector3(0f, 0.82f, 0f);
-
-            CreateGaugeBar2D(gaugeRoot.transform, "HungerBar", 0.12f, new Color(0.94f, 0.35f, 0.35f, 1f));
-            CreateGaugeBar2D(gaugeRoot.transform, "SleepBar", 0f, new Color(0.30f, 0.55f, 0.95f, 1f));
-            CreateGaugeBar2D(gaugeRoot.transform, "StressBar", -0.12f, new Color(0.30f, 0.80f, 0.40f, 1f));
-        }
-
-        private void CreateGaugeBar2D(Transform parent, string name, float y, Color color)
-        {
-            var bar = new GameObject(name);
-            bar.transform.SetParent(parent, false);
-            bar.transform.localPosition = new Vector3(0f, y, 0f);
-            bar.transform.localScale = new Vector3(GaugeBarMaxWidth, 0.055f, 1f);
-            EnsureSpriteRenderer(bar, color, Vector2.one, true);
         }
 
         private static void DestroyIfExists(string objectName)
@@ -3198,6 +3935,7 @@ namespace ProjectW.IngameMvp
                 color.a = DefaultZoneAlpha;
                 var zoneSprite = visualResources != null ? visualResources.ResolveZoneSprite(anchor.ZoneId) : null;
                 EnsureSpriteRenderer(anchor.gameObject, color, Vector2.one, false, zoneSprite);
+                NormalizeZoneAreaFromLegacyScale(anchor);
                 var zoneFrames = visualResources != null ? visualResources.ResolveZoneAnimationFrames(anchor.ZoneId) : null;
                 EnsureObjectSpriteAnimation(anchor.gameObject, zoneFrames, zoneSpriteAnimationFps);
                 EnsureZoneBoundary2D(anchor);
@@ -3223,7 +3961,6 @@ namespace ProjectW.IngameMvp
                 var actorSprite = visualResources != null ? visualResources.ResolveCharacterSprite(binding.actor.name, i) : null;
                 EnsureSpriteRenderer(actorGo, color, new Vector2(DefaultCharacterSpriteSize, DefaultCharacterSpriteSize), true, actorSprite);
                 EnsureCharacterAnimator(binding.actor.gameObject);
-                EnsureGaugeBarsAre2D(binding.actor);
             }
         }
 
@@ -3319,19 +4056,6 @@ namespace ProjectW.IngameMvp
             }
         }
 
-        private void EnsureGaugeBarsAre2D(Transform actor)
-        {
-            var gaugeRoot = actor.Find("GaugeRoot");
-            if (gaugeRoot == null)
-            {
-                return;
-            }
-
-            EnsureSpriteRenderer(gaugeRoot.Find("HungerBar")?.gameObject, new Color(0.94f, 0.35f, 0.35f, 1f), Vector2.one, true);
-            EnsureSpriteRenderer(gaugeRoot.Find("SleepBar")?.gameObject, new Color(0.30f, 0.55f, 0.95f, 1f), Vector2.one, true);
-            EnsureSpriteRenderer(gaugeRoot.Find("StressBar")?.gameObject, new Color(0.30f, 0.80f, 0.40f, 1f), Vector2.one, true);
-        }
-
         private void EnsureZoneBoundary2D(RoutineZoneAnchor anchor)
         {
             var go = anchor.gameObject;
@@ -3356,7 +4080,7 @@ namespace ProjectW.IngameMvp
             }
             else if (box2D.size == Vector2.zero)
             {
-                box2D.size = new Vector2(Mathf.Max(1f, go.transform.localScale.x), Mathf.Max(1f, go.transform.localScale.y));
+                box2D.size = ResolveZoneBaseSize(anchor);
             }
 
             anchor.RebindBoundaries();
@@ -4199,56 +4923,6 @@ namespace ProjectW.IngameMvp
             binding.hunger = Mathf.Clamp(binding.hunger, 0f, GaugeMax);
             binding.sleep = Mathf.Clamp(binding.sleep, 0f, GaugeMax);
             binding.stress = Mathf.Clamp(binding.stress, 0f, GaugeMax);
-            UpdateSceneGaugeForBinding(binding);
-        }
-
-        private void UpdateSceneGaugeForBinding(RoutineCharacterBinding binding)
-        {
-            if (binding.actor == null)
-            {
-                return;
-            }
-
-            var gaugeRoot = binding.actor.Find("GaugeRoot");
-            if (gaugeRoot == null)
-            {
-                return;
-            }
-
-            UpdateGaugeBar(gaugeRoot, "HungerBar", binding.hunger / GaugeMax, new Color(0.94f, 0.35f, 0.35f, 1f));
-            UpdateGaugeBar(gaugeRoot, "SleepBar", binding.sleep / GaugeMax, new Color(0.30f, 0.55f, 0.95f, 1f));
-            UpdateGaugeBar(gaugeRoot, "StressBar", binding.stress / GaugeMax, new Color(0.30f, 0.80f, 0.40f, 1f));
-        }
-
-        private static void UpdateGaugeBar(Transform gaugeRoot, string barName, float normalized, Color color)
-        {
-            var bar = gaugeRoot.Find(barName);
-            if (bar == null)
-            {
-                return;
-            }
-
-            var clamped = Mathf.Clamp01(normalized);
-            var width = Mathf.Lerp(GaugeBarMinWidth, GaugeBarMaxWidth, clamped);
-            var scale = bar.localScale;
-            scale.x = width;
-            bar.localScale = scale;
-
-            var localPosition = bar.localPosition;
-            localPosition.x = -0.5f * (GaugeBarMaxWidth - width);
-            bar.localPosition = localPosition;
-
-            var renderer = bar.GetComponent<Renderer>();
-            if (renderer == null)
-            {
-                return;
-            }
-
-            var block = new MaterialPropertyBlock();
-            renderer.GetPropertyBlock(block);
-            block.SetColor("_Color", color);
-            block.SetColor("_BaseColor", color);
-            renderer.SetPropertyBlock(block);
         }
 
         private void TryColorize(GameObject go, Color color)
@@ -4725,9 +5399,51 @@ namespace ProjectW.IngameMvp
                 return;
             }
 
-            var viewModel = RoutineNeuronPanelViewModel.FromSnapshot(snapshot, _pinnedNeuronCharacter.currentAction.ToString(), _pinnedNeuronCharacter.intendedAction.ToString());
+            var actorName = _pinnedNeuronCharacter.actor != null ? _pinnedNeuronCharacter.actor.name : string.Empty;
+            var aptitudeLine = BuildAptitudeLine(actorName);
+            var subtaskLine = BuildCurrentSubtaskLine();
+            var viewModel = RoutineNeuronPanelViewModel.FromSnapshot(
+                snapshot,
+                _pinnedNeuronCharacter.currentAction.ToString(),
+                _pinnedNeuronCharacter.intendedAction.ToString(),
+                aptitudeLine,
+                subtaskLine);
             neuronPanelView.Render(viewModel);
             _lastOpenedPanel = PanelKind.Neuron;
+        }
+
+        private string BuildAptitudeLine(string actorName)
+        {
+            if (string.IsNullOrWhiteSpace(actorName) || !_characterAptitudeByActorName.TryGetValue(actorName, out var profile) || profile == null)
+            {
+                return "apt:-";
+            }
+
+            return string.Format(
+                CultureInfo.InvariantCulture,
+                "apt:{0}/{1} mult(O:{2:0.0},L:{3:0.0},R:{4:0.0},X:{5:0.0})",
+                profile.PrimaryType,
+                profile.SecondaryType,
+                profile.ObserveMultiplier,
+                profile.LaborMultiplier,
+                profile.RoutineMultiplier,
+                profile.ReflexMultiplier);
+        }
+
+        private string BuildCurrentSubtaskLine()
+        {
+            var subtask = _currentDynamicTask != null ? _currentDynamicTask.FirstIncomplete() : null;
+            if (subtask == null)
+            {
+                return "task:-";
+            }
+
+            return string.Format(
+                CultureInfo.InvariantCulture,
+                "task:{0} {1}/{2}",
+                subtask.WorkType,
+                subtask.Progress,
+                subtask.RequiredWork);
         }
 
         private void UpdateObjectInfoPanel()
