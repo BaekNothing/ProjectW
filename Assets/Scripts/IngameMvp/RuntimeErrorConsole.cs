@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 using UnityEngine;
 
@@ -21,10 +22,9 @@ namespace ProjectW.IngameMvp
 
         private Vector2 scrollPosition;
         private bool visible;
-        private string copyNotice;
-        private float copyNoticeUntil;
+        private string logFilePath;
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void EnsureExists()
         {
             if (instance != null)
@@ -47,6 +47,12 @@ namespace ProjectW.IngameMvp
 
             instance = this;
             DontDestroyOnLoad(gameObject);
+
+            var fileName = "runtime-log-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".txt";
+            logFilePath = Path.Combine(Application.persistentDataPath, fileName);
+
+            AppendLineToFile("==== RuntimeErrorConsole started at " + DateTime.Now.ToString("O") + " ====");
+            AppendLineToFile("Application.persistentDataPath: " + Application.persistentDataPath);
 
             Application.logMessageReceived += HandleLog;
             Application.logMessageReceivedThreaded += HandleLogThreaded;
@@ -72,12 +78,6 @@ namespace ProjectW.IngameMvp
                 visible = !visible;
             }
 
-            if (Input.GetKeyDown(KeyCode.C))
-            {
-                entries.Clear();
-                ShowCopyNotice("Logs cleared");
-            }
-
             FlushThreadedEntries();
         }
 
@@ -91,30 +91,20 @@ namespace ProjectW.IngameMvp
             const int margin = 12;
             var width = Screen.width - (margin * 2);
             var height = Mathf.FloorToInt(Screen.height * 0.45f);
-            var panelRect = new Rect(margin, margin, width, height);
 
-            GUI.Box(panelRect, "Runtime Error Console");
+            GUI.Box(new Rect(margin, margin, width, height), "Runtime Error Console");
+
             GUI.Label(
                 new Rect(margin + 8, margin + 22, width - 16, 22),
-                "` / F1: Toggle | C: Clear | Tap/Click panel: Copy latest critical | Logs: " + entries.Count);
+                "` / F1: Toggle | C: Clear | Logs: " + entries.Count + " | File: " + logFilePath);
 
-            if (GUI.Button(new Rect(margin + 8, margin + 44, 180, 22), "Copy all critical logs"))
+            if (Event.current.type == EventType.KeyDown && Event.current.keyCode == KeyCode.C)
             {
-                CopyAllCriticalLogs();
+                entries.Clear();
             }
 
-            if (IsPanelClick(panelRect))
-            {
-                CopyLatestCriticalLog();
-            }
-
-            if (Time.unscaledTime < copyNoticeUntil)
-            {
-                GUI.Label(new Rect(margin + 200, margin + 44, width - 208, 22), copyNotice);
-            }
-
-            var viewRect = new Rect(0, 0, width - 36, Mathf.Max(height - 80, entries.Count * 48));
-            var scrollRect = new Rect(margin + 8, margin + 68, width - 16, height - 76);
+            var viewRect = new Rect(0, 0, width - 36, Mathf.Max(height - 60, entries.Count * 48));
+            var scrollRect = new Rect(margin + 8, margin + 44, width - 16, height - 52);
 
             scrollPosition = GUI.BeginScrollView(scrollRect, scrollPosition, viewRect);
 
@@ -123,40 +113,12 @@ namespace ProjectW.IngameMvp
             {
                 var entry = entries[i];
                 GUI.contentColor = GetColor(entry.Type);
-                if (GUI.Button(new Rect(0, y, viewRect.width, 44), entry.ToDisplayString()))
-                {
-                    GUI.contentColor = Color.white;
-                    CopyEntry(entry);
-                }
-
+                GUI.Label(new Rect(0, y, viewRect.width, 44), entry.ToDisplayString());
                 y += 48f;
             }
 
             GUI.contentColor = Color.white;
             GUI.EndScrollView();
-        }
-
-        private static bool IsPanelClick(Rect panelRect)
-        {
-            if (Input.touchCount > 0)
-            {
-                for (var i = 0; i < Input.touchCount; i++)
-                {
-                    var touch = Input.GetTouch(i);
-                    var touchPosition = new Vector2(touch.position.x, Screen.height - touch.position.y);
-                    if (touch.phase == TouchPhase.Began && panelRect.Contains(touchPosition))
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            if (Event.current.type == EventType.MouseDown && panelRect.Contains(Event.current.mousePosition))
-            {
-                return true;
-            }
-
-            return false;
         }
 
         private void FlushThreadedEntries()
@@ -198,80 +160,17 @@ namespace ProjectW.IngameMvp
         private void AddEntry(LogEntry entry)
         {
             entries.Add(entry);
-
-            if (IsCritical(entry.Type))
-            {
-                visible = true;
-            }
-
             if (entries.Count > MaxEntries)
             {
                 entries.RemoveAt(0);
             }
+
+            AppendLineToFile(entry.ToFileString());
         }
 
-        private void CopyLatestCriticalLog()
+        private void AppendLineToFile(string line)
         {
-            for (var i = entries.Count - 1; i >= 0; i--)
-            {
-                if (!IsCritical(entries[i].Type))
-                {
-                    continue;
-                }
-
-                CopyEntry(entries[i]);
-                return;
-            }
-
-            ShowCopyNotice("No critical log to copy");
-        }
-
-        private void CopyAllCriticalLogs()
-        {
-            var copied = 0;
-            var builder = new StringBuilder();
-            for (var i = 0; i < entries.Count; i++)
-            {
-                if (!IsCritical(entries[i].Type))
-                {
-                    continue;
-                }
-
-                if (copied > 0)
-                {
-                    builder.AppendLine();
-                    builder.AppendLine("--------------------------------");
-                }
-
-                builder.Append(entries[i].ToCopyString());
-                copied++;
-            }
-
-            if (copied == 0)
-            {
-                ShowCopyNotice("No critical logs to copy");
-                return;
-            }
-
-            GUIUtility.systemCopyBuffer = builder.ToString();
-            ShowCopyNotice("Copied " + copied + " critical logs");
-        }
-
-        private void CopyEntry(LogEntry entry)
-        {
-            GUIUtility.systemCopyBuffer = entry.ToCopyString();
-            ShowCopyNotice("Copied latest critical log");
-        }
-
-        private void ShowCopyNotice(string message)
-        {
-            copyNotice = message;
-            copyNoticeUntil = Time.unscaledTime + 1.8f;
-        }
-
-        private static bool IsCritical(LogType type)
-        {
-            return type == LogType.Error || type == LogType.Assert || type == LogType.Exception;
+            File.AppendAllText(logFilePath, line + Environment.NewLine, Encoding.UTF8);
         }
 
         private static Color GetColor(LogType type)
@@ -310,7 +209,7 @@ namespace ProjectW.IngameMvp
                 return "[" + Timestamp.ToString("HH:mm:ss") + "] [" + Type + "] " + Condition;
             }
 
-            public string ToCopyString()
+            public string ToFileString()
             {
                 if (string.IsNullOrEmpty(StackTrace))
                 {

@@ -39,10 +39,10 @@ Current dummy white PNG files (editable in-place):
 
 ## Runtime crash/error console (build)
 
-- A runtime log overlay is auto-created globally by `RuntimeErrorConsole` in builds and editor play mode (no scene object setup needed).
-- Overlay opens automatically on `Error/Assert/Exception`, and can also be toggled with **` (BackQuote)** or **F1**.
+- A runtime log overlay is auto-created by `RuntimeErrorConsole` in builds and editor play mode.
+- Toggle overlay with **` (BackQuote)** or **F1**.
 - It captures `Debug.Log*`, warnings, exceptions, and unhandled exceptions.
-- No file persistence is used. Tap/click the popup panel to copy the latest critical log, or use **Copy all critical logs**.
+- Logs are also saved to `Application.persistentDataPath/runtime-log-YYYYMMDD-HHMMSS.txt`.
 
 ## GitHub PR flow
 
