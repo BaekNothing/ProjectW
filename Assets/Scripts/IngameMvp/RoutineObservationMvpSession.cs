@@ -66,6 +66,12 @@ namespace ProjectW.IngameMvp
         [NonSerialized] public Dictionary<string, float> knowledgeMap = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
         [NonSerialized] public string selfTalkText;
         [NonSerialized] public TextMesh selfTalkTextMesh;
+        [NonSerialized] public int selfTalkLastRefreshTick = -1;
+        [NonSerialized] public int selfTalkHoldUntilTick = -1;
+        [NonSerialized] public float selfTalkLastMood;
+        [NonSerialized] public bool selfTalkHasSnapshot;
+        [NonSerialized] public RoutineActionType selfTalkLastAction;
+        [NonSerialized] public RoutineActionType selfTalkLastIntendedAction;
     }
 
     public struct RoutineTickSnapshot
@@ -107,6 +113,8 @@ namespace ProjectW.IngameMvp
         private const float DeskActionArrivalThresholdSqr = 0.01f;
         private const float SelfTalkHeight = 1.35f;
         private const float SelfTalkTextSize = 0.14f;
+        private const int SelfTalkFontSize = 16;
+        private const int ChronicleHistoryLimit = 300;
         private const string ZoneObjectRootName = "ObjectSlots";
         private const string ZoneTagMission = "zone.mission";
         private const string ZoneTagNeedHunger = "need.hunger";
@@ -139,6 +147,8 @@ namespace ProjectW.IngameMvp
         [SerializeField] private Text progressText;
         [SerializeField] private Text situationText;
         [SerializeField] private Text chronicleText;
+        [SerializeField] private ScrollRect chronicleScrollRect;
+        [SerializeField] private RectTransform chronicleContentRect;
         [SerializeField] private Text currentTimeText;
         [SerializeField] private RoutineNeuronPanelView neuronPanelView;
         [SerializeField] private RoutineObjectInfoPanelView objectInfoPanelView;
@@ -214,6 +224,8 @@ namespace ProjectW.IngameMvp
         private readonly HashSet<int> _boundCloseButtons = new HashSet<int>();
         private readonly Dictionary<string, CharacterAptitudeProfile> _characterAptitudeByActorName = new Dictionary<string, CharacterAptitudeProfile>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, float> _affinityScores = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, float> _characterPerformanceScores = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, int> _subtaskDeadlinesById = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         private RoutineCharacterBinding _selectedCharacter;
         private RoutineCharacterBinding _pinnedNeuronCharacter;
         private RoutineInspectableWorldObject _selectedWorldObject;
@@ -233,7 +245,10 @@ namespace ProjectW.IngameMvp
         private bool _isReadOnlyRecoveryMode;
         private readonly SessionMetaState _sessionMetaState = new SessionMetaState();
         private readonly List<ChronicleEvent> _cycleChronicleEvents = new List<ChronicleEvent>();
+        private readonly List<string> _chronicleHistoryLines = new List<string>();
         private ChronicleSummary _latestChronicleSummary;
+        private int _chronicleEventSequence;
+        private bool _chronicleAutoScrollPending;
         private CycleKpiSnapshot _latestCycleKpi = new CycleKpiSnapshot();
         private readonly PlaytestSurveyForm _playtestSurveyForm = new PlaytestSurveyForm();
         private int _cycleInterventionOfferCount;
@@ -1278,7 +1293,7 @@ namespace ProjectW.IngameMvp
 
         private void FinalizeCycleAndPrepareNext()
         {
-            _cycleChronicleEvents.Add(new ChronicleEvent
+            AppendChronicleEvent(new ChronicleEvent
             {
                 Category = ChronicleEventCategory.Termination,
                 Description = "사이클 종료: Day 전환으로 자동 종료 처리되었습니다.",
@@ -1327,7 +1342,7 @@ namespace ProjectW.IngameMvp
                 var tension = Mathf.Abs(characters[0].stress - characters[1].stress);
                 if (tension >= 20f)
                 {
-                    _cycleChronicleEvents.Add(new ChronicleEvent
+                    AppendChronicleEvent(new ChronicleEvent
                     {
                         Category = ChronicleEventCategory.RelationshipChange,
                         Severity = 3,
@@ -1348,7 +1363,7 @@ namespace ProjectW.IngameMvp
                     _cycleInterventionOutcomeChangedCount += 1;
                 }
 
-                _cycleChronicleEvents.Add(new ChronicleEvent
+                AppendChronicleEvent(new ChronicleEvent
                 {
                     Category = ChronicleEventCategory.Intervention,
                     Severity = changed ? 4 : 2,
@@ -1361,7 +1376,7 @@ namespace ProjectW.IngameMvp
 
             if (_absoluteTick % ticksPerHalfDay == 0)
             {
-                _cycleChronicleEvents.Add(new ChronicleEvent
+                AppendChronicleEvent(new ChronicleEvent
                 {
                     Category = ChronicleEventCategory.Progress,
                     Severity = 2,
@@ -1557,7 +1572,7 @@ namespace ProjectW.IngameMvp
                     var reworkUnits = Mathf.Max(1, Mathf.RoundToInt((QualityReworkThreshold - subtask.QualityScore) / 8f));
                     subtask.ReworkUnits += reworkUnits;
                     subtask.RequiredWork += reworkUnits;
-                    _cycleChronicleEvents.Add(new ChronicleEvent
+                    AppendChronicleEvent(new ChronicleEvent
                     {
                         Category = ChronicleEventCategory.Progress,
                         Severity = 3,
@@ -1574,7 +1589,7 @@ namespace ProjectW.IngameMvp
                     subtask.CompletedTick = _absoluteTick;
                     if (TryGetSubtaskDeadline(subtask.SubtaskId, out var deadlineTick) && subtask.CompletedTick <= deadlineTick)
                     {
-                        _cycleChronicleEvents.Add(new ChronicleEvent
+                        AppendChronicleEvent(new ChronicleEvent
                         {
                             Category = ChronicleEventCategory.Progress,
                             Severity = 4,
@@ -1590,7 +1605,7 @@ namespace ProjectW.IngameMvp
 
                     if (subtask.QualityScore >= QualityCompletionThreshold)
                     {
-                        _cycleChronicleEvents.Add(new ChronicleEvent
+                        AppendChronicleEvent(new ChronicleEvent
                         {
                             Category = ChronicleEventCategory.Progress,
                             Severity = 5,
@@ -2200,6 +2215,36 @@ namespace ProjectW.IngameMvp
             UpdateChronicleUi();
         }
 
+        private void AppendChronicleEvent(ChronicleEvent chronicleEvent)
+        {
+            if (chronicleEvent == null)
+            {
+                return;
+            }
+
+            _cycleChronicleEvents.Add(chronicleEvent);
+            if (string.IsNullOrWhiteSpace(chronicleEvent.Description))
+            {
+                return;
+            }
+
+            _chronicleEventSequence += 1;
+            _chronicleHistoryLines.Add(string.Format(
+                CultureInfo.InvariantCulture,
+                "{0:0000}. [{1}] {2}",
+                _chronicleEventSequence,
+                chronicleEvent.Category,
+                chronicleEvent.Description.Trim()));
+
+            while (_chronicleHistoryLines.Count > ChronicleHistoryLimit)
+            {
+                _chronicleHistoryLines.RemoveAt(0);
+            }
+
+            _chronicleAutoScrollPending = true;
+            SetDashboardContext("Chronicle", string.Join("\n", _chronicleHistoryLines));
+        }
+
         private float ComputeAveragePerformanceScore()
         {
             if (_characterPerformanceScores.Count <= 0)
@@ -2258,24 +2303,35 @@ namespace ProjectW.IngameMvp
 
         private void UpdateChronicleUi()
         {
-            var chronicleValue = TryGetDashboardValue("Chronicle");
-            if (string.IsNullOrWhiteSpace(chronicleValue))
-            {
-                if (chronicleText != null)
-                {
-                    chronicleText.text = string.Empty;
-                }
-
-                return;
-            }
-
             EnsureChronicleTextReference();
             if (chronicleText == null)
             {
                 return;
             }
 
+            var chronicleValue = _chronicleHistoryLines.Count > 0
+                ? string.Join("\n", _chronicleHistoryLines)
+                : TryGetDashboardValue("Chronicle");
+            if (string.IsNullOrWhiteSpace(chronicleValue))
+            {
+                chronicleText.text = string.Empty;
+                return;
+            }
+
             chronicleText.text = "Chronicle:\n" + chronicleValue;
+            TryAutoScrollChronicle();
+        }
+
+        private void TryAutoScrollChronicle()
+        {
+            if (!_chronicleAutoScrollPending || chronicleScrollRect == null)
+            {
+                return;
+            }
+
+            Canvas.ForceUpdateCanvases();
+            chronicleScrollRect.verticalNormalizedPosition = 0f;
+            _chronicleAutoScrollPending = false;
         }
 
         private string TryGetDashboardValue(string key)
@@ -3353,6 +3409,7 @@ namespace ProjectW.IngameMvp
         {
             if (chronicleText != null)
             {
+                EnsureChronicleScrollComponents();
                 return;
             }
 
@@ -3361,6 +3418,7 @@ namespace ProjectW.IngameMvp
             if (chronicleText != null)
             {
                 ConfigureChronicleTextLayout(chronicleText);
+                EnsureChronicleScrollComponents();
                 return;
             }
 
@@ -3371,6 +3429,7 @@ namespace ProjectW.IngameMvp
             }
 
             chronicleText = CreateChronicleText(canvas.transform);
+            EnsureChronicleScrollComponents();
         }
 
         private static Text CreateChronicleText(Transform canvasTransform)
@@ -3397,6 +3456,86 @@ namespace ProjectW.IngameMvp
             return text;
         }
 
+        private void EnsureChronicleScrollComponents()
+        {
+            if (chronicleText == null)
+            {
+                return;
+            }
+
+            if (chronicleScrollRect == null)
+            {
+                chronicleScrollRect = chronicleText.GetComponentInParent<ScrollRect>();
+            }
+
+            if (chronicleContentRect == null && chronicleScrollRect != null)
+            {
+                chronicleContentRect = chronicleScrollRect.content;
+            }
+
+            if (chronicleScrollRect != null && chronicleContentRect != null)
+            {
+                return;
+            }
+
+            var chronicleRect = chronicleText.rectTransform;
+            var parent = chronicleRect.parent;
+            if (parent == null)
+            {
+                return;
+            }
+
+            var panel = new GameObject("ChroniclePanel", typeof(RectTransform), typeof(Image), typeof(ScrollRect));
+            panel.transform.SetParent(parent, false);
+            var panelRect = panel.GetComponent<RectTransform>();
+            panelRect.anchorMin = new Vector2(1f, 0f);
+            panelRect.anchorMax = new Vector2(1f, 0f);
+            panelRect.pivot = new Vector2(1f, 0f);
+            panelRect.anchoredPosition = new Vector2(-16f, 16f);
+            panelRect.sizeDelta = new Vector2(520f, 220f);
+
+            var panelImage = panel.GetComponent<Image>();
+            panelImage.color = new Color(0.04f, 0.08f, 0.12f, 0.72f);
+
+            var viewport = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
+            viewport.transform.SetParent(panel.transform, false);
+            var viewportRect = viewport.GetComponent<RectTransform>();
+            viewportRect.anchorMin = Vector2.zero;
+            viewportRect.anchorMax = Vector2.one;
+            viewportRect.pivot = new Vector2(0.5f, 0.5f);
+            viewportRect.anchoredPosition = Vector2.zero;
+            viewportRect.sizeDelta = Vector2.zero;
+
+            var viewportImage = viewport.GetComponent<Image>();
+            viewportImage.color = new Color(0f, 0f, 0f, 0.01f);
+            var mask = viewport.GetComponent<Mask>();
+            mask.showMaskGraphic = false;
+
+            var content = new GameObject("Content", typeof(RectTransform), typeof(ContentSizeFitter));
+            content.transform.SetParent(viewport.transform, false);
+            chronicleContentRect = content.GetComponent<RectTransform>();
+            chronicleContentRect.anchorMin = new Vector2(0f, 1f);
+            chronicleContentRect.anchorMax = new Vector2(1f, 1f);
+            chronicleContentRect.pivot = new Vector2(0.5f, 1f);
+            chronicleContentRect.anchoredPosition = Vector2.zero;
+            chronicleContentRect.sizeDelta = Vector2.zero;
+
+            var fitter = content.GetComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            chronicleRect.SetParent(content.transform, false);
+            ConfigureChronicleTextLayout(chronicleText);
+
+            chronicleScrollRect = panel.GetComponent<ScrollRect>();
+            chronicleScrollRect.viewport = viewportRect;
+            chronicleScrollRect.content = chronicleContentRect;
+            chronicleScrollRect.horizontal = false;
+            chronicleScrollRect.vertical = true;
+            chronicleScrollRect.movementType = ScrollRect.MovementType.Clamped;
+            chronicleScrollRect.scrollSensitivity = 24f;
+        }
+
         private static void ConfigureChronicleTextLayout(Text text)
         {
             if (text == null)
@@ -3410,11 +3549,14 @@ namespace ProjectW.IngameMvp
                 return;
             }
 
-            rect.anchorMin = new Vector2(1f, 0f);
-            rect.anchorMax = new Vector2(1f, 0f);
-            rect.pivot = new Vector2(1f, 0f);
-            rect.anchoredPosition = new Vector2(-16f, 16f);
-            rect.sizeDelta = new Vector2(520f, 220f);
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(0.5f, 1f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = Vector2.zero;
+            text.alignment = TextAnchor.UpperLeft;
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            text.verticalOverflow = VerticalWrapMode.Overflow;
         }
 
         private static void ConfigureCurrentTimeTextLayout(Text text)
@@ -4123,6 +4265,12 @@ namespace ProjectW.IngameMvp
             }
 
             EnsureCharacterKnowledgeMap(binding, index);
+            binding.selfTalkLastRefreshTick = -1;
+            binding.selfTalkHoldUntilTick = -1;
+            binding.selfTalkLastMood = binding.mood;
+            binding.selfTalkHasSnapshot = false;
+            binding.selfTalkLastAction = RoutineActionType.Move;
+            binding.selfTalkLastIntendedAction = RoutineActionType.Move;
             UpdateRuntimeStateTexts(binding);
             EnsureTargetLineRenderer(binding, index);
             EnsureSelfTalkText(binding);
@@ -5136,7 +5284,9 @@ namespace ProjectW.IngameMvp
                 texture,
                 new Rect(0f, 0f, texture.width, texture.height),
                 new Vector2(0.5f, 0.5f),
-                1f);
+                1f,
+                0u,
+                SpriteMeshType.FullRect);
             _runtimeSquareSprite.name = "RuntimeSquare";
             return _runtimeSquareSprite;
         }
@@ -5463,45 +5613,150 @@ namespace ProjectW.IngameMvp
             return "최상";
         }
 
-        private static string BuildSelfTalk(RoutineCharacterBinding binding)
+        private static string BuildSelfTalk(RoutineCharacterBinding binding, bool actionChanged, bool moodChanged, float moodDelta)
         {
-            if (binding.hunger < 20f)
+            if (binding == null)
             {
-                return "배고파... 집중이 안 돼";
+                return "상황 확인 중.";
             }
 
-            if (binding.sleep < 20f)
+            var targetAction = binding.currentAction == RoutineActionType.Move
+                ? binding.intendedAction
+                : binding.currentAction;
+            var what = ResolveActionWhatText(targetAction);
+            var why = ResolveActionWhyText(binding, targetAction);
+            var evaluation = BuildSelfEvaluationText(binding, targetAction);
+
+            if (moodChanged)
             {
-                return "너무 피곤해...";
+                return moodDelta > 0f
+                    ? string.Format(CultureInfo.InvariantCulture, "방금 기분이 좀 좋아졌다. {0} 하러 간다. 이유: {1}. {2}", what, why, evaluation)
+                    : string.Format(CultureInfo.InvariantCulture, "지금 기분이 가라앉는다. 그래도 {0} 하러 간다. 이유: {1}. {2}", what, why, evaluation);
             }
 
-            if (binding.stress < 15f)
+            if (actionChanged)
             {
-                return "오늘은 버겁다...";
+                return string.Format(CultureInfo.InvariantCulture, "{0} 하러 이동한다. 이유: {1}. {2}", what, why, evaluation);
+            }
+
+            return string.Format(CultureInfo.InvariantCulture, "{0} 진행 중. 이유: {1}. {2}", what, why, evaluation);
+        }
+
+        private static string ResolveActionWhatText(RoutineActionType action)
+        {
+            switch (action)
+            {
+                case RoutineActionType.Breakfast:
+                    return "아침 식사";
+                case RoutineActionType.Lunch:
+                    return "점심 식사";
+                case RoutineActionType.Dinner:
+                    return "저녁 식사";
+                case RoutineActionType.Eat:
+                    return "식사";
+                case RoutineActionType.Sleep:
+                    return "휴식";
+                case RoutineActionType.Mission:
+                    return "업무";
+                default:
+                    return "이동";
+            }
+        }
+
+        private static string ResolveActionWhyText(RoutineCharacterBinding binding, RoutineActionType action)
+        {
+            if (action == RoutineActionType.Sleep || binding.sleep < binding.sleepThreshold)
+            {
+                return "피로가 쌓여 회복이 필요해서";
+            }
+
+            if (action == RoutineActionType.Eat
+                || action == RoutineActionType.Breakfast
+                || action == RoutineActionType.Lunch
+                || action == RoutineActionType.Dinner
+                || binding.hunger < binding.hungerThreshold)
+            {
+                return "허기를 채워 집중력을 올리기 위해서";
+            }
+
+            if (binding.stress < binding.stressThreshold)
+            {
+                return "스트레스가 내려가서 페이스를 정비하려고";
             }
 
             var knowledgeAverage = CalculateAverageKnowledgeConfidence(binding);
-            if (binding.currentAction == RoutineActionType.Mission && knowledgeAverage >= 0.78f)
+            if (action == RoutineActionType.Mission && knowledgeAverage >= 0.75f)
             {
-                return "방금 배운 게 연결된다... 이건 된다";
+                return "지식 연결감이 좋아 지금 밀어붙일 수 있어서";
             }
 
-            if (binding.currentAction == RoutineActionType.Mission && HasKnowledgeConfusion(binding))
+            if (action == RoutineActionType.Mission && HasKnowledgeConfusion(binding))
             {
-                return "정보가 엉켜서 헷갈려... 다시 맞춰보자";
+                return "정보가 엉켜 있어서 정리하면서 진행해야 해서";
             }
 
-            if (binding.currentAction == RoutineActionType.Mission && binding.mood >= 30f)
+            return "목표 진척을 확보해야 해서";
+        }
+
+        private static string BuildSelfEvaluationText(RoutineCharacterBinding binding, RoutineActionType action)
+        {
+            var resourceAverage = (binding.hunger + binding.sleep + binding.stress) / 3f;
+            var confidence = CalculateAverageKnowledgeConfidence(binding);
+            var effortScore = Mathf.Clamp01((resourceAverage / GaugeMax) * 0.6f + confidence * 0.4f);
+
+            if (action == RoutineActionType.Mission && effortScore >= 0.72f)
             {
-                return "좋아, 이 흐름대로 가자";
+                return "지금 판단은 효율적이다.";
             }
 
-            if (binding.currentAction == RoutineActionType.Move)
+            if (effortScore <= 0.38f)
             {
-                return "잠깐, 자리 좀 옮기자";
+                return "지금 선택은 버티기 위주다.";
             }
 
-            return "일단 해보자";
+            return "지금 선택은 무난하다.";
+        }
+
+        private static string WrapSelfTalkText(string text, int maxLineLength = 18, int maxLines = 3)
+        {
+            if (string.IsNullOrWhiteSpace(text) || maxLineLength < 6 || maxLines < 1)
+            {
+                return text;
+            }
+
+            var words = text.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            if (words.Length <= 1)
+            {
+                return text;
+            }
+
+            var sb = new StringBuilder(text.Length + 8);
+            var lineLength = 0;
+            var lines = 1;
+            for (var i = 0; i < words.Length; i++)
+            {
+                var word = words[i];
+                var nextLength = lineLength <= 0 ? word.Length : lineLength + 1 + word.Length;
+                if (lineLength > 0 && nextLength > maxLineLength && lines < maxLines)
+                {
+                    sb.Append('\n');
+                    sb.Append(word);
+                    lineLength = word.Length;
+                    lines += 1;
+                    continue;
+                }
+
+                if (lineLength > 0)
+                {
+                    sb.Append(' ');
+                    lineLength += 1;
+                }
+
+                sb.Append(word);
+                lineLength += word.Length;
+            }
+
+            return sb.ToString();
         }
 
 
@@ -5555,7 +5810,7 @@ namespace ProjectW.IngameMvp
             textMesh.anchor = TextAnchor.MiddleCenter;
             textMesh.alignment = TextAlignment.Center;
             textMesh.characterSize = SelfTalkTextSize;
-            textMesh.fontSize = 36;
+            textMesh.fontSize = SelfTalkFontSize;
             textMesh.color = Color.white;
             textMesh.text = string.Empty;
             binding.selfTalkTextMesh = textMesh;
@@ -5574,12 +5829,35 @@ namespace ProjectW.IngameMvp
                 return;
             }
 
-            var line = BuildSelfTalk(binding);
-            binding.selfTalkText = string.Format(
-                CultureInfo.InvariantCulture,
-                "{0} ({1})",
-                line,
-                ResolveMoodLabel(binding.mood));
+            if (binding.selfTalkLastRefreshTick != _absoluteTick)
+            {
+                var hasSnapshot = binding.selfTalkHasSnapshot;
+                var moodDelta = hasSnapshot ? (binding.mood - binding.selfTalkLastMood) : 0f;
+                var moodChanged = hasSnapshot && Mathf.Abs(moodDelta) >= 6f;
+                var actionChanged = !hasSnapshot
+                    || binding.currentAction != binding.selfTalkLastAction
+                    || binding.intendedAction != binding.selfTalkLastIntendedAction;
+                var holdExpired = _absoluteTick >= binding.selfTalkHoldUntilTick;
+
+                if (string.IsNullOrWhiteSpace(binding.selfTalkText) || holdExpired || actionChanged || moodChanged)
+                {
+                    var line = BuildSelfTalk(binding, actionChanged, moodChanged, moodDelta);
+                    line = WrapSelfTalkText(line);
+                    binding.selfTalkText = string.Format(
+                        CultureInfo.InvariantCulture,
+                        "{0} ({1})",
+                        line,
+                        ResolveMoodLabel(binding.mood));
+                    binding.selfTalkHoldUntilTick = _absoluteTick + UnityEngine.Random.Range(1, 3);
+                }
+
+                binding.selfTalkLastRefreshTick = _absoluteTick;
+                binding.selfTalkLastMood = binding.mood;
+                binding.selfTalkLastAction = binding.currentAction;
+                binding.selfTalkLastIntendedAction = binding.intendedAction;
+                binding.selfTalkHasSnapshot = true;
+            }
+
             binding.selfTalkTextMesh.text = binding.selfTalkText;
             binding.selfTalkTextMesh.color = binding.mood < -20f ? new Color(1f, 0.72f, 0.72f, 1f) : Color.white;
             UpdateSelfTalkTransform(binding);
