@@ -18,6 +18,7 @@ namespace ProjectW.IngameCore.Simulation
         [Min(1)] public int MaxWorkUnits = 25;
         public string[] RequiredTags = Array.Empty<string>();
         public string[] RequiredTagPool = Array.Empty<string>();
+        public string[] RequiredKnowledgeKeys = Array.Empty<string>();
         public Vector2Int BaseWorkUnitsRange = new Vector2Int(4, 10);
     }
 

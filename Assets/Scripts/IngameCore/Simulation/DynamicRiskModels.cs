@@ -37,6 +37,7 @@ namespace ProjectW.IngameCore.Simulation
         public string SubtaskId;
         public int RequiredWork;
         public List<string> RequiredTags = new List<string>();
+        public List<string> RequiredKnowledgeKeys = new List<string>();
         public WorkType WorkType;
         public string AssignedZoneKey;
         public int Progress;

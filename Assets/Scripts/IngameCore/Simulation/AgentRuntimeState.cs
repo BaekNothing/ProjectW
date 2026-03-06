@@ -26,7 +26,10 @@ namespace ProjectW.IngameCore.Simulation
         public int CarryCapacity = 2;
 
         private readonly List<string> _carriedItemIds = new List<string>();
+        private readonly Dictionary<string, float> _knowledgeMap = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
+
         public IReadOnlyList<string> CarriedItemIds => _carriedItemIds;
+        public IReadOnlyDictionary<string, float> KnowledgeMap => _knowledgeMap;
 
         public AgentRuntimeState(string id, int inspirationCooldown)
         {
@@ -188,6 +191,26 @@ namespace ProjectW.IngameCore.Simulation
             }
 
             return _carriedItemIds.Remove(itemId.Trim());
+        }
+
+        public void SetKnowledgeConfidence(string knowledgeKey, float confidence)
+        {
+            if (string.IsNullOrWhiteSpace(knowledgeKey))
+            {
+                return;
+            }
+
+            _knowledgeMap[knowledgeKey.Trim()] = Math.Max(0f, Math.Min(1f, confidence));
+        }
+
+        public float GetKnowledgeConfidence(string knowledgeKey)
+        {
+            if (string.IsNullOrWhiteSpace(knowledgeKey))
+            {
+                return 0f;
+            }
+
+            return _knowledgeMap.TryGetValue(knowledgeKey.Trim(), out var confidence) ? Math.Max(0f, Math.Min(1f, confidence)) : 0f;
         }
     }
 }

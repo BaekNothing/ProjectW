@@ -63,6 +63,7 @@ namespace ProjectW.IngameMvp
         [NonSerialized] public string lockedZoneKey;
         [NonSerialized] public Vector3 lockedZonePosition;
         [NonSerialized] public float mood = 55f;
+        [NonSerialized] public Dictionary<string, float> knowledgeMap = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
         [NonSerialized] public string selfTalkText;
         [NonSerialized] public TextMesh selfTalkTextMesh;
     }
@@ -1530,21 +1531,23 @@ namespace ProjectW.IngameMvp
             }
 
             var actorName = binding.actor != null ? binding.actor.name : string.Empty;
-            var multiplier = 1f;
+            var aptitudeMultiplier = 1f;
             if (!string.IsNullOrWhiteSpace(actorName) && _characterAptitudeByActorName.TryGetValue(actorName, out var profile) && profile != null)
             {
-                multiplier = Mathf.Max(0.5f, profile.GetMultiplier(subtask.WorkType));
+                aptitudeMultiplier = Mathf.Max(0.5f, profile.GetMultiplier(subtask.WorkType));
             }
 
-            var binding = FindCharacterBindingByActorName(actorName);
-            if (binding != null)
-            {
-                multiplier *= ResolveWorkEfficiencyFactor(binding);
-            }
+            var speedMultiplier = aptitudeMultiplier;
+            speedMultiplier *= ResolveWorkEfficiencyFactor(binding);
 
-            var delta = Mathf.Max(1, Mathf.RoundToInt(baseProgress * multiplier));
+            var knowledgeSatisfaction = CalculateKnowledgeSatisfaction(binding, subtask);
+            var knowledgeSpeedMultiplier = Mathf.Lerp(0.7f, 1.25f, knowledgeSatisfaction);
+            var knowledgeQualityMultiplier = Mathf.Lerp(0.75f, 1.3f, knowledgeSatisfaction);
+
+            var delta = Mathf.Max(1, Mathf.RoundToInt(baseProgress * speedMultiplier * knowledgeSpeedMultiplier));
             subtask.Progress = Mathf.Min(subtask.RequiredWork, subtask.Progress + delta);
-            subtask.QualityScore = Mathf.Clamp(CalculateQualityScore(binding, subtask, multiplier), 0f, 100f);
+            var qualityAptitudeMultiplier = aptitudeMultiplier * knowledgeQualityMultiplier;
+            subtask.QualityScore = Mathf.Clamp(CalculateQualityScore(binding, subtask, qualityAptitudeMultiplier), 0f, 100f);
             subtask.PerformanceScore = Mathf.Clamp((subtask.QualityScore * 0.6f) + (Mathf.Clamp01(subtask.Progress / (float)Mathf.Max(1, subtask.RequiredWork)) * 40f), 0f, 100f);
 
             if (subtask.Progress >= subtask.RequiredWork)
@@ -1604,6 +1607,48 @@ namespace ProjectW.IngameMvp
 
             ApplyDynamicTaskRequirementBinding();
             UpdateTaskDashboardContext();
+        }
+
+        private static float CalculateKnowledgeSatisfaction(RoutineCharacterBinding binding, DynamicSubtask subtask)
+        {
+            if (binding == null)
+            {
+                return 0f;
+            }
+
+            if (subtask?.RequiredKnowledgeKeys == null || subtask.RequiredKnowledgeKeys.Count == 0)
+            {
+                return 1f;
+            }
+
+            if (binding.knowledgeMap == null || binding.knowledgeMap.Count == 0)
+            {
+                return 0f;
+            }
+
+            var confidenceSum = 0f;
+            var counted = 0;
+            for (var i = 0; i < subtask.RequiredKnowledgeKeys.Count; i++)
+            {
+                var key = subtask.RequiredKnowledgeKeys[i];
+                if (string.IsNullOrWhiteSpace(key))
+                {
+                    continue;
+                }
+
+                counted += 1;
+                if (binding.knowledgeMap.TryGetValue(key.Trim(), out var confidence))
+                {
+                    confidenceSum += Mathf.Clamp01(confidence);
+                }
+            }
+
+            if (counted <= 0)
+            {
+                return 1f;
+            }
+
+            return Mathf.Clamp01(confidenceSum / counted);
         }
 
         private float CalculateQualityScore(RoutineCharacterBinding binding, DynamicSubtask subtask, float aptitudeMultiplier)
@@ -3664,6 +3709,7 @@ namespace ProjectW.IngameMvp
                 var template = PickTaskTemplate(rng);
                 var type = template != null ? template.WorkType : (WorkType)rng.Next(0, 4);
                 var tags = ResolveSubtaskTags(template, type, rng);
+                var requiredKnowledgeKeys = ResolveRequiredKnowledgeKeys(template, type);
                 var workMin = template != null ? Math.Max(1, template.BaseWorkUnitsRange.x) : 4;
                 var workMax = template != null ? Math.Max(workMin, template.BaseWorkUnitsRange.y) : 12;
                 var requiredWork = rng.Next(workMin, workMax + 1);
@@ -3681,6 +3727,7 @@ namespace ProjectW.IngameMvp
                     SubtaskId = $"{task.TaskId}-s{i + 1}",
                     RequiredWork = Math.Max(1, requiredWork),
                     RequiredTags = tags,
+                    RequiredKnowledgeKeys = requiredKnowledgeKeys,
                     WorkType = type,
                     AssignedZoneKey = ResolveZoneAffinity(template, tags),
                     Progress = 0,
@@ -3781,6 +3828,49 @@ namespace ProjectW.IngameMvp
             }
 
             return tags;
+        }
+
+        private static List<string> ResolveRequiredKnowledgeKeys(TaskTemplateRule template, WorkType type)
+        {
+            var keys = new List<string>();
+            if (template?.RequiredKnowledgeKeys != null)
+            {
+                for (var i = 0; i < template.RequiredKnowledgeKeys.Length; i++)
+                {
+                    var key = template.RequiredKnowledgeKeys[i];
+                    if (!string.IsNullOrWhiteSpace(key))
+                    {
+                        var normalized = key.Trim();
+                        if (!keys.Contains(normalized))
+                        {
+                            keys.Add(normalized);
+                        }
+                    }
+                }
+            }
+
+            if (keys.Count > 0)
+            {
+                return keys;
+            }
+
+            switch (type)
+            {
+                case WorkType.Observe:
+                    keys.Add("knowledge.observe.basics");
+                    break;
+                case WorkType.Labor:
+                    keys.Add("knowledge.labor.basics");
+                    break;
+                case WorkType.Reflex:
+                    keys.Add("knowledge.reflex.basics");
+                    break;
+                default:
+                    keys.Add("knowledge.routine.basics");
+                    break;
+            }
+
+            return keys;
         }
 
         private static string ResolveZoneAffinity(TaskTemplateRule template, IReadOnlyList<string> tags)
@@ -4019,10 +4109,40 @@ namespace ProjectW.IngameMvp
             binding.hasLockedZonePosition = false;
             binding.lockedZoneKey = null;
             binding.lockedZonePosition = Vector3.zero;
+            if (binding.knowledgeMap == null)
+            {
+                binding.knowledgeMap = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
+            }
+
+            EnsureCharacterKnowledgeMap(binding, index);
             UpdateRuntimeStateTexts(binding);
             EnsureTargetLineRenderer(binding, index);
             EnsureSelfTalkText(binding);
             binding.runtimeInitialized = true;
+        }
+
+        private static void EnsureCharacterKnowledgeMap(RoutineCharacterBinding binding, int index)
+        {
+            if (binding == null)
+            {
+                return;
+            }
+
+            if (binding.knowledgeMap == null)
+            {
+                binding.knowledgeMap = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
+            }
+
+            if (binding.knowledgeMap.Count > 0)
+            {
+                return;
+            }
+
+            var baseConfidence = Mathf.Clamp01(0.55f + (index * 0.08f));
+            binding.knowledgeMap["knowledge.observe.basics"] = Mathf.Clamp01(baseConfidence - 0.05f);
+            binding.knowledgeMap["knowledge.labor.basics"] = Mathf.Clamp01(baseConfidence + 0.05f);
+            binding.knowledgeMap["knowledge.routine.basics"] = baseConfidence;
+            binding.knowledgeMap["knowledge.reflex.basics"] = Mathf.Clamp01(baseConfidence - 0.1f);
         }
 
         private void ApplyDepthLayout()
