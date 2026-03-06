@@ -149,6 +149,38 @@ namespace ProjectW.Tests.EditMode
             Assert.That(result.Differences[0], Does.Contain("applied_interventions_mismatch"));
         }
 
+
+        [Test]
+        public void TickEngine_RecordsKnowledgePropagationEvents()
+        {
+            var collector = new EventLogCollector();
+            var engine = new SimulationTickEngine(seed: 77, eventLogCollector: collector);
+            var task = new TaskModel(80, 12f);
+            var agents = new List<AgentRuntimeState>
+            {
+                new AgentRuntimeState("Teacher", 6) { Position = (int)RoutineZone.Work, TargetZone = (int)RoutineZone.Work, SubtaskWork = 5 },
+                new AgentRuntimeState("Learner", 6) { Position = (int)RoutineZone.Work, TargetZone = (int)RoutineZone.Work, SubtaskWork = 5 }
+            };
+
+            for (var i = 0; i < 4; i++)
+            {
+                var time = new DateTime(2026, 1, 1, 9, 0, 0).AddMinutes(i * SimulationConstants.TickMinutes);
+                engine.AdvanceTick(time, i + 1, task, agents);
+            }
+
+            var hasKnowledgeEvent = false;
+            for (var i = 0; i < collector.TickLogs.Count; i++)
+            {
+                if (collector.TickLogs[i].KnowledgeEvents != null && collector.TickLogs[i].KnowledgeEvents.Count > 0)
+                {
+                    hasKnowledgeEvent = true;
+                    break;
+                }
+            }
+
+            Assert.IsTrue(hasKnowledgeEvent);
+        }
+
         [Test]
         public void SpatialQuery_SortsByDistanceThenPriorityThenId()
         {

@@ -35,6 +35,13 @@ namespace ProjectW.IngameCore.Simulation
         {
             Id = id;
             InspirationCooldown = Math.Max(1, inspirationCooldown);
+
+            var variation = Math.Abs((id ?? string.Empty).GetHashCode()) % 7;
+            var baseConfidence = Math.Clamp(0.42f + (variation * 0.05f), 0.2f, 0.85f);
+            SetKnowledgeConfidence("knowledge.observe.basics", Math.Clamp(baseConfidence - 0.04f, 0f, 1f));
+            SetKnowledgeConfidence("knowledge.labor.basics", Math.Clamp(baseConfidence + 0.05f, 0f, 1f));
+            SetKnowledgeConfidence("knowledge.routine.basics", baseConfidence);
+            SetKnowledgeConfidence("knowledge.reflex.basics", Math.Clamp(baseConfidence - 0.09f, 0f, 1f));
         }
 
         public bool IsBurnedOut() => BurnoutLevel > SimulationConstants.BurnoutThreshold;

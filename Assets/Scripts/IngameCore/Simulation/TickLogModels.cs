@@ -24,6 +24,7 @@ namespace ProjectW.IngameCore.Simulation
         public string SelectedActionId;
         public int Seed;
         public List<string> ErrorCodes = new List<string>();
+        public List<string> KnowledgeEvents = new List<string>();
         public DecisionTraceLog DecisionTrace;
     }
 

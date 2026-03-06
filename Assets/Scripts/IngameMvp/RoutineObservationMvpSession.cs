@@ -5429,6 +5429,17 @@ namespace ProjectW.IngameMvp
                 return "오늘은 버겁다...";
             }
 
+            var knowledgeAverage = CalculateAverageKnowledgeConfidence(binding);
+            if (binding.currentAction == RoutineActionType.Mission && knowledgeAverage >= 0.78f)
+            {
+                return "방금 배운 게 연결된다... 이건 된다";
+            }
+
+            if (binding.currentAction == RoutineActionType.Mission && HasKnowledgeConfusion(binding))
+            {
+                return "정보가 엉켜서 헷갈려... 다시 맞춰보자";
+            }
+
             if (binding.currentAction == RoutineActionType.Mission && binding.mood >= 30f)
             {
                 return "좋아, 이 흐름대로 가자";
@@ -5442,6 +5453,43 @@ namespace ProjectW.IngameMvp
             return "일단 해보자";
         }
 
+
+        private static float CalculateAverageKnowledgeConfidence(RoutineCharacterBinding binding)
+        {
+            if (binding?.knowledgeMap == null || binding.knowledgeMap.Count == 0)
+            {
+                return 0f;
+            }
+
+            var sum = 0f;
+            var count = 0;
+            foreach (var pair in binding.knowledgeMap)
+            {
+                sum += Mathf.Clamp01(pair.Value);
+                count += 1;
+            }
+
+            return count <= 0 ? 0f : (sum / count);
+        }
+
+        private static bool HasKnowledgeConfusion(RoutineCharacterBinding binding)
+        {
+            if (binding?.knowledgeMap == null || binding.knowledgeMap.Count < 2)
+            {
+                return false;
+            }
+
+            var min = 1f;
+            var max = 0f;
+            foreach (var pair in binding.knowledgeMap)
+            {
+                var confidence = Mathf.Clamp01(pair.Value);
+                min = Mathf.Min(min, confidence);
+                max = Mathf.Max(max, confidence);
+            }
+
+            return (max - min) >= 0.35f || CalculateAverageKnowledgeConfidence(binding) <= 0.4f;
+        }
         private void EnsureSelfTalkText(RoutineCharacterBinding binding)
         {
             if (binding == null || binding.actor == null || binding.selfTalkTextMesh != null)
