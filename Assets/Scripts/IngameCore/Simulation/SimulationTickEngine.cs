@@ -12,6 +12,8 @@ namespace ProjectW.IngameCore.Simulation
         private readonly EventLogCollector _eventLogCollector;
         private readonly int _seed;
         private readonly TaskGenerationRuleSet _taskGenerationRuleSet;
+        private readonly AffinitySystem _affinitySystem;
+        private readonly KnowledgePropagationSystem _knowledgePropagationSystem;
 
         public SimulationTickEngine(int seed, EventLogCollector eventLogCollector = null)
             : this(seed, null, eventLogCollector)
@@ -27,6 +29,8 @@ namespace ProjectW.IngameCore.Simulation
             _officeItems = OfficeItemFactory.GenerateOfficeItems(_random, 12, Array.Empty<string>());
             _eventLogCollector = eventLogCollector;
             _taskGenerationRuleSet = taskGenerationRuleSet;
+            _affinitySystem = new AffinitySystem();
+            _knowledgePropagationSystem = new KnowledgePropagationSystem();
         }
 
         public int AdvanceTick(DateTime simTime, int tickIndex, TaskModel task, IReadOnlyList<AgentRuntimeState> agents)
@@ -124,6 +128,8 @@ namespace ProjectW.IngameCore.Simulation
                     agent.Rest();
                 }
             }
+
+            _knowledgePropagationSystem.ProcessTick(agents, _affinitySystem, _eventLogCollector, _random);
 
             task.ApplyProgress(totalProgress);
             _eventLogCollector?.RecordStateTransition(ProjectW.IngameCore.StateMachine.CoreLoopState.Resolve, ProjectW.IngameCore.StateMachine.CoreLoopState.Resolve);

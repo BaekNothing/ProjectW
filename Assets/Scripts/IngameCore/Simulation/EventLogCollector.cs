@@ -94,6 +94,36 @@ namespace ProjectW.IngameCore.Simulation
             }
         }
 
+
+        public void RecordKnowledgeTransfer(
+            string fromAgentId,
+            string toAgentId,
+            string knowledgeKey,
+            KnowledgeSourceType sourceType,
+            bool success,
+            float probability,
+            float beforeConfidence,
+            float afterConfidence,
+            bool distorted,
+            string reason)
+        {
+            EnsureTick();
+            var message = $"knowledge_transfer from={NormalizeLogValue(fromAgentId)} to={NormalizeLogValue(toAgentId)} key={NormalizeLogValue(knowledgeKey)} source={sourceType} success={success} distorted={distorted} probability={probability:0.00} confidence={beforeConfidence:0.00}->{afterConfidence:0.00} reason={NormalizeLogValue(reason)}";
+            currentTick.KnowledgeEvents.Add(message);
+        }
+
+        public void RecordKnowledgeFailure(
+            string fromAgentId,
+            string toAgentId,
+            string knowledgeKey,
+            KnowledgeSourceType sourceType,
+            float probability,
+            string reason)
+        {
+            EnsureTick();
+            var message = $"knowledge_failure from={NormalizeLogValue(fromAgentId)} to={NormalizeLogValue(toAgentId)} key={NormalizeLogValue(knowledgeKey)} source={sourceType} probability={probability:0.00} reason={NormalizeLogValue(reason)}";
+            currentTick.KnowledgeEvents.Add(message);
+        }
         public TickLogRecord EndTick()
         {
             EnsureTick();
@@ -101,6 +131,11 @@ namespace ProjectW.IngameCore.Simulation
             var finalized = currentTick;
             currentTick = null;
             return finalized;
+        }
+
+        private static string NormalizeLogValue(string value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? "n/a" : value.Trim();
         }
 
         private void EnsureTick()
