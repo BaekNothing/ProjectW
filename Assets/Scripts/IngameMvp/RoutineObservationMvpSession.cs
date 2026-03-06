@@ -62,6 +62,9 @@ namespace ProjectW.IngameMvp
         [NonSerialized] public bool hasLockedZonePosition;
         [NonSerialized] public string lockedZoneKey;
         [NonSerialized] public Vector3 lockedZonePosition;
+        [NonSerialized] public float mood = 55f;
+        [NonSerialized] public string selfTalkText;
+        [NonSerialized] public TextMesh selfTalkTextMesh;
     }
 
     public struct RoutineTickSnapshot
@@ -101,6 +104,8 @@ namespace ProjectW.IngameMvp
         private const float MinZoneSizeNearTarget = 3.2f;
         private const float MaxZoneSizeNearTarget = 4.8f;
         private const float DeskActionArrivalThresholdSqr = 0.01f;
+        private const float SelfTalkHeight = 1.35f;
+        private const float SelfTalkTextSize = 0.14f;
         private const string ZoneObjectRootName = "ObjectSlots";
         private const string ZoneTagMission = "zone.mission";
         private const string ZoneTagNeedHunger = "need.hunger";
@@ -205,6 +210,7 @@ namespace ProjectW.IngameMvp
         private readonly Dictionary<string, List<WorldItem>> _officeItemsByZoneKey = new Dictionary<string, List<WorldItem>>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<int> _boundCloseButtons = new HashSet<int>();
         private readonly Dictionary<string, CharacterAptitudeProfile> _characterAptitudeByActorName = new Dictionary<string, CharacterAptitudeProfile>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, float> _affinityScores = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
         private RoutineCharacterBinding _selectedCharacter;
         private RoutineCharacterBinding _pinnedNeuronCharacter;
         private RoutineInspectableWorldObject _selectedWorldObject;
@@ -538,6 +544,7 @@ namespace ProjectW.IngameMvp
                 binding.actor.position = WithCharacterDepth(binding.actor.position);
                 UpdateCharacterAnimator(binding);
                 UpdateTargetLineVisual(binding, i);
+                UpdateSelfTalkTransform(binding);
             }
         }
 
@@ -1094,6 +1101,8 @@ namespace ProjectW.IngameMvp
                 UpdateRuntimeStateTexts(binding);
             }
 
+            ProcessRelationshipAndMood();
+
             if (!EvaluateSessionEndAndPersist())
             {
                 resolveResult.RequestedNextState = CoreLoopState.Resolve;
@@ -1521,6 +1530,12 @@ namespace ProjectW.IngameMvp
             if (!string.IsNullOrWhiteSpace(actorName) && _characterAptitudeByActorName.TryGetValue(actorName, out var profile) && profile != null)
             {
                 multiplier = Mathf.Max(0.5f, profile.GetMultiplier(subtask.WorkType));
+            }
+
+            var binding = FindCharacterBindingByActorName(actorName);
+            if (binding != null)
+            {
+                multiplier *= ResolveWorkEfficiencyFactor(binding);
             }
 
             var delta = Mathf.Max(1, Mathf.RoundToInt(baseProgress * multiplier));
@@ -2132,6 +2147,30 @@ namespace ProjectW.IngameMvp
             }
 
             return count;
+        }
+
+        private RoutineCharacterBinding FindCharacterBindingByActorName(string actorName)
+        {
+            if (string.IsNullOrWhiteSpace(actorName))
+            {
+                return null;
+            }
+
+            for (var i = 0; i < characters.Count; i++)
+            {
+                var binding = characters[i];
+                if (binding == null || binding.actor == null)
+                {
+                    continue;
+                }
+
+                if (string.Equals(binding.actor.name, actorName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return binding;
+                }
+            }
+
+            return null;
         }
 
         private float ComputeAverageNeedValue(Func<RoutineCharacterBinding, float> selector)
@@ -3810,6 +3849,7 @@ namespace ProjectW.IngameMvp
             binding.lockedZonePosition = Vector3.zero;
             UpdateRuntimeStateTexts(binding);
             EnsureTargetLineRenderer(binding, index);
+            EnsureSelfTalkText(binding);
             binding.runtimeInitialized = true;
         }
 
@@ -4937,6 +4977,241 @@ namespace ProjectW.IngameMvp
             binding.hunger = Mathf.Clamp(binding.hunger, 0f, GaugeMax);
             binding.sleep = Mathf.Clamp(binding.sleep, 0f, GaugeMax);
             binding.stress = Mathf.Clamp(binding.stress, 0f, GaugeMax);
+            binding.mood = Mathf.Clamp(binding.mood, -100f, 100f);
+
+            EnsureSelfTalkText(binding);
+            UpdateSelfTalkVisual(binding);
+        }
+
+        private void ProcessRelationshipAndMood()
+        {
+            for (var i = 0; i < characters.Count; i++)
+            {
+                var source = characters[i];
+                if (source.actor == null)
+                {
+                    continue;
+                }
+
+                var socialPenalty = 0f;
+                for (var j = 0; j < characters.Count; j++)
+                {
+                    if (i == j)
+                    {
+                        continue;
+                    }
+
+                    var target = characters[j];
+                    if (target.actor == null)
+                    {
+                        continue;
+                    }
+
+                    var distance = Vector3.Distance(source.actor.position, target.actor.position);
+                    if (distance > 1.25f)
+                    {
+                        continue;
+                    }
+
+                    if (source.currentAction == RoutineActionType.Mission && target.currentAction == RoutineActionType.Move)
+                    {
+                        ChangeAffinity(source, target, -0.8f);
+                        socialPenalty -= 2.5f;
+                    }
+
+                    if (source.currentAction == RoutineActionType.Mission && target.currentAction == RoutineActionType.Mission)
+                    {
+                        ChangeAffinity(source, target, 0.2f);
+                        socialPenalty += 0.4f;
+                    }
+                }
+
+                var hungerPenalty = source.hunger < source.hungerThreshold ? (source.hungerThreshold - source.hunger) * 0.09f : 0f;
+                var sleepPenalty = source.sleep < source.sleepThreshold ? (source.sleepThreshold - source.sleep) * 0.08f : 0f;
+                var stressPenalty = source.stress < source.stressThreshold ? (source.stressThreshold - source.stress) * 0.06f : 0f;
+                var affinityBias = ComputeAverageAffinity(source) * 0.015f;
+                var moodDelta = affinityBias + socialPenalty - hungerPenalty - sleepPenalty - stressPenalty;
+                source.mood = Mathf.Clamp(source.mood + moodDelta, -100f, 100f);
+                UpdateRuntimeStateTexts(source);
+            }
+        }
+
+        private float ResolveWorkEfficiencyFactor(RoutineCharacterBinding binding)
+        {
+            var moodFactor = Mathf.Lerp(0.65f, 1.2f, Mathf.InverseLerp(-100f, 100f, binding.mood));
+            var affinityFactor = Mathf.Lerp(0.8f, 1.15f, Mathf.InverseLerp(-60f, 60f, ComputeAverageAffinity(binding)));
+            return Mathf.Clamp(moodFactor * affinityFactor, 0.5f, 1.3f);
+        }
+
+        private float ComputeAverageAffinity(RoutineCharacterBinding source)
+        {
+            var sum = 0f;
+            var count = 0;
+            for (var i = 0; i < characters.Count; i++)
+            {
+                var target = characters[i];
+                if (target == source || target.actor == null)
+                {
+                    continue;
+                }
+
+                sum += GetAffinity(source, target);
+                count += 1;
+            }
+
+            return count == 0 ? 0f : (sum / count);
+        }
+
+        private float GetAffinity(RoutineCharacterBinding source, RoutineCharacterBinding target)
+        {
+            if (!TryBuildAffinityKey(source, target, out var key))
+            {
+                return 0f;
+            }
+
+            return _affinityScores.TryGetValue(key, out var score) ? score : 0f;
+        }
+
+        private void ChangeAffinity(RoutineCharacterBinding source, RoutineCharacterBinding target, float delta)
+        {
+            if (!TryBuildAffinityKey(source, target, out var key))
+            {
+                return;
+            }
+
+            _affinityScores.TryGetValue(key, out var current);
+            _affinityScores[key] = Mathf.Clamp(current + delta, -100f, 100f);
+        }
+
+        private static bool TryBuildAffinityKey(RoutineCharacterBinding source, RoutineCharacterBinding target, out string key)
+        {
+            key = null;
+            if (source == null || target == null || source.actor == null || target.actor == null)
+            {
+                return false;
+            }
+
+            key = source.actor.name + "=>" + target.actor.name;
+            return true;
+        }
+
+        private static string ResolveMoodLabel(float mood)
+        {
+            if (mood <= -55f)
+            {
+                return "최악";
+            }
+
+            if (mood <= -20f)
+            {
+                return "짜증";
+            }
+
+            if (mood < 20f)
+            {
+                return "보통";
+            }
+
+            if (mood < 55f)
+            {
+                return "좋음";
+            }
+
+            return "최상";
+        }
+
+        private static string BuildSelfTalk(RoutineCharacterBinding binding)
+        {
+            if (binding.hunger < 20f)
+            {
+                return "배고파... 집중이 안 돼";
+            }
+
+            if (binding.sleep < 20f)
+            {
+                return "너무 피곤해...";
+            }
+
+            if (binding.stress < 15f)
+            {
+                return "오늘은 버겁다...";
+            }
+
+            if (binding.currentAction == RoutineActionType.Mission && binding.mood >= 30f)
+            {
+                return "좋아, 이 흐름대로 가자";
+            }
+
+            if (binding.currentAction == RoutineActionType.Move)
+            {
+                return "잠깐, 자리 좀 옮기자";
+            }
+
+            return "일단 해보자";
+        }
+
+        private void EnsureSelfTalkText(RoutineCharacterBinding binding)
+        {
+            if (binding == null || binding.actor == null || binding.selfTalkTextMesh != null)
+            {
+                return;
+            }
+
+            var textObject = new GameObject("SelfTalkText");
+            textObject.transform.SetParent(binding.actor, false);
+            textObject.transform.localPosition = new Vector3(0f, SelfTalkHeight, 0f);
+            var textMesh = textObject.AddComponent<TextMesh>();
+            textMesh.anchor = TextAnchor.MiddleCenter;
+            textMesh.alignment = TextAlignment.Center;
+            textMesh.characterSize = SelfTalkTextSize;
+            textMesh.fontSize = 36;
+            textMesh.color = Color.white;
+            textMesh.text = string.Empty;
+            binding.selfTalkTextMesh = textMesh;
+        }
+
+        private void UpdateSelfTalkVisual(RoutineCharacterBinding binding)
+        {
+            if (binding == null)
+            {
+                return;
+            }
+
+            EnsureSelfTalkText(binding);
+            if (binding.selfTalkTextMesh == null)
+            {
+                return;
+            }
+
+            var line = BuildSelfTalk(binding);
+            binding.selfTalkText = string.Format(
+                CultureInfo.InvariantCulture,
+                "{0} ({1})",
+                line,
+                ResolveMoodLabel(binding.mood));
+            binding.selfTalkTextMesh.text = binding.selfTalkText;
+            binding.selfTalkTextMesh.color = binding.mood < -20f ? new Color(1f, 0.72f, 0.72f, 1f) : Color.white;
+            UpdateSelfTalkTransform(binding);
+        }
+
+        private void UpdateSelfTalkTransform(RoutineCharacterBinding binding)
+        {
+            if (binding == null || binding.selfTalkTextMesh == null)
+            {
+                return;
+            }
+
+            var textTransform = binding.selfTalkTextMesh.transform;
+            textTransform.localPosition = new Vector3(0f, SelfTalkHeight, 0f);
+
+            var cameraToUse = interactionCamera != null ? interactionCamera : Camera.main;
+            if (cameraToUse == null)
+            {
+                return;
+            }
+
+            var cameraForward = cameraToUse.transform.forward;
+            textTransform.rotation = Quaternion.LookRotation(cameraForward, Vector3.up);
         }
 
         private void TryColorize(GameObject go, Color color)
