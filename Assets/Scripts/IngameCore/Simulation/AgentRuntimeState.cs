@@ -121,6 +121,8 @@ namespace ProjectW.IngameCore.Simulation
 
             var progress = random.Next(1, 6);
             var speedFactor = IsBurnedOut() ? 0.7f : 1f;
+            speedFactor *= 1f - (Math.Clamp(IsolationScore, 0f, 1f) * SimulationConstants.IsolationWorkPenaltyFactor);
+            speedFactor *= 1f - (Math.Clamp(GroupthinkPenalty, 0f, 1f) * SimulationConstants.GroupthinkWorkPenaltyFactor);
             progress = Math.Max(1, (int)(progress * speedFactor));
 
             if (tick - LastInspirationTick > InspirationCooldown)

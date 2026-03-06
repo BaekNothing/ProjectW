@@ -86,7 +86,7 @@ namespace ProjectW.IngameCore.Simulation
 
                     if (sourceType == KnowledgeSourceType.Rumor)
                     {
-                        var rumorAccuracy = 0.55f + (float)random.NextDouble() * 0.25f;
+                        var rumorAccuracy = SimulationConstants.RumorAccuracyMin + (float)random.NextDouble() * SimulationConstants.RumorAccuracyRange;
                         transferGain *= rumorAccuracy;
                         distorted = rumorAccuracy < 0.7f;
                         if (distorted)
@@ -164,9 +164,9 @@ namespace ProjectW.IngameCore.Simulation
         {
             return path switch
             {
-                "training" => 0.85f,
-                "collaboration" => 0.65f,
-                _ => 0.35f
+                "training" => SimulationConstants.KnowledgeTrainingQuality,
+                "collaboration" => SimulationConstants.KnowledgeCollaborationQuality,
+                _ => SimulationConstants.KnowledgeRumorQuality
             };
         }
 
@@ -193,7 +193,41 @@ namespace ProjectW.IngameCore.Simulation
                 _ => 0.65f
             };
 
-            var probability = sourceTypeFactor * affinityFactor * distanceFactor * (0.55f + (moodFactor * 0.45f)) * stressFactor;
+            var moodLow = source.Happiness < SimulationConstants.CollaborationLowMoodThreshold
+                          || target.Happiness < SimulationConstants.CollaborationLowMoodThreshold;
+            var isolationHigh = source.IsolationScore > SimulationConstants.CollaborationHighIsolationThreshold
+                                || target.IsolationScore > SimulationConstants.CollaborationHighIsolationThreshold;
+
+            var collaborationAcceptance = SimulationConstants.CollaborationAcceptanceBase;
+            var informationShare = SimulationConstants.InformationShareBase;
+            var rumorDependence = SimulationConstants.RumorDependenceBase;
+            if (moodLow)
+            {
+                collaborationAcceptance -= SimulationConstants.CollaborationLowMoodPenalty;
+                informationShare -= SimulationConstants.InformationShareLowMoodPenalty;
+                rumorDependence += SimulationConstants.RumorDependenceLowMoodBoost;
+            }
+
+            if (isolationHigh)
+            {
+                collaborationAcceptance -= SimulationConstants.CollaborationHighIsolationPenalty;
+                informationShare -= SimulationConstants.InformationShareHighIsolationPenalty;
+                rumorDependence += SimulationConstants.RumorDependenceHighIsolationBoost;
+            }
+
+            collaborationAcceptance = Math.Clamp(collaborationAcceptance, 0.2f, 1f);
+            informationShare = Math.Clamp(informationShare, 0.2f, 1f);
+            rumorDependence = Math.Clamp(rumorDependence, 0f, 0.95f);
+
+            var interactionModifier = sourceType switch
+            {
+                KnowledgeSourceType.Collaboration => collaborationAcceptance,
+                KnowledgeSourceType.Training => informationShare,
+                KnowledgeSourceType.Rumor => 1f + rumorDependence,
+                _ => 1f
+            };
+
+            var probability = sourceTypeFactor * affinityFactor * distanceFactor * (0.55f + (moodFactor * 0.45f)) * stressFactor * interactionModifier;
             return Math.Clamp(probability, 0.05f, 0.95f);
         }
 
