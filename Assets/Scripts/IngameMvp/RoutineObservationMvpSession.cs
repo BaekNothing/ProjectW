@@ -2228,6 +2228,13 @@ namespace ProjectW.IngameMvp
                 _lastAppliedInterventionTick < 0 ? "N/A" : _lastAppliedInterventionTick.ToString(CultureInfo.InvariantCulture),
                 _recentRejectedInterventionReason);
 
+            var factionSummary = TryGetDashboardValue("FactionEvents");
+            if (!string.IsNullOrWhiteSpace(factionSummary))
+            {
+                summary.AppendLine();
+                summary.AppendFormat(CultureInfo.InvariantCulture, "Faction: {0}", factionSummary);
+            }
+
             if (_dashboardContext.Count > 0)
             {
                 var orderedKeys = new List<string>(_dashboardContext.Keys);
@@ -2235,7 +2242,8 @@ namespace ProjectW.IngameMvp
                 for (int i = 0; i < orderedKeys.Count; i++)
                 {
                     var key = orderedKeys[i];
-                    if (string.Equals(key, "Chronicle", StringComparison.Ordinal))
+                    if (string.Equals(key, "Chronicle", StringComparison.Ordinal)
+                        || string.Equals(key, "FactionEvents", StringComparison.Ordinal))
                     {
                         continue;
                     }
