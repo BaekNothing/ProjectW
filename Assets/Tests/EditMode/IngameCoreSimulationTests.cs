@@ -256,6 +256,124 @@ namespace ProjectW.Tests.EditMode
             Assert.IsTrue(hasFactionEvent || !string.IsNullOrWhiteSpace(engine.LastFactionSummary));
         }
 
+
+        [Test]
+        public void IsolatedAgent_HasLongerAverageCompletionTime()
+        {
+            var baselineTicks = SimulateCompletionTicksForIsolation(0.1f, 0f, seed: 1234);
+            var isolatedTicks = SimulateCompletionTicksForIsolation(0.95f, 0f, seed: 1234);
+
+            Assert.Greater(isolatedTicks, baselineTicks);
+        }
+
+        [Test]
+        public void KnowledgePropagation_InFactionSpreadsFasterThanCrossFaction()
+        {
+            var system = new KnowledgePropagationSystem();
+            var affinity = new AffinitySystem();
+            var random = new System.Random(7);
+
+            var inA = new AgentRuntimeState("InA", 3) { Position = (int)RoutineZone.Work, TargetZone = (int)RoutineZone.Work, FactionId = "faction:alpha" };
+            var inB = new AgentRuntimeState("InB", 3) { Position = (int)RoutineZone.Work, TargetZone = (int)RoutineZone.Work, FactionId = "faction:alpha" };
+            var outC = new AgentRuntimeState("OutC", 3) { Position = (int)RoutineZone.Work, TargetZone = (int)RoutineZone.Work, FactionId = "faction:beta" };
+
+            inA.SetKnowledgeConfidence("knowledge.observe.basics", 1f);
+            inB.SetKnowledgeConfidence("knowledge.observe.basics", 0f);
+            outC.SetKnowledgeConfidence("knowledge.observe.basics", 0f);
+
+            var snapshot = new FactionTickSnapshot(
+                new Dictionary<string, string>
+                {
+                    ["InA"] = "faction:alpha",
+                    ["InB"] = "faction:alpha",
+                    ["OutC"] = "faction:beta"
+                },
+                null,
+                null,
+                null);
+
+            for (var i = 0; i < 24; i++)
+            {
+                system.ProcessTick(new List<AgentRuntimeState> { inA, inB, outC }, affinity, null, random, snapshot);
+            }
+
+            Assert.Greater(inB.GetKnowledgeConfidence("knowledge.observe.basics"), outC.GetKnowledgeConfidence("knowledge.observe.basics"));
+        }
+
+        [Test]
+        public void HighFactionCohesion_ReducesExternalCollaborationOutcome()
+        {
+            var system = new KnowledgePropagationSystem();
+            var affinity = new AffinitySystem();
+
+            var source = new AgentRuntimeState("Source", 3) { Position = (int)RoutineZone.Work, TargetZone = (int)RoutineZone.Work, FactionId = "faction:alpha" };
+            var highCohesionTarget = new AgentRuntimeState("TargetHigh", 3)
+            {
+                Position = (int)RoutineZone.Work,
+                TargetZone = (int)RoutineZone.Work,
+                FactionId = "faction:beta",
+                GroupthinkPenalty = 0.95f
+            };
+            var lowCohesionTarget = new AgentRuntimeState("TargetLow", 3)
+            {
+                Position = (int)RoutineZone.Work,
+                TargetZone = (int)RoutineZone.Work,
+                FactionId = "faction:beta",
+                GroupthinkPenalty = 0.05f
+            };
+
+            source.SetKnowledgeConfidence("knowledge.observe.basics", 1f);
+            highCohesionTarget.SetKnowledgeConfidence("knowledge.observe.basics", 0f);
+            lowCohesionTarget.SetKnowledgeConfidence("knowledge.observe.basics", 0f);
+
+            var snapshot = new FactionTickSnapshot(
+                new Dictionary<string, string>
+                {
+                    ["Source"] = "faction:alpha",
+                    ["TargetHigh"] = "faction:beta",
+                    ["TargetLow"] = "faction:beta"
+                },
+                null,
+                null,
+                null);
+
+            for (var i = 0; i < 28; i++)
+            {
+                system.ProcessTick(new List<AgentRuntimeState> { source, highCohesionTarget }, affinity, null, new System.Random(77 + i), snapshot);
+                system.ProcessTick(new List<AgentRuntimeState> { source, lowCohesionTarget }, affinity, null, new System.Random(77 + i), snapshot);
+            }
+
+            Assert.Less(highCohesionTarget.GetKnowledgeConfidence("knowledge.observe.basics"), lowCohesionTarget.GetKnowledgeConfidence("knowledge.observe.basics"));
+        }
+
+        private static float SimulateCompletionTicksForIsolation(float isolationScore, float groupthinkPenalty, int seed)
+        {
+            var random = new System.Random(seed);
+            var samples = 30;
+            var totalTicks = 0f;
+
+            for (var i = 0; i < samples; i++)
+            {
+                var agent = new AgentRuntimeState("Worker_" + i, 8)
+                {
+                    SubtaskWork = 110,
+                    IsolationScore = isolationScore,
+                    GroupthinkPenalty = groupthinkPenalty
+                };
+
+                var ticks = 0;
+                while (agent.SubtaskWork > 0 && ticks < 500)
+                {
+                    ticks += 1;
+                    agent.Work(ticks, false, random);
+                }
+
+                totalTicks += ticks;
+            }
+
+            return totalTicks / samples;
+        }
+
         [Test]
         public void SpatialQuery_SortsByDistanceThenPriorityThenId()
         {

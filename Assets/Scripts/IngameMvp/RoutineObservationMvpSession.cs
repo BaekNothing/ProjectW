@@ -5308,21 +5308,38 @@ namespace ProjectW.IngameMvp
                     }
 
                     var distance = Vector3.Distance(source.actor.position, target.actor.position);
-                    if (distance > 1.25f)
+                    if (distance > SimulationConstants.RelationshipClosenessDistance)
                     {
                         continue;
                     }
 
                     if (source.currentAction == RoutineActionType.Mission && target.currentAction == RoutineActionType.Move)
                     {
-                        ChangeAffinity(source, target, -0.8f);
-                        socialPenalty -= 2.5f;
+                        ChangeAffinity(source, target, SimulationConstants.RelationshipMissionBlockedAffinityDelta);
+                        socialPenalty += SimulationConstants.RelationshipMissionBlockedMoodPenalty;
                     }
 
                     if (source.currentAction == RoutineActionType.Mission && target.currentAction == RoutineActionType.Mission)
                     {
-                        ChangeAffinity(source, target, 0.2f);
-                        socialPenalty += 0.4f;
+                        ChangeAffinity(source, target, SimulationConstants.RelationshipMissionSyncAffinityDelta);
+                        socialPenalty += SimulationConstants.RelationshipMissionSyncMoodBonus;
+                    }
+
+                    if (source.currentAction == RoutineActionType.Mission)
+                    {
+                        var sourceKnowledge = CalculateAverageKnowledgeConfidence(source);
+                        var targetKnowledge = CalculateAverageKnowledgeConfidence(target);
+                        var knowledgeGap = targetKnowledge - sourceKnowledge;
+                        if (knowledgeGap <= -0.2f)
+                        {
+                            ChangeAffinity(source, target, SimulationConstants.RelationshipReworkBlameAffinityDelta);
+                            socialPenalty += SimulationConstants.RelationshipReworkBlameMoodPenalty;
+                        }
+                        else if (knowledgeGap >= 0.18f)
+                        {
+                            ChangeAffinity(source, target, SimulationConstants.RelationshipReworkHelpAffinityDelta);
+                            socialPenalty += SimulationConstants.RelationshipReworkHelpMoodBonus;
+                        }
                     }
                 }
 
@@ -5338,9 +5355,35 @@ namespace ProjectW.IngameMvp
 
         private float ResolveWorkEfficiencyFactor(RoutineCharacterBinding binding)
         {
-            var moodFactor = Mathf.Lerp(0.65f, 1.2f, Mathf.InverseLerp(-100f, 100f, binding.mood));
-            var affinityFactor = Mathf.Lerp(0.8f, 1.15f, Mathf.InverseLerp(-60f, 60f, ComputeAverageAffinity(binding)));
-            return Mathf.Clamp(moodFactor * affinityFactor, 0.5f, 1.3f);
+            var moodFactor = Mathf.Lerp(
+                SimulationConstants.WorkMoodFactorMin,
+                SimulationConstants.WorkMoodFactorMax,
+                Mathf.InverseLerp(-100f, 100f, binding.mood));
+            var affinityFactor = Mathf.Lerp(
+                SimulationConstants.WorkAffinityFactorMin,
+                SimulationConstants.WorkAffinityFactorMax,
+                Mathf.InverseLerp(-60f, 60f, ComputeAverageAffinity(binding)));
+
+            var knowledgeFit = CalculateAverageKnowledgeConfidence(binding);
+            var knowledgeFactor = Mathf.Lerp(
+                SimulationConstants.WorkKnowledgeFitFactorMin,
+                SimulationConstants.WorkKnowledgeFitFactorMax,
+                knowledgeFit);
+
+            var isolationScore = Mathf.Clamp01(1f - (ComputeAverageAffinity(binding) + 100f) / 200f);
+            var isolationFactor = Mathf.Lerp(
+                SimulationConstants.WorkIsolationFactorMin,
+                SimulationConstants.WorkIsolationFactorMax,
+                1f - isolationScore);
+
+            var factionBias = Mathf.Clamp01(Mathf.Max(0f, ComputeAverageAffinity(binding)) / 100f);
+            var factionBiasFactor = Mathf.Lerp(
+                SimulationConstants.WorkFactionBiasFactorMin,
+                SimulationConstants.WorkFactionBiasFactorMax,
+                factionBias);
+
+            var combined = moodFactor * affinityFactor * knowledgeFactor * isolationFactor * factionBiasFactor;
+            return Mathf.Clamp(combined, SimulationConstants.WorkEfficiencyMinClamp, SimulationConstants.WorkEfficiencyMaxClamp);
         }
 
         private float ComputeAverageAffinity(RoutineCharacterBinding source)
