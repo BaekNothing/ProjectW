@@ -124,6 +124,14 @@ namespace ProjectW.IngameCore.Simulation
             var message = $"knowledge_failure from={NormalizeLogValue(fromAgentId)} to={NormalizeLogValue(toAgentId)} key={NormalizeLogValue(knowledgeKey)} source={sourceType} probability={probability:0.00} reason={NormalizeLogValue(reason)}";
             currentTick.KnowledgeEvents.Add(message);
         }
+
+        public void RecordFactionEvent(FactionEventType eventType, string description)
+        {
+            EnsureTick();
+            var message = $"faction_event type={eventType} desc={NormalizeLogValue(description)}";
+            currentTick.KnowledgeEvents.Add(message);
+        }
+
         public TickLogRecord EndTick()
         {
             EnsureTick();

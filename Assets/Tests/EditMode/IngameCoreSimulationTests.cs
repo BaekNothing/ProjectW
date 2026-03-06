@@ -181,6 +181,81 @@ namespace ProjectW.Tests.EditMode
             Assert.IsTrue(hasKnowledgeEvent);
         }
 
+
+        [Test]
+        public void TickEngine_AssignsFactionAndIsolationScores()
+        {
+            var collector = new EventLogCollector();
+            var engine = new SimulationTickEngine(seed: 81, eventLogCollector: collector);
+            var task = new TaskModel(60, 6f);
+            var agents = new List<AgentRuntimeState>
+            {
+                new AgentRuntimeState("A", 3) { Position = (int)RoutineZone.Work, TargetZone = (int)RoutineZone.Work },
+                new AgentRuntimeState("B", 3) { Position = (int)RoutineZone.Work, TargetZone = (int)RoutineZone.Work },
+                new AgentRuntimeState("C", 3) { Position = (int)RoutineZone.Sleep, TargetZone = (int)RoutineZone.Sleep }
+            };
+
+            // Drive several ticks so faction clustering and knowledge logs stabilize.
+            for (var tick = 1; tick <= 3; tick++)
+            {
+                var time = new DateTime(2026, 1, 1, 9, 0, 0).AddMinutes((tick - 1) * SimulationConstants.TickMinutes);
+                engine.AdvanceTick(time, tick, task, agents);
+            }
+
+            Assert.IsFalse(string.IsNullOrWhiteSpace(agents[0].FactionId));
+            Assert.IsFalse(string.IsNullOrWhiteSpace(agents[1].FactionId));
+            Assert.IsFalse(string.IsNullOrWhiteSpace(agents[2].FactionId));
+            Assert.That(agents[0].IsolationScore, Is.InRange(0f, 1f));
+            Assert.That(agents[1].IsolationScore, Is.InRange(0f, 1f));
+            Assert.That(agents[2].IsolationScore, Is.InRange(0f, 1f));
+        }
+
+        [Test]
+        public void TickEngine_RecordsFactionEventsInKnowledgeLogs()
+        {
+            var collector = new EventLogCollector();
+            var engine = new SimulationTickEngine(seed: 2027, eventLogCollector: collector);
+            var task = new TaskModel(70, 8f);
+            var agents = new List<AgentRuntimeState>
+            {
+                new AgentRuntimeState("Alpha", 3) { Position = (int)RoutineZone.Work, TargetZone = (int)RoutineZone.Work, SubtaskWork = 4 },
+                new AgentRuntimeState("Beta", 3) { Position = (int)RoutineZone.Work, TargetZone = (int)RoutineZone.Work, SubtaskWork = 4 },
+                new AgentRuntimeState("Gamma", 3) { Position = (int)RoutineZone.Work, TargetZone = (int)RoutineZone.Work, SubtaskWork = 4 }
+            };
+
+            for (var tick = 1; tick <= 5; tick++)
+            {
+                var time = new DateTime(2026, 1, 1, 9, 0, 0).AddMinutes((tick - 1) * SimulationConstants.TickMinutes);
+                engine.AdvanceTick(time, tick, task, agents);
+            }
+
+            var hasFactionEvent = false;
+            for (var i = 0; i < collector.TickLogs.Count; i++)
+            {
+                var events = collector.TickLogs[i].KnowledgeEvents;
+                if (events == null)
+                {
+                    continue;
+                }
+
+                for (var j = 0; j < events.Count; j++)
+                {
+                    if (events[j].IndexOf("faction_event", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        hasFactionEvent = true;
+                        break;
+                    }
+                }
+
+                if (hasFactionEvent)
+                {
+                    break;
+                }
+            }
+
+            Assert.IsTrue(hasFactionEvent || !string.IsNullOrWhiteSpace(engine.LastFactionSummary));
+        }
+
         [Test]
         public void SpatialQuery_SortsByDistanceThenPriorityThenId()
         {

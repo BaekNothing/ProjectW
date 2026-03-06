@@ -24,6 +24,9 @@ namespace ProjectW.IngameCore.Simulation
         public int InspirationCooldown;
         public int LastInspirationTick;
         public int CarryCapacity = 2;
+        public string FactionId = "solo";
+        public float IsolationScore;
+        public float GroupthinkPenalty;
 
         private readonly List<string> _carriedItemIds = new List<string>();
         private readonly Dictionary<string, float> _knowledgeMap = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);

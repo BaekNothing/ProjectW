@@ -17,7 +17,8 @@ namespace ProjectW.IngameCore.Simulation
             IReadOnlyList<AgentRuntimeState> agents,
             AffinitySystem affinitySystem,
             EventLogCollector eventLogCollector,
-            Random random)
+            Random random,
+            FactionTickSnapshot factionSnapshot = null)
         {
             if (agents == null || agents.Count < 2 || random == null)
             {
@@ -48,12 +49,20 @@ namespace ProjectW.IngameCore.Simulation
                     var path = ResolvePropagationPath(source, target);
                     var sourceType = ResolveSourceType(path);
                     var key = ResolveKnowledgeKey(source, target);
+                    var sameFaction = IsSameFaction(source, target, factionSnapshot);
+                    var crossFaction = !sameFaction;
                     if (string.IsNullOrWhiteSpace(key))
                     {
                         continue;
                     }
 
                     var probability = ComputeSuccessProbability(source, target, affinitySystem, sourceType);
+                    probability = ApplyFactionProbabilityModifier(
+                        probability,
+                        source,
+                        target,
+                        sameFaction,
+                        crossFaction);
                     if (random.NextDouble() > probability)
                     {
                         eventLogCollector?.RecordKnowledgeFailure(
@@ -62,7 +71,7 @@ namespace ProjectW.IngameCore.Simulation
                             key,
                             sourceType,
                             probability,
-                            BuildFailureReason(path, source, target));
+                            BuildFailureReason(path, source, target, sameFaction, crossFaction));
                         continue;
                     }
 
@@ -72,6 +81,8 @@ namespace ProjectW.IngameCore.Simulation
                     var transferGain = Math.Clamp(sourceConfidence * quality, 0f, 1f);
                     var distorted = false;
                     var reason = path;
+                    transferGain = ApplyFactionGainModifier(transferGain, target, sameFaction, crossFaction);
+                    var distortionChance = crossFaction ? 0.22f : 0.04f;
 
                     if (sourceType == KnowledgeSourceType.Rumor)
                     {
@@ -82,6 +93,13 @@ namespace ProjectW.IngameCore.Simulation
                         {
                             reason = "rumor_distorted";
                         }
+                    }
+
+                    if (!distorted && random.NextDouble() < distortionChance)
+                    {
+                        transferGain *= crossFaction ? 0.6f : 0.85f;
+                        distorted = true;
+                        reason = crossFaction ? "cross_faction_distorted" : "in_faction_noise";
                     }
 
                     var afterConfidence = Math.Clamp(beforeConfidence + (1f - beforeConfidence) * transferGain, 0f, 1f);
@@ -179,6 +197,72 @@ namespace ProjectW.IngameCore.Simulation
             return Math.Clamp(probability, 0.05f, 0.95f);
         }
 
+
+        private static bool IsSameFaction(AgentRuntimeState source, AgentRuntimeState target, FactionTickSnapshot snapshot)
+        {
+            if (source == null || target == null)
+            {
+                return false;
+            }
+
+            var sourceFaction = snapshot?.AgentToFactionId != null && snapshot.AgentToFactionId.TryGetValue(source.Id, out var resolvedSource)
+                ? resolvedSource
+                : source.FactionId;
+            var targetFaction = snapshot?.AgentToFactionId != null && snapshot.AgentToFactionId.TryGetValue(target.Id, out var resolvedTarget)
+                ? resolvedTarget
+                : target.FactionId;
+
+            return !string.IsNullOrWhiteSpace(sourceFaction)
+                   && !string.IsNullOrWhiteSpace(targetFaction)
+                   && string.Equals(sourceFaction, targetFaction, StringComparison.OrdinalIgnoreCase)
+                   && !sourceFaction.StartsWith("solo:", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static float ApplyFactionProbabilityModifier(
+            float probability,
+            AgentRuntimeState source,
+            AgentRuntimeState target,
+            bool sameFaction,
+            bool crossFaction )
+        {
+            var next = probability;
+            if (sameFaction)
+            {
+                next *= 1.12f;
+            }
+
+            if (crossFaction)
+            {
+                next *= 0.88f;
+                var externalPenalty = 1f - (Math.Clamp(source.GroupthinkPenalty, 0f, 1f) * 0.2f) - (Math.Clamp(target.GroupthinkPenalty, 0f, 1f) * 0.2f);
+                next *= Math.Clamp(externalPenalty, 0.55f, 1f);
+            }
+
+            return Math.Clamp(next, 0.03f, 0.97f);
+        }
+
+        private static float ApplyFactionGainModifier(
+            float transferGain,
+            AgentRuntimeState target,
+            bool sameFaction,
+            bool crossFaction )
+        {
+            var next = transferGain;
+            if (sameFaction)
+            {
+                next *= 1.1f;
+            }
+
+            if (crossFaction)
+            {
+                next *= 0.82f;
+            }
+
+            var groupthinkPenalty = Math.Clamp(target?.GroupthinkPenalty ?? 0f, 0f, 1f);
+            next *= (1f - groupthinkPenalty * 0.55f);
+            return Math.Clamp(next, 0f, 1f);
+        }
+
         private static string ResolveKnowledgeKey(AgentRuntimeState source, AgentRuntimeState target)
         {
             string key = null;
@@ -200,7 +284,7 @@ namespace ProjectW.IngameCore.Simulation
             return key;
         }
 
-        private static string BuildFailureReason(string path, AgentRuntimeState source, AgentRuntimeState target)
+        private static string BuildFailureReason(string path, AgentRuntimeState source, AgentRuntimeState target, bool sameFaction, bool crossFaction)
         {
             var distance = Math.Abs(source.Position - target.Position);
             if (distance >= 2)
@@ -216,6 +300,16 @@ namespace ProjectW.IngameCore.Simulation
             if (source.Happiness < 30f || target.Happiness < 30f)
             {
                 return path + "_mood";
+            }
+
+            if (crossFaction)
+            {
+                return path + "_faction_divide";
+            }
+
+            if (sameFaction)
+            {
+                return path + "_in_group_noise";
             }
 
             return path + "_roll";

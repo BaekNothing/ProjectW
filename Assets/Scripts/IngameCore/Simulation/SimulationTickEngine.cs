@@ -5,6 +5,7 @@ namespace ProjectW.IngameCore.Simulation
 {
     public sealed class SimulationTickEngine
     {
+        public string LastFactionSummary { get; private set; } = "faction stable";
         private readonly Random _random;
         private readonly CharacterNeuronSystem _neuronSystem;
         private readonly JobSystem _jobSystem;
@@ -14,6 +15,7 @@ namespace ProjectW.IngameCore.Simulation
         private readonly TaskGenerationRuleSet _taskGenerationRuleSet;
         private readonly AffinitySystem _affinitySystem;
         private readonly KnowledgePropagationSystem _knowledgePropagationSystem;
+        private readonly FactionSystem _factionSystem;
 
         public SimulationTickEngine(int seed, EventLogCollector eventLogCollector = null)
             : this(seed, null, eventLogCollector)
@@ -31,6 +33,7 @@ namespace ProjectW.IngameCore.Simulation
             _taskGenerationRuleSet = taskGenerationRuleSet;
             _affinitySystem = new AffinitySystem();
             _knowledgePropagationSystem = new KnowledgePropagationSystem();
+            _factionSystem = new FactionSystem();
         }
 
         public int AdvanceTick(DateTime simTime, int tickIndex, TaskModel task, IReadOnlyList<AgentRuntimeState> agents)
@@ -129,7 +132,31 @@ namespace ProjectW.IngameCore.Simulation
                 }
             }
 
-            _knowledgePropagationSystem.ProcessTick(agents, _affinitySystem, _eventLogCollector, _random);
+            var factionSnapshot = _factionSystem.ProcessTick(agents, _affinitySystem);
+            if (factionSnapshot.Events != null)
+            {
+                for (var i = 0; i < factionSnapshot.Events.Count; i++)
+                {
+                    _eventLogCollector?.RecordFactionEvent(factionSnapshot.Events[i].EventType, factionSnapshot.Events[i].Description);
+                }
+            }
+
+            if (factionSnapshot.Events != null && factionSnapshot.Events.Count > 0)
+            {
+                var factionDescriptions = new List<string>(factionSnapshot.Events.Count);
+                for (var i = 0; i < factionSnapshot.Events.Count; i++)
+                {
+                    factionDescriptions.Add(factionSnapshot.Events[i].Description);
+                }
+
+                LastFactionSummary = string.Join(" | ", factionDescriptions);
+            }
+            else
+            {
+                LastFactionSummary = "faction stable";
+            }
+
+            _knowledgePropagationSystem.ProcessTick(agents, _affinitySystem, _eventLogCollector, _random, factionSnapshot);
 
             task.ApplyProgress(totalProgress);
             _eventLogCollector?.RecordStateTransition(ProjectW.IngameCore.StateMachine.CoreLoopState.Resolve, ProjectW.IngameCore.StateMachine.CoreLoopState.Resolve);
