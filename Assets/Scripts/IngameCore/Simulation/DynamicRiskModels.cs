@@ -40,6 +40,10 @@ namespace ProjectW.IngameCore.Simulation
         public WorkType WorkType;
         public string AssignedZoneKey;
         public int Progress;
+        public float QualityScore;
+        public int ReworkUnits;
+        public float PerformanceScore;
+        public int CompletedTick = -1;
     }
 
     [Serializable]

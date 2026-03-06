@@ -108,6 +108,8 @@ namespace ProjectW.IngameMvp
         private const string JobZoneWork = "workzone";
         private const string JobZoneEat = "eatzone";
         private const string JobZoneSleep = "sleepzone";
+        private const float QualityCompletionThreshold = 70f;
+        private const float QualityReworkThreshold = 45f;
         private const string DefaultCharacterAnimatorControllerPath = "AnimatorControllers/routine_character_default";
         private const int DefaultWorldSeed = 17;
         private static readonly Vector2 UiReferenceResolution = new Vector2(1280f, 720f);
@@ -205,6 +207,8 @@ namespace ProjectW.IngameMvp
         private readonly Dictionary<string, List<WorldItem>> _officeItemsByZoneKey = new Dictionary<string, List<WorldItem>>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<int> _boundCloseButtons = new HashSet<int>();
         private readonly Dictionary<string, CharacterAptitudeProfile> _characterAptitudeByActorName = new Dictionary<string, CharacterAptitudeProfile>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, float> _characterPerformanceScores = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, int> _subtaskDeadlinesById = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         private RoutineCharacterBinding _selectedCharacter;
         private RoutineCharacterBinding _pinnedNeuronCharacter;
         private RoutineInspectableWorldObject _selectedWorldObject;
@@ -882,6 +886,7 @@ namespace ProjectW.IngameMvp
             HandleCycleBoundary(dayIndex);
 
             string timeText = BuildTimeText(dayIndex, halfDayIndex, tickInHalfDay, totalMinutes);
+            UpdatePerformanceScoresForTick();
             UpdateDashboardUi(dayIndex, halfDayIndex, tickInHalfDay, timeText);
             UpdateNeuronPanel();
             UpdateObjectInfoPanel();
@@ -1468,7 +1473,7 @@ namespace ProjectW.IngameMvp
                     if (canResolveNeed)
                     {
                         binding.missionTicks += 1;
-                        ApplyDynamicSubtaskProgress(binding.actor != null ? binding.actor.name : string.Empty, 1);
+                        ApplyDynamicSubtaskProgress(binding, 1);
                         if (binding.missionTicks >= 100)
                         {
                             binding.completedWorkCount += 1;
@@ -1504,9 +1509,9 @@ namespace ProjectW.IngameMvp
             binding.stress = Mathf.Clamp(binding.stress, 0f, GaugeMax);
         }
 
-        private void ApplyDynamicSubtaskProgress(string actorName, int baseProgress)
+        private void ApplyDynamicSubtaskProgress(RoutineCharacterBinding binding, int baseProgress)
         {
-            if (_currentDynamicTask == null || baseProgress <= 0)
+            if (_currentDynamicTask == null || binding == null || baseProgress <= 0)
             {
                 return;
             }
@@ -1517,6 +1522,7 @@ namespace ProjectW.IngameMvp
                 return;
             }
 
+            var actorName = binding.actor != null ? binding.actor.name : string.Empty;
             var multiplier = 1f;
             if (!string.IsNullOrWhiteSpace(actorName) && _characterAptitudeByActorName.TryGetValue(actorName, out var profile) && profile != null)
             {
@@ -1525,8 +1531,133 @@ namespace ProjectW.IngameMvp
 
             var delta = Mathf.Max(1, Mathf.RoundToInt(baseProgress * multiplier));
             subtask.Progress = Mathf.Min(subtask.RequiredWork, subtask.Progress + delta);
+            subtask.QualityScore = Mathf.Clamp(CalculateQualityScore(binding, subtask, multiplier), 0f, 100f);
+            subtask.PerformanceScore = Mathf.Clamp((subtask.QualityScore * 0.6f) + (Mathf.Clamp01(subtask.Progress / (float)Mathf.Max(1, subtask.RequiredWork)) * 40f), 0f, 100f);
+
+            if (subtask.Progress >= subtask.RequiredWork)
+            {
+                if (subtask.QualityScore < QualityReworkThreshold)
+                {
+                    var reworkUnits = Mathf.Max(1, Mathf.RoundToInt((QualityReworkThreshold - subtask.QualityScore) / 8f));
+                    subtask.ReworkUnits += reworkUnits;
+                    subtask.RequiredWork += reworkUnits;
+                    _cycleChronicleEvents.Add(new ChronicleEvent
+                    {
+                        Category = ChronicleEventCategory.Progress,
+                        Severity = 3,
+                        Description = string.Format(
+                            CultureInfo.InvariantCulture,
+                            "재작업 발생: {0} 품질 {1:0.0}로 추가 작업 {2} 유닛이 배정되었습니다.",
+                            ResolveDisplayName(binding),
+                            subtask.QualityScore,
+                            reworkUnits)
+                    });
+                }
+                else
+                {
+                    subtask.CompletedTick = _absoluteTick;
+                    if (TryGetSubtaskDeadline(subtask.SubtaskId, out var deadlineTick) && subtask.CompletedTick <= deadlineTick)
+                    {
+                        _cycleChronicleEvents.Add(new ChronicleEvent
+                        {
+                            Category = ChronicleEventCategory.Progress,
+                            Severity = 4,
+                            Description = string.Format(
+                                CultureInfo.InvariantCulture,
+                                "빠른 완료: {0}가 마감 {1} tick 이전({2})에 {3}를 완료했습니다.",
+                                ResolveDisplayName(binding),
+                                deadlineTick,
+                                subtask.CompletedTick,
+                                subtask.SubtaskId)
+                        });
+                    }
+
+                    if (subtask.QualityScore >= QualityCompletionThreshold)
+                    {
+                        _cycleChronicleEvents.Add(new ChronicleEvent
+                        {
+                            Category = ChronicleEventCategory.Progress,
+                            Severity = 5,
+                            Description = string.Format(
+                                CultureInfo.InvariantCulture,
+                                "고품질 완료: {0}가 {1}를 품질 {2:0.0}으로 완료했습니다.",
+                                ResolveDisplayName(binding),
+                                subtask.SubtaskId,
+                                subtask.QualityScore)
+                        });
+                    }
+                }
+            }
+
             ApplyDynamicTaskRequirementBinding();
             UpdateTaskDashboardContext();
+        }
+
+        private float CalculateQualityScore(RoutineCharacterBinding binding, DynamicSubtask subtask, float aptitudeMultiplier)
+        {
+            var hungerScore = Mathf.Clamp01(binding.hunger / GaugeMax);
+            var sleepScore = Mathf.Clamp01(binding.sleep / GaugeMax);
+            var stressScore = Mathf.Clamp01(binding.stress / GaugeMax);
+            var moodScore = Mathf.Clamp01(((binding.hunger + binding.sleep + binding.stress) / 3f) / GaugeMax);
+            var knowledgeScore = Mathf.Clamp01((aptitudeMultiplier - 0.5f) / 1.0f);
+            var progressRatio = Mathf.Clamp01(subtask.RequiredWork <= 0 ? 0f : subtask.Progress / (float)subtask.RequiredWork);
+
+            var weighted = (moodScore * 0.25f) + (stressScore * 0.2f) + (sleepScore * 0.2f) + (hungerScore * 0.15f) + (knowledgeScore * 0.2f);
+            return Mathf.Clamp((weighted * 100f) + (progressRatio * 4f), 0f, 100f);
+        }
+
+        private void UpdatePerformanceScoresForTick()
+        {
+            _characterPerformanceScores.Clear();
+            if (characters == null || characters.Count == 0)
+            {
+                SetDashboardContext("Performance", "-");
+                return;
+            }
+
+            for (var i = 0; i < characters.Count; i++)
+            {
+                var binding = characters[i];
+                var actorName = binding.actor != null ? binding.actor.name : ResolveDisplayName(binding);
+                var score = CalculateCharacterPerformanceScore(binding);
+                _characterPerformanceScores[actorName] = score;
+            }
+
+            SetDashboardContext("Performance", BuildPerformanceDashboardText());
+        }
+
+        private float CalculateCharacterPerformanceScore(RoutineCharacterBinding binding)
+        {
+            var actorName = binding.actor != null ? binding.actor.name : string.Empty;
+            var aptitudeScore = 0.6f;
+            if (!string.IsNullOrWhiteSpace(actorName) && _characterAptitudeByActorName.TryGetValue(actorName, out var profile) && profile != null)
+            {
+                aptitudeScore = Mathf.Clamp01((profile.GetMultiplier(WorkType.Routine) - 0.5f) / 1.0f);
+            }
+
+            var missionScore = Mathf.Clamp01(binding.missionTicks / 100f);
+            var conditionScore = Mathf.Clamp01((binding.hunger + binding.sleep + binding.stress) / (GaugeMax * 3f));
+            return Mathf.Clamp(((missionScore * 0.45f) + (conditionScore * 0.35f) + (aptitudeScore * 0.2f)) * 100f, 0f, 100f);
+        }
+
+        private string BuildPerformanceDashboardText()
+        {
+            if (_characterPerformanceScores.Count == 0)
+            {
+                return "-";
+            }
+
+            var parts = new List<string>(_characterPerformanceScores.Count);
+            foreach (var binding in characters)
+            {
+                var actorName = binding.actor != null ? binding.actor.name : ResolveDisplayName(binding);
+                if (_characterPerformanceScores.TryGetValue(actorName, out var score))
+                {
+                    parts.Add(string.Format(CultureInfo.InvariantCulture, "{0}:{1:0.0}", ResolveDisplayName(binding), score));
+                }
+            }
+
+            return parts.Count == 0 ? "-" : string.Join(" | ", parts);
         }
 
         private static bool HasArrived(Vector3 currentPosition, Vector3 targetPosition)
@@ -1972,6 +2103,7 @@ namespace ProjectW.IngameMvp
             var avgHunger = ComputeAverageNeedValue(binding => binding.hunger);
             var avgSleep = ComputeAverageNeedValue(binding => binding.sleep);
             var avgStress = ComputeAverageNeedValue(binding => binding.stress);
+            var avgPerformance = ComputeAveragePerformanceScore();
 
             if (goalText != null)
             {
@@ -1987,13 +2119,14 @@ namespace ProjectW.IngameMvp
             {
                 progressText.text = string.Format(
                     CultureInfo.InvariantCulture,
-                    "Progress: {0:0}% | Move:{1}/{2} | Avg H/S/T: {3:0}/{4:0}/{5:0}",
+                    "Progress: {0:0}% | Move:{1}/{2} | Avg H/S/T: {3:0}/{4:0}/{5:0} | Perf:{6:0.0}",
                     percentage,
                     movingCount,
                     characters.Count,
                     avgHunger,
                     avgSleep,
-                    avgStress);
+                    avgStress,
+                    avgPerformance);
             }
 
             if (situationText != null)
@@ -2007,6 +2140,24 @@ namespace ProjectW.IngameMvp
             }
 
             UpdateChronicleUi();
+        }
+
+        private float ComputeAveragePerformanceScore()
+        {
+            if (_characterPerformanceScores.Count <= 0)
+            {
+                return 0f;
+            }
+
+            var sum = 0f;
+            var count = 0;
+            foreach (var pair in _characterPerformanceScores)
+            {
+                sum += pair.Value;
+                count += 1;
+            }
+
+            return count <= 0 ? 0f : sum / count;
         }
 
         private string BuildSituationSummary()
@@ -2229,6 +2380,8 @@ namespace ProjectW.IngameMvp
 
             characters.Clear();
             _characterAptitudeByActorName.Clear();
+            _characterPerformanceScores.Clear();
+            _subtaskDeadlinesById.Clear();
             EnsureCharacterBindingsFromRoot();
             for (var i = 0; i < characters.Count; i++)
             {
@@ -3452,6 +3605,7 @@ namespace ProjectW.IngameMvp
             }
 
             var seed = _resolvedWorldSeed ^ (dayIndex * 739) ^ (tickInHalfDay * 131);
+            _subtaskDeadlinesById.Clear();
             _currentDynamicTask = BuildDynamicTask(seed);
             _lastDynamicTaskSeedTick = _absoluteTick;
             ApplyDynamicTaskRequirementBinding();
@@ -3485,15 +3639,21 @@ namespace ProjectW.IngameMvp
                     requiredWork = Mathf.Max(1, Mathf.RoundToInt(requiredWork * 0.85f));
                 }
 
-                task.Subtasks.Add(new DynamicSubtask
+                var subtask = new DynamicSubtask
                 {
                     SubtaskId = $"{task.TaskId}-s{i + 1}",
                     RequiredWork = Math.Max(1, requiredWork),
                     RequiredTags = tags,
                     WorkType = type,
                     AssignedZoneKey = ResolveZoneAffinity(template, tags),
-                    Progress = 0
-                });
+                    Progress = 0,
+                    QualityScore = 50f,
+                    ReworkUnits = 0,
+                    PerformanceScore = 0f,
+                    CompletedTick = -1
+                };
+                task.Subtasks.Add(subtask);
+                _subtaskDeadlinesById[subtask.SubtaskId] = _absoluteTick + Math.Max(3, Mathf.RoundToInt(requiredWork * 1.35f));
             }
 
             return task;
@@ -3613,6 +3773,17 @@ namespace ProjectW.IngameMvp
             return JobZoneWork;
         }
 
+        private bool TryGetSubtaskDeadline(string subtaskId, out int deadlineTick)
+        {
+            if (string.IsNullOrWhiteSpace(subtaskId))
+            {
+                deadlineTick = -1;
+                return false;
+            }
+
+            return _subtaskDeadlinesById.TryGetValue(subtaskId, out deadlineTick);
+        }
+
         private void ApplyDynamicTaskRequirementBinding()
         {
             if (_currentDynamicTask == null)
@@ -3658,7 +3829,8 @@ namespace ProjectW.IngameMvp
             var tags = top.RequiredTags != null && top.RequiredTags.Count > 0
                 ? string.Join(",", top.RequiredTags)
                 : "-";
-            var subtaskText = $"{top.WorkType} {top.Progress}/{top.RequiredWork} tags[{tags}] zone[{top.AssignedZoneKey}]";
+            var deadlineLabel = TryGetSubtaskDeadline(top.SubtaskId, out var topDeadline) ? topDeadline.ToString(CultureInfo.InvariantCulture) : "-";
+            var subtaskText = $"{top.WorkType} {top.Progress}/{top.RequiredWork} q[{top.QualityScore:0.0}] rw[{top.ReworkUnits}] dl[{deadlineLabel}] tags[{tags}] zone[{top.AssignedZoneKey}]";
             SetDashboardContext("Subtasks", subtaskText);
             if (taskUiBinding != null)
             {
@@ -3720,6 +3892,8 @@ namespace ProjectW.IngameMvp
             _currentDynamicTask = null;
             _lastDynamicTaskSeedTick = -1;
             _characterAptitudeByActorName.Clear();
+            _characterPerformanceScores.Clear();
+            _subtaskDeadlinesById.Clear();
         }
 
         private void EnsureDefaultCharactersExist()
