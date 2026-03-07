@@ -161,6 +161,8 @@ namespace ProjectW.IngameMvp
 
         [Header("Characters")]
         [SerializeField] private List<RoutineCharacterBinding> characters = new List<RoutineCharacterBinding>();
+        [SerializeField] private GameObject characterRootPrefab;
+        [SerializeField] private bool useCharacterRootPrefabForGeneratedCharacters;
 
         [Header("Visual Resources")]
         [SerializeField] private RoutineVisualResourceSet visualResources = new RoutineVisualResourceSet();
@@ -4197,7 +4199,7 @@ namespace ProjectW.IngameMvp
                 return;
             }
 
-            var character = CreateDummyCharacterObject("Character");
+            var character = CreateCharacterObject("Character");
             character.name = characterName;
             character.transform.SetParent(charactersRoot, false);
             if (enforceDepthLayout)
@@ -4461,9 +4463,98 @@ namespace ProjectW.IngameMvp
                 actorGo.transform.localScale = new Vector3(DefaultCharacterSpriteSize, DefaultCharacterSpriteSize, 1f);
                 var color = ReadRendererColor(actorGo.GetComponent<Renderer>(), GetLineColor(i));
                 var actorSprite = visualResources != null ? visualResources.ResolveCharacterSprite(binding.actor.name, i) : null;
-                EnsureSpriteRenderer(actorGo, color, new Vector2(DefaultCharacterSpriteSize, DefaultCharacterSpriteSize), true, actorSprite);
+                if (!TryApplyCharacterPartRig(binding, i, color, actorSprite))
+                {
+                    EnsureSpriteRenderer(actorGo, color, new Vector2(DefaultCharacterSpriteSize, DefaultCharacterSpriteSize), true, actorSprite);
+                }
+
                 EnsureCharacterAnimator(binding.actor.gameObject);
             }
+        }
+
+        private bool TryApplyCharacterPartRig(RoutineCharacterBinding binding, int index, Color color, Sprite fallbackSprite)
+        {
+            if (binding == null || binding.actor == null)
+            {
+                return false;
+            }
+
+            var rig = binding.actor.GetComponent<RoutineCharacterPartRig>();
+            if (rig == null)
+            {
+                return false;
+            }
+
+            rig.EnsureBound();
+
+            ApplyPartRenderer(rig, CharacterPartType.LegL, color, fallbackSprite, -30);
+            ApplyPartRenderer(rig, CharacterPartType.LegR, color, fallbackSprite, -30);
+            ApplyPartRenderer(rig, CharacterPartType.Torso, color, fallbackSprite, -20);
+            ApplyPartRenderer(rig, CharacterPartType.ArmL, color, fallbackSprite, -10);
+            ApplyPartRenderer(rig, CharacterPartType.ArmR, color, fallbackSprite, -10);
+            ApplyPartRenderer(rig, CharacterPartType.Neck, color, fallbackSprite, 0);
+            ApplyPartRenderer(rig, CharacterPartType.Head, color, fallbackSprite, 10);
+            ApplyPartRenderer(rig, CharacterPartType.Eyes, color, fallbackSprite, 20);
+
+            var accessorySprite = fallbackSprite;
+            var accessoryOffset = Vector3.zero;
+            var accessoryOrder = 30;
+            if (visualResources != null)
+            {
+                var accessorySet = visualResources.characterAccessorySet;
+                var accessories = accessorySet != null ? accessorySet.Accessories : null;
+                if (accessories != null && accessories.Count > 0)
+                {
+                    var accessory = accessories[Mathf.Clamp(index, 0, accessories.Count - 1)];
+                    accessorySprite = accessory.sprite != null ? accessory.sprite : fallbackSprite;
+                    accessoryOrder += accessory.sortingOffset;
+                    accessoryOffset = rig.GetAccessoryAnchorLocalPosition(accessory.attachPartType) + (Vector3)accessory.localOffset;
+                }
+            }
+
+            rig.SetAccessoryLocalPosition(accessoryOffset);
+            ApplyPartRenderer(rig, CharacterPartType.Accessory, color, accessorySprite, accessoryOrder);
+
+            if (visualResources != null)
+            {
+                var partSet = visualResources.ResolveCharacterPartSet(binding.actor.name, index);
+                var definitions = partSet != null ? partSet.Parts : null;
+                if (definitions != null)
+                {
+                    for (int i = 0; i < definitions.Count; i++)
+                    {
+                        var definition = definitions[i];
+                        var partRenderer = rig.GetRenderer(definition.partType);
+                        if (partRenderer == null)
+                        {
+                            continue;
+                        }
+
+                        if (definition.sprite != null)
+                        {
+                            partRenderer.sprite = definition.sprite;
+                        }
+
+                        partRenderer.sortingOrder = definition.sortingOrder;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        private static void ApplyPartRenderer(RoutineCharacterPartRig rig, CharacterPartType partType, Color color, Sprite fallbackSprite, int sortingOrder)
+        {
+            var renderer = rig.GetRenderer(partType);
+            if (renderer == null)
+            {
+                return;
+            }
+
+            renderer.color = new Color(color.r, color.g, color.b, 1f);
+            renderer.sortingLayerName = "Default";
+            renderer.sortingOrder = sortingOrder;
+            renderer.sprite = fallbackSprite != null ? fallbackSprite : GetRuntimeSquareSprite();
         }
 
 
@@ -5960,6 +6051,23 @@ namespace ProjectW.IngameMvp
             go.name = name;
             TryRemoveCollider(go);
             return go;
+        }
+
+        private GameObject CreateCharacterObject(string name)
+        {
+            if (useCharacterRootPrefabForGeneratedCharacters && characterRootPrefab != null)
+            {
+                var instance = Instantiate(characterRootPrefab);
+                instance.name = name;
+                if (instance.GetComponent<RoutineCharacterPartRig>() == null)
+                {
+                    instance.AddComponent<RoutineCharacterPartRig>();
+                }
+
+                return instance;
+            }
+
+            return CreateDummyCharacterObject(name);
         }
 
         private void EnsureDebugGuiStyle()
