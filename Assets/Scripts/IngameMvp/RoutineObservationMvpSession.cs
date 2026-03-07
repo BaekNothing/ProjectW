@@ -4392,7 +4392,9 @@ namespace ProjectW.IngameMvp
             actor.transform.SetParent(parent, false);
             actor.transform.localPosition = new Vector3(localPosition.x, localPosition.y, 0f);
             actor.transform.localScale = new Vector3(DefaultCharacterSpriteSize, DefaultCharacterSpriteSize, 1f);
-            EnsureSpriteRenderer(actor, color, new Vector2(DefaultCharacterSpriteSize, DefaultCharacterSpriteSize), true);
+            EnsureCharacterPartNodes(actor.transform);
+            var assembler = EnsureCharacterAssembler(actor, color, null);
+            assembler.SetAccessorySet(visualResources != null ? visualResources.characterAccessorySet : null);
             actor.AddComponent<CapsuleCollider2D>();
         }
 
@@ -4463,89 +4465,67 @@ namespace ProjectW.IngameMvp
                 actorGo.transform.localScale = new Vector3(DefaultCharacterSpriteSize, DefaultCharacterSpriteSize, 1f);
                 var color = ReadRendererColor(actorGo.GetComponent<Renderer>(), GetLineColor(i));
                 var actorSprite = visualResources != null ? visualResources.ResolveCharacterSprite(binding.actor.name, i) : null;
-                if (!TryApplyCharacterPartRig(binding, i, color, actorSprite))
-                {
-                    EnsureSpriteRenderer(actorGo, color, new Vector2(DefaultCharacterSpriteSize, DefaultCharacterSpriteSize), true, actorSprite);
-                }
+                var assembler = EnsureCharacterAssembler(actorGo, color, actorSprite);
+                ApplyCharacterAppearance(binding, i, assembler);
 
                 EnsureCharacterAnimator(binding.actor.gameObject);
             }
         }
 
-        private bool TryApplyCharacterPartRig(RoutineCharacterBinding binding, int index, Color color, Sprite fallbackSprite)
+        private void ApplyCharacterAppearance(RoutineCharacterBinding binding, int index, RoutineCharacterAssembler assembler)
         {
-            if (binding == null || binding.actor == null)
+            if (binding == null || binding.actor == null || assembler == null)
             {
-                return false;
+                return;
             }
-
-            var rig = binding.actor.GetComponent<RoutineCharacterPartRig>();
-            if (rig == null)
-            {
-                return false;
-            }
-
-            rig.EnsureBound();
-
-            ApplyPartRenderer(rig, CharacterPartType.LegL, color, fallbackSprite, -30);
-            ApplyPartRenderer(rig, CharacterPartType.LegR, color, fallbackSprite, -30);
-            ApplyPartRenderer(rig, CharacterPartType.Torso, color, fallbackSprite, -20);
-            ApplyPartRenderer(rig, CharacterPartType.ArmL, color, fallbackSprite, -10);
-            ApplyPartRenderer(rig, CharacterPartType.ArmR, color, fallbackSprite, -10);
-            ApplyPartRenderer(rig, CharacterPartType.Neck, color, fallbackSprite, 0);
-            ApplyPartRenderer(rig, CharacterPartType.Head, color, fallbackSprite, 10);
-            ApplyPartRenderer(rig, CharacterPartType.Eyes, color, fallbackSprite, 20);
-
-            var accessorySprite = fallbackSprite;
-            var accessoryOffset = Vector3.zero;
-            var accessoryOrder = 30;
-            if (visualResources != null)
-            {
-                var accessorySet = visualResources.characterAccessorySet;
-                var accessories = accessorySet != null ? accessorySet.Accessories : null;
-                if (accessories != null && accessories.Count > 0)
-                {
-                    var accessory = accessories[Mathf.Clamp(index, 0, accessories.Count - 1)];
-                    accessorySprite = accessory.sprite != null ? accessory.sprite : fallbackSprite;
-                    accessoryOrder += accessory.sortingOffset;
-                    accessoryOffset = rig.GetAccessoryAnchorLocalPosition(accessory.attachPartType) + (Vector3)accessory.localOffset;
-                }
-            }
-
-            rig.SetAccessoryLocalPosition(accessoryOffset);
-            ApplyPartRenderer(rig, CharacterPartType.Accessory, color, accessorySprite, accessoryOrder);
 
             if (visualResources != null)
             {
                 var partSet = visualResources.ResolveCharacterPartSet(binding.actor.name, index);
-                var definitions = partSet != null ? partSet.Parts : null;
-                if (definitions != null)
+                if (partSet != null)
                 {
-                    for (int i = 0; i < definitions.Count; i++)
+                    assembler.ApplyPartSet(partSet);
+                }
+
+                assembler.SetAccessorySet(visualResources.characterAccessorySet);
+                assembler.DetachAccessory();
+
+                var accessories = visualResources.characterAccessorySet != null ? visualResources.characterAccessorySet.Accessories : null;
+                if (accessories != null && accessories.Count > 0)
+                {
+                    var selected = accessories[Mathf.Clamp(index, 0, accessories.Count - 1)];
+                    if (selected != null)
                     {
-                        var definition = definitions[i];
-                        var partRenderer = rig.GetRenderer(definition.partType);
-                        if (partRenderer == null)
-                        {
-                            continue;
-                        }
-
-                        if (definition.sprite != null)
-                        {
-                            partRenderer.sprite = definition.sprite;
-                        }
-
-                        partRenderer.sortingOrder = definition.sortingOrder;
+                        assembler.AttachAccessory(selected.accessoryId);
                     }
                 }
             }
-
-            return true;
         }
 
-        private static void ApplyPartRenderer(RoutineCharacterPartRig rig, CharacterPartType partType, Color color, Sprite fallbackSprite, int sortingOrder)
+        private RoutineCharacterAssembler EnsureCharacterAssembler(GameObject actorGo, Color color, Sprite fallbackSprite)
         {
-            var renderer = rig.GetRenderer(partType);
+            EnsureCharacterPartNodes(actorGo.transform);
+            var assembler = actorGo.GetComponent<RoutineCharacterAssembler>();
+            if (assembler == null)
+            {
+                assembler = actorGo.AddComponent<RoutineCharacterAssembler>();
+            }
+
+            assembler.EnsureBound();
+            ApplyPartRenderer(assembler, CharacterPartType.LegL, color, fallbackSprite, -30);
+            ApplyPartRenderer(assembler, CharacterPartType.LegR, color, fallbackSprite, -30);
+            ApplyPartRenderer(assembler, CharacterPartType.Torso, color, fallbackSprite, -20);
+            ApplyPartRenderer(assembler, CharacterPartType.ArmL, color, fallbackSprite, -10);
+            ApplyPartRenderer(assembler, CharacterPartType.ArmR, color, fallbackSprite, -10);
+            ApplyPartRenderer(assembler, CharacterPartType.Neck, color, fallbackSprite, 0);
+            ApplyPartRenderer(assembler, CharacterPartType.Head, color, fallbackSprite, 10);
+            ApplyPartRenderer(assembler, CharacterPartType.Eyes, color, fallbackSprite, 20);
+            return assembler;
+        }
+
+        private static void ApplyPartRenderer(RoutineCharacterAssembler assembler, CharacterPartType partType, Color color, Sprite fallbackSprite, int sortingOrder)
+        {
+            var renderer = assembler.GetRenderer(partType);
             if (renderer == null)
             {
                 return;
@@ -4555,6 +4535,44 @@ namespace ProjectW.IngameMvp
             renderer.sortingLayerName = "Default";
             renderer.sortingOrder = sortingOrder;
             renderer.sprite = fallbackSprite != null ? fallbackSprite : GetRuntimeSquareSprite();
+        }
+
+        private static void EnsureCharacterPartNodes(Transform actorRoot)
+        {
+            EnsureChildNode(actorRoot, "Head");
+            EnsureChildNode(actorRoot, "Eyes");
+            EnsureChildNode(actorRoot, "Neck");
+            EnsureChildNode(actorRoot, "Torso");
+            EnsureChildNode(actorRoot, "ArmL");
+            EnsureChildNode(actorRoot, "ArmR");
+            EnsureChildNode(actorRoot, "LegL");
+            EnsureChildNode(actorRoot, "LegR");
+
+            var accessoryRoot = EnsureChildNode(actorRoot, "AccessoryRoot");
+            EnsureChildNode(accessoryRoot, "HeadAnchor");
+            EnsureChildNode(accessoryRoot, "EyesAnchor");
+            EnsureChildNode(accessoryRoot, "NeckAnchor");
+            EnsureChildNode(accessoryRoot, "TorsoAnchor");
+            EnsureChildNode(accessoryRoot, "ArmLAnchor");
+            EnsureChildNode(accessoryRoot, "ArmRAnchor");
+            EnsureChildNode(accessoryRoot, "LegLAnchor");
+            EnsureChildNode(accessoryRoot, "LegRAnchor");
+        }
+
+        private static Transform EnsureChildNode(Transform parent, string childName)
+        {
+            var child = parent.Find(childName);
+            if (child != null)
+            {
+                return child;
+            }
+
+            child = new GameObject(childName).transform;
+            child.SetParent(parent, false);
+            child.localPosition = Vector3.zero;
+            child.localRotation = Quaternion.identity;
+            child.localScale = Vector3.one;
+            return child;
         }
 
 
@@ -6059,9 +6077,9 @@ namespace ProjectW.IngameMvp
             {
                 var instance = Instantiate(characterRootPrefab);
                 instance.name = name;
-                if (instance.GetComponent<RoutineCharacterPartRig>() == null)
+                if (instance.GetComponent<RoutineCharacterAssembler>() == null)
                 {
-                    instance.AddComponent<RoutineCharacterPartRig>();
+                    instance.AddComponent<RoutineCharacterAssembler>();
                 }
 
                 return instance;
