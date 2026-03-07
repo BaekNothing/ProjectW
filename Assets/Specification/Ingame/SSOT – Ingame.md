@@ -2,7 +2,7 @@
 
 본 문서는 Project_W Ingame 영역의 상위 SSOT 인덱스다.
 
-코어 루프 구현 판단은 본 문서와 `CoreLoop/01..11` 세부 문서를 함께 참조해야 한다.
+코어 루프 구현 판단은 본 문서와 `CoreLoop/01..14` 세부 문서를 함께 참조해야 한다.
 이 문서가 우선순위와 범위를 고정하며, 세부 규칙은 하위 문서가 계약 형태로 정의한다.
 
 ------
@@ -57,6 +57,7 @@
 11. `Assets/Specification/Ingame/CoreLoop/11 – Test Matrix (MVP).md`
 12. `Assets/Specification/Ingame/CoreLoop/12 – Spatial Interaction and Entity Scaling.md`
 13. `Assets/Specification/Ingame/CoreLoop/13 – Character Neuron Visualization Feasibility.md`
+14. `Assets/Specification/Ingame/CoreLoop/14 – Character Rig and Part Swap Pipeline.md`
 
 ------
 
@@ -65,7 +66,7 @@
 Ingame 구현 판단은 아래 순서를 따른다.
 
 1. 본 문서(`SSOT – Ingame`)
-2. CoreLoop 세부 문서(`01..13`)
+2. CoreLoop 세부 문서(`01..14`)
 3. `SSOT – Workflow Local Spec × Unity × GitHub`
 4. Unity 구현 코드
 
