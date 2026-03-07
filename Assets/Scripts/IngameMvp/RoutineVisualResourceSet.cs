@@ -11,6 +11,14 @@ namespace ProjectW.IngameMvp
         public Sprite characterB;
         public Sprite characterC;
 
+        [Header("Character Part Sets")]
+        public CharacterPartSet characterPartSetA;
+        public CharacterPartSet characterPartSetB;
+        public CharacterPartSet characterPartSetC;
+
+        [Header("Character Accessory Set")]
+        public CharacterAccessorySet characterAccessorySet;
+
         [Header("Zone Sprites")]
         public Sprite zoneMission;
         public Sprite zoneCafeteria;
@@ -64,6 +72,21 @@ namespace ProjectW.IngameMvp
             if (index == 1) return characterB;
             if (index == 2) return characterC;
             return characterA;
+        }
+
+        public CharacterPartSet ResolveCharacterPartSet(string actorName, int index)
+        {
+            if (!string.IsNullOrWhiteSpace(actorName))
+            {
+                if (actorName.IndexOf("_A", StringComparison.OrdinalIgnoreCase) >= 0) return characterPartSetA;
+                if (actorName.IndexOf("_B", StringComparison.OrdinalIgnoreCase) >= 0) return characterPartSetB;
+                if (actorName.IndexOf("_C", StringComparison.OrdinalIgnoreCase) >= 0) return characterPartSetC;
+            }
+
+            if (index == 0) return characterPartSetA;
+            if (index == 1) return characterPartSetB;
+            if (index == 2) return characterPartSetC;
+            return characterPartSetA;
         }
 
         public Sprite ResolveZoneSprite(string zoneId)
