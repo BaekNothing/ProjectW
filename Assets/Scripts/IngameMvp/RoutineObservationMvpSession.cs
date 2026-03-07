@@ -4496,7 +4496,11 @@ namespace ProjectW.IngameMvp
                     var selected = accessories[Mathf.Clamp(index, 0, accessories.Count - 1)];
                     if (selected != null)
                     {
-                        assembler.AttachAccessory(selected.accessoryId);
+                        var attached = assembler.AttachAccessory(selected.accessoryId);
+                        if (attached == null)
+                        {
+                            Debug.LogWarning($"[CharacterAppearance] '{binding.actor.name}' 액세서리 장착 실패: {selected.accessoryId}", binding.actor.gameObject);
+                        }
                     }
                 }
             }
