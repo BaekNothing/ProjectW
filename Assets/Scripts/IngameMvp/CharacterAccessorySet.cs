@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace ProjectW.IngameMvp
 {
@@ -9,9 +10,18 @@ namespace ProjectW.IngameMvp
     {
         public string accessoryId = "accessory.default";
         public Sprite sprite;
-        public CharacterPartType attachPartType = CharacterPartType.Head;
+
+        [FormerlySerializedAs("attachPartType")]
+        public CharacterPartType targetPart = CharacterPartType.Head;
+
+        public string anchorName = string.Empty;
         public Vector2 localOffset;
-        public int sortingOffset;
+
+        [FormerlySerializedAs("sortingOffset")]
+        public int orderOffset = 1;
+
+        [Tooltip("같은 그룹은 동시에 하나만 장착 가능합니다. 예: hat")]
+        public string exclusiveGroup = string.Empty;
     }
 
     [CreateAssetMenu(fileName = "CharacterAccessorySet", menuName = "ProjectW/IngameMvp/Character Accessory Set")]
