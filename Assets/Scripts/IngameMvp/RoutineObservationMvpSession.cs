@@ -114,7 +114,7 @@ namespace ProjectW.IngameMvp
         private const float SelfTalkHeight = 1.35f;
         private const float SelfTalkTextSize = 0.14f;
         private const int SelfTalkFontSize = 16;
-        private const int ChronicleHistoryLimit = 300;
+        private const int ChronicleVisibleLineCount = 6;
         private const string ZoneObjectRootName = "ObjectSlots";
         private const string ZoneTagMission = "zone.mission";
         private const string ZoneTagNeedHunger = "need.hunger";
@@ -147,8 +147,6 @@ namespace ProjectW.IngameMvp
         [SerializeField] private Text progressText;
         [SerializeField] private Text situationText;
         [SerializeField] private Text chronicleText;
-        [SerializeField] private ScrollRect chronicleScrollRect;
-        [SerializeField] private RectTransform chronicleContentRect;
         [SerializeField] private Text currentTimeText;
         [SerializeField] private RoutineNeuronPanelView neuronPanelView;
         [SerializeField] private RoutineObjectInfoPanelView objectInfoPanelView;
@@ -250,7 +248,6 @@ namespace ProjectW.IngameMvp
         private readonly List<string> _chronicleHistoryLines = new List<string>();
         private ChronicleSummary _latestChronicleSummary;
         private int _chronicleEventSequence;
-        private bool _chronicleAutoScrollPending;
         private CycleKpiSnapshot _latestCycleKpi = new CycleKpiSnapshot();
         private readonly PlaytestSurveyForm _playtestSurveyForm = new PlaytestSurveyForm();
         private int _cycleInterventionOfferCount;
@@ -2237,14 +2234,7 @@ namespace ProjectW.IngameMvp
                 _chronicleEventSequence,
                 chronicleEvent.Category,
                 chronicleEvent.Description.Trim()));
-
-            while (_chronicleHistoryLines.Count > ChronicleHistoryLimit)
-            {
-                _chronicleHistoryLines.RemoveAt(0);
-            }
-
-            _chronicleAutoScrollPending = true;
-            SetDashboardContext("Chronicle", string.Join("\n", _chronicleHistoryLines));
+            SetDashboardContext("Chronicle", BuildChronicleRecentText(ChronicleVisibleLineCount));
         }
 
         private float ComputeAveragePerformanceScore()
@@ -2311,9 +2301,11 @@ namespace ProjectW.IngameMvp
                 return;
             }
 
-            var chronicleValue = _chronicleHistoryLines.Count > 0
-                ? string.Join("\n", _chronicleHistoryLines)
-                : TryGetDashboardValue("Chronicle");
+            var chronicleValue = BuildChronicleRecentText(ChronicleVisibleLineCount);
+            if (string.IsNullOrWhiteSpace(chronicleValue))
+            {
+                chronicleValue = TryGetDashboardValue("Chronicle");
+            }
             if (string.IsNullOrWhiteSpace(chronicleValue))
             {
                 chronicleText.text = string.Empty;
@@ -2321,19 +2313,29 @@ namespace ProjectW.IngameMvp
             }
 
             chronicleText.text = "Chronicle:\n" + chronicleValue;
-            TryAutoScrollChronicle();
         }
 
-        private void TryAutoScrollChronicle()
+        private string BuildChronicleRecentText(int maxLines)
         {
-            if (!_chronicleAutoScrollPending || chronicleScrollRect == null)
+            if (_chronicleHistoryLines.Count <= 0 || maxLines <= 0)
             {
-                return;
+                return string.Empty;
             }
 
-            Canvas.ForceUpdateCanvases();
-            chronicleScrollRect.verticalNormalizedPosition = 0f;
-            _chronicleAutoScrollPending = false;
+            var takeCount = Mathf.Min(maxLines, _chronicleHistoryLines.Count);
+            var startIndex = _chronicleHistoryLines.Count - takeCount;
+            var builder = new StringBuilder(takeCount * 64);
+            for (var i = startIndex; i < _chronicleHistoryLines.Count; i++)
+            {
+                if (builder.Length > 0)
+                {
+                    builder.Append('\n');
+                }
+
+                builder.Append(_chronicleHistoryLines[i]);
+            }
+
+            return builder.ToString();
         }
 
         private string TryGetDashboardValue(string key)
@@ -3411,7 +3413,8 @@ namespace ProjectW.IngameMvp
         {
             if (chronicleText != null)
             {
-                EnsureChronicleScrollComponents();
+                DetachChronicleFromScrollContainer(chronicleText);
+                ConfigureChronicleTextLayout(chronicleText);
                 return;
             }
 
@@ -3419,8 +3422,8 @@ namespace ProjectW.IngameMvp
             chronicleText = chronicleGo != null ? chronicleGo.GetComponent<Text>() : null;
             if (chronicleText != null)
             {
+                DetachChronicleFromScrollContainer(chronicleText);
                 ConfigureChronicleTextLayout(chronicleText);
-                EnsureChronicleScrollComponents();
                 return;
             }
 
@@ -3431,7 +3434,32 @@ namespace ProjectW.IngameMvp
             }
 
             chronicleText = CreateChronicleText(canvas.transform);
-            EnsureChronicleScrollComponents();
+        }
+
+        private void DetachChronicleFromScrollContainer(Text text)
+        {
+            if (text == null)
+            {
+                return;
+            }
+
+            var scrollRoot = text.GetComponentInParent<ScrollRect>();
+            if (scrollRoot == null)
+            {
+                return;
+            }
+
+            var canvas = FindFirstObjectByType<Canvas>();
+            if (canvas == null)
+            {
+                return;
+            }
+
+            text.transform.SetParent(canvas.transform, false);
+            if (scrollRoot.gameObject != text.gameObject)
+            {
+                Destroy(scrollRoot.gameObject);
+            }
         }
 
         private static Text CreateChronicleText(Transform canvasTransform)
@@ -3458,86 +3486,6 @@ namespace ProjectW.IngameMvp
             return text;
         }
 
-        private void EnsureChronicleScrollComponents()
-        {
-            if (chronicleText == null)
-            {
-                return;
-            }
-
-            if (chronicleScrollRect == null)
-            {
-                chronicleScrollRect = chronicleText.GetComponentInParent<ScrollRect>();
-            }
-
-            if (chronicleContentRect == null && chronicleScrollRect != null)
-            {
-                chronicleContentRect = chronicleScrollRect.content;
-            }
-
-            if (chronicleScrollRect != null && chronicleContentRect != null)
-            {
-                return;
-            }
-
-            var chronicleRect = chronicleText.rectTransform;
-            var parent = chronicleRect.parent;
-            if (parent == null)
-            {
-                return;
-            }
-
-            var panel = new GameObject("ChroniclePanel", typeof(RectTransform), typeof(Image), typeof(ScrollRect));
-            panel.transform.SetParent(parent, false);
-            var panelRect = panel.GetComponent<RectTransform>();
-            panelRect.anchorMin = new Vector2(1f, 0f);
-            panelRect.anchorMax = new Vector2(1f, 0f);
-            panelRect.pivot = new Vector2(1f, 0f);
-            panelRect.anchoredPosition = new Vector2(-16f, 16f);
-            panelRect.sizeDelta = new Vector2(520f, 220f);
-
-            var panelImage = panel.GetComponent<Image>();
-            panelImage.color = new Color(0.04f, 0.08f, 0.12f, 0.72f);
-
-            var viewport = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
-            viewport.transform.SetParent(panel.transform, false);
-            var viewportRect = viewport.GetComponent<RectTransform>();
-            viewportRect.anchorMin = Vector2.zero;
-            viewportRect.anchorMax = Vector2.one;
-            viewportRect.pivot = new Vector2(0.5f, 0.5f);
-            viewportRect.anchoredPosition = Vector2.zero;
-            viewportRect.sizeDelta = Vector2.zero;
-
-            var viewportImage = viewport.GetComponent<Image>();
-            viewportImage.color = new Color(0f, 0f, 0f, 0.01f);
-            var mask = viewport.GetComponent<Mask>();
-            mask.showMaskGraphic = false;
-
-            var content = new GameObject("Content", typeof(RectTransform), typeof(ContentSizeFitter));
-            content.transform.SetParent(viewport.transform, false);
-            chronicleContentRect = content.GetComponent<RectTransform>();
-            chronicleContentRect.anchorMin = new Vector2(0f, 1f);
-            chronicleContentRect.anchorMax = new Vector2(1f, 1f);
-            chronicleContentRect.pivot = new Vector2(0.5f, 1f);
-            chronicleContentRect.anchoredPosition = Vector2.zero;
-            chronicleContentRect.sizeDelta = Vector2.zero;
-
-            var fitter = content.GetComponent<ContentSizeFitter>();
-            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-            chronicleRect.SetParent(content.transform, false);
-            ConfigureChronicleTextLayout(chronicleText);
-
-            chronicleScrollRect = panel.GetComponent<ScrollRect>();
-            chronicleScrollRect.viewport = viewportRect;
-            chronicleScrollRect.content = chronicleContentRect;
-            chronicleScrollRect.horizontal = false;
-            chronicleScrollRect.vertical = true;
-            chronicleScrollRect.movementType = ScrollRect.MovementType.Clamped;
-            chronicleScrollRect.scrollSensitivity = 24f;
-        }
-
         private static void ConfigureChronicleTextLayout(Text text)
         {
             if (text == null)
@@ -3551,14 +3499,14 @@ namespace ProjectW.IngameMvp
                 return;
             }
 
-            rect.anchorMin = new Vector2(0f, 1f);
-            rect.anchorMax = new Vector2(1f, 1f);
-            rect.pivot = new Vector2(0.5f, 1f);
-            rect.anchoredPosition = Vector2.zero;
-            rect.sizeDelta = Vector2.zero;
-            text.alignment = TextAnchor.UpperLeft;
-            text.horizontalOverflow = HorizontalWrapMode.Wrap;
-            text.verticalOverflow = VerticalWrapMode.Overflow;
+            rect.anchorMin = new Vector2(1f, 0f);
+            rect.anchorMax = new Vector2(1f, 0f);
+            rect.pivot = new Vector2(1f, 0f);
+            rect.anchoredPosition = new Vector2(-16f, 16f);
+            rect.sizeDelta = new Vector2(520f, 220f);
+            text.alignment = TextAnchor.LowerRight;
+            text.horizontalOverflow = HorizontalWrapMode.Overflow;
+            text.verticalOverflow = VerticalWrapMode.Truncate;
         }
 
         private static void ConfigureCurrentTimeTextLayout(Text text)
