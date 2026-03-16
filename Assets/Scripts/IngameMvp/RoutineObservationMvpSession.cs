@@ -64,14 +64,9 @@ namespace ProjectW.IngameMvp
         [NonSerialized] public Vector3 lockedZonePosition;
         [NonSerialized] public float mood = 55f;
         [NonSerialized] public Dictionary<string, float> knowledgeMap = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
-        [NonSerialized] public string selfTalkText;
-        [NonSerialized] public TextMesh selfTalkTextMesh;
-        [NonSerialized] public int selfTalkLastRefreshTick = -1;
-        [NonSerialized] public int selfTalkHoldUntilTick = -1;
-        [NonSerialized] public float selfTalkLastMood;
-        [NonSerialized] public bool selfTalkHasSnapshot;
-        [NonSerialized] public RoutineActionType selfTalkLastAction;
-        [NonSerialized] public RoutineActionType selfTalkLastIntendedAction;
+        [NonSerialized] public SpriteRenderer priorityIconRenderer;
+        [NonSerialized] public RoutineActionType priorityPreviewAction;
+        [NonSerialized] public bool hasPriorityPreviewAction;
     }
 
     public struct RoutineTickSnapshot
@@ -111,9 +106,8 @@ namespace ProjectW.IngameMvp
         private const float MinZoneSizeNearTarget = 3.2f;
         private const float MaxZoneSizeNearTarget = 4.8f;
         private const float DeskActionArrivalThresholdSqr = 0.01f;
-        private const float SelfTalkHeight = 1.35f;
-        private const float SelfTalkTextSize = 0.14f;
-        private const int SelfTalkFontSize = 16;
+        private const float PriorityIconHeight = 1.35f;
+        private const float PriorityIconScale = 0.28f;
         private const int ChronicleVisibleLineCount = 6;
         private const string ZoneObjectRootName = "ObjectSlots";
         private const string ZoneTagMission = "zone.mission";
@@ -561,7 +555,6 @@ namespace ProjectW.IngameMvp
                 binding.actor.position = WithCharacterDepth(binding.actor.position);
                 UpdateCharacterAnimator(binding);
                 UpdateTargetLineVisual(binding, i);
-                UpdateSelfTalkTransform(binding);
             }
         }
 
@@ -4215,15 +4208,11 @@ namespace ProjectW.IngameMvp
             }
 
             EnsureCharacterKnowledgeMap(binding, index);
-            binding.selfTalkLastRefreshTick = -1;
-            binding.selfTalkHoldUntilTick = -1;
-            binding.selfTalkLastMood = binding.mood;
-            binding.selfTalkHasSnapshot = false;
-            binding.selfTalkLastAction = RoutineActionType.Move;
-            binding.selfTalkLastIntendedAction = RoutineActionType.Move;
+            binding.hasPriorityPreviewAction = false;
+            binding.priorityPreviewAction = RoutineActionType.Move;
             UpdateRuntimeStateTexts(binding);
             EnsureTargetLineRenderer(binding, index);
-            EnsureSelfTalkText(binding);
+            EnsurePriorityIcon(binding);
             binding.runtimeInitialized = true;
         }
 
@@ -5490,8 +5479,8 @@ namespace ProjectW.IngameMvp
             binding.stress = Mathf.Clamp(binding.stress, 0f, GaugeMax);
             binding.mood = Mathf.Clamp(binding.mood, -100f, 100f);
 
-            EnsureSelfTalkText(binding);
-            UpdateSelfTalkVisual(binding);
+            EnsurePriorityIcon(binding);
+            UpdatePriorityIconVisual(binding);
         }
 
         private void ProcessRelationshipAndMood()
@@ -5649,178 +5638,6 @@ namespace ProjectW.IngameMvp
             return true;
         }
 
-        private static string ResolveMoodLabel(float mood)
-        {
-            if (mood <= -55f)
-            {
-                return "최악";
-            }
-
-            if (mood <= -20f)
-            {
-                return "짜증";
-            }
-
-            if (mood < 20f)
-            {
-                return "보통";
-            }
-
-            if (mood < 55f)
-            {
-                return "좋음";
-            }
-
-            return "최상";
-        }
-
-        private static string BuildSelfTalk(RoutineCharacterBinding binding, bool actionChanged, bool moodChanged, float moodDelta)
-        {
-            if (binding == null)
-            {
-                return "상황 확인 중.";
-            }
-
-            var targetAction = binding.currentAction == RoutineActionType.Move
-                ? binding.intendedAction
-                : binding.currentAction;
-            var what = ResolveActionWhatText(targetAction);
-            var why = ResolveActionWhyText(binding, targetAction);
-            var evaluation = BuildSelfEvaluationText(binding, targetAction);
-
-            if (moodChanged)
-            {
-                return moodDelta > 0f
-                    ? string.Format(CultureInfo.InvariantCulture, "방금 기분이 좀 좋아졌다. {0} 하러 간다. 이유: {1}. {2}", what, why, evaluation)
-                    : string.Format(CultureInfo.InvariantCulture, "지금 기분이 가라앉는다. 그래도 {0} 하러 간다. 이유: {1}. {2}", what, why, evaluation);
-            }
-
-            if (actionChanged)
-            {
-                return string.Format(CultureInfo.InvariantCulture, "{0} 하러 이동한다. 이유: {1}. {2}", what, why, evaluation);
-            }
-
-            return string.Format(CultureInfo.InvariantCulture, "{0} 진행 중. 이유: {1}. {2}", what, why, evaluation);
-        }
-
-        private static string ResolveActionWhatText(RoutineActionType action)
-        {
-            switch (action)
-            {
-                case RoutineActionType.Breakfast:
-                    return "아침 식사";
-                case RoutineActionType.Lunch:
-                    return "점심 식사";
-                case RoutineActionType.Dinner:
-                    return "저녁 식사";
-                case RoutineActionType.Eat:
-                    return "식사";
-                case RoutineActionType.Sleep:
-                    return "휴식";
-                case RoutineActionType.Mission:
-                    return "업무";
-                default:
-                    return "이동";
-            }
-        }
-
-        private static string ResolveActionWhyText(RoutineCharacterBinding binding, RoutineActionType action)
-        {
-            if (action == RoutineActionType.Sleep || binding.sleep < binding.sleepThreshold)
-            {
-                return "피로가 쌓여 회복이 필요해서";
-            }
-
-            if (action == RoutineActionType.Eat
-                || action == RoutineActionType.Breakfast
-                || action == RoutineActionType.Lunch
-                || action == RoutineActionType.Dinner
-                || binding.hunger < binding.hungerThreshold)
-            {
-                return "허기를 채워 집중력을 올리기 위해서";
-            }
-
-            if (binding.stress < binding.stressThreshold)
-            {
-                return "스트레스가 내려가서 페이스를 정비하려고";
-            }
-
-            var knowledgeAverage = CalculateAverageKnowledgeConfidence(binding);
-            if (action == RoutineActionType.Mission && knowledgeAverage >= 0.75f)
-            {
-                return "지식 연결감이 좋아 지금 밀어붙일 수 있어서";
-            }
-
-            if (action == RoutineActionType.Mission && HasKnowledgeConfusion(binding))
-            {
-                return "정보가 엉켜 있어서 정리하면서 진행해야 해서";
-            }
-
-            return "목표 진척을 확보해야 해서";
-        }
-
-        private static string BuildSelfEvaluationText(RoutineCharacterBinding binding, RoutineActionType action)
-        {
-            var resourceAverage = (binding.hunger + binding.sleep + binding.stress) / 3f;
-            var confidence = CalculateAverageKnowledgeConfidence(binding);
-            var effortScore = Mathf.Clamp01((resourceAverage / GaugeMax) * 0.6f + confidence * 0.4f);
-
-            if (action == RoutineActionType.Mission && effortScore >= 0.72f)
-            {
-                return "지금 판단은 효율적이다.";
-            }
-
-            if (effortScore <= 0.38f)
-            {
-                return "지금 선택은 버티기 위주다.";
-            }
-
-            return "지금 선택은 무난하다.";
-        }
-
-        private static string WrapSelfTalkText(string text, int maxLineLength = 18, int maxLines = 3)
-        {
-            if (string.IsNullOrWhiteSpace(text) || maxLineLength < 6 || maxLines < 1)
-            {
-                return text;
-            }
-
-            var words = text.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            if (words.Length <= 1)
-            {
-                return text;
-            }
-
-            var sb = new StringBuilder(text.Length + 8);
-            var lineLength = 0;
-            var lines = 1;
-            for (var i = 0; i < words.Length; i++)
-            {
-                var word = words[i];
-                var nextLength = lineLength <= 0 ? word.Length : lineLength + 1 + word.Length;
-                if (lineLength > 0 && nextLength > maxLineLength && lines < maxLines)
-                {
-                    sb.Append('\n');
-                    sb.Append(word);
-                    lineLength = word.Length;
-                    lines += 1;
-                    continue;
-                }
-
-                if (lineLength > 0)
-                {
-                    sb.Append(' ');
-                    lineLength += 1;
-                }
-
-                sb.Append(word);
-                lineLength += word.Length;
-            }
-
-            return sb.ToString();
-        }
-
-
         private static float CalculateAverageKnowledgeConfidence(RoutineCharacterBinding binding)
         {
             if (binding?.knowledgeMap == null || binding.knowledgeMap.Count == 0)
@@ -5857,91 +5674,92 @@ namespace ProjectW.IngameMvp
 
             return (max - min) >= 0.35f || CalculateAverageKnowledgeConfidence(binding) <= 0.4f;
         }
-        private void EnsureSelfTalkText(RoutineCharacterBinding binding)
+        private void EnsurePriorityIcon(RoutineCharacterBinding binding)
         {
-            if (binding == null || binding.actor == null || binding.selfTalkTextMesh != null)
+            if (binding == null || binding.actor == null || binding.priorityIconRenderer != null)
             {
                 return;
             }
 
-            var textObject = new GameObject("SelfTalkText");
-            textObject.transform.SetParent(binding.actor, false);
-            textObject.transform.localPosition = new Vector3(0f, SelfTalkHeight, 0f);
-            var textMesh = textObject.AddComponent<TextMesh>();
-            textMesh.anchor = TextAnchor.MiddleCenter;
-            textMesh.alignment = TextAlignment.Center;
-            textMesh.characterSize = SelfTalkTextSize;
-            textMesh.fontSize = SelfTalkFontSize;
-            textMesh.color = Color.white;
-            textMesh.text = string.Empty;
-            binding.selfTalkTextMesh = textMesh;
+            var iconObject = new GameObject("PriorityIcon");
+            iconObject.transform.SetParent(binding.actor, false);
+            iconObject.transform.localPosition = new Vector3(0f, PriorityIconHeight, 0f);
+            iconObject.transform.localScale = new Vector3(PriorityIconScale, PriorityIconScale, 1f);
+            var renderer = iconObject.AddComponent<SpriteRenderer>();
+            renderer.sprite = GetRuntimeSquareSprite();
+            renderer.sortingOrder = 250;
+            renderer.color = ResolvePriorityIconColor(RoutineActionType.Mission);
+            binding.priorityIconRenderer = renderer;
+            binding.priorityPreviewAction = RoutineActionType.Mission;
+            binding.hasPriorityPreviewAction = true;
         }
 
-        private void UpdateSelfTalkVisual(RoutineCharacterBinding binding)
+        private void UpdatePriorityIconVisual(RoutineCharacterBinding binding)
         {
             if (binding == null)
             {
                 return;
             }
 
-            EnsureSelfTalkText(binding);
-            if (binding.selfTalkTextMesh == null)
+            EnsurePriorityIcon(binding);
+            if (binding.priorityIconRenderer == null)
             {
                 return;
             }
 
-            if (binding.selfTalkLastRefreshTick != _absoluteTick)
+            var nextAction = ResolveTopPriorityAction(binding);
+            if (!binding.hasPriorityPreviewAction || binding.priorityPreviewAction != nextAction)
             {
-                var hasSnapshot = binding.selfTalkHasSnapshot;
-                var moodDelta = hasSnapshot ? (binding.mood - binding.selfTalkLastMood) : 0f;
-                var moodChanged = hasSnapshot && Mathf.Abs(moodDelta) >= 6f;
-                var actionChanged = !hasSnapshot
-                    || binding.currentAction != binding.selfTalkLastAction
-                    || binding.intendedAction != binding.selfTalkLastIntendedAction;
-                var holdExpired = _absoluteTick >= binding.selfTalkHoldUntilTick;
-
-                if (string.IsNullOrWhiteSpace(binding.selfTalkText) || holdExpired || actionChanged || moodChanged)
-                {
-                    var line = BuildSelfTalk(binding, actionChanged, moodChanged, moodDelta);
-                    line = WrapSelfTalkText(line);
-                    binding.selfTalkText = string.Format(
-                        CultureInfo.InvariantCulture,
-                        "{0} ({1})",
-                        line,
-                        ResolveMoodLabel(binding.mood));
-                    binding.selfTalkHoldUntilTick = _absoluteTick + UnityEngine.Random.Range(1, 3);
-                }
-
-                binding.selfTalkLastRefreshTick = _absoluteTick;
-                binding.selfTalkLastMood = binding.mood;
-                binding.selfTalkLastAction = binding.currentAction;
-                binding.selfTalkLastIntendedAction = binding.intendedAction;
-                binding.selfTalkHasSnapshot = true;
+                binding.priorityPreviewAction = nextAction;
+                binding.hasPriorityPreviewAction = true;
             }
 
-            binding.selfTalkTextMesh.text = binding.selfTalkText;
-            binding.selfTalkTextMesh.color = binding.mood < -20f ? new Color(1f, 0.72f, 0.72f, 1f) : Color.white;
-            UpdateSelfTalkTransform(binding);
+            binding.priorityIconRenderer.color = ResolvePriorityIconColor(nextAction);
+            binding.priorityIconRenderer.transform.localPosition = new Vector3(0f, PriorityIconHeight, 0f);
+            binding.priorityIconRenderer.transform.rotation = Quaternion.identity;
         }
 
-        private void UpdateSelfTalkTransform(RoutineCharacterBinding binding)
+        private RoutineActionType ResolveTopPriorityAction(RoutineCharacterBinding binding)
         {
-            if (binding == null || binding.selfTalkTextMesh == null)
+            if (binding == null)
             {
-                return;
+                return RoutineActionType.Mission;
             }
 
-            var textTransform = binding.selfTalkTextMesh.transform;
-            textTransform.localPosition = new Vector3(0f, SelfTalkHeight, 0f);
-
-            var cameraToUse = interactionCamera != null ? interactionCamera : Camera.main;
-            if (cameraToUse == null)
+            if (binding.hasLatchedNeedAction && IsNeedAction(binding.latchedNeedAction))
             {
-                return;
+                return binding.latchedNeedAction;
             }
 
-            var cameraForward = cameraToUse.transform.forward;
-            textTransform.rotation = Quaternion.LookRotation(cameraForward, Vector3.up);
+            if (binding.sleep <= binding.sleepThreshold || binding.stress <= binding.stressThreshold)
+            {
+                return RoutineActionType.Sleep;
+            }
+
+            if (binding.hunger <= binding.hungerThreshold)
+            {
+                return RoutineActionType.Eat;
+            }
+
+            return RoutineActionType.Mission;
+        }
+
+        private static Color ResolvePriorityIconColor(RoutineActionType action)
+        {
+            switch (action)
+            {
+                case RoutineActionType.Sleep:
+                    return new Color(0.38f, 0.62f, 1f, 0.95f);
+                case RoutineActionType.Eat:
+                case RoutineActionType.Breakfast:
+                case RoutineActionType.Lunch:
+                case RoutineActionType.Dinner:
+                    return new Color(1f, 0.78f, 0.28f, 0.95f);
+                case RoutineActionType.Mission:
+                    return new Color(0.55f, 1f, 0.56f, 0.95f);
+                default:
+                    return new Color(0.88f, 0.88f, 0.88f, 0.9f);
+            }
         }
 
         private void TryColorize(GameObject go, Color color)

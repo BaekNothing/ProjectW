@@ -396,6 +396,38 @@ namespace ProjectW.Tests.EditMode
             DestroyIfExists("Characters");
         }
 
+        [Test]
+        public void AdvanceTick_ShowsPriorityIconAndUpdatesByNeedState()
+        {
+            var zones = new GameObject("Zones");
+            CreateZone(zones.transform, "Mission", "zone.mission.main", new[] { "zone.mission" }, new Vector3(0f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            CreateZone(zones.transform, "Cafeteria", "zone.meal.main", new[] { "need.hunger" }, new Vector3(6f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            CreateZone(zones.transform, "Sleep", "zone.sleep.main", new[] { "need.sleep" }, new Vector3(-6f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            var root = new GameObject("Characters");
+            var actor = new GameObject("Character_A");
+            actor.transform.SetParent(root.transform, false);
+
+            var go = new GameObject("RoutineSession_PriorityIcon");
+            var session = go.AddComponent<RoutineObservationMvpSession>();
+            session.AdvanceOneTick();
+
+            var binding = session.Characters[0];
+            var icon = binding.actor.Find("PriorityIcon");
+            Assert.IsNotNull(icon);
+
+            var renderer = icon.GetComponent<SpriteRenderer>();
+            Assert.IsNotNull(renderer);
+            Assert.AreEqual(new Color(0.55f, 1f, 0.56f, 0.95f), renderer.color);
+
+            binding.hunger = 0f;
+            session.AdvanceOneTick();
+            Assert.AreEqual(new Color(1f, 0.78f, 0.28f, 0.95f), renderer.color);
+
+            Object.DestroyImmediate(go);
+            Object.DestroyImmediate(zones);
+            Object.DestroyImmediate(root);
+        }
+
         private static GameObject CreateZone(Transform parent, string objectName, string zoneId, string[] tags, Vector3 position, Vector3 boundarySize)
         {
             var zone = new GameObject(objectName);
