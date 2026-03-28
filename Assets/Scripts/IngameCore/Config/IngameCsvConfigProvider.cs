@@ -42,7 +42,18 @@ namespace ProjectW.IngameCore.Config
         public SessionConfig LoadSessionConfig()
         {
             var rows = ParseFile(Path.Combine(rootPath, "SessionConfig.csv"));
-            var required = new[] { "session_id", "tick_seconds", "max_decision_retry", "max_persist_retry", "persist_retry_backoff_ms" };
+            var required = new[]
+            {
+                "session_id",
+                "session_mode",
+                "tick_seconds",
+                "short_session_tick_seconds",
+                "short_session_goal_ticks",
+                "short_session_initial_intervention_slots",
+                "max_decision_retry",
+                "max_persist_retry",
+                "persist_retry_backoff_ms"
+            };
             EnsureSchema(rows, required);
             if (rows.Count < 2)
             {
@@ -53,7 +64,11 @@ namespace ProjectW.IngameCore.Config
             return new SessionConfig
             {
                 SessionId = RequiredString(row, "session_id"),
+                SessionMode = RequiredString(row, "session_mode"),
                 TickSeconds = RequiredFloat(row, "tick_seconds"),
+                ShortSessionTickSeconds = RequiredFloat(row, "short_session_tick_seconds"),
+                ShortSessionGoalTicks = RequiredInt(row, "short_session_goal_ticks"),
+                ShortSessionInitialInterventionSlots = RequiredInt(row, "short_session_initial_intervention_slots"),
                 MaxDecisionRetry = RequiredInt(row, "max_decision_retry"),
                 MaxPersistRetry = RequiredInt(row, "max_persist_retry"),
                 PersistRetryBackoffMs = RequiredInt(row, "persist_retry_backoff_ms")

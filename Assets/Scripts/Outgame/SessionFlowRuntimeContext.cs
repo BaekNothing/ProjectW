@@ -11,6 +11,12 @@ namespace ProjectW.Outgame
         SafetyPatrol = 2
     }
 
+    public enum SessionModePreset
+    {
+        Normal = 0,
+        Exhibition = 1
+    }
+
     [Serializable]
     public sealed class OutgameSessionSetup
     {
@@ -24,6 +30,7 @@ namespace ProjectW.Outgame
         public SessionDifficulty SelectedDifficulty = SessionDifficulty.Normal;
         public PriorityPair PriorityPair = new PriorityPair(WorkType.Routine, WorkType.Labor);
         public int SelectedCharacterCount = 3;
+        public SessionModePreset SessionMode = SessionModePreset.Normal;
 
         public OutgameSessionSetup Clone()
         {
@@ -36,7 +43,8 @@ namespace ProjectW.Outgame
                 WorldSeed = WorldSeed,
                 SelectedDifficulty = SelectedDifficulty,
                 PriorityPair = PriorityPair,
-                SelectedCharacterCount = SelectedCharacterCount
+                SelectedCharacterCount = SelectedCharacterCount,
+                SessionMode = SessionMode
             };
         }
 
@@ -51,7 +59,8 @@ namespace ProjectW.Outgame
                 WorldSeed = NoWorldSeed,
                 SelectedDifficulty = SessionDifficulty.Normal,
                 PriorityPair = new PriorityPair(WorkType.Routine, WorkType.Labor),
-                SelectedCharacterCount = 3
+                SelectedCharacterCount = 3,
+                SessionMode = SessionModePreset.Normal
             };
         }
 
@@ -69,6 +78,7 @@ namespace ProjectW.Outgame
         public int SurvivingCharacterCount;
         public int TickIndex;
         public string SessionId;
+        public SessionModePreset SessionMode;
     }
 
     public static class SessionFlowRuntimeContext

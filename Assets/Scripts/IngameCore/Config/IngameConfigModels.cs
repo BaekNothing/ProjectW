@@ -7,7 +7,11 @@ namespace ProjectW.IngameCore.Config
     public sealed class SessionConfig
     {
         public string SessionId { get; set; }
+        public string SessionMode { get; set; }
         public float TickSeconds { get; set; }
+        public float ShortSessionTickSeconds { get; set; }
+        public int ShortSessionGoalTicks { get; set; }
+        public int ShortSessionInitialInterventionSlots { get; set; }
         public int MaxDecisionRetry { get; set; }
         public int MaxPersistRetry { get; set; }
         public int PersistRetryBackoffMs { get; set; }

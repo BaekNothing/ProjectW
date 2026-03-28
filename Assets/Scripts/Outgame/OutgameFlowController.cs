@@ -19,6 +19,7 @@ namespace ProjectW.Outgame
         private Toggle _toggleA;
         private Toggle _toggleB;
         private Toggle _toggleC;
+        private Toggle _exhibitionModeToggle;
         private Dropdown _missionDropdown;
         private Slider _resourceSlider;
         private Slider _safetySlider;
@@ -234,6 +235,11 @@ namespace ProjectW.Outgame
             _toggleA = FindToggleByLabel(panel, "Character_A");
             _toggleB = FindToggleByLabel(panel, "Character_B");
             _toggleC = FindToggleByLabel(panel, "Character_C");
+            _exhibitionModeToggle = FindToggleByLabel(panel, "전시 모드");
+            if (_exhibitionModeToggle == null)
+            {
+                _exhibitionModeToggle = FindToggleByLabel(panel, "Exhibition");
+            }
 
             var dropdowns = panel.GetComponentsInChildren<Dropdown>(true);
             _missionDropdown = dropdowns.Length > 0 ? dropdowns[0] : null;
@@ -274,6 +280,7 @@ namespace ProjectW.Outgame
             return _toggleA != null
                    && _toggleB != null
                    && _toggleC != null
+                   && _exhibitionModeToggle != null
                    && _missionDropdown != null
                    && _difficultyButtons.Count == 3
                    && _startButton != null;
@@ -284,11 +291,13 @@ namespace ProjectW.Outgame
             _toggleA.onValueChanged.RemoveAllListeners();
             _toggleB.onValueChanged.RemoveAllListeners();
             _toggleC.onValueChanged.RemoveAllListeners();
+            _exhibitionModeToggle.onValueChanged.RemoveAllListeners();
             _startButton.onClick.RemoveAllListeners();
 
             _toggleA.onValueChanged.AddListener(_ => ValidateStartButton());
             _toggleB.onValueChanged.AddListener(_ => ValidateStartButton());
             _toggleC.onValueChanged.AddListener(_ => ValidateStartButton());
+            _exhibitionModeToggle.onValueChanged.AddListener(_ => ValidateStartButton());
             _startButton.onClick.AddListener(OnClickStartSession);
             WireSelectionButtonEvents();
         }
@@ -329,6 +338,12 @@ namespace ProjectW.Outgame
             y -= 40f;
             _missionDropdown = CreateDropdown(panel.transform, new Vector2(controlX, y), new List<string> { "ResourceSweep", "Recon", "SafetyPatrol" });
             _missionDropdown.value = 1;
+
+            y -= 55f;
+            CreateLabel(panel.transform, "ExhibitionLabel", "전시 모드 시작", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(labelX, y), 18, TextAnchor.MiddleLeft);
+            y -= 40f;
+            _exhibitionModeToggle = CreateToggle(panel.transform, "ExhibitionModeToggle", "Enable Exhibition Session", new Vector2(controlX, y));
+            _exhibitionModeToggle.isOn = false;
 
             y -= 55f;
             CreateLabel(panel.transform, "DifficultyLabel", "Difficulty", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(labelX, y), 18, TextAnchor.MiddleLeft);
@@ -424,7 +439,10 @@ namespace ProjectW.Outgame
                 PriorityPair = new PriorityPair(
                     _selectedPrimaryPriority ?? WorkType.Routine,
                     _selectedSecondaryPriority ?? WorkType.Labor),
-                SelectedCharacterCount = selected.Count
+                SelectedCharacterCount = selected.Count,
+                SessionMode = _exhibitionModeToggle != null && _exhibitionModeToggle.isOn
+                    ? SessionModePreset.Exhibition
+                    : SessionModePreset.Normal
             };
 
             SessionFlowRuntimeContext.SetPendingSetup(setup);
@@ -1013,5 +1031,4 @@ namespace ProjectW.Outgame
         }
     }
 }
-
 
