@@ -7,7 +7,8 @@ namespace ProjectW.Tests.EditMode
     public class IngameCoreSessionEndPersistenceTests
     {
         [Test]
-        public void CoreLoopT03_ObjectiveComplete_WhenNoHigherPriorityReason()
+        [Category("GateMandatory")]
+        public void T03_ObjectiveCompleteEnd_WhenNoHigherPriorityReason()
         {
             var result = SessionEndResolver.ResolveSessionEnd(totalWipe: false, emergencyExtract: false, objectiveComplete: true);
 
@@ -29,7 +30,8 @@ namespace ProjectW.Tests.EditMode
         }
 
         [Test]
-        public void CoreLoopT21_PersistRetry_TransitionsToRetryThenSuccess()
+        [Category("GateMandatory")]
+        public void T21_PersistRetry_TransitionsToRetryThenSuccess()
         {
             var writer = new SequenceSnapshotWriter(
                 new SnapshotWriteResult(false, "E-PST-301"),

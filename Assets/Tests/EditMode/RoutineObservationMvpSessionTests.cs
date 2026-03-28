@@ -9,6 +9,7 @@ namespace ProjectW.Tests.EditMode
     public class RoutineObservationMvpSessionTests
     {
         [Test]
+        [Category("GateMandatory")]
         public void T01_ThreeConsecutiveCycles_EnforcesRequiredCoreLoopOrder()
         {
             var zones = new GameObject("Zones");
@@ -40,6 +41,37 @@ namespace ProjectW.Tests.EditMode
             }
 
             Assert.IsEmpty(session.CoreLoopEventLog);
+
+            Object.DestroyImmediate(go);
+            Object.DestroyImmediate(zones);
+            Object.DestroyImmediate(root);
+        }
+
+        [Test]
+        [Category("GateMandatory")]
+        public void T10_PauseResume_MaintainsTickIndexContinuity()
+        {
+            var zones = new GameObject("Zones");
+            CreateZone(zones.transform, "Mission", "zone.mission.main", new[] { "zone.mission" }, new Vector3(-4f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            CreateZone(zones.transform, "Cafeteria", "zone.meal.main", new[] { "need.hunger" }, new Vector3(0f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            CreateZone(zones.transform, "Sleep", "zone.sleep.main", new[] { "need.sleep" }, new Vector3(4f, 0f, 0f), new Vector3(4f, 4f, 2f));
+            var root = new GameObject("Characters");
+            var actor = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            actor.name = "Character_A";
+            actor.transform.SetParent(root.transform, false);
+            var go = new GameObject("RoutineSession_CoreLoopT10");
+            var session = go.AddComponent<RoutineObservationMvpSession>();
+
+            session.AdvanceOneTick();
+            Assert.AreEqual(1, session.CoreLoopStateStartedTick);
+
+            var pauseMethod = typeof(RoutineObservationMvpSession).GetMethod("OnApplicationPause", BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.IsNotNull(pauseMethod);
+            pauseMethod.Invoke(session, new object[] { true });
+            pauseMethod.Invoke(session, new object[] { false });
+
+            session.AdvanceOneTick();
+            Assert.AreEqual(2, session.CoreLoopStateStartedTick);
 
             Object.DestroyImmediate(go);
             Object.DestroyImmediate(zones);

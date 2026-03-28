@@ -11,7 +11,8 @@ namespace ProjectW.Tests.EditMode
     public class IngameCoreSimulationTests
     {
         [Test]
-        public void StateMachine_RejectsForbiddenTransition()
+        [Category("GateMandatory")]
+        public void T22_InvalidTransitionReject_StateMachineRejectsForbiddenTransition()
         {
             var decision = CoreLoopStateMachine.EvaluateTransition(CoreLoopState.Plan, CoreLoopState.AutoNarrative, true);
             Assert.AreEqual(CoreLoopState.Plan, decision.NextState);
@@ -57,6 +58,7 @@ namespace ProjectW.Tests.EditMode
 
 
         [Test]
+        [Category("GateMandatory")]
         public void T23_DeterministicReplay_LogCoreFieldsMatchForSameSeedAndInput()
         {
             var firstCollector = new EventLogCollector();
