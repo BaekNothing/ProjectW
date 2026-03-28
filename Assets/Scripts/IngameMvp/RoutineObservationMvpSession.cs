@@ -258,6 +258,10 @@ namespace ProjectW.IngameMvp
         private int _resolvedWorldSeed = DefaultWorldSeed;
         private SessionDifficulty _selectedDifficulty = SessionDifficulty.Normal;
         private PriorityPair _selectedPriorityPair = new PriorityPair(WorkType.Routine, WorkType.Labor);
+        private readonly CoreLoopOrchestrator _coreLoopOrchestrator = new CoreLoopOrchestrator();
+        private readonly CharacterActionResolver _characterActionResolver = new CharacterActionResolver(GaugeMax);
+        private readonly SessionEndPersistenceFacade _sessionEndPersistenceFacade = new SessionEndPersistenceFacade();
+        private readonly IngameDashboardPresenter _ingameDashboardPresenter = new IngameDashboardPresenter();
         private int _selectedCharacterCount = 3;
         private DynamicTaskModel _currentDynamicTask;
         private int _lastDynamicTaskSeedTick = -1;
@@ -917,33 +921,21 @@ namespace ProjectW.IngameMvp
 
         private void ExecuteCoreLoopHandlers(int hour, int minute, ref RoutineActionType defaultAction, ref string zoneName)
         {
-            var resolveResult = new CoreLoopResolveResult
-            {
-                Action = defaultAction,
-                ZoneName = zoneName
-            };
-
-            ExecuteState(CoreLoopState.Plan, CoreLoopState.Drop, HandlePlan);
-            ExecuteState(CoreLoopState.Drop, CoreLoopState.AutoNarrative, HandleDrop);
-            ExecuteState(CoreLoopState.AutoNarrative, CoreLoopState.CaptainIntervention, HandleAutoNarrative);
-            ExecuteState(CoreLoopState.CaptainIntervention, CoreLoopState.NightDream, HandleCaptainIntervention);
-            ExecuteState(CoreLoopState.NightDream, CoreLoopState.Resolve, HandleNightDream);
-            if (_coreLoopCurrentState == CoreLoopState.Resolve)
-            {
-                var resolveGuard = HandleResolve(hour, minute, resolveResult);
-                ExecuteState(CoreLoopState.Resolve, resolveResult.RequestedNextState, () => resolveGuard);
-            }
-            if (resolveResult.RequestedNextState == CoreLoopState.NextCycle)
-            {
-                ExecuteState(CoreLoopState.NextCycle, CoreLoopState.Plan, HandleNextCycle);
-            }
-            else if (_coreLoopCurrentState == CoreLoopState.SessionEnd)
-            {
-                StopSession();
-            }
-
-            defaultAction = resolveResult.Action;
-            zoneName = resolveResult.ZoneName;
+            _coreLoopOrchestrator.Execute(
+                hour,
+                minute,
+                ref defaultAction,
+                ref zoneName,
+                () => _coreLoopCurrentState,
+                (expected, requested, handler) => ExecuteState(expected, requested, handler),
+                HandlePlan,
+                HandleDrop,
+                HandleAutoNarrative,
+                HandleCaptainIntervention,
+                HandleNightDream,
+                HandleResolve,
+                HandleNextCycle,
+                StopSession);
         }
 
         private bool ExecuteState(CoreLoopState expectedState, CoreLoopState requestedState, Func<bool> stateHandler)
@@ -1028,7 +1020,7 @@ namespace ProjectW.IngameMvp
             return true;
         }
 
-        private bool HandleResolve(int hour, int minute, CoreLoopResolveResult resolveResult)
+        private bool HandleResolve(int hour, int minute, CoreLoopResolveContext resolveResult)
         {
             resolveResult.Action = ToRoutineAction(_neuronSystem.EvaluateRoutine(new RoutineNeuronContext("default", _absoluteTick, hour, minute, 0, 100f, 100f, 100f, 0f, 0f, 0f, false, CharacterNeuronIntent.Work)).ScheduledIntent);
             RoutineZoneAnchor defaultZone = ResolveZone(resolveResult.Action, Vector3.zero);
@@ -1128,50 +1120,18 @@ namespace ProjectW.IngameMvp
 
         private bool EvaluateSessionEndAndPersist()
         {
-            bool objectiveComplete = GetMissionProgressRatio() >= 1f;
-            bool totalWipe = characters.Count > 0;
-            for (int i = 0; i < characters.Count; i++)
-            {
-                var binding = characters[i];
-                var active = binding.hunger > 0.01f || binding.sleep > 0.01f || binding.stress > 0.01f;
-                if (active)
-                {
-                    totalWipe = false;
-                    break;
-                }
-            }
-
-            bool emergencyExtract = _recentRejectedInterventionReason == "emergency_extract";
-            _latestSessionEndResult = SessionEndResolver.ResolveSessionEnd(totalWipe, emergencyExtract, objectiveComplete);
-            if (!_latestSessionEndResult.IsEnd)
-            {
-                _sessionEndRequested = false;
-                return true;
-            }
-
-            var runtimeConfig = _runtimeConfigSet?.SessionConfig;
-            var persistenceConfig = new ProjectW.IngameCore.SessionConfig(
-                runtimeConfig != null ? runtimeConfig.MaxPersistRetry : 0,
-                runtimeConfig != null ? runtimeConfig.PersistRetryBackoffMs : 0);
-
-            var snapshot = BuildSessionSnapshot(_latestSessionEndResult);
-            var writer = new JsonSnapshotWriter(maxSnapshotsPerSession: 3);
-            var service = new SnapshotPersistenceService(writer);
-            _latestPersistenceResult = service.PersistWithRetry(snapshot, persistenceConfig);
-
-            if (!_latestPersistenceResult.Success)
-            {
-                SetDashboardContext("Persistence", $"{_latestPersistenceResult.State}:{_latestPersistenceResult.ErrorCode}");
-                EmitSessionEndedOnce("PERSISTENCE_ERROR");
-                StopSession();
-                return false;
-            }
-
-            SetDashboardContext("Termination", _latestSessionEndResult.EndReasonCode);
-            SetDashboardContext("Persistence", _latestPersistenceResult.State.ToString());
-            EmitSessionEndedOnce();
-            _sessionEndRequested = true;
-            return true;
+            return _sessionEndPersistenceFacade.Evaluate(
+                characters,
+                GetMissionProgressRatio(),
+                _recentRejectedInterventionReason,
+                _runtimeConfigSet,
+                BuildSessionSnapshot,
+                SetDashboardContext,
+                EmitSessionEndedOnce,
+                StopSession,
+                out _latestSessionEndResult,
+                out _latestPersistenceResult,
+                out _sessionEndRequested);
         }
 
         private void EmitSessionEndedOnce(string overrideTerminationReasonCode = null)
@@ -1252,13 +1212,6 @@ namespace ProjectW.IngameMvp
             }
 
             return snapshot;
-        }
-
-        private sealed class CoreLoopResolveResult
-        {
-            public RoutineActionType Action;
-            public string ZoneName;
-            public CoreLoopState RequestedNextState = CoreLoopState.NextCycle;
         }
 
         private bool HandleNextCycle()
@@ -1469,59 +1422,7 @@ namespace ProjectW.IngameMvp
 
         private void ApplyNeedsAndProgress(RoutineCharacterBinding binding, RoutineActionType action, bool canResolveNeed, bool canPerformAction)
         {
-            if (action != RoutineActionType.Move && !canPerformAction)
-            {
-                action = RoutineActionType.Move;
-            }
-
-            switch (action)
-            {
-                case RoutineActionType.Move:
-                    binding.hunger -= binding.hungerDecayPerTick * 0.5f;
-                    binding.sleep -= binding.sleepDecayPerTick * 0.35f;
-                    binding.stress -= binding.stressDecayPerTick * 0.3f;
-                    break;
-                case RoutineActionType.Mission:
-                    binding.hunger -= binding.hungerDecayPerTick;
-                    binding.sleep -= binding.sleepDecayPerTick;
-                    binding.stress -= binding.stressDecayPerTick;
-                    if (canResolveNeed)
-                    {
-                        binding.missionTicks += 1;
-                        ApplyDynamicSubtaskProgress(binding, 1);
-                        if (binding.missionTicks >= 100)
-                        {
-                            binding.completedWorkCount += 1;
-                            binding.missionTicks = 0;
-                            Debug.Log(string.Format(
-                                CultureInfo.InvariantCulture,
-                                "[RoutineWork] actor={0} completed={1} -> assigned_new_work",
-                                binding.actor != null ? binding.actor.name : "Unknown",
-                                binding.completedWorkCount));
-                        }
-                    }
-                    break;
-                case RoutineActionType.Sleep:
-                    binding.hunger -= binding.hungerDecayPerTick * 0.35f;
-                    if (canResolveNeed)
-                    {
-                        binding.sleep += binding.sleepRecoverPerSleep;
-                        binding.stress += binding.stressRecoverPerSleep;
-                    }
-                    break;
-                default:
-                    if (canResolveNeed)
-                    {
-                        binding.hunger += binding.hungerRecoverPerMeal;
-                        binding.stress += binding.stressRecoverPerMeal;
-                    }
-                    binding.sleep -= binding.sleepDecayPerTick * 0.5f;
-                    break;
-            }
-
-            binding.hunger = Mathf.Clamp(binding.hunger, 0f, GaugeMax);
-            binding.sleep = Mathf.Clamp(binding.sleep, 0f, GaugeMax);
-            binding.stress = Mathf.Clamp(binding.stress, 0f, GaugeMax);
+            _characterActionResolver.ApplyNeedsAndProgress(binding, action, canResolveNeed, canPerformAction, ApplyDynamicSubtaskProgress);
         }
 
         private void ApplyDynamicSubtaskProgress(RoutineCharacterBinding binding, int baseProgress)
@@ -2161,50 +2062,27 @@ namespace ProjectW.IngameMvp
                 return;
             }
 
-            var totalMissionTicks = GetTotalMissionTicks();
-            var ratio = GetMissionProgressRatio();
-            var percentage = ratio * 100f;
-            var movingCount = CountCurrentAction(RoutineActionType.Move);
-            var avgHunger = ComputeAverageNeedValue(binding => binding.hunger);
-            var avgSleep = ComputeAverageNeedValue(binding => binding.sleep);
-            var avgStress = ComputeAverageNeedValue(binding => binding.stress);
-            var avgPerformance = ComputeAveragePerformanceScore();
-
-            if (goalText != null)
-            {
-                goalText.text = string.Format(
-                    CultureInfo.InvariantCulture,
-                    "Goal: {0} ({1}/{2})",
-                    dashboardGoalTitle,
-                    totalMissionTicks,
-                    Mathf.Max(1, dashboardMissionGoalTicks));
-            }
-
-            if (progressText != null)
-            {
-                progressText.text = string.Format(
-                    CultureInfo.InvariantCulture,
-                    "Progress: {0:0}% | Move:{1}/{2} | Avg H/S/T: {3:0}/{4:0}/{5:0} | Perf:{6:0.0}",
-                    percentage,
-                    movingCount,
-                    characters.Count,
-                    avgHunger,
-                    avgSleep,
-                    avgStress,
-                    avgPerformance);
-            }
-
-            if (situationText != null)
-            {
-                situationText.text = BuildSituationSummary();
-            }
-
-            if (currentTimeText != null)
-            {
-                currentTimeText.text = timeText;
-            }
-
-            UpdateChronicleUi();
+            _ingameDashboardPresenter.Update(
+                dayIndex,
+                halfDayIndex,
+                tickInHalfDay,
+                timeText,
+                goalText,
+                progressText,
+                situationText,
+                currentTimeText,
+                dashboardGoalTitle,
+                dashboardMissionGoalTicks,
+                GetTotalMissionTicks(),
+                GetMissionProgressRatio(),
+                CountCurrentAction(RoutineActionType.Move),
+                characters.Count,
+                ComputeAverageNeedValue(binding => binding.hunger),
+                ComputeAverageNeedValue(binding => binding.sleep),
+                ComputeAverageNeedValue(binding => binding.stress),
+                ComputeAveragePerformanceScore(),
+                BuildSituationSummary(),
+                UpdateChronicleUi);
         }
 
         private void AppendChronicleEvent(ChronicleEvent chronicleEvent)
@@ -2250,40 +2128,11 @@ namespace ProjectW.IngameMvp
 
         private string BuildSituationSummary()
         {
-            var summary = new StringBuilder(256);
-            summary.AppendFormat(
-                CultureInfo.InvariantCulture,
-                "Interventions pending:{0}, lastApplied:{1}, latestReject:{2}",
+            return _ingameDashboardPresenter.BuildSituationSummary(
                 _pendingInterventionCount,
-                _lastAppliedInterventionTick < 0 ? "N/A" : _lastAppliedInterventionTick.ToString(CultureInfo.InvariantCulture),
-                _recentRejectedInterventionReason);
-
-            var factionSummary = TryGetDashboardValue("FactionEvents");
-            if (!string.IsNullOrWhiteSpace(factionSummary))
-            {
-                summary.AppendLine();
-                summary.AppendFormat(CultureInfo.InvariantCulture, "Faction: {0}", factionSummary);
-            }
-
-            if (_dashboardContext.Count > 0)
-            {
-                var orderedKeys = new List<string>(_dashboardContext.Keys);
-                orderedKeys.Sort(StringComparer.Ordinal);
-                for (int i = 0; i < orderedKeys.Count; i++)
-                {
-                    var key = orderedKeys[i];
-                    if (string.Equals(key, "Chronicle", StringComparison.Ordinal)
-                        || string.Equals(key, "FactionEvents", StringComparison.Ordinal))
-                    {
-                        continue;
-                    }
-
-                    summary.AppendLine();
-                    summary.AppendFormat(CultureInfo.InvariantCulture, "{0}: {1}", key, _dashboardContext[key]);
-                }
-            }
-
-            return summary.ToString();
+                _lastAppliedInterventionTick,
+                _recentRejectedInterventionReason,
+                _dashboardContext);
         }
 
         private void UpdateChronicleUi()
