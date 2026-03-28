@@ -8,7 +8,8 @@ namespace ProjectW.Tests.EditMode
     public class IngameCoreInterventionQueueTests
     {
         [Test]
-        public void ApplyInterventions_UsesNextTickBoundaryAndTieBreakOrder()
+        [Category("GateMandatory")]
+        public void T02_InterventionApplyTiming_AppliesFromNextTickOnly()
         {
             var service = new InterventionQueueService();
             var queue = new List<InterventionCommandRow>
@@ -36,6 +37,34 @@ namespace ProjectW.Tests.EditMode
             var tick1 = service.ApplyInterventions(1, queue);
             Assert.AreEqual(0, tick1.AppliedCount);
             Assert.AreEqual(2, tick1.PendingCount);
+        }
+
+        [Test]
+        [Category("GateMandatory")]
+        public void T11_ConflictingInterventions_UsesTieBreakOrderConsistently()
+        {
+            var service = new InterventionQueueService();
+            var queue = new List<InterventionCommandRow>
+            {
+                new InterventionCommandRow
+                {
+                    CommandId = "cmd-2",
+                    IssuedTick = 1,
+                    ApplyTick = 1,
+                    CommandType = "policy",
+                    TargetScope = "global",
+                    Priority = 2
+                },
+                new InterventionCommandRow
+                {
+                    CommandId = "cmd-1",
+                    IssuedTick = 1,
+                    ApplyTick = 1,
+                    CommandType = "policy",
+                    TargetScope = "global",
+                    Priority = 2
+                }
+            };
 
             var tick2 = service.ApplyInterventions(2, queue);
             Assert.AreEqual(1, tick2.AppliedCount);
