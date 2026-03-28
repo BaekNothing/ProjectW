@@ -121,6 +121,9 @@ namespace ProjectW.IngameMvp
         private const string DefaultCharacterAnimatorControllerPath = "AnimatorControllers/routine_character_default";
         private const int DefaultWorldSeed = 17;
         private static readonly Vector2 UiReferenceResolution = new Vector2(1280f, 720f);
+        private const float ExhibitionMinSessionSeconds = 180f;
+        private const float ExhibitionMaxSessionSeconds = 300f;
+        private const float ExhibitionTargetSessionSeconds = 240f;
 
         [Header("Tick")]
         [SerializeField] private bool autoRunOnStart = true;
@@ -266,6 +269,10 @@ namespace ProjectW.IngameMvp
         private int _selectedCharacterCount = 3;
         private DynamicTaskModel _currentDynamicTask;
         private int _lastDynamicTaskSeedTick = -1;
+        private SessionModePreset _sessionMode = SessionModePreset.Normal;
+        private bool _exhibitionIntroEventInserted;
+        private bool _exhibitionTimeboxEndHandled;
+        private int _exhibitionTimeboxTicks;
 
         private enum PanelKind
         {
@@ -308,6 +315,9 @@ namespace ProjectW.IngameMvp
             {
                 _sessionMetaState.ApplyToSessionConfig(_runtimeConfigSet.SessionConfig);
                 tickIntervalSeconds = Mathf.Max(0.01f, _runtimeConfigSet.SessionConfig.TickSeconds);
+                ApplySessionModeOverrides(
+                    new OutgameSessionSetup { SessionMode = _sessionMode },
+                    _runtimeConfigSet.SessionConfig);
             }
 
             SetDashboardContext("MetaChoice", choice.Label);
@@ -351,6 +361,7 @@ namespace ProjectW.IngameMvp
             _resolvedWorldSeed = resolvedSetup.ResolveWorldSeed(fallbackWorldSeed);
             _selectedDifficulty = resolvedSetup.SelectedDifficulty;
             _selectedPriorityPair = resolvedSetup.PriorityPair;
+            _sessionMode = resolvedSetup.SessionMode;
             var selectedIds = new HashSet<string>(
                 (resolvedSetup.SelectedCharacterIds != null && resolvedSetup.SelectedCharacterIds.Count > 0)
                     ? resolvedSetup.SelectedCharacterIds
@@ -404,6 +415,7 @@ namespace ProjectW.IngameMvp
             var safety = Mathf.Clamp(resolvedSetup.SafetyPriority, 0, 100);
             var resource = Mathf.Clamp(resolvedSetup.ResourcePriority, 0, 100);
             var bias = Mathf.Clamp((safety - resource) / 100f, -1f, 1f);
+            ApplySessionModeOverrides(resolvedSetup, _runtimeConfigSet?.SessionConfig);
             ApplyPriorityBiasToCharacters(bias);
 
             SetDashboardContext("InitialMission", resolvedSetup.InitialMissionType.ToString());
@@ -412,10 +424,78 @@ namespace ProjectW.IngameMvp
             SetDashboardContext("WorldSeed", _resolvedWorldSeed.ToString(CultureInfo.InvariantCulture));
             SetDashboardContext("Difficulty", _selectedDifficulty.ToString());
             SetDashboardContext("PriorityPair", $"{_selectedPriorityPair.PrimaryWorkType}>{_selectedPriorityPair.SecondaryWorkType}");
+            SetDashboardContext("SessionMode", _sessionMode.ToString());
             RebuildDynamicWorldIfEnabled();
             ApplyPriorityBiasToCharacters(bias);
             ResetProceduralGenerationState();
             EnsureOfficeItemsAndJobBindings();
+        }
+
+        private void ApplySessionModeOverrides(OutgameSessionSetup setup, IngameCore.Config.SessionConfig config)
+        {
+            var resolvedSetup = setup ?? OutgameSessionSetup.CreateDefault();
+            if (resolvedSetup.SessionMode == SessionModePreset.Normal && config != null)
+            {
+                resolvedSetup.SessionMode = ResolveSessionModePreset(config.SessionMode);
+            }
+
+            if (resolvedSetup.SessionMode != SessionModePreset.Exhibition)
+            {
+                return;
+            }
+
+            var exhibitionTick = config != null && config.ShortSessionTickSeconds > 0.01f
+                ? config.ShortSessionTickSeconds
+                : Mathf.Min(0.75f, tickIntervalSeconds);
+            tickIntervalSeconds = Mathf.Max(0.01f, exhibitionTick);
+
+            if (config != null && config.ShortSessionGoalTicks > 0)
+            {
+                dashboardMissionGoalTicks = config.ShortSessionGoalTicks;
+            }
+
+            if (config != null)
+            {
+                _pendingInterventionCount = Mathf.Max(0, config.ShortSessionInitialInterventionSlots);
+            }
+
+            var timeboxTicks = Mathf.RoundToInt(ExhibitionTargetSessionSeconds / Mathf.Max(0.01f, tickIntervalSeconds));
+            var minTicks = Mathf.CeilToInt(ExhibitionMinSessionSeconds / Mathf.Max(0.01f, tickIntervalSeconds));
+            var maxTicks = Mathf.FloorToInt(ExhibitionMaxSessionSeconds / Mathf.Max(0.01f, tickIntervalSeconds));
+            _exhibitionTimeboxTicks = Mathf.Clamp(timeboxTicks, Mathf.Max(1, minTicks), Mathf.Max(minTicks, maxTicks));
+
+            var tutorial = "튜토리얼: 3단계만 보세요 → 우선순위 지정 → 개입 실행 → 결과 확인";
+            SetDashboardContext("Tutorial", tutorial);
+            SetDashboardContext("ExhibitionTimeboxTicks", _exhibitionTimeboxTicks.ToString(CultureInfo.InvariantCulture));
+            SetDashboardContext("InterventionSlots", _pendingInterventionCount.ToString(CultureInfo.InvariantCulture));
+
+            if (!_exhibitionIntroEventInserted)
+            {
+                _exhibitionIntroEventInserted = true;
+                AppendChronicleEvent(new ChronicleEvent
+                {
+                    Category = ChronicleEventCategory.AutoNarrative,
+                    Description = "전시 모드 시작: 첫 이벤트를 강제 삽입했습니다. 지금 바로 개입을 선택해 흐름을 바꿔보세요.",
+                    Severity = 2
+                });
+            }
+        }
+
+        private static SessionModePreset ResolveSessionModePreset(string rawValue)
+        {
+            if (string.IsNullOrWhiteSpace(rawValue))
+            {
+                return SessionModePreset.Normal;
+            }
+
+            var value = rawValue.Trim();
+            if (value.Equals("exhibition", StringComparison.OrdinalIgnoreCase)
+                || value.Equals("showcase", StringComparison.OrdinalIgnoreCase))
+            {
+                return SessionModePreset.Exhibition;
+            }
+
+            return SessionModePreset.Normal;
         }
 
         private void ApplyPriorityBiasToCharacters(float bias)
@@ -636,6 +716,13 @@ namespace ProjectW.IngameMvp
                 _runtimeConfigSet = result.ConfigSet;
                 _sessionMetaState.ApplyToSessionConfig(_runtimeConfigSet.SessionConfig);
                 tickIntervalSeconds = Mathf.Max(0.01f, result.ConfigSet.SessionConfig.TickSeconds);
+                if (_sessionMode == SessionModePreset.Normal)
+                {
+                    _sessionMode = ResolveSessionModePreset(_runtimeConfigSet.SessionConfig?.SessionMode);
+                }
+                ApplySessionModeOverrides(
+                    new OutgameSessionSetup { SessionMode = _sessionMode },
+                    result.ConfigSet.SessionConfig);
                 return true;
             }
 
@@ -908,6 +995,7 @@ namespace ProjectW.IngameMvp
             UpdateDashboardUi(dayIndex, halfDayIndex, tickInHalfDay, timeText);
             UpdateNeuronPanel();
             UpdateObjectInfoPanel();
+            TryRequestExhibitionTimeboxEnd();
 
             return new RoutineTickSnapshot
             {
@@ -918,6 +1006,23 @@ namespace ProjectW.IngameMvp
                 action = defaultAction,
                 zoneName = zoneName
             };
+        }
+
+        private void TryRequestExhibitionTimeboxEnd()
+        {
+            if (_sessionMode != SessionModePreset.Exhibition || _exhibitionTimeboxEndHandled)
+            {
+                return;
+            }
+
+            if (_absoluteTick < Mathf.Max(1, _exhibitionTimeboxTicks))
+            {
+                return;
+            }
+
+            _exhibitionTimeboxEndHandled = true;
+            EmitSessionEndedOnce("EXHIBITION_TIMEBOX");
+            StopSession();
         }
 
         private void ExecuteCoreLoopHandlers(int hour, int minute, ref RoutineActionType defaultAction, ref string zoneName)
@@ -1193,7 +1298,8 @@ namespace ProjectW.IngameMvp
                 MissionProgressRatio = missionProgressRatio,
                 SurvivingCharacterCount = survivingCount,
                 TickIndex = _absoluteTick,
-                SessionId = _runtimeConfigSet?.SessionConfig?.SessionId ?? "default"
+                SessionId = _runtimeConfigSet?.SessionConfig?.SessionId ?? "default",
+                SessionMode = _sessionMode
             };
         }
 

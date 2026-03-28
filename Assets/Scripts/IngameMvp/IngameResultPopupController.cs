@@ -31,6 +31,12 @@ namespace ProjectW.IngameMvp
                 Mathf.Max(0, summary?.TickIndex ?? 0),
                 string.IsNullOrWhiteSpace(summary?.SessionId) ? "default" : summary.SessionId);
 
+            if (summary != null && summary.SessionMode == SessionModePreset.Exhibition)
+            {
+                _bodyText.text += "\n\n핵심 재미 요약: 짧은 개입 한 번으로 팀 루틴과 결과가 즉시 달라집니다.";
+                _bodyText.text += "\nCTA: 다른 우선순위 조합으로 지금 바로 다시 플레이해보세요!";
+            }
+
             _confirmButton.onClick.RemoveAllListeners();
             _confirmButton.onClick.AddListener(() => onConfirm?.Invoke());
             _panel.SetActive(true);
