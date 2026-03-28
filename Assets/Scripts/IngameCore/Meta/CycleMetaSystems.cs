@@ -237,4 +237,147 @@ namespace ProjectW.IngameCore.Meta
             return sb.ToString();
         }
     }
+
+    [Serializable]
+    public sealed class PlaytestAnalyticsRecord
+    {
+        public string SessionId;
+        public int TickIndex;
+        public string TerminationReasonCode;
+        public float MissionProgressRatio;
+        public float InterventionUsageRate;
+        public int[] SurveyScores = new int[5];
+        public bool WantsReplay;
+
+        public static PlaytestAnalyticsRecord Create(
+            string sessionId,
+            int tickIndex,
+            string terminationReasonCode,
+            float missionProgressRatio,
+            CycleKpiSnapshot cycleKpiSnapshot,
+            PlaytestSurveyForm playtestSurveyForm)
+        {
+            var responses = playtestSurveyForm?.GetResponses();
+            var surveyScores = new int[5];
+            for (int i = 0; i < surveyScores.Length; i++)
+            {
+                surveyScores[i] = responses != null && i < responses.Count
+                    ? Math.Clamp(responses[i], 1, 5)
+                    : 1;
+            }
+
+            return new PlaytestAnalyticsRecord
+            {
+                SessionId = string.IsNullOrWhiteSpace(sessionId) ? "default" : sessionId.Trim(),
+                TickIndex = Math.Max(0, tickIndex),
+                TerminationReasonCode = string.IsNullOrWhiteSpace(terminationReasonCode) ? "Unknown" : terminationReasonCode.Trim(),
+                MissionProgressRatio = Math.Clamp(missionProgressRatio, 0f, 1f),
+                InterventionUsageRate = Math.Clamp(cycleKpiSnapshot?.InterventionUsageRate ?? 0f, 0f, 1f),
+                SurveyScores = surveyScores,
+                WantsReplay = playtestSurveyForm != null && playtestSurveyForm.WantsReplay()
+            };
+        }
+    }
+
+    public readonly struct PlaytestAnalyticsAggregate
+    {
+        public int WindowSize { get; }
+        public int SampleSize { get; }
+        public float CompletionRate { get; }
+        public float AnnihilationRate { get; }
+        public float RetryRate { get; }
+        public float ImmediateChurnRate { get; }
+        public float MedianTickIndex { get; }
+
+        public PlaytestAnalyticsAggregate(
+            int windowSize,
+            int sampleSize,
+            float completionRate,
+            float annihilationRate,
+            float retryRate,
+            float immediateChurnRate,
+            float medianTickIndex)
+        {
+            WindowSize = Math.Max(1, windowSize);
+            SampleSize = Math.Max(0, sampleSize);
+            CompletionRate = Math.Clamp(completionRate, 0f, 1f);
+            AnnihilationRate = Math.Clamp(annihilationRate, 0f, 1f);
+            RetryRate = Math.Clamp(retryRate, 0f, 1f);
+            ImmediateChurnRate = Math.Clamp(immediateChurnRate, 0f, 1f);
+            MedianTickIndex = Math.Max(0f, medianTickIndex);
+        }
+    }
+
+    public static class PlaytestAnalyticsAggregator
+    {
+        public static PlaytestAnalyticsAggregate AggregateRecent(IReadOnlyList<PlaytestAnalyticsRecord> records, int windowSize)
+        {
+            var safeWindow = Math.Max(1, windowSize);
+            if (records == null || records.Count == 0)
+            {
+                return new PlaytestAnalyticsAggregate(safeWindow, 0, 0f, 0f, 0f, 0f, 0f);
+            }
+
+            var startIndex = Math.Max(0, records.Count - safeWindow);
+            var sampleCount = records.Count - startIndex;
+            var valid = new List<PlaytestAnalyticsRecord>(sampleCount);
+            for (int i = startIndex; i < records.Count; i++)
+            {
+                var record = records[i];
+                if (record == null)
+                {
+                    continue;
+                }
+
+                valid.Add(record);
+            }
+
+            if (valid.Count == 0)
+            {
+                return new PlaytestAnalyticsAggregate(safeWindow, 0, 0f, 0f, 0f, 0f, 0f);
+            }
+
+            var completionCount = 0;
+            var annihilationCount = 0;
+            var retryCount = 0;
+            var ticks = new List<int>(valid.Count);
+            for (int i = 0; i < valid.Count; i++)
+            {
+                var entry = valid[i];
+                if (string.Equals(entry.TerminationReasonCode, "TotalWipe", StringComparison.Ordinal))
+                {
+                    annihilationCount += 1;
+                }
+                else
+                {
+                    completionCount += 1;
+                }
+
+                if (entry.WantsReplay)
+                {
+                    retryCount += 1;
+                }
+
+                ticks.Add(Math.Max(0, entry.TickIndex));
+            }
+
+            ticks.Sort();
+            var mid = ticks.Count / 2;
+            float medianTick = ticks.Count % 2 == 0
+                ? (ticks[mid - 1] + ticks[mid]) * 0.5f
+                : ticks[mid];
+
+            var completionRate = completionCount / (float)valid.Count;
+            var annihilationRate = annihilationCount / (float)valid.Count;
+            var retryRate = retryCount / (float)valid.Count;
+            return new PlaytestAnalyticsAggregate(
+                safeWindow,
+                valid.Count,
+                completionRate,
+                annihilationRate,
+                retryRate,
+                1f - retryRate,
+                medianTick);
+        }
+    }
 }

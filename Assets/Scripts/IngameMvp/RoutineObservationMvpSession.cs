@@ -262,6 +262,7 @@ namespace ProjectW.IngameMvp
         private readonly CharacterActionResolver _characterActionResolver = new CharacterActionResolver(GaugeMax);
         private readonly SessionEndPersistenceFacade _sessionEndPersistenceFacade = new SessionEndPersistenceFacade();
         private readonly IngameDashboardPresenter _ingameDashboardPresenter = new IngameDashboardPresenter();
+        private readonly PlaytestAnalyticsPersistenceService _playtestAnalyticsPersistenceService = new PlaytestAnalyticsPersistenceService();
         private int _selectedCharacterCount = 3;
         private DynamicTaskModel _currentDynamicTask;
         private int _lastDynamicTaskSeedTick = -1;
@@ -1163,15 +1164,53 @@ namespace ProjectW.IngameMvp
                 }
             }
 
+            var terminationReasonCode = string.IsNullOrWhiteSpace(overrideTerminationReasonCode)
+                ? _latestSessionEndResult.EndReasonCode
+                : overrideTerminationReasonCode;
+            var missionProgressRatio = GetMissionProgressRatio();
+            var analyticsRecord = PlaytestAnalyticsRecord.Create(
+                _runtimeConfigSet?.SessionConfig?.SessionId ?? "default",
+                _absoluteTick,
+                terminationReasonCode,
+                missionProgressRatio,
+                BuildLiveCycleKpiSnapshot(),
+                _playtestSurveyForm);
+            if (_playtestAnalyticsPersistenceService.TryAppend(analyticsRecord, out var analyticsErrorCode))
+            {
+                var aggregate20 = _playtestAnalyticsPersistenceService.BuildAggregateWindow(20);
+                var aggregate50 = _playtestAnalyticsPersistenceService.BuildAggregateWindow(50);
+                SetDashboardContext("Analytics20", PlaytestAnalyticsPersistenceService.BuildAggregateSummaryText(aggregate20));
+                SetDashboardContext("Analytics50", PlaytestAnalyticsPersistenceService.BuildAggregateSummaryText(aggregate50));
+            }
+            else
+            {
+                SetDashboardContext("Analytics", $"AppendFailed:{analyticsErrorCode}");
+            }
+
             return new SessionResultSummary
             {
-                TerminationReasonCode = string.IsNullOrWhiteSpace(overrideTerminationReasonCode)
-                    ? _latestSessionEndResult.EndReasonCode
-                    : overrideTerminationReasonCode,
-                MissionProgressRatio = GetMissionProgressRatio(),
+                TerminationReasonCode = terminationReasonCode,
+                MissionProgressRatio = missionProgressRatio,
                 SurvivingCharacterCount = survivingCount,
                 TickIndex = _absoluteTick,
                 SessionId = _runtimeConfigSet?.SessionConfig?.SessionId ?? "default"
+            };
+        }
+
+        private CycleKpiSnapshot BuildLiveCycleKpiSnapshot()
+        {
+            var interventionUsageRate = _cycleInterventionOfferCount <= 0
+                ? _latestCycleKpi.InterventionUsageRate
+                : Mathf.Clamp01(_cycleInterventionUseCount / (float)_cycleInterventionOfferCount);
+            var interventionChangeRate = _cycleInterventionUseCount <= 0
+                ? _latestCycleKpi.InterventionOutcomeChangeRate
+                : Mathf.Clamp01(_cycleInterventionOutcomeChangedCount / (float)_cycleInterventionUseCount);
+
+            return new CycleKpiSnapshot
+            {
+                InterventionUsageRate = interventionUsageRate,
+                InterventionOutcomeChangeRate = interventionChangeRate,
+                RememberedEventSelfScore = Mathf.Clamp(_rememberedEventsSelfScore, 1, 5)
             };
         }
 
