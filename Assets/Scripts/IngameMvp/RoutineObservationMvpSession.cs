@@ -173,6 +173,8 @@ namespace ProjectW.IngameMvp
         [SerializeField] private Text taskUiBinding;
         [SerializeField] private int fallbackWorldSeed = DefaultWorldSeed;
         [SerializeField] private bool dynamicWorldEnabled = true;
+        [SerializeField] private string defaultPlacementPresetId = "default";
+        [SerializeField] private List<ResourcePlacementPreset> placementPresetCatalog = new List<ResourcePlacementPreset>();
 
         [Header("Generation")]
         [SerializeField] private bool persistGeneratedObjectsInScene = true;
@@ -270,6 +272,8 @@ namespace ProjectW.IngameMvp
         private DynamicTaskModel _currentDynamicTask;
         private int _lastDynamicTaskSeedTick = -1;
         private SessionModePreset _sessionMode = SessionModePreset.Normal;
+        private string _resolvedPlacementPresetId = "default";
+        private ResourcePlacementPreset _resolvedPlacementPreset;
         private bool _exhibitionIntroEventInserted;
         private bool _exhibitionTimeboxEndHandled;
         private int _exhibitionTimeboxTicks;
@@ -362,6 +366,10 @@ namespace ProjectW.IngameMvp
             _selectedDifficulty = resolvedSetup.SelectedDifficulty;
             _selectedPriorityPair = resolvedSetup.PriorityPair;
             _sessionMode = resolvedSetup.SessionMode;
+            _resolvedPlacementPresetId = string.IsNullOrWhiteSpace(resolvedSetup.PresetId)
+                ? (string.IsNullOrWhiteSpace(defaultPlacementPresetId) ? "default" : defaultPlacementPresetId.Trim())
+                : resolvedSetup.PresetId.Trim();
+            _resolvedPlacementPreset = ResolvePlacementPresetById(_resolvedPlacementPresetId);
             var selectedIds = new HashSet<string>(
                 (resolvedSetup.SelectedCharacterIds != null && resolvedSetup.SelectedCharacterIds.Count > 0)
                     ? resolvedSetup.SelectedCharacterIds
@@ -425,6 +433,7 @@ namespace ProjectW.IngameMvp
             SetDashboardContext("Difficulty", _selectedDifficulty.ToString());
             SetDashboardContext("PriorityPair", $"{_selectedPriorityPair.PrimaryWorkType}>{_selectedPriorityPair.SecondaryWorkType}");
             SetDashboardContext("SessionMode", _sessionMode.ToString());
+            SetDashboardContext("PlacementPresetId", _resolvedPlacementPresetId);
             RebuildDynamicWorldIfEnabled();
             ApplyPriorityBiasToCharacters(bias);
             ResetProceduralGenerationState();
@@ -2479,6 +2488,44 @@ namespace ProjectW.IngameMvp
             return dynamicWorldEnabled && _outgameSetupApplied;
         }
 
+        private ResourcePlacementPreset ResolvePlacementPresetById(string presetId)
+        {
+            if (!string.IsNullOrWhiteSpace(presetId))
+            {
+                var trimmed = presetId.Trim();
+                for (var i = 0; i < placementPresetCatalog.Count; i++)
+                {
+                    var preset = placementPresetCatalog[i];
+                    if (preset == null || preset.Meta == null)
+                    {
+                        continue;
+                    }
+
+                    if (string.Equals(preset.Meta.PresetId, trimmed, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return preset;
+                    }
+                }
+
+                var resourcePresets = Resources.LoadAll<ResourcePlacementPreset>("ResourcePlacementPresets");
+                for (var i = 0; i < resourcePresets.Length; i++)
+                {
+                    var preset = resourcePresets[i];
+                    if (preset == null || preset.Meta == null)
+                    {
+                        continue;
+                    }
+
+                    if (string.Equals(preset.Meta.PresetId, trimmed, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return preset;
+                    }
+                }
+            }
+
+            return null;
+        }
+
         private void RebuildDynamicWorldIfEnabled()
         {
             if (!IsDynamicWorldRuntimeEnabled())
@@ -2497,22 +2544,26 @@ namespace ProjectW.IngameMvp
 
             EnsureMainCamera2D();
             var layout = ResolveDynamicLayoutBounds();
-            var missionSize = ResolveRandomizedLargeZoneSize(layout.zoneSize, 211);
-            var cafeteriaSize = ResolveRandomizedLargeZoneSize(layout.zoneSize, 223);
-            var sleepSize = ResolveRandomizedLargeZoneSize(layout.zoneSize, 227);
-            var spacing = ResolveZoneSpacingForViewport(missionSize, cafeteriaSize, sleepSize, layout.zoneSpacing);
-            missionZone = CreateZone2D(dynamicZones, "WorkZone", JobZoneWork, new[] { ZoneTagMission }, new Vector2(0f, 0f), missionSize, new Color(0.88f, 0.34f, 0.34f, DefaultZoneAlpha));
-            cafeteriaZone = CreateZone2D(dynamicZones, "EatZone", JobZoneEat, new[] { ZoneTagNeedHunger }, new Vector2(-spacing, -0.4f), cafeteriaSize, new Color(0.12f, 0.53f, 0.9f, DefaultZoneAlpha));
-            sleepZone = CreateZone2D(dynamicZones, "SleepZone", JobZoneSleep, new[] { ZoneTagNeedSleep }, new Vector2(spacing, 0.4f), sleepSize, new Color(0.26f, 0.66f, 0.29f, DefaultZoneAlpha));
-            BindZonesFromAnchors();
-
             var spawnCount = Mathf.Clamp(_selectedCharacterCount, 1, 6);
-            var rng = new System.Random(_resolvedWorldSeed ^ 0x5A91);
-            for (var i = 0; i < spawnCount; i++)
+            var createdFromPreset = TryBuildWorldFromPlacementPreset(_resolvedPlacementPreset, dynamicZones, dynamicCharacters, layout, spawnCount);
+            if (!createdFromPreset)
             {
-                var x = Mathf.Lerp(-layout.characterXSpan, layout.characterXSpan, (i + 0.5f) / Mathf.Max(1f, spawnCount));
-                var y = layout.characterYMin + (float)(rng.NextDouble() * (layout.characterYMax - layout.characterYMin));
-                CreateCharacter2D(dynamicCharacters, $"DynamicCharacter_{i + 1:D2}", new Vector2(x, y), GetLineColor(i));
+                var missionSize = ResolveRandomizedLargeZoneSize(layout.zoneSize, 211);
+                var cafeteriaSize = ResolveRandomizedLargeZoneSize(layout.zoneSize, 223);
+                var sleepSize = ResolveRandomizedLargeZoneSize(layout.zoneSize, 227);
+                var spacing = ResolveZoneSpacingForViewport(missionSize, cafeteriaSize, sleepSize, layout.zoneSpacing);
+                missionZone = CreateZone2D(dynamicZones, "WorkZone", JobZoneWork, new[] { ZoneTagMission }, new Vector2(0f, 0f), missionSize, new Color(0.88f, 0.34f, 0.34f, DefaultZoneAlpha));
+                cafeteriaZone = CreateZone2D(dynamicZones, "EatZone", JobZoneEat, new[] { ZoneTagNeedHunger }, new Vector2(-spacing, -0.4f), cafeteriaSize, new Color(0.12f, 0.53f, 0.9f, DefaultZoneAlpha));
+                sleepZone = CreateZone2D(dynamicZones, "SleepZone", JobZoneSleep, new[] { ZoneTagNeedSleep }, new Vector2(spacing, 0.4f), sleepSize, new Color(0.26f, 0.66f, 0.29f, DefaultZoneAlpha));
+                BindZonesFromAnchors();
+
+                var rng = new System.Random(_resolvedWorldSeed ^ 0x5A91);
+                for (var i = 0; i < spawnCount; i++)
+                {
+                    var x = Mathf.Lerp(-layout.characterXSpan, layout.characterXSpan, (i + 0.5f) / Mathf.Max(1f, spawnCount));
+                    var y = layout.characterYMin + (float)(rng.NextDouble() * (layout.characterYMax - layout.characterYMin));
+                    CreateCharacter2D(dynamicCharacters, $"DynamicCharacter_{i + 1:D2}", new Vector2(x, y), GetLineColor(i));
+                }
             }
 
             characters.Clear();
@@ -2536,6 +2587,116 @@ namespace ProjectW.IngameMvp
             EnsureZoneWidthsForCharacterSeparation();
             EnsureZoneDesks();
             ApplyDepthLayout();
+        }
+
+        private bool TryBuildWorldFromPlacementPreset(
+            ResourcePlacementPreset preset,
+            Transform dynamicZones,
+            Transform dynamicCharacters,
+            (float zoneSpacing, Vector2 zoneSize, float characterXSpan, float characterYMin, float characterYMax) layout,
+            int spawnCount)
+        {
+            if (preset == null || preset.Placements == null || preset.Placements.Count == 0)
+            {
+                return false;
+            }
+
+            var zoneIndex = 0;
+            var characterIndex = 0;
+            for (var i = 0; i < preset.Placements.Count; i++)
+            {
+                var placement = preset.Placements[i];
+                if (placement == null || !placement.Active)
+                {
+                    continue;
+                }
+
+                if (placement.Type == ResourcePlacementType.Zone)
+                {
+                    var zoneId = string.IsNullOrWhiteSpace(placement.ZoneId)
+                        ? ResolveDefaultZoneId(zoneIndex)
+                        : placement.ZoneId;
+                    var tags = placement.ZoneTags != null && placement.ZoneTags.Length > 0
+                        ? placement.ZoneTags
+                        : ResolveDefaultZoneTags(zoneId);
+                    var center = new Vector2(placement.LocalPosition.x, placement.LocalPosition.y);
+                    var size = new Vector2(
+                        Mathf.Max(minimumZoneSize.x, Mathf.Abs(placement.LocalScale.x)),
+                        Mathf.Max(minimumZoneSize.y, Mathf.Abs(placement.LocalScale.y)));
+                    var color = ResolveZoneColor(zoneId);
+                    var objectName = string.IsNullOrWhiteSpace(placement.ObjectName) ? $"PresetZone_{zoneIndex + 1:D2}" : placement.ObjectName;
+                    var anchor = CreateZone2D(dynamicZones, objectName, zoneId, tags, center, size, color);
+                    if (missionZone == null && string.Equals(zoneId, JobZoneWork, StringComparison.OrdinalIgnoreCase)) missionZone = anchor;
+                    if (cafeteriaZone == null && string.Equals(zoneId, JobZoneEat, StringComparison.OrdinalIgnoreCase)) cafeteriaZone = anchor;
+                    if (sleepZone == null && string.Equals(zoneId, JobZoneSleep, StringComparison.OrdinalIgnoreCase)) sleepZone = anchor;
+                    zoneIndex++;
+                    continue;
+                }
+
+                if (placement.Type == ResourcePlacementType.Character)
+                {
+                    var position = new Vector2(placement.LocalPosition.x, placement.LocalPosition.y);
+                    var objectName = string.IsNullOrWhiteSpace(placement.ObjectName) ? $"DynamicCharacter_{characterIndex + 1:D2}" : placement.ObjectName;
+                    CreateCharacter2D(dynamicCharacters, objectName, position, GetLineColor(characterIndex));
+                    characterIndex++;
+                }
+            }
+
+            BindZonesFromAnchors();
+            if (zoneIndex == 0)
+            {
+                return false;
+            }
+
+            if (characterIndex == 0)
+            {
+                var rng = new System.Random(_resolvedWorldSeed ^ 0x5A91);
+                for (var i = 0; i < spawnCount; i++)
+                {
+                    var x = Mathf.Lerp(-layout.characterXSpan, layout.characterXSpan, (i + 0.5f) / Mathf.Max(1f, spawnCount));
+                    var y = layout.characterYMin + (float)(rng.NextDouble() * (layout.characterYMax - layout.characterYMin));
+                    CreateCharacter2D(dynamicCharacters, $"DynamicCharacter_{i + 1:D2}", new Vector2(x, y), GetLineColor(i));
+                }
+            }
+
+            return true;
+        }
+
+        private static string ResolveDefaultZoneId(int zoneIndex)
+        {
+            if (zoneIndex == 0) return JobZoneWork;
+            if (zoneIndex == 1) return JobZoneEat;
+            return JobZoneSleep;
+        }
+
+        private static string[] ResolveDefaultZoneTags(string zoneId)
+        {
+            if (string.Equals(zoneId, JobZoneEat, StringComparison.OrdinalIgnoreCase))
+            {
+                return new[] { ZoneTagNeedHunger };
+            }
+
+            if (string.Equals(zoneId, JobZoneSleep, StringComparison.OrdinalIgnoreCase))
+            {
+                return new[] { ZoneTagNeedSleep };
+            }
+
+            return new[] { ZoneTagMission };
+        }
+
+        private static Color ResolveZoneColor(string zoneId)
+        {
+            if (string.Equals(zoneId, JobZoneEat, StringComparison.OrdinalIgnoreCase))
+            {
+                return new Color(0.12f, 0.53f, 0.9f, DefaultZoneAlpha);
+            }
+
+            if (string.Equals(zoneId, JobZoneSleep, StringComparison.OrdinalIgnoreCase))
+            {
+                return new Color(0.26f, 0.66f, 0.29f, DefaultZoneAlpha);
+            }
+
+            return new Color(0.88f, 0.34f, 0.34f, DefaultZoneAlpha);
         }
 
         private (float zoneSpacing, Vector2 zoneSize, float characterXSpan, float characterYMin, float characterYMax) ResolveDynamicLayoutBounds()

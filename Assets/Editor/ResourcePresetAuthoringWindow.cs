@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using ProjectW.IngameMvp;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -25,20 +26,8 @@ namespace ProjectW.Editor
             public Vector3 localScale;
         }
 
-        public sealed class ResourcePresetAsset : ScriptableObject
-        {
-            [SerializeField] private List<ResourceObjectSnapshot> objects = new List<ResourceObjectSnapshot>();
-
-            public IReadOnlyList<ResourceObjectSnapshot> Objects => objects;
-
-            public void SetSnapshots(List<ResourceObjectSnapshot> snapshots)
-            {
-                objects = snapshots ?? new List<ResourceObjectSnapshot>();
-            }
-        }
-
         private readonly List<ResourceObjectSnapshot> _workingSnapshots = new List<ResourceObjectSnapshot>();
-        private ResourcePresetAsset _selectedPreset;
+        private ResourcePlacementPreset _selectedPreset;
         private Vector2 _scroll;
 
         [MenuItem("ProjectW/Tools/Resource Preset Authoring")]
@@ -72,10 +61,10 @@ namespace ProjectW.Editor
                 }
             }
 
-            _selectedPreset = (ResourcePresetAsset)EditorGUILayout.ObjectField(
+            _selectedPreset = (ResourcePlacementPreset)EditorGUILayout.ObjectField(
                 "Loaded Preset",
                 _selectedPreset,
-                typeof(ResourcePresetAsset),
+                typeof(ResourcePlacementPreset),
                 false);
 
             EditorGUILayout.Space(8f);
@@ -154,8 +143,14 @@ namespace ProjectW.Editor
                 return;
             }
 
-            var asset = CreateInstance<ResourcePresetAsset>();
-            asset.SetSnapshots(new List<ResourceObjectSnapshot>(_workingSnapshots));
+            var asset = CreateInstance<ResourcePlacementPreset>();
+            asset.SetData(ConvertToPlacements(_workingSnapshots), new ResourcePlacementMeta
+            {
+                PresetId = Path.GetFileNameWithoutExtension(path),
+                DisplayName = Path.GetFileNameWithoutExtension(path),
+                SourceScene = SceneManager.GetActiveScene().name,
+                AuthoredAtUtcIso8601 = DateTime.UtcNow.ToString("o")
+            });
             AssetDatabase.CreateAsset(asset, path);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -183,7 +178,7 @@ namespace ProjectW.Editor
                 return;
             }
 
-            var asset = AssetDatabase.LoadAssetAtPath<ResourcePresetAsset>(projectPath);
+            var asset = AssetDatabase.LoadAssetAtPath<ResourcePlacementPreset>(projectPath);
             if (asset == null)
             {
                 Debug.LogWarning($"[ProjectW] Failed to load preset at path: {projectPath}");
@@ -197,7 +192,7 @@ namespace ProjectW.Editor
             Debug.Log($"[ProjectW] Resource preset loaded: {projectPath}");
         }
 
-        private void ApplyPreset(ResourcePresetAsset preset)
+        private void ApplyPreset(ResourcePlacementPreset preset)
         {
             var scene = SceneManager.GetActiveScene();
             if (!scene.IsValid() || !scene.isLoaded)
@@ -206,7 +201,8 @@ namespace ProjectW.Editor
                 return;
             }
 
-            foreach (var snapshot in preset.Objects)
+            var snapshots = ConvertToSnapshots(preset.Placements);
+            foreach (var snapshot in snapshots)
             {
                 var target = FindByHierarchyPath(snapshot.hierarchyPath);
                 if (target == null)
@@ -228,7 +224,7 @@ namespace ProjectW.Editor
             }
 
             _workingSnapshots.Clear();
-            _workingSnapshots.AddRange(preset.Objects);
+            _workingSnapshots.AddRange(snapshots);
 
             EditorSceneManager.MarkSceneDirty(scene);
         }
@@ -252,6 +248,90 @@ namespace ProjectW.Editor
                 var child = transform.GetChild(i);
                 CollectRecursive(child, $"{path}/{child.name}");
             }
+        }
+
+        private static List<ResourcePlacement> ConvertToPlacements(List<ResourceObjectSnapshot> snapshots)
+        {
+            var placements = new List<ResourcePlacement>(snapshots.Count);
+            for (var i = 0; i < snapshots.Count; i++)
+            {
+                var snapshot = snapshots[i];
+                placements.Add(new ResourcePlacement
+                {
+                    Type = InferPlacementType(snapshot),
+                    PlacementId = snapshot.hierarchyPath,
+                    ObjectName = snapshot.objectName,
+                    ParentPath = ResolveParentPath(snapshot.hierarchyPath),
+                    LocalPosition = snapshot.localPosition,
+                    LocalRotation = snapshot.localRotation,
+                    LocalScale = snapshot.localScale,
+                    Active = snapshot.active,
+                    Tag = snapshot.tag,
+                    Layer = snapshot.layer
+                });
+            }
+
+            return placements;
+        }
+
+        private static List<ResourceObjectSnapshot> ConvertToSnapshots(IReadOnlyList<ResourcePlacement> placements)
+        {
+            var snapshots = new List<ResourceObjectSnapshot>(placements.Count);
+            for (var i = 0; i < placements.Count; i++)
+            {
+                var placement = placements[i];
+                snapshots.Add(new ResourceObjectSnapshot
+                {
+                    hierarchyPath = string.IsNullOrWhiteSpace(placement.PlacementId)
+                        ? BuildHierarchyPath(placement.ParentPath, placement.ObjectName)
+                        : placement.PlacementId,
+                    objectName = placement.ObjectName,
+                    tag = string.IsNullOrWhiteSpace(placement.Tag) ? "Untagged" : placement.Tag,
+                    layer = placement.Layer,
+                    active = placement.Active,
+                    localPosition = placement.LocalPosition,
+                    localRotation = placement.LocalRotation,
+                    localScale = placement.LocalScale
+                });
+            }
+
+            return snapshots;
+        }
+
+        private static ResourcePlacementType InferPlacementType(ResourceObjectSnapshot snapshot)
+        {
+            if (!string.IsNullOrWhiteSpace(snapshot.tag) && snapshot.tag.IndexOf("zone", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return ResourcePlacementType.Zone;
+            }
+
+            if (!string.IsNullOrWhiteSpace(snapshot.objectName) && snapshot.objectName.IndexOf("character", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return ResourcePlacementType.Character;
+            }
+
+            return ResourcePlacementType.Generic;
+        }
+
+        private static string ResolveParentPath(string hierarchyPath)
+        {
+            if (string.IsNullOrWhiteSpace(hierarchyPath))
+            {
+                return string.Empty;
+            }
+
+            var splitIndex = hierarchyPath.LastIndexOf('/');
+            return splitIndex <= 0 ? string.Empty : hierarchyPath.Substring(0, splitIndex);
+        }
+
+        private static string BuildHierarchyPath(string parentPath, string objectName)
+        {
+            if (string.IsNullOrWhiteSpace(parentPath))
+            {
+                return objectName;
+            }
+
+            return $"{parentPath}/{objectName}";
         }
 
         private static Transform FindByHierarchyPath(string path)

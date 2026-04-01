@@ -33,6 +33,7 @@ namespace ProjectW.Outgame
         private SessionDifficulty _selectedDifficulty = SessionDifficulty.Normal;
         private WorkType? _selectedPrimaryPriority = WorkType.Routine;
         private WorkType? _selectedSecondaryPriority = WorkType.Labor;
+        [SerializeField] private string defaultPresetId = "default";
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void EnsureController()
@@ -442,7 +443,8 @@ namespace ProjectW.Outgame
                 SelectedCharacterCount = selected.Count,
                 SessionMode = _exhibitionModeToggle != null && _exhibitionModeToggle.isOn
                     ? SessionModePreset.Exhibition
-                    : SessionModePreset.Normal
+                    : SessionModePreset.Normal,
+                PresetId = string.IsNullOrWhiteSpace(defaultPresetId) ? "default" : defaultPresetId.Trim()
             };
 
             SessionFlowRuntimeContext.SetPendingSetup(setup);
@@ -1031,4 +1033,3 @@ namespace ProjectW.Outgame
         }
     }
 }
-
