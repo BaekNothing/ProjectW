@@ -31,6 +31,7 @@ namespace ProjectW.Outgame
         public PriorityPair PriorityPair = new PriorityPair(WorkType.Routine, WorkType.Labor);
         public int SelectedCharacterCount = 3;
         public SessionModePreset SessionMode = SessionModePreset.Normal;
+        public string PresetId = "default";
 
         public OutgameSessionSetup Clone()
         {
@@ -44,7 +45,8 @@ namespace ProjectW.Outgame
                 SelectedDifficulty = SelectedDifficulty,
                 PriorityPair = PriorityPair,
                 SelectedCharacterCount = SelectedCharacterCount,
-                SessionMode = SessionMode
+                SessionMode = SessionMode,
+                PresetId = PresetId
             };
         }
 
@@ -60,7 +62,8 @@ namespace ProjectW.Outgame
                 SelectedDifficulty = SessionDifficulty.Normal,
                 PriorityPair = new PriorityPair(WorkType.Routine, WorkType.Labor),
                 SelectedCharacterCount = 3,
-                SessionMode = SessionModePreset.Normal
+                SessionMode = SessionModePreset.Normal,
+                PresetId = "default"
             };
         }
 

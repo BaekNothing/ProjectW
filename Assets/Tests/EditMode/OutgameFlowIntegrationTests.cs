@@ -100,7 +100,8 @@ namespace ProjectW.Tests.EditMode
             {
                 SelectedDifficulty = SessionDifficulty.Risky,
                 PriorityPair = new PriorityPair(WorkType.Reflex, WorkType.Observe),
-                SelectedCharacterCount = 2
+                SelectedCharacterCount = 2,
+                PresetId = "preset.alpha"
             };
 
             var cloned = setup.Clone();
@@ -108,6 +109,7 @@ namespace ProjectW.Tests.EditMode
             Assert.AreEqual(WorkType.Reflex, cloned.PriorityPair.PrimaryWorkType);
             Assert.AreEqual(WorkType.Observe, cloned.PriorityPair.SecondaryWorkType);
             Assert.AreEqual(2, cloned.SelectedCharacterCount);
+            Assert.AreEqual("preset.alpha", cloned.PresetId);
         }
 
         private static GameObject CreateZone(Transform parent, string objectName, string zoneId, string[] tags, Vector3 position, Vector3 boundarySize)
