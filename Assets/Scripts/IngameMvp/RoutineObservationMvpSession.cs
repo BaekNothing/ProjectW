@@ -274,6 +274,8 @@ namespace ProjectW.IngameMvp
         private SessionModePreset _sessionMode = SessionModePreset.Normal;
         private string _resolvedPlacementPresetId = "default";
         private ResourcePlacementPreset _resolvedPlacementPreset;
+        private bool _usedPlacementPresetFallback;
+        private string _placementPresetBuildStatus = "NotBuilt";
         private bool _exhibitionIntroEventInserted;
         private bool _exhibitionTimeboxEndHandled;
         private int _exhibitionTimeboxTicks;
@@ -370,6 +372,7 @@ namespace ProjectW.IngameMvp
                 ? (string.IsNullOrWhiteSpace(defaultPlacementPresetId) ? "default" : defaultPlacementPresetId.Trim())
                 : resolvedSetup.PresetId.Trim();
             _resolvedPlacementPreset = ResolvePlacementPresetById(_resolvedPlacementPresetId);
+            SetDashboardContext("PlacementPresetStatus", _resolvedPlacementPreset != null ? "Resolved" : "Missing");
             var selectedIds = new HashSet<string>(
                 (resolvedSetup.SelectedCharacterIds != null && resolvedSetup.SelectedCharacterIds.Count > 0)
                     ? resolvedSetup.SelectedCharacterIds
@@ -434,6 +437,8 @@ namespace ProjectW.IngameMvp
             SetDashboardContext("PriorityPair", $"{_selectedPriorityPair.PrimaryWorkType}>{_selectedPriorityPair.SecondaryWorkType}");
             SetDashboardContext("SessionMode", _sessionMode.ToString());
             SetDashboardContext("PlacementPresetId", _resolvedPlacementPresetId);
+            SetDashboardContext("PlacementPresetFallback", "Pending");
+            SetDashboardContext("PlacementPresetBuild", _placementPresetBuildStatus);
             RebuildDynamicWorldIfEnabled();
             ApplyPriorityBiasToCharacters(bias);
             ResetProceduralGenerationState();
@@ -663,6 +668,9 @@ namespace ProjectW.IngameMvp
 
             GUILayout.BeginArea(new Rect(debugPanelPosition.x, debugPanelPosition.y, debugPanelSize.x, debugPanelSize.y), GUI.skin.box);
             GUILayout.Label($"Routine Debug | Tick {_absoluteTick}", _debugLabelStyle);
+            GUILayout.Label(
+                $"Preset:{_resolvedPlacementPresetId} | Build:{_placementPresetBuildStatus} | Fallback:{(_usedPlacementPresetFallback ? "Yes" : "No")}",
+                _debugLabelStyle);
             for (int i = 0; i < characters.Count; i++)
             {
                 var binding = characters[i];
@@ -2521,6 +2529,10 @@ namespace ProjectW.IngameMvp
                         return preset;
                     }
                 }
+
+                Debug.LogWarningFormat(
+                    "[RoutineMVP] Placement preset resolve failed. presetId='{0}', searchedPaths='catalog -> Resources/ResourcePlacementPresets'.",
+                    trimmed);
             }
 
             return null;
@@ -2548,6 +2560,7 @@ namespace ProjectW.IngameMvp
             var createdFromPreset = TryBuildWorldFromPlacementPreset(_resolvedPlacementPreset, dynamicZones, dynamicCharacters, layout, spawnCount);
             if (!createdFromPreset)
             {
+                _usedPlacementPresetFallback = true;
                 var missionSize = ResolveRandomizedLargeZoneSize(layout.zoneSize, 211);
                 var cafeteriaSize = ResolveRandomizedLargeZoneSize(layout.zoneSize, 223);
                 var sleepSize = ResolveRandomizedLargeZoneSize(layout.zoneSize, 227);
@@ -2564,6 +2577,10 @@ namespace ProjectW.IngameMvp
                     var y = layout.characterYMin + (float)(rng.NextDouble() * (layout.characterYMax - layout.characterYMin));
                     CreateCharacter2D(dynamicCharacters, $"DynamicCharacter_{i + 1:D2}", new Vector2(x, y), GetLineColor(i));
                 }
+            }
+            else
+            {
+                _usedPlacementPresetFallback = false;
             }
 
             characters.Clear();
@@ -2583,6 +2600,9 @@ namespace ProjectW.IngameMvp
             }
 
             SetDashboardContext("DynamicWorld", $"enabled/{spawnCount}chars");
+            SetDashboardContext("PlacementPresetId", _resolvedPlacementPresetId);
+            SetDashboardContext("PlacementPresetFallback", _usedPlacementPresetFallback ? "Yes" : "No");
+            SetDashboardContext("PlacementPresetBuild", _placementPresetBuildStatus);
             Ensure2DWorldSetup();
             EnsureZoneWidthsForCharacterSeparation();
             EnsureZoneDesks();
@@ -2596,13 +2616,23 @@ namespace ProjectW.IngameMvp
             (float zoneSpacing, Vector2 zoneSize, float characterXSpan, float characterYMin, float characterYMax) layout,
             int spawnCount)
         {
+            _usedPlacementPresetFallback = false;
+
             if (preset == null || preset.Placements == null || preset.Placements.Count == 0)
             {
+                _placementPresetBuildStatus = "NoPresetOrPlacements";
+                SetDashboardContext("PlacementPresetBuild", _placementPresetBuildStatus);
+                Debug.LogWarningFormat(
+                    "[RoutineMVP] Placement preset build skipped. presetId='{0}', reason='preset missing or placements empty'.",
+                    _resolvedPlacementPresetId);
                 return false;
             }
 
             var zoneIndex = 0;
             var characterIndex = 0;
+            var activePlacementCount = 0;
+            var activeZonePlacementCount = 0;
+            var activeCharacterPlacementCount = 0;
             for (var i = 0; i < preset.Placements.Count; i++)
             {
                 var placement = preset.Placements[i];
@@ -2611,8 +2641,11 @@ namespace ProjectW.IngameMvp
                     continue;
                 }
 
+                activePlacementCount++;
+
                 if (placement.Type == ResourcePlacementType.Zone)
                 {
+                    activeZonePlacementCount++;
                     var zoneId = string.IsNullOrWhiteSpace(placement.ZoneId)
                         ? ResolveDefaultZoneId(zoneIndex)
                         : placement.ZoneId;
@@ -2635,6 +2668,7 @@ namespace ProjectW.IngameMvp
 
                 if (placement.Type == ResourcePlacementType.Character)
                 {
+                    activeCharacterPlacementCount++;
                     var position = new Vector2(placement.LocalPosition.x, placement.LocalPosition.y);
                     var objectName = string.IsNullOrWhiteSpace(placement.ObjectName) ? $"DynamicCharacter_{characterIndex + 1:D2}" : placement.ObjectName;
                     CreateCharacter2D(dynamicCharacters, objectName, position, GetLineColor(characterIndex));
@@ -2645,11 +2679,35 @@ namespace ProjectW.IngameMvp
             BindZonesFromAnchors();
             if (zoneIndex == 0)
             {
+                _placementPresetBuildStatus = activePlacementCount == 0
+                    ? "NoActivePlacements"
+                    : activeZonePlacementCount == 0
+                        ? "NoActiveZones"
+                        : "ZoneBuildFailed";
+                _usedPlacementPresetFallback = true;
+                SetDashboardContext("PlacementPresetBuild", _placementPresetBuildStatus);
+                Debug.LogWarningFormat(
+                    "[RoutineMVP] Placement preset build failed. presetId='{0}', reason='{1}', activePlacements={2}, activeZones={3}, activeCharacters={4}.",
+                    _resolvedPlacementPresetId,
+                    _placementPresetBuildStatus,
+                    activePlacementCount,
+                    activeZonePlacementCount,
+                    activeCharacterPlacementCount);
                 return false;
             }
 
             if (characterIndex == 0)
             {
+                _placementPresetBuildStatus = activeCharacterPlacementCount == 0
+                    ? "NoActiveCharacters_FallbackGenerated"
+                    : "CharacterBuildFallbackGenerated";
+                _usedPlacementPresetFallback = true;
+                SetDashboardContext("PlacementPresetBuild", _placementPresetBuildStatus);
+                Debug.LogWarningFormat(
+                    "[RoutineMVP] Placement preset character fallback used. presetId='{0}', reason='{1}', spawnCount={2}.",
+                    _resolvedPlacementPresetId,
+                    _placementPresetBuildStatus,
+                    spawnCount);
                 var rng = new System.Random(_resolvedWorldSeed ^ 0x5A91);
                 for (var i = 0; i < spawnCount; i++)
                 {
@@ -2657,6 +2715,11 @@ namespace ProjectW.IngameMvp
                     var y = layout.characterYMin + (float)(rng.NextDouble() * (layout.characterYMax - layout.characterYMin));
                     CreateCharacter2D(dynamicCharacters, $"DynamicCharacter_{i + 1:D2}", new Vector2(x, y), GetLineColor(i));
                 }
+            }
+            else
+            {
+                _placementPresetBuildStatus = "Applied";
+                SetDashboardContext("PlacementPresetBuild", _placementPresetBuildStatus);
             }
 
             return true;
