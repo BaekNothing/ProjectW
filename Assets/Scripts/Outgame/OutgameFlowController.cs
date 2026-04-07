@@ -21,10 +21,12 @@ namespace ProjectW.Outgame
         private Toggle _toggleC;
         private Toggle _exhibitionModeToggle;
         private Dropdown _missionDropdown;
+        private Dropdown _presetDropdown;
         private Slider _resourceSlider;
         private Slider _safetySlider;
         private Text _resourceValueText;
         private Text _safetyValueText;
+        private Text _appliedPresetText;
         private Text _resultText;
         private Button _startButton;
         private readonly Dictionary<SessionDifficulty, Button> _difficultyButtons = new Dictionary<SessionDifficulty, Button>();
@@ -34,6 +36,10 @@ namespace ProjectW.Outgame
         private WorkType? _selectedPrimaryPriority = WorkType.Routine;
         private WorkType? _selectedSecondaryPriority = WorkType.Labor;
         [SerializeField] private string defaultPresetId = "default";
+        [SerializeField] private List<ResourcePlacementPreset> placementPresetCatalog = new List<ResourcePlacementPreset>();
+
+        private readonly List<string> _availablePresetIds = new List<string>();
+        private string _selectedPresetId = "default";
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void EnsureController()
@@ -72,6 +78,8 @@ namespace ProjectW.Outgame
                 BuildUi(_canvas.transform);
             }
 
+            RefreshAvailablePresetIds();
+            EnsurePresetSelectionInitialized();
             EnsureStartButtonPinned(_canvas.transform);
             WireUiEvents();
         }
@@ -243,7 +251,17 @@ namespace ProjectW.Outgame
             }
 
             var dropdowns = panel.GetComponentsInChildren<Dropdown>(true);
-            _missionDropdown = dropdowns.Length > 0 ? dropdowns[0] : null;
+            _missionDropdown = FindDropdownByName(panel, "MissionDropdown");
+            _presetDropdown = FindDropdownByName(panel, "PresetDropdown");
+            if (_missionDropdown == null && dropdowns.Length > 0)
+            {
+                _missionDropdown = dropdowns[0];
+            }
+
+            if (_presetDropdown == null && dropdowns.Length > 1)
+            {
+                _presetDropdown = dropdowns[1];
+            }
 
             var sliders = panel.GetComponentsInChildren<Slider>(true);
             if (sliders.Length >= 2)
@@ -267,6 +285,7 @@ namespace ProjectW.Outgame
                 _startButton = FindButtonByText(canvasRoot, "Start Ingame Loop");
             }
             _resultText = FindTextByPrefix(panel, "Last Result", "No result yet");
+            _appliedPresetText = FindTextByPrefix(panel, "Applied Preset", "현재 적용 프리셋");
 
             if (_resourceSlider != null)
             {
@@ -283,6 +302,8 @@ namespace ProjectW.Outgame
                    && _toggleC != null
                    && _exhibitionModeToggle != null
                    && _missionDropdown != null
+                   && _presetDropdown != null
+                   && _appliedPresetText != null
                    && _difficultyButtons.Count == 3
                    && _startButton != null;
         }
@@ -293,12 +314,20 @@ namespace ProjectW.Outgame
             _toggleB.onValueChanged.RemoveAllListeners();
             _toggleC.onValueChanged.RemoveAllListeners();
             _exhibitionModeToggle.onValueChanged.RemoveAllListeners();
+            if (_presetDropdown != null)
+            {
+                _presetDropdown.onValueChanged.RemoveAllListeners();
+            }
             _startButton.onClick.RemoveAllListeners();
 
             _toggleA.onValueChanged.AddListener(_ => ValidateStartButton());
             _toggleB.onValueChanged.AddListener(_ => ValidateStartButton());
             _toggleC.onValueChanged.AddListener(_ => ValidateStartButton());
             _exhibitionModeToggle.onValueChanged.AddListener(_ => ValidateStartButton());
+            if (_presetDropdown != null)
+            {
+                _presetDropdown.onValueChanged.AddListener(OnPresetDropdownChanged);
+            }
             _startButton.onClick.AddListener(OnClickStartSession);
             WireSelectionButtonEvents();
         }
@@ -337,8 +366,16 @@ namespace ProjectW.Outgame
             y -= 55f;
             CreateLabel(panel.transform, "MissionLabel", "Initial Mission", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(labelX, y), 18, TextAnchor.MiddleLeft);
             y -= 40f;
-            _missionDropdown = CreateDropdown(panel.transform, new Vector2(controlX, y), new List<string> { "ResourceSweep", "Recon", "SafetyPatrol" });
+            _missionDropdown = CreateDropdown(panel.transform, "MissionDropdown", new Vector2(controlX, y), new List<string> { "ResourceSweep", "Recon", "SafetyPatrol" });
             _missionDropdown.value = 1;
+
+            y -= 55f;
+            CreateLabel(panel.transform, "PresetLabel", "Resource Placement Preset", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(labelX, y), 18, TextAnchor.MiddleLeft);
+            y -= 40f;
+            _presetDropdown = CreateDropdown(panel.transform, "PresetDropdown", new Vector2(controlX, y), new List<string> { "default" });
+            _presetDropdown.value = 0;
+            y -= 30f;
+            _appliedPresetText = CreateLabel(panel.transform, "AppliedPresetText", "Applied Preset: default", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(controlX, y), 14, TextAnchor.MiddleLeft);
 
             y -= 55f;
             CreateLabel(panel.transform, "ExhibitionLabel", "전시 모드 시작", new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(labelX, y), 18, TextAnchor.MiddleLeft);
@@ -444,7 +481,7 @@ namespace ProjectW.Outgame
                 SessionMode = _exhibitionModeToggle != null && _exhibitionModeToggle.isOn
                     ? SessionModePreset.Exhibition
                     : SessionModePreset.Normal,
-                PresetId = string.IsNullOrWhiteSpace(defaultPresetId) ? "default" : defaultPresetId.Trim()
+                PresetId = ResolvePresetIdOrDefault(_selectedPresetId)
             };
 
             SessionFlowRuntimeContext.SetPendingSetup(setup);
@@ -456,6 +493,146 @@ namespace ProjectW.Outgame
             }
 
             SceneManager.LoadScene(IngameSceneName);
+        }
+
+        private void RefreshAvailablePresetIds()
+        {
+            _availablePresetIds.Clear();
+            var dedup = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            for (var i = 0; i < placementPresetCatalog.Count; i++)
+            {
+                var preset = placementPresetCatalog[i];
+                AddPresetIdIfValid(dedup, preset != null && preset.Meta != null ? preset.Meta.PresetId : null);
+            }
+
+            var resourcePresets = Resources.LoadAll<ResourcePlacementPreset>("ResourcePlacementPresets");
+            for (var i = 0; i < resourcePresets.Length; i++)
+            {
+                var preset = resourcePresets[i];
+                AddPresetIdIfValid(dedup, preset != null && preset.Meta != null ? preset.Meta.PresetId : null);
+            }
+
+            var fallback = ResolveDefaultPresetId();
+            AddPresetIdIfValid(dedup, fallback);
+            if (!dedup.Contains("default"))
+            {
+                dedup.Add("default");
+            }
+
+            foreach (var presetId in dedup)
+            {
+                _availablePresetIds.Add(presetId);
+            }
+
+            _availablePresetIds.Sort(StringComparer.OrdinalIgnoreCase);
+        }
+
+        private void EnsurePresetSelectionInitialized()
+        {
+            var preferred = string.IsNullOrWhiteSpace(defaultPresetId) ? _selectedPresetId : defaultPresetId;
+            _selectedPresetId = ResolvePresetIdOrDefault(preferred);
+
+            if (_presetDropdown != null)
+            {
+                _presetDropdown.ClearOptions();
+                _presetDropdown.AddOptions(_availablePresetIds);
+
+                var selectedIndex = Mathf.Max(0, FindPresetIndex(_selectedPresetId));
+                if (selectedIndex < _availablePresetIds.Count)
+                {
+                    _selectedPresetId = _availablePresetIds[selectedIndex];
+                }
+                else
+                {
+                    _selectedPresetId = ResolveDefaultPresetId();
+                    selectedIndex = Mathf.Max(0, FindPresetIndex(_selectedPresetId));
+                }
+
+                _presetDropdown.SetValueWithoutNotify(selectedIndex);
+                _presetDropdown.RefreshShownValue();
+            }
+            else
+            {
+                _selectedPresetId = ResolveDefaultPresetId();
+            }
+
+            RefreshAppliedPresetLabel();
+        }
+
+        private void OnPresetDropdownChanged(int selectedIndex)
+        {
+            if (selectedIndex < 0 || selectedIndex >= _availablePresetIds.Count)
+            {
+                _selectedPresetId = ResolveDefaultPresetId();
+            }
+            else
+            {
+                _selectedPresetId = ResolvePresetIdOrDefault(_availablePresetIds[selectedIndex]);
+            }
+
+            RefreshAppliedPresetLabel();
+        }
+
+        private void RefreshAppliedPresetLabel()
+        {
+            if (_appliedPresetText != null)
+            {
+                _appliedPresetText.text = "Applied Preset: " + ResolvePresetIdOrDefault(_selectedPresetId);
+            }
+        }
+
+        private int FindPresetIndex(string presetId)
+        {
+            for (var i = 0; i < _availablePresetIds.Count; i++)
+            {
+                if (string.Equals(_availablePresetIds[i], presetId, StringComparison.OrdinalIgnoreCase))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        private static void AddPresetIdIfValid(HashSet<string> destination, string presetId)
+        {
+            if (destination == null || string.IsNullOrWhiteSpace(presetId))
+            {
+                return;
+            }
+
+            destination.Add(presetId.Trim());
+        }
+
+        private string ResolveDefaultPresetId()
+        {
+            return "default";
+        }
+
+        private string ResolvePresetIdOrDefault(string candidate)
+        {
+            var fallback = ResolveDefaultPresetId();
+            if (_availablePresetIds.Count == 0)
+            {
+                return fallback;
+            }
+
+            if (string.IsNullOrWhiteSpace(candidate))
+            {
+                return fallback;
+            }
+
+            var trimmed = candidate.Trim();
+            for (var i = 0; i < _availablePresetIds.Count; i++)
+            {
+                if (string.Equals(_availablePresetIds[i], trimmed, StringComparison.OrdinalIgnoreCase))
+                {
+                    return _availablePresetIds[i];
+                }
+            }
+
+            return fallback;
         }
 
         private bool ValidateStartButton()
@@ -571,6 +748,31 @@ namespace ProjectW.Outgame
                 if (buttons[i] != null && string.Equals(buttons[i].name, objectName, StringComparison.Ordinal))
                 {
                     return buttons[i];
+                }
+            }
+
+            return null;
+        }
+
+        private static Dropdown FindDropdownByName(Transform root, string objectName)
+        {
+            if (root == null || string.IsNullOrWhiteSpace(objectName))
+            {
+                return null;
+            }
+
+            var transform = root.Find(objectName);
+            if (transform != null)
+            {
+                return transform.GetComponent<Dropdown>();
+            }
+
+            var dropdowns = root.GetComponentsInChildren<Dropdown>(true);
+            for (var i = 0; i < dropdowns.Length; i++)
+            {
+                if (dropdowns[i] != null && string.Equals(dropdowns[i].name, objectName, StringComparison.Ordinal))
+                {
+                    return dropdowns[i];
                 }
             }
 
@@ -876,9 +1078,9 @@ namespace ProjectW.Outgame
             return toggle;
         }
 
-        private static Dropdown CreateDropdown(Transform parent, Vector2 anchoredPos, List<string> options)
+        private static Dropdown CreateDropdown(Transform parent, string name, Vector2 anchoredPos, List<string> options)
         {
-            var go = CreateUiObject("MissionDropdown", parent);
+            var go = CreateUiObject(string.IsNullOrWhiteSpace(name) ? "Dropdown" : name, parent);
             var rect = go.GetComponent<RectTransform>();
             rect.anchorMin = new Vector2(0f, 1f);
             rect.anchorMax = new Vector2(0f, 1f);
