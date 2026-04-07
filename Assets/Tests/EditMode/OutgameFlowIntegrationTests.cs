@@ -2,6 +2,7 @@ using NUnit.Framework;
 using ProjectW.IngameMvp;
 using ProjectW.IngameCore.Simulation;
 using ProjectW.Outgame;
+using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 
@@ -112,6 +113,69 @@ namespace ProjectW.Tests.EditMode
             Assert.AreEqual("preset.alpha", cloned.PresetId);
         }
 
+        [Test]
+        public void ApplyOutgameSetup_AppliesPlacementPresetInNormalMode()
+        {
+            var session = new GameObject("RoutineSession_PresetApply_Normal").AddComponent<RoutineObservationMvpSession>();
+            var preset = BuildPlacementPreset(
+                "preset.normal.apply",
+                new[]
+                {
+                    BuildZonePlacement("PresetMission", "zone.mission.main", new[] { "zone.mission" }, new Vector3(0f, 0f, 0f), new Vector3(5f, 3f, 1f)),
+                    BuildZonePlacement("PresetCafeteria", "zone.meal.main", new[] { "need.hunger" }, new Vector3(-4f, -1f, 0f), new Vector3(4f, 3f, 1f)),
+                    BuildZonePlacement("PresetSleep", "zone.sleep.main", new[] { "need.sleep" }, new Vector3(4f, 1f, 0f), new Vector3(4f, 3f, 1f)),
+                    BuildCharacterPlacement("PresetCharacter_A", new Vector3(-1f, -2f, 0f)),
+                    BuildCharacterPlacement("PresetCharacter_B", new Vector3(1f, -2f, 0f))
+                });
+
+            InjectPlacementPresetCatalog(session, preset);
+            session.ApplyOutgameSetup(new OutgameSessionSetup
+            {
+                SessionMode = SessionModePreset.Normal,
+                SelectedCharacterCount = 2,
+                PresetId = "preset.normal.apply"
+            });
+
+            Assert.AreEqual(3, CountChildren("Zones_Dynamic"));
+            Assert.AreEqual(2, CountChildren("Characters_Dynamic"));
+            Assert.AreEqual("preset.normal.apply", GetDashboardContext(session, "PlacementPresetId"));
+            Assert.AreEqual("Resolved", GetDashboardContext(session, "PlacementPresetStatus"));
+            Assert.AreEqual("No", GetDashboardContext(session, "PlacementPresetFallback"));
+            Assert.AreEqual("Applied", GetDashboardContext(session, "PlacementPresetBuild"));
+
+            CleanupSessionWorld(session, preset);
+        }
+
+        [Test]
+        public void ApplyOutgameSetup_MissingPresetFallsBackInExhibitionMode()
+        {
+            var session = new GameObject("RoutineSession_PresetMissing_Exhibition").AddComponent<RoutineObservationMvpSession>();
+            var preset = BuildPlacementPreset(
+                "preset.exhibition.available",
+                new[]
+                {
+                    BuildZonePlacement("AvailableZone", "zone.mission.main", new[] { "zone.mission" }, new Vector3(0f, 0f, 0f), new Vector3(5f, 3f, 1f)),
+                    BuildCharacterPlacement("AvailableCharacter", new Vector3(0f, -2f, 0f))
+                });
+
+            InjectPlacementPresetCatalog(session, preset);
+            session.ApplyOutgameSetup(new OutgameSessionSetup
+            {
+                SessionMode = SessionModePreset.Exhibition,
+                SelectedCharacterCount = 2,
+                PresetId = "preset.not.found"
+            });
+
+            Assert.AreEqual(3, CountChildren("Zones_Dynamic"));
+            Assert.AreEqual(2, CountChildren("Characters_Dynamic"));
+            Assert.AreEqual("preset.not.found", GetDashboardContext(session, "PlacementPresetId"));
+            Assert.AreEqual("Missing", GetDashboardContext(session, "PlacementPresetStatus"));
+            Assert.AreEqual("Yes", GetDashboardContext(session, "PlacementPresetFallback"));
+            Assert.AreEqual("NoPresetOrPlacements", GetDashboardContext(session, "PlacementPresetBuild"));
+
+            CleanupSessionWorld(session, preset);
+        }
+
         private static GameObject CreateZone(Transform parent, string objectName, string zoneId, string[] tags, Vector3 position, Vector3 boundarySize)
         {
             var zone = new GameObject(objectName);
@@ -123,6 +187,83 @@ namespace ProjectW.Tests.EditMode
             anchor.SetZoneId(zoneId);
             anchor.SetTags(tags);
             return zone;
+        }
+
+        private static ResourcePlacement BuildZonePlacement(string objectName, string zoneId, string[] tags, Vector3 position, Vector3 scale)
+        {
+            return new ResourcePlacement
+            {
+                Type = ResourcePlacementType.Zone,
+                ObjectName = objectName,
+                ZoneId = zoneId,
+                ZoneTags = tags,
+                LocalPosition = position,
+                LocalScale = scale,
+                Active = true
+            };
+        }
+
+        private static ResourcePlacement BuildCharacterPlacement(string objectName, Vector3 position)
+        {
+            return new ResourcePlacement
+            {
+                Type = ResourcePlacementType.Character,
+                ObjectName = objectName,
+                LocalPosition = position,
+                Active = true
+            };
+        }
+
+        private static ResourcePlacementPreset BuildPlacementPreset(string presetId, ResourcePlacement[] placements)
+        {
+            var preset = ScriptableObject.CreateInstance<ResourcePlacementPreset>();
+            preset.SetData(
+                new List<ResourcePlacement>(placements),
+                new ResourcePlacementMeta
+                {
+                    PresetId = presetId,
+                    DisplayName = presetId
+                });
+            return preset;
+        }
+
+        private static void InjectPlacementPresetCatalog(RoutineObservationMvpSession session, ResourcePlacementPreset preset)
+        {
+            var field = typeof(RoutineObservationMvpSession).GetField("placementPresetCatalog", BindingFlags.NonPublic | BindingFlags.Instance);
+            field.SetValue(session, new List<ResourcePlacementPreset> { preset });
+        }
+
+        private static string GetDashboardContext(RoutineObservationMvpSession session, string key)
+        {
+            var method = typeof(RoutineObservationMvpSession).GetMethod("TryGetDashboardValue", BindingFlags.NonPublic | BindingFlags.Instance);
+            return method.Invoke(session, new object[] { key }) as string;
+        }
+
+        private static int CountChildren(string rootName)
+        {
+            var root = GameObject.Find(rootName);
+            return root == null ? 0 : root.transform.childCount;
+        }
+
+        private static void CleanupSessionWorld(RoutineObservationMvpSession session, ResourcePlacementPreset preset)
+        {
+            Object.DestroyImmediate(session.gameObject);
+            var zonesDynamic = GameObject.Find("Zones_Dynamic");
+            if (zonesDynamic != null)
+            {
+                Object.DestroyImmediate(zonesDynamic);
+            }
+
+            var charactersDynamic = GameObject.Find("Characters_Dynamic");
+            if (charactersDynamic != null)
+            {
+                Object.DestroyImmediate(charactersDynamic);
+            }
+
+            if (preset != null)
+            {
+                Object.DestroyImmediate(preset);
+            }
         }
     }
 }
