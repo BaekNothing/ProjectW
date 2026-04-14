@@ -54,6 +54,8 @@ namespace ProjectW.IngameMvp
                 _popup = popupGo.AddComponent<IngameResultPopupController>();
             }
 
+            _popup.Hide();
+
             var setup = SessionFlowRuntimeContext.ConsumePendingSetupOrDefault();
             _session.ApplyOutgameSetup(setup);
             _session.SessionEnded += HandleSessionEnded;

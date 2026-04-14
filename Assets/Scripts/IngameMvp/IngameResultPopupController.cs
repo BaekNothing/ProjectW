@@ -14,6 +14,15 @@ namespace ProjectW.IngameMvp
         private Text _bodyText;
         private Button _confirmButton;
 
+        public void Hide()
+        {
+            EnsureUi();
+            if (_panel != null)
+            {
+                _panel.SetActive(false);
+            }
+        }
+
         public void Show(SessionResultSummary summary, Action onConfirm)
         {
             EnsureUi();
@@ -21,6 +30,8 @@ namespace ProjectW.IngameMvp
             {
                 return;
             }
+
+            EnsurePanelPresentation();
 
             var code = string.IsNullOrWhiteSpace(summary?.TerminationReasonCode) ? "UNKNOWN" : summary.TerminationReasonCode;
             _bodyText.text = string.Format(
@@ -51,15 +62,15 @@ namespace ProjectW.IngameMvp
 
             EnsureEventSystem();
 
-            var canvasGo = GameObject.Find("IngameResultCanvas");
-            if (canvasGo != null)
+            var canvasGo = ResolveCanvasRoot();
+            if (canvasGo == null)
             {
-                _canvas = canvasGo.GetComponent<Canvas>();
+                return;
             }
 
+            _canvas = canvasGo.GetComponent<Canvas>();
             if (_canvas == null)
             {
-                canvasGo = new GameObject("IngameResultCanvas");
                 _canvas = canvasGo.AddComponent<Canvas>();
             }
 
@@ -109,6 +120,60 @@ namespace ProjectW.IngameMvp
 
             _confirmButton = CreateButton(_panel.transform, "아웃게임으로", new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 35f), new Vector2(180f, 42f));
             _panel.SetActive(false);
+        }
+
+        private void EnsurePanelPresentation()
+        {
+            if (_canvas != null)
+            {
+                _canvas.overrideSorting = true;
+                _canvas.sortingOrder = 5000;
+                _canvas.planeDistance = 5f;
+            }
+
+            if (_panel == null)
+            {
+                return;
+            }
+
+            _panel.transform.SetAsLastSibling();
+            var panelCanvas = _panel.GetComponent<Canvas>();
+            if (panelCanvas == null)
+            {
+                panelCanvas = _panel.AddComponent<Canvas>();
+            }
+
+            panelCanvas.overrideSorting = true;
+            panelCanvas.sortingOrder = 5001;
+
+            if (_panel.GetComponent<GraphicRaycaster>() == null)
+            {
+                _panel.AddComponent<GraphicRaycaster>();
+            }
+        }
+
+        private static GameObject ResolveCanvasRoot()
+        {
+            var canvasGo = GameObject.Find("MvpDashboardCanvas");
+            if (canvasGo != null)
+            {
+                return canvasGo;
+            }
+
+            canvasGo = GameObject.Find("MvpCanvas");
+            if (canvasGo != null)
+            {
+                return canvasGo;
+            }
+
+            var anyCanvas = FindFirstObjectByType<Canvas>();
+            if (anyCanvas != null)
+            {
+                return anyCanvas.gameObject;
+            }
+
+            canvasGo = new GameObject("MvpDashboardCanvas");
+            return canvasGo;
         }
 
         private bool TryBindExistingUi(Transform canvasRoot)

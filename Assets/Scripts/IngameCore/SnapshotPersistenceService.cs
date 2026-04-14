@@ -97,7 +97,7 @@ namespace ProjectW.IngameCore
         public JsonSnapshotWriter(string rootDirectory = null, int maxSnapshotsPerSession = 3)
         {
             this.rootDirectory = string.IsNullOrWhiteSpace(rootDirectory)
-                ? Path.Combine(Application.persistentDataPath, "IngameSnapshots")
+                ? null
                 : rootDirectory;
             this.maxSnapshotsPerSession = Math.Max(1, maxSnapshotsPerSession);
         }
@@ -111,7 +111,7 @@ namespace ProjectW.IngameCore
 
             try
             {
-                var sessionDirectory = Path.Combine(rootDirectory, snapshot.SessionId.Trim());
+                var sessionDirectory = Path.Combine(ResolveRootDirectory(), snapshot.SessionId.Trim());
                 Directory.CreateDirectory(sessionDirectory);
                 var fileName = $"tick_{snapshot.TickIndex:D8}_{DateTime.UtcNow:yyyyMMddTHHmmssfff}.json";
                 var filePath = Path.Combine(sessionDirectory, fileName);
@@ -134,6 +134,13 @@ namespace ProjectW.IngameCore
             {
                 return new SnapshotWriteResult(false, "E-PST-301");
             }
+        }
+
+        private string ResolveRootDirectory()
+        {
+            return string.IsNullOrWhiteSpace(rootDirectory)
+                ? Path.Combine(Application.persistentDataPath, "IngameSnapshots")
+                : rootDirectory;
         }
     }
     public sealed class SnapshotPersistenceService

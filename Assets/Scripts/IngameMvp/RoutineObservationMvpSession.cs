@@ -488,7 +488,7 @@ namespace ProjectW.IngameMvp
                 _exhibitionIntroEventInserted = true;
                 AppendChronicleEvent(new ChronicleEvent
                 {
-                    Category = ChronicleEventCategory.AutoNarrative,
+                    Category = ChronicleEventCategory.Progress,
                     Description = "전시 모드 시작: 첫 이벤트를 강제 삽입했습니다. 지금 바로 개입을 선택해 흐름을 바꿔보세요.",
                     Severity = 2
                 });

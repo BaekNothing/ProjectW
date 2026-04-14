@@ -198,6 +198,7 @@ namespace ProjectW.IngameMvp
             setDashboardContext("Termination", sessionEndResult.EndReasonCode);
             setDashboardContext("Persistence", persistenceResult.State.ToString());
             emitSessionEndedOnce(null);
+            stopSession();
             sessionEndRequested = true;
             return true;
         }

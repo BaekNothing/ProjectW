@@ -16,12 +16,12 @@ namespace ProjectW.IngameCore
     public sealed class JsonlPlaytestAnalyticsWriter : IPlaytestAnalyticsWriter
     {
         private readonly string _rootDirectory;
-        public string RootDirectory => _rootDirectory;
+        public string RootDirectory => ResolveRootDirectory();
 
         public JsonlPlaytestAnalyticsWriter(string rootDirectory = null)
         {
             _rootDirectory = string.IsNullOrWhiteSpace(rootDirectory)
-                ? Path.Combine(Application.persistentDataPath, "IngameSnapshots")
+                ? null
                 : rootDirectory;
         }
 
@@ -35,8 +35,9 @@ namespace ProjectW.IngameCore
 
             try
             {
-                Directory.CreateDirectory(_rootDirectory);
-                var filePath = Path.Combine(_rootDirectory, $"analytics-{DateTime.UtcNow:yyyyMMdd}.jsonl");
+                var rootDirectory = ResolveRootDirectory();
+                Directory.CreateDirectory(rootDirectory);
+                var filePath = Path.Combine(rootDirectory, $"analytics-{DateTime.UtcNow:yyyyMMdd}.jsonl");
                 var line = JsonUtility.ToJson(record, false);
                 File.AppendAllText(filePath, line + Environment.NewLine, Encoding.UTF8);
                 errorCode = null;
@@ -47,6 +48,13 @@ namespace ProjectW.IngameCore
                 errorCode = "E-ANL-301";
                 return false;
             }
+        }
+
+        private string ResolveRootDirectory()
+        {
+            return string.IsNullOrWhiteSpace(_rootDirectory)
+                ? Path.Combine(Application.persistentDataPath, "IngameSnapshots")
+                : _rootDirectory;
         }
     }
 
