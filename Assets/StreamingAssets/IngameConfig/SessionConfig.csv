@@ -1,2 +1,0 @@
-session_id,session_mode,tick_seconds,short_session_tick_seconds,short_session_goal_ticks,short_session_initial_intervention_slots,max_decision_retry,max_persist_retry,persist_retry_backoff_ms
-default,normal,1.0,0.75,16,2,3,3,500
