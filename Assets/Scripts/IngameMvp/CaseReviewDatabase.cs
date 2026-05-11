@@ -9,6 +9,11 @@ namespace ProjectW.IngameMvp
     [CreateAssetMenu(menuName = "ProjectW/Case Review Database", fileName = "CaseReviewDatabase")]
     public sealed class CaseReviewDatabase : ScriptableObject
     {
+        [SerializeField] private CaseReviewStaffCatalog staffCatalog;
+        [SerializeField] private CaseReviewCaseCatalog caseCatalog;
+        [SerializeField] private CaseReviewEvidenceCatalog evidenceCatalog;
+
+        [Header("Legacy Inline Data")]
         public List<PersonnelDefinition> staff = new List<PersonnelDefinition>();
         public List<CaseDefinition> cases = new List<CaseDefinition>();
         public List<TruthFrameDefinition> truthFrames = new List<TruthFrameDefinition>();
@@ -18,11 +23,31 @@ namespace ProjectW.IngameMvp
         {
             return new CaseReviewSeedData
             {
-                Staff = staff.Select(s => s.ToModel()).ToList(),
-                Queue = cases.Select(c => c.ToModel()).ToList(),
-                TruthFrames = truthFrames.Select(t => t.ToModel()).ToList(),
-                Logs = visibleLogs.Select(l => l.ToModel()).ToList()
+                Staff = SelectStaffDefinitions().Select(s => s.ToModel()).ToList(),
+                Queue = SelectCaseDefinitions().Select(c => c.ToModel()).ToList(),
+                TruthFrames = SelectTruthFrameDefinitions().Select(t => t.ToModel()).ToList(),
+                Logs = SelectVisibleLogDefinitions().Select(l => l.ToModel()).ToList()
             };
+        }
+
+        private IEnumerable<PersonnelDefinition> SelectStaffDefinitions()
+        {
+            return staffCatalog != null ? staffCatalog.Staff : staff;
+        }
+
+        private IEnumerable<CaseDefinition> SelectCaseDefinitions()
+        {
+            return caseCatalog != null ? caseCatalog.Cases : cases;
+        }
+
+        private IEnumerable<TruthFrameDefinition> SelectTruthFrameDefinitions()
+        {
+            return evidenceCatalog != null ? evidenceCatalog.TruthFrames : truthFrames;
+        }
+
+        private IEnumerable<VisibleLogDefinition> SelectVisibleLogDefinitions()
+        {
+            return evidenceCatalog != null ? evidenceCatalog.VisibleLogs : visibleLogs;
         }
     }
 
