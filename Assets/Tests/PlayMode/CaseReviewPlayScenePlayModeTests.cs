@@ -11,7 +11,7 @@ namespace ProjectW.Tests.PlayMode
     public sealed class CaseReviewPlayScenePlayModeTests
     {
         [UnityTest]
-        public IEnumerator MvpScene_LoadsCaseReviewConsole()
+        public IEnumerator MvpScene_LoadsManagementOffice()
         {
             var load = SceneManager.LoadSceneAsync("MVP Scene", LoadSceneMode.Single);
             while (!load.isDone)
@@ -27,13 +27,19 @@ namespace ProjectW.Tests.PlayMode
             Assert.IsNotNull(controller);
             Assert.IsNotNull(session);
             Assert.IsTrue(session.IsInitialized);
-            Assert.IsNotNull(GameObject.Find("PublicPanel"));
-            Assert.IsNotNull(GameObject.Find("HiddenPanel"));
-            Assert.IsNotNull(GameObject.Find("ConsoleHistoryPanel"));
-            Assert.IsNotNull(GameObject.Find("ConsolePanel"));
-            Assert.IsNotEmpty(GameObject.Find("PublicText")?.GetComponent<Text>()?.text);
-            Assert.IsNotEmpty(GameObject.Find("HiddenText")?.GetComponent<Text>()?.text);
+            Assert.IsNotNull(GameObject.Find("GlobalStatusBar"));
+            Assert.IsNotNull(GameObject.Find("OfficeNavigationPanel"));
+            Assert.IsNotNull(GameObject.Find("OfficeWorkPanel"));
+            Assert.IsNotNull(GameObject.Find("OfficeSignalPanel"));
+            Assert.IsNotNull(GameObject.Find("TurnProgressPanel"));
+            Assert.IsNotNull(GameObject.Find("OfficeActionPanel"));
+            Assert.IsNotNull(GameObject.Find("CommandLogPanel"));
+            Assert.IsNotNull(GameObject.Find("DebugCommandPanel"));
+            Assert.IsNotEmpty(GameObject.Find("GlobalStatusText")?.GetComponent<Text>()?.text);
+            Assert.IsNotEmpty(GameObject.Find("OfficeWorkText")?.GetComponent<Text>()?.text);
+            Assert.IsNotEmpty(GameObject.Find("OfficeSignalText")?.GetComponent<Text>()?.text);
             Assert.IsNotEmpty(GameObject.Find("ConsoleHistoryText")?.GetComponent<Text>()?.text);
+            Assert.IsNull(GameObject.Find("HiddenPanel"));
         }
     }
 }
