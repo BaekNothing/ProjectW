@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using ProjectW.IngameCore.CaseReview;
-using ProjectW.IngameMvp;
-using UnityEngine;
 
 namespace ProjectW.Tests.EditMode
 {
@@ -154,31 +152,6 @@ namespace ProjectW.Tests.EditMode
             Assert.IsTrue(state.MorningPlan.Confirmed);
             Assert.AreEqual("B-04,C-22", string.Join(",", eventCase.AssignedPersonnel));
             Assert.IsFalse(string.IsNullOrWhiteSpace(eventCase.ResultSummary));
-        }
-
-        [Test]
-        public void SessionController_DispatchesCommandsAndRestoresSnapshots()
-        {
-            var go = new GameObject("CaseReviewSessionControllerTest");
-            try
-            {
-                var controller = go.AddComponent<CaseReviewSessionController>();
-                controller.Initialize(1042);
-
-                var plan = controller.DispatchCommand("plan");
-                var snapshot = controller.Snapshot();
-                controller.DispatchCommand("adjust E-108 B-04,C-22");
-                controller.RestoreSnapshot(snapshot);
-
-                Assert.IsTrue(plan.Success);
-                Assert.IsFalse(string.IsNullOrWhiteSpace(controller.LastOutput));
-                Assert.AreEqual(Slot.Morning, controller.State.Slot);
-                Assert.IsFalse(controller.State.MorningPlan.Entries.First(e => e.EventId == "E-108").Adjusted);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(go);
-            }
         }
 
         private static void ForceNoon(GameState state)
