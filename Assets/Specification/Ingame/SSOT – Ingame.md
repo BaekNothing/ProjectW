@@ -5,6 +5,10 @@
 `Project_W`는 개발 코드명이며, 본 문서의 규칙은 현재 구현과 향후 구현의 기준이다.
 구현이 본 문서와 충돌할 경우 본 문서를 우선한다.
 
+캐릭터 세부 규칙은 `Assets/Specification/Ingame/SSOT – Characters.md`를 따른다.
+캐릭터 보유 요소는 `Assets/Specification/Ingame/SSOT – Character Possessions.md`를 따른다.
+캐릭터 기억과 관계는 `Assets/Specification/Ingame/SSOT – Character Memory and Relationships.md`를 따른다.
+
 ------
 
 ## 1. Core Premise

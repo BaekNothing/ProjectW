@@ -67,6 +67,38 @@
   - 현재 `CaseReview` 구현은 최신 Ingame SSOT의 업무 배치/보고/검토 MVP를 부분 구현한 상태로 해석한다.
   - 과거 Routine/Observation MVP 기록은 히스토리로 보존하되, 현재 SSOT와 충돌하면 현재 Ingame SSOT를 우선한다.
 
+### 2026-06-03 – Character SSOT Creation
+
+- 범위:
+  - 캐릭터 시스템의 단일 진실원 문서 생성
+  - 클론 기반 인력 개체의 감정적 거리감과 관리 자산 성격 정의
+  - 행동 덱, 정보 스코프, 성장, 폐기/재생성 원칙 구체화
+- 반영된 규칙:
+  - 캐릭터는 정을 붙일 수 있지만 대체불가능한 유일 존재는 아니다.
+  - 클론 폐기는 가능하되 비용 없는 리셋이 아니다.
+  - 캐릭터 성장은 순수한 레벨업이 아니라 카드, 특성, 위험 습관의 축적이다.
+  - 친밀도는 정보 스코프를 넓히지만 항상 정답 루트가 아니다.
+- 추적 문서:
+  - `Assets/Specification/Ingame/SSOT – Characters.md`
+  - `Assets/Specification/Ingame/SSOT – Ingame.md`
+
+### 2026-06-03 – Character Possessions and Memory SSOT Split
+
+- 범위:
+  - 캐릭터가 가질 수 있는 카드/퍽/덱/특성 샘플 규칙 분리
+  - 캐릭터 기억과 관계 규칙 분리
+  - 캐릭터 SSOT를 상위 개요 문서로 유지하고 세부 규칙 문서를 참조하도록 정리
+- 반영된 규칙:
+  - 행동 카드는 단순 버프가 아니라 장점과 관리 비용을 함께 가진다.
+  - 퍽은 지속 특성이며 결과, 리스크, 비용, 기억에 영향을 줄 수 있다.
+  - 캐릭터는 다른 캐릭터와 플레이어 관리자의 행동을 기억할 수 있다.
+  - 관계는 단순 호감도가 아니라 Trust, Affinity, Debt, Resentment, Reliability 등으로 확장 가능해야 한다.
+  - 클론 재생성은 기억을 완전히 보존하지도, 완전히 지우지도 않는다.
+- 추적 문서:
+  - `Assets/Specification/Ingame/SSOT – Character Possessions.md`
+  - `Assets/Specification/Ingame/SSOT – Character Memory and Relationships.md`
+  - `Assets/Specification/Ingame/SSOT – Characters.md`
+
 ### 2026-03-01 – Ingame Routine MVP Rule Tightening + Editor Refresh Control
 
 - 범위:

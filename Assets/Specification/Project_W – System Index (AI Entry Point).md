@@ -76,6 +76,9 @@ AI는 반드시 아래 순서로만 판단한다.
 - 핵심 참조:
   - `Assets/Specification/Kickoff.md`
   - `Assets/Specification/Ingame/SSOT – Ingame.md`
+  - `Assets/Specification/Ingame/SSOT – Characters.md`
+  - `Assets/Specification/Ingame/SSOT – Character Possessions.md`
+  - `Assets/Specification/Ingame/SSOT – Character Memory and Relationships.md`
 - 폐기된 기준:
   - 순수 관찰형 자동 서사 게임
   - 검토 비용 없는 완전 정보 관리 UI
