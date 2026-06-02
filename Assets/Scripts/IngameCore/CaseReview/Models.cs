@@ -25,6 +25,7 @@ public sealed class CaseReviewSeedData
 {
     public List<Personnel> Staff { get; set; } = new();
     [IgnoreDataMember] public List<CharacterRuntimeData> CharacterData { get; set; } = new();
+    [IgnoreDataMember] public List<WorkDefinition> WorkDefinitions { get; set; } = new();
     public List<EventCase> Queue { get; set; } = new();
     public List<TruthFrame> TruthFrames { get; set; } = new();
     public List<VisibleLog> Logs { get; set; } = new();
@@ -150,9 +151,12 @@ public sealed class ReviewCostEntry
 public sealed class EventCase
 {
     public string Id { get; set; } = "";
+    public string DefinitionId { get; set; } = "";
     public string Kind { get; set; } = "";
     public string Title { get; set; } = "";
     public string Subsystem { get; set; } = "";
+    public int Importance { get; set; }
+    public int Volume { get; set; }
     public int Urgency { get; set; }
     public int Severity { get; set; }
     public int TtlSec { get; set; }
@@ -172,8 +176,21 @@ public sealed class EventCase
     public int MentalCost { get; set; }
     public int BaseSuccessChance { get; set; } = 50;
     public Dictionary<string, int> RequiredAptitudes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public int RecommendedPersonnelCount { get; set; } = 1;
+    public int MinPersonnelCount { get; set; } = 1;
+    public int MaxPersonnelCount { get; set; } = 2;
+    public int ConcurrentLimit { get; set; } = 1;
+    public int ConcurrentSlotCost { get; set; } = 1;
+    public int SplitPenalty { get; set; }
+    public int SoloPenalty { get; set; }
+    public List<string> Tags { get; set; } = new();
     public List<string> PerkTags { get; set; } = new();
+    public List<string> CardHooks { get; set; } = new();
+    public List<string> BossReactionTags { get; set; } = new();
+    public List<string> MemoryHooks { get; set; } = new();
     public string PerkInteractionInfo { get; set; } = "";
+    public string VisibleSummary { get; set; } = "";
+    public List<string> HiddenFacts { get; set; } = new();
 }
 
 [Serializable]

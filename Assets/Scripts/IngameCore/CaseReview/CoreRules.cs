@@ -14,6 +14,7 @@ public sealed class CaseReviewRules
     public IReviewCostPolicy ReviewCostPolicy { get; set; } = new DefaultReviewCostPolicy();
     public IReplacementPressurePolicy ReplacementPressurePolicy { get; set; } = new DefaultReplacementPressurePolicy();
     public IBossPolicy BossPolicy { get; set; } = new DefaultBossPolicy();
+    public IWorkGenerationService WorkGenerationService { get; set; } = new DefaultWorkGenerationService();
 }
 
 public interface ICardDrawService

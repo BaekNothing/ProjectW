@@ -880,9 +880,27 @@ public static class CaseReviewGame
     private static void ApplyInitialData(GameState state, CaseReviewSeedData data)
     {
         state.Staff = BuildInitialStaff(data);
-        state.Queue = (data.Queue ?? new List<EventCase>()).Select(CloneEventCase).ToList();
+        state.Queue = BuildInitialQueue(state, data);
         state.TruthFrames = (data.TruthFrames ?? new List<TruthFrame>()).Select(CloneTruthFrame).ToList();
         state.Logs = (data.Logs ?? new List<VisibleLog>()).Select(CloneVisibleLog).ToList();
+    }
+
+    private static List<EventCase> BuildInitialQueue(GameState state, CaseReviewSeedData data)
+    {
+        var queue = (data.Queue ?? new List<EventCase>()).Select(CloneEventCase).ToList();
+        if (queue.Count > 0 || data.WorkDefinitions == null || data.WorkDefinitions.Count == 0)
+        {
+            return queue;
+        }
+
+        var request = new WorkGenerationRequest
+        {
+            Definitions = data.WorkDefinitions,
+            Count = 3,
+            Difficulty = 0
+        };
+
+        return Rules(state).WorkGenerationService.Generate(state, request);
     }
 
     private static List<Personnel> BuildInitialStaff(CaseReviewSeedData data)
@@ -978,9 +996,12 @@ public static class CaseReviewGame
         return new EventCase
         {
             Id = source.Id,
+            DefinitionId = source.DefinitionId,
             Kind = source.Kind,
             Title = source.Title,
             Subsystem = source.Subsystem,
+            Importance = source.Importance,
+            Volume = source.Volume,
             Urgency = source.Urgency,
             Severity = source.Severity,
             TtlSec = source.TtlSec,
@@ -1000,8 +1021,21 @@ public static class CaseReviewGame
             MentalCost = source.MentalCost,
             BaseSuccessChance = source.BaseSuccessChance,
             RequiredAptitudes = new Dictionary<string, int>(source.RequiredAptitudes ?? new Dictionary<string, int>(), StringComparer.OrdinalIgnoreCase),
+            RecommendedPersonnelCount = source.RecommendedPersonnelCount,
+            MinPersonnelCount = source.MinPersonnelCount,
+            MaxPersonnelCount = source.MaxPersonnelCount,
+            ConcurrentLimit = source.ConcurrentLimit,
+            ConcurrentSlotCost = source.ConcurrentSlotCost,
+            SplitPenalty = source.SplitPenalty,
+            SoloPenalty = source.SoloPenalty,
+            Tags = new List<string>(source.Tags ?? new List<string>()),
             PerkTags = new List<string>(source.PerkTags ?? new List<string>()),
-            PerkInteractionInfo = source.PerkInteractionInfo
+            CardHooks = new List<string>(source.CardHooks ?? new List<string>()),
+            BossReactionTags = new List<string>(source.BossReactionTags ?? new List<string>()),
+            MemoryHooks = new List<string>(source.MemoryHooks ?? new List<string>()),
+            PerkInteractionInfo = source.PerkInteractionInfo,
+            VisibleSummary = source.VisibleSummary,
+            HiddenFacts = new List<string>(source.HiddenFacts ?? new List<string>())
         };
     }
 

@@ -172,6 +172,116 @@ namespace ProjectW.Tests.EditMode
         }
 
         [Test]
+        public void WorkDefinition_CreatesRuntimeEventCase()
+        {
+            var work = ScriptableObject.CreateInstance<WorkDefinition>();
+            try
+            {
+                SetPrivateField(work, "workId", "work.o2-bypass");
+                SetPrivateField(work, "title", "O2 Bypass");
+                SetPrivateField(work, "kind", "incident");
+                SetPrivateField(work, "subsystem", "O2");
+                SetPrivateField(work, "importance", 70);
+                SetPrivateField(work, "volume", 18);
+                SetPrivateField(work, "risk", 30);
+                SetPrivateField(work, "latentRisk", 25);
+                SetPrivateField(work, "urgency", 65);
+                SetPrivateField(work, "tags", new List<string> { "repair", "procedure" });
+                SetPrivateField(work, "requiredAptitudes", new List<WorkAptitudeRequirement>
+                {
+                    new WorkAptitudeRequirement { Key = "dexterity", Value = 7 }
+                });
+
+                var item = work.CreateInstance(new WorkGenerationContext { Seed = 1, Day = 2, Difficulty = 2 }, 1);
+
+                Assert.AreEqual("work.o2-bypass", item.DefinitionId);
+                Assert.AreEqual("E-0201", item.Id);
+                Assert.AreEqual("incident", item.Kind);
+                Assert.AreEqual(72, item.Importance);
+                Assert.AreEqual(20, item.Volume);
+                Assert.AreEqual(1, item.ConcurrentLimit);
+                Assert.AreEqual(1, item.ConcurrentSlotCost);
+                Assert.IsTrue(item.Tags.Contains("repair"));
+                Assert.AreEqual(7, item.RequiredAptitudes["dexterity"]);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(work);
+            }
+        }
+
+        [Test]
+        public void WorkGeneration_UsesDifficultyAndConditionWeights()
+        {
+            var easy = ScriptableObject.CreateInstance<WorkDefinition>();
+            var hard = ScriptableObject.CreateInstance<WorkDefinition>();
+            try
+            {
+                SetPrivateField(easy, "workId", "work.easy");
+                SetPrivateField(easy, "title", "Easy Work");
+                SetPrivateField(easy, "spawnProfile", SpawnProfile(10));
+                SetPrivateField(hard, "workId", "work.hard");
+                SetPrivateField(hard, "title", "Hard Work");
+                SetPrivateField(hard, "spawnProfile", SpawnProfile(
+                    0,
+                    difficulty: new List<WorkDifficultyWeight>
+                    {
+                        new WorkDifficultyWeight { MinDifficulty = 3, WeightDelta = 20 }
+                    },
+                    conditions: new List<WorkConditionWeight>
+                    {
+                        new WorkConditionWeight { Key = WorkConditionKey.GlobalLatentRisk, Threshold = 40, WeightDelta = 30 }
+                    }));
+
+                var low = new WorkGenerationContext { Seed = 7, Day = 1, Difficulty = 1, GlobalLatentRisk = 10 };
+                var high = new WorkGenerationContext { Seed = 7, Day = 1, Difficulty = 4, GlobalLatentRisk = 50 };
+
+                Assert.AreEqual(0, hard.EvaluateSpawnWeight(low));
+                Assert.AreEqual(50, hard.EvaluateSpawnWeight(high));
+
+                var generated = WorkGenerationSystem.Generate(new List<WorkDefinition> { easy, hard }, high, 2);
+
+                Assert.AreEqual(2, generated.Count);
+                Assert.IsTrue(generated.Any(item => item.DefinitionId == "work.hard"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(easy);
+                UnityEngine.Object.DestroyImmediate(hard);
+            }
+        }
+
+        [Test]
+        public void InitialData_CanGenerateQueueFromWorkDefinitions()
+        {
+            var work = ScriptableObject.CreateInstance<WorkDefinition>();
+            try
+            {
+                SetPrivateField(work, "workId", "work.generated");
+                SetPrivateField(work, "title", "Generated Work");
+                SetPrivateField(work, "kind", "audit");
+                SetPrivateField(work, "spawnProfile", SpawnProfile(100));
+
+                var state = CaseReviewGame.Init(new GameConfig
+                {
+                    InitialData = new CaseReviewSeedData
+                    {
+                        WorkDefinitions = new List<WorkDefinition> { work }
+                    }
+                }, 11);
+
+                Assert.AreEqual(1, state.Queue.Count);
+                Assert.AreEqual("work.generated", state.Queue[0].DefinitionId);
+                Assert.AreEqual("audit", state.Queue[0].Kind);
+                Assert.IsTrue(state.MorningPlan.Entries.Any(e => e.EventId == state.Queue[0].Id));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(work);
+            }
+        }
+
+        [Test]
         public void ReviewActions_RecordReviewCostEntries()
         {
             var state = CaseReviewGame.Init(new GameConfig(), 1);
@@ -342,6 +452,18 @@ namespace ProjectW.Tests.EditMode
             var field = target.GetType().GetField(fieldName, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
             Assert.IsNotNull(field, $"Missing field {fieldName} on {target.GetType().Name}");
             field.SetValue(target, value);
+        }
+
+        private static WorkSpawnProfile SpawnProfile(
+            int baseWeight,
+            List<WorkDifficultyWeight> difficulty = null,
+            List<WorkConditionWeight> conditions = null)
+        {
+            var profile = new WorkSpawnProfile();
+            SetPrivateField(profile, "baseSpawnWeight", baseWeight);
+            SetPrivateField(profile, "difficultyWeights", difficulty ?? new List<WorkDifficultyWeight>());
+            SetPrivateField(profile, "conditionWeights", conditions ?? new List<WorkConditionWeight>());
+            return profile;
         }
 
         private sealed class FixedCardDrawService : ICardDrawService
