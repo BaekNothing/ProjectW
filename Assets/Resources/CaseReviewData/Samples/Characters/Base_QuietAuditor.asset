@@ -1,0 +1,47 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 59a2fd2dccff474bbac01106819242bb, type: 3}
+  m_Name: Base_QuietAuditor
+  m_EditorClassIdentifier: Scripts::ProjectW.IngameCore.CaseReview.CharacterBaseDefinition
+  personnelId: CL-A03
+  displayName: Quiet Auditor
+  cloneLineageId: LINE-AUDIT
+  renderResources: {fileID: 11400000, guid: 81712e63a4109204d8fc693259c81467, type: 2}
+  background: Sample clone profile for the character data workshop.
+  interests: []
+  personality: Readable, replaceable, and just specific enough to make management
+    awkward.
+  workStyle: Designed as a sample data block.
+  initialInformationScope: 1
+  aptitudes:
+    Observation: 9
+    Dexterity: 3
+    Boldness: 3
+    Intuition: 7
+    Logic: 7
+  operationalDefaults:
+    PhysicalEnergy: 100
+    MentalStress: 0
+    LoadAssigned: 0
+    Fatigue: 0
+    Stagnation: 0
+    TrustToManager: 0
+    RetentionRisk: 0
+    OptLow: 0
+    OptHigh: 0
+    MaxLoad: 0
+    ConnectionLimit: 3
+  startingDeck:
+  - {fileID: 11400000, guid: 20ea592657af7a846a84ff9e39563bf7, type: 2}
+  - {fileID: 11400000, guid: 96e6e3c44ed997b4a82d267f9afea0c5, type: 2}
+  startingPerks:
+  - {fileID: 11400000, guid: d6f8274416ee7e9478ec03a6b17cffcf, type: 2}

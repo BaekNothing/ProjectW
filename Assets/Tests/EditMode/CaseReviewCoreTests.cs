@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using ProjectW.IngameCore.CaseReview;
+using UnityEngine;
 
 namespace ProjectW.Tests.EditMode
 {
@@ -44,6 +45,130 @@ namespace ProjectW.Tests.EditMode
             Assert.AreEqual(1, state.MorningCards.Count);
             Assert.AreEqual("test-card", state.MorningCards[0].Id);
             Assert.AreEqual(25, state.MorningCards[0].OutcomeModifier);
+        }
+
+        [Test]
+        public void CharacterBaseDefinition_CreatesRuntimeModelWithCardsAndPerks()
+        {
+            var card = ScriptableObject.CreateInstance<ActionCardDefinition>();
+            var perk = ScriptableObject.CreateInstance<PerkDefinition>();
+            var character = ScriptableObject.CreateInstance<CharacterBaseDefinition>();
+            try
+            {
+                SetPrivateField(card, "cardId", "card.work");
+                SetPrivateField(card, "title", "Work Card");
+                SetPrivateField(perk, "perkId", "perk.logic");
+                SetPrivateField(perk, "title", "Logic Perk");
+                SetPrivateField(character, "personnelId", "P-01");
+                SetPrivateField(character, "displayName", "Planner");
+                SetPrivateField(character, "cloneLineageId", "CL-01");
+                SetPrivateField(character, "startingDeck", new List<ActionCardDefinition> { card });
+                SetPrivateField(character, "startingPerks", new List<PerkDefinition> { perk });
+
+                var model = character.CreateRuntimeModel();
+
+                Assert.AreEqual("P-01", model.Id);
+                Assert.AreEqual("CL-01", model.CloneLineageId);
+                Assert.AreEqual(1, model.Deck.Count);
+                Assert.AreEqual("card.work", model.Deck[0].Id);
+                Assert.AreEqual(1, model.Perks.Count);
+                Assert.AreEqual("perk.logic", model.Perks[0].Id);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(card);
+                UnityEngine.Object.DestroyImmediate(perk);
+                UnityEngine.Object.DestroyImmediate(character);
+            }
+        }
+
+        [Test]
+        public void DataDefinitions_CanReferenceRenderResources()
+        {
+            var resources = ScriptableObject.CreateInstance<RenderResourceDefinition>();
+            var card = ScriptableObject.CreateInstance<ActionCardDefinition>();
+            var perk = ScriptableObject.CreateInstance<PerkDefinition>();
+            var characterBase = ScriptableObject.CreateInstance<CharacterBaseDefinition>();
+            var runtime = ScriptableObject.CreateInstance<CharacterRuntimeData>();
+            try
+            {
+                SetPrivateField(resources, "resourceId", "render.clone.alpha");
+                SetPrivateField(resources, "displayLabel", "Clone Alpha Render Kit");
+                SetPrivateField(card, "renderResources", resources);
+                SetPrivateField(perk, "renderResources", resources);
+                SetPrivateField(characterBase, "renderResources", resources);
+                SetPrivateField(runtime, "baseDefinition", characterBase);
+
+                Assert.AreEqual("render.clone.alpha", resources.ResourceId);
+                Assert.AreSame(resources, card.RenderResources);
+                Assert.AreSame(resources, perk.RenderResources);
+                Assert.AreSame(resources, characterBase.RenderResources);
+                Assert.AreSame(resources, runtime.RenderResources);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(resources);
+                UnityEngine.Object.DestroyImmediate(card);
+                UnityEngine.Object.DestroyImmediate(perk);
+                UnityEngine.Object.DestroyImmediate(characterBase);
+                UnityEngine.Object.DestroyImmediate(runtime);
+            }
+        }
+
+        [Test]
+        public void CharacterRuntimeData_StoresRelationshipsPerCharacter()
+        {
+            var first = ScriptableObject.CreateInstance<CharacterRuntimeData>();
+            var second = ScriptableObject.CreateInstance<CharacterRuntimeData>();
+            try
+            {
+                SetPrivateField(first, "personnelIdOverride", "P-01");
+                SetPrivateField(second, "personnelIdOverride", "P-02");
+
+                first.GetOrCreateRelationship("P-02").Trust = 42;
+                second.GetOrCreateRelationship("P-01").Trust = -17;
+
+                Assert.AreEqual(42, first.Relationships.Single().Trust);
+                Assert.AreEqual("P-02", first.Relationships.Single().TargetPersonnelId);
+                Assert.AreEqual(-17, second.Relationships.Single().Trust);
+                Assert.AreEqual("P-01", second.Relationships.Single().TargetPersonnelId);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(first);
+                UnityEngine.Object.DestroyImmediate(second);
+            }
+        }
+
+        [Test]
+        public void InitialData_CanSeedStaffFromCharacterRuntimeData()
+        {
+            var card = ScriptableObject.CreateInstance<ActionCardDefinition>();
+            var character = ScriptableObject.CreateInstance<CharacterRuntimeData>();
+            try
+            {
+                SetPrivateField(card, "cardId", "card.injected");
+                SetPrivateField(card, "title", "Injected");
+                SetPrivateField(character, "personnelIdOverride", "P-77");
+                SetPrivateField(character, "deck", new List<ActionCardDefinition> { card });
+
+                var state = CaseReviewGame.Init(new GameConfig
+                {
+                    InitialData = new CaseReviewSeedData
+                    {
+                        CharacterData = new List<CharacterRuntimeData> { character }
+                    }
+                }, 4);
+
+                var person = state.Staff.Single(s => s.Id == "P-77");
+                Assert.AreEqual(1, person.Deck.Count);
+                Assert.AreEqual("card.injected", person.Deck[0].Id);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(card);
+                UnityEngine.Object.DestroyImmediate(character);
+            }
         }
 
         [Test]
@@ -210,6 +335,13 @@ namespace ProjectW.Tests.EditMode
             state.MorningPlan.Confirmed = true;
             state.Slot = Slot.Noon;
             state.TimeRemainingSec = state.Config.NoonSeconds;
+        }
+
+        private static void SetPrivateField<T>(object target, string fieldName, T value)
+        {
+            var field = target.GetType().GetField(fieldName, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            Assert.IsNotNull(field, $"Missing field {fieldName} on {target.GetType().Name}");
+            field.SetValue(target, value);
         }
 
         private sealed class FixedCardDrawService : ICardDrawService

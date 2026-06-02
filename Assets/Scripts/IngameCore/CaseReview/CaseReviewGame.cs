@@ -201,8 +201,8 @@ public static class CaseReviewGame
         if (!state.Config.UseTimePressure)
         {
             action();
-            var failedNow = lines.Any(l => l.StartsWith("ERR", StringComparison.Ordinal));
-            return Result(!failedNow, lines, timeCost: 0);
+            var codeNow = FirstErrorCode(lines);
+            return Result(string.IsNullOrEmpty(codeNow), lines, codeNow, timeCost: 0);
         }
 
         if (costSec > 0 && costSec >= state.TimeRemainingSec)
@@ -212,14 +212,14 @@ public static class CaseReviewGame
 
         var before = lines.Count;
         action();
-        var failed = lines.Skip(before).Any(l => l.StartsWith("ERR", StringComparison.Ordinal));
-        if (!failed && costSec > 0)
+        var code = FirstErrorCode(lines.Skip(before));
+        if (string.IsNullOrEmpty(code) && costSec > 0)
         {
             lines.AddRange(Advance(state, costSec).Lines);
             lines.Add($"OK. {costSec}초 경과.");
         }
 
-        return Result(!failed, lines, timeCost: failed ? 0 : costSec);
+        return Result(string.IsNullOrEmpty(code), lines, code, string.IsNullOrEmpty(code) ? costSec : 0);
     }
 
     private static void Queue(GameState state, List<string> tokens, List<string> lines)
@@ -573,7 +573,7 @@ public static class CaseReviewGame
             }
 
             RecordReviewCost(state, ReviewActionType.Report, item.Id, "event-report");
-            lines.Add(ReportGenerator.GenerateEventReport(state, item).TrimEnd());
+            AddBodyLines(lines, ReportGenerator.GenerateEventReport(state, item));
             return Result(true, lines);
         }
 
@@ -584,7 +584,7 @@ public static class CaseReviewGame
         }
 
         RecordReviewCost(state, ReviewActionType.Report, $"DAY-{state.Day:D2}", "daily-report");
-        lines.Add(report.Body.TrimEnd());
+        AddBodyLines(lines, report.Body);
         return Result(true, lines);
     }
 
@@ -671,6 +671,21 @@ public static class CaseReviewGame
     }
 
     private static void ErrorLine(string code, string message, List<string> lines) => lines.Add($"{code} {message}");
+
+    private static string FirstErrorCode(IEnumerable<string> lines)
+    {
+        var error = lines.FirstOrDefault(l => l.StartsWith("ERR", StringComparison.Ordinal));
+        if (string.IsNullOrWhiteSpace(error)) return "";
+        var space = error.IndexOf(' ');
+        return space > 0 ? error[..space] : error;
+    }
+
+    private static void AddBodyLines(List<string> lines, string body)
+    {
+        lines.AddRange(body.TrimEnd()
+            .Split(new[] { "\r\n", "\n" }, StringSplitOptions.None)
+            .Where(line => line.Length > 0));
+    }
 
     private static DispatchResult Result(bool success, List<string> lines, string code = "", int timeCost = 0)
     {
@@ -864,10 +879,25 @@ public static class CaseReviewGame
 
     private static void ApplyInitialData(GameState state, CaseReviewSeedData data)
     {
-        state.Staff = (data.Staff ?? new List<Personnel>()).Select(ClonePersonnel).ToList();
+        state.Staff = BuildInitialStaff(data);
         state.Queue = (data.Queue ?? new List<EventCase>()).Select(CloneEventCase).ToList();
         state.TruthFrames = (data.TruthFrames ?? new List<TruthFrame>()).Select(CloneTruthFrame).ToList();
         state.Logs = (data.Logs ?? new List<VisibleLog>()).Select(CloneVisibleLog).ToList();
+    }
+
+    private static List<Personnel> BuildInitialStaff(CaseReviewSeedData data)
+    {
+        var staff = (data.Staff ?? new List<Personnel>()).Select(ClonePersonnel).ToList();
+        if (data.CharacterData == null || data.CharacterData.Count == 0)
+        {
+            return staff;
+        }
+
+        staff.AddRange(data.CharacterData.Where(character => character != null).Select(character => ClonePersonnel(character.CreateRuntimeModel())));
+        return staff
+            .GroupBy(person => person.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.Last())
+            .ToList();
     }
 
     private static Personnel ClonePersonnel(Personnel source)

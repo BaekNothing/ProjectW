@@ -24,6 +24,7 @@ public sealed class GameConfig
 public sealed class CaseReviewSeedData
 {
     public List<Personnel> Staff { get; set; } = new();
+    [IgnoreDataMember] public List<CharacterRuntimeData> CharacterData { get; set; } = new();
     public List<EventCase> Queue { get; set; } = new();
     public List<TruthFrame> TruthFrames { get; set; } = new();
     public List<VisibleLog> Logs { get; set; } = new();

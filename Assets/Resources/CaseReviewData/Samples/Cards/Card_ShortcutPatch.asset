@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2dd10162f37d46c38f6df727a66e710b, type: 3}
+  m_Name: Card_ShortcutPatch
+  m_EditorClassIdentifier: Scripts::ProjectW.IngameCore.CaseReview.ActionCardDefinition
+  cardId: card.shortcut-patch
+  title: Shortcut Patch
+  renderResources: {fileID: 11400000, guid: ccd79ffa88a67cd43a9c52784bada666, type: 2}
+  visibleSummary: Applies a fast local workaround before all signatures arrive.
+  hiddenIntent: Looks efficient unless someone reads the missing approval chain.
+  requiredScope: 0
+  tags:
+  - repair
+  - shortcut
+  - risk
+  outcomeModifier: 12
+  riskModifier: 9
+  reviewCostModifier: -1
+  memoryHooks: []
+  growthHooks: []
+  bossReactionTags: []

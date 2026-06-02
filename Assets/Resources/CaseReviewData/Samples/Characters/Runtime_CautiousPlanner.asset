@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 684cf0aa81b842a3a20f4276fb0e70f7, type: 3}
+  m_Name: Runtime_CautiousPlanner
+  m_EditorClassIdentifier: Scripts::ProjectW.IngameCore.CaseReview.CharacterRuntimeData
+  baseDefinition: {fileID: 11400000, guid: 55f0775278037824985ae17056df405a, type: 2}
+  personnelIdOverride: P-S01
+  renderResources: {fileID: 0}
+  informationScopeOverride: 1
+  currentState:
+    PhysicalEnergy: 100
+    MentalStress: 0
+    LoadAssigned: 0
+    Fatigue: 0
+    Stagnation: 0
+    TrustToManager: 0
+    RetentionRisk: 0
+    OptLow: 0
+    OptHigh: 0
+    MaxLoad: 0
+    ConnectionLimit: 3
+  deck:
+  - {fileID: 11400000, guid: 96e6e3c44ed997b4a82d267f9afea0c5, type: 2}
+  - {fileID: 11400000, guid: b627cb6bd061d384ebd303af21225985, type: 2}
+  perks:
+  - {fileID: 11400000, guid: 462d58e551bfba74482820193b1f4718, type: 2}
+  relationships: []
+  memories: []
+  traitSamples: []
+  hasLeft: 0
+  daysSinceJoined: 0

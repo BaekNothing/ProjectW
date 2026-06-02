@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f522db7d0e5e402caaae4ca6f66362a7, type: 3}
+  m_Name: Perk_PatternAuditor
+  m_EditorClassIdentifier: Scripts::ProjectW.IngameCore.CaseReview.PerkDefinition
+  perkId: perk.pattern-auditor
+  title: Pattern Auditor
+  renderResources: {fileID: 11400000, guid: 81712e63a4109204d8fc693259c81467, type: 2}
+  triggerTags:
+  - audit
+  - records
+  - mismatch
+  aptitudeModifiers: []
+  outcomeModifier: 5
+  riskModifier: 0
+  physicalCostModifier: 0
+  mentalCostModifier: 1
+  reviewCostModifier: 0
+  memoryModifier: 0
+  clonePersistent: 1
+  note: 

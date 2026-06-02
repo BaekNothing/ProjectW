@@ -7,6 +7,9 @@
     "includePlatforms": [
         "Editor"
     ],
+    "testPlatforms": [
+        "EditMode"
+    ],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,
