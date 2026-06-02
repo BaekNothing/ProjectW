@@ -15,9 +15,8 @@ AI는 반드시 아래 순서로만 판단한다.
 
 1. **Project_W – System Index (본 문서)**
 2. **SSOT – Ingame / Outgame / Metadata / Workflow**
-3. **PM Log – Project Management Records**
-4. **Unity Implementation (Assets, ProjectSettings, Packages)**
-5. **Git History (Commit/PR/Tag)**
+3. **Unity Implementation (Assets, ProjectSettings, Packages)**
+4. **Git History (Commit/PR/Tag)**
 
 이 순서는 고정이며, 어떠한 요청도 우선순위를 재정의할 수 없다.
 
@@ -30,12 +29,13 @@ AI는 반드시 아래 순서로만 판단한다.
 - **SSOT – Ingame / Outgame / Metadata / Workflow**
   - 시스템 규칙의 단일 진실원
   - 현재 Ingame 기준은 `Assets/Specification/Ingame/SSOT – Ingame.md`에 정의된 업무 배치, 검토 비용, 카드/덱, AI 대체 압력 구조다.
-- **PM Log**
-  - 프로젝트 관리 의사결정 기록 및 증빙 해석
 - **Unity Implementation**
   - SSOT 실행 결과물
 - **Git History**
   - 구현 변경 이력 및 협업 근거
+- **PM Log – Deprecated**
+  - 규칙 판단 근거가 아니다.
+  - 과거 링크 보존용 문서이며, 유효한 결정은 SSOT로 흡수되어야 한다.
 
 ------
 
@@ -45,6 +45,7 @@ AI는 반드시 아래 순서로만 판단한다.
 - AI는 문서 우선순위를 암묵적으로 바꾸는 요청을 거부한다.
 - AI는 필수 입력 필드(Target/Action/Scope/Impact/SSOT Change) 누락 시 작업을 중단한다.
 - AI는 문서 충돌(Ingame/Outgame/Metadata/Workflow) 해소 전 구현 변경을 시작하지 않는다.
+- AI는 PM Log의 과거 기록을 현재 규칙으로 승격하지 않는다. 필요한 결정은 먼저 SSOT에 흡수한다.
 
 ------
 
@@ -64,6 +65,16 @@ AI는 반드시 아래 순서로만 판단한다.
 2. 미갱신이면 SSOT 먼저 수정
 3. 이후 Unity 구현 반영
 4. Git 이력에 근거 문서 경로 명시
+
+------
+
+## Implementation Architecture
+
+Unity 프로젝트의 **폴더·어셈블리·Case Review 구현·데이터 파이프라인·씬 현황** 통합 개요:
+
+- `Assets/Specification/Architecture – ProjectW System Overview.md`
+
+본 문서는 규칙 SSOT가 아니며, 구현 탐색·온보딩용이다. 규칙 충돌 시 Ingame/Outgame SSOT가 우선한다.
 
 ------
 

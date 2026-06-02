@@ -17,7 +17,7 @@ AI(GPT)에게 구조화된 요청을 전달해 갱신하는 방식으로 운영�
 
 AI 판단 순서:
 
-- System Index → SSOT (Ingame/Outgame/Metadata/Workflow) → PM Log → Unity Implementation → Git History
+- System Index → SSOT (Ingame/Outgame/Metadata/Workflow) → Unity Implementation → Git History
 
 ------
 
@@ -28,7 +28,7 @@ AI 판단 순서:
 - SSOT 기준 요약, 정리, 계획 수립, 리스크 분석
 - 명시된 범위 내 문서 변경 초안 또는 직접 갱신
 - 문서 간 충돌 검토(Ingame/Outgame/Metadata/Workflow)
-- PM Log 기반 프로젝트 관리 요약
+- 폐기된 PM Log 기록 중 필요한 결정의 SSOT 흡수
 
 ------
 
@@ -73,7 +73,7 @@ AI 판단 순서:
 - "Target: Assets/Specification/Ingame/SSOT – Ingame.md, Action: Review, Scope: daily assignment loop, Impact: Ingame/Metadata, SSOT Change: No"
 - "Target: Assets/Specification/Ingame/SSOT – Ingame.md, Action: Update, Scope: card/deck review cost rule, Impact: Ingame/Metadata, SSOT Change: Yes"
 - "Target: Assets/Specification/Project_W – System Index (AI Entry Point).md, Action: Update, Scope: decision order, Impact: 모든 영역, SSOT Change: Yes"
-- "Target: Assets/Specification/PM Log – Project Management Records.md, Action: Review, Scope: 이번 달 관리 활동 요약, Impact: Operation, SSOT Change: No"
+- "Target: Assets/Specification/Ingame/SSOT – Ingame.md, Action: Update, Scope: absorb deprecated PM Log decision, Impact: Ingame, SSOT Change: Yes"
 
 ### Not Allowed
 

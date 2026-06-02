@@ -15,14 +15,14 @@
 - Authoritative Entry:
   - Project_W – System Index (AI Entry Point)
 - Document Priority:
-  - System Index > SSOT (Ingame/Outgame/Metadata/Workflow) > PM Log > Unity Implementation > Git History
+  - System Index > SSOT (Ingame/Outgame/Metadata/Workflow) > Unity Implementation > Git History
 
 ------
 
 ## Interpretation Rules
 
 - 시스템 규칙은 반드시 SSOT에서만 가져온다.
-- 관리 판단은 PM Log를 기준으로 해석한다.
+- 과거 PM Log 기록은 현재 규칙으로 승격하지 않는다. 필요한 결정은 먼저 SSOT에 흡수한다.
 - 구현 상태는 규칙의 근거가 아니라 반영 상태로만 사용한다.
 - 현재 Ingame 방향은 관찰형 자동 서사가 아니라 업무 배치, 검토 비용, 카드/덱, AI 대체 압력 기반 관리 시뮬레이션으로 해석한다.
 
