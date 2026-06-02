@@ -32,6 +32,27 @@ public interface ICharacterRuntimeData
     Personnel CreateRuntimeModel();
 }
 
+public interface ICharacterMutationTarget
+{
+    CharacterMutationResult AddCard(ActionCardDefinition card);
+    CharacterMutationResult RemoveCard(string cardId);
+    CharacterMutationResult AddPerk(PerkDefinition perk);
+    CharacterMutationResult RemovePerk(string perkId);
+    CharacterMutationResult AddTraitSample(TraitSampleRecord traitSample);
+    CharacterMutationResult RemoveTraitSample(string traitSampleId);
+    CharacterMutationResult AdjustTraitSampleStrength(string traitSampleId, int delta);
+    CharacterMutationResult AddMemoryRecord(CharacterMemoryRecord memory);
+    CharacterMutationResult RemoveMemory(string memoryId);
+    CharacterMutationResult SetMemoryStat(string memoryId, CharacterMemoryStatKey stat, int value);
+    CharacterMutationResult AdjustMemoryStat(string memoryId, CharacterMemoryStatKey stat, int delta);
+    CharacterMutationResult RemoveRelationship(string targetPersonnelId);
+    CharacterMutationResult SetRelationshipStat(string targetPersonnelId, CharacterRelationshipStatKey stat, int value);
+    CharacterMutationResult AdjustRelationshipStat(string targetPersonnelId, CharacterRelationshipStatKey stat, int delta);
+    CharacterMutationResult SetStat(CharacterStatKey stat, int value);
+    CharacterMutationResult AdjustStat(CharacterStatKey stat, int delta);
+    int GetStat(CharacterStatKey stat);
+}
+
 public interface IActionCardDefinition
 {
     string CardId { get; }
@@ -56,6 +77,31 @@ public interface ICharacterRelationshipStore
     IReadOnlyList<CharacterRelationshipRecord> Relationships { get; }
     CharacterRelationshipRecord GetOrCreateRelationship(string targetPersonnelId);
     PersonnelRelationship ToRuntimeRelationship(CharacterRelationshipRecord record);
+}
+
+[Serializable]
+public readonly struct CharacterMutationResult
+{
+    public CharacterMutationResult(bool changed, string code, string message)
+    {
+        Changed = changed;
+        Code = code ?? "";
+        Message = message ?? "";
+    }
+
+    public bool Changed { get; }
+    public string Code { get; }
+    public string Message { get; }
+
+    public static CharacterMutationResult Applied(string code = "APPLIED", string message = "")
+    {
+        return new CharacterMutationResult(true, code, message);
+    }
+
+    public static CharacterMutationResult Ignored(string code, string message = "")
+    {
+        return new CharacterMutationResult(false, code, message);
+    }
 }
 
 [Serializable]
@@ -144,6 +190,37 @@ public sealed class AptitudeModifier
 {
     public string Key = "";
     public int Value;
+}
+
+public enum CharacterStatKey
+{
+    PhysicalEnergy,
+    MentalStress,
+    LoadAssigned,
+    Fatigue,
+    Stagnation,
+    TrustToManager,
+    RetentionRisk,
+    OptLow,
+    OptHigh,
+    MaxLoad,
+    ConnectionLimit,
+    DaysSinceJoined
+}
+
+public enum CharacterRelationshipStatKey
+{
+    Trust,
+    Affinity,
+    Debt,
+    Resentment,
+    Reliability
+}
+
+public enum CharacterMemoryStatKey
+{
+    Intensity,
+    Decay
 }
 
 public enum CharacterMemoryType

@@ -273,7 +273,39 @@
 
 ------
 
-## 12. Prohibitions
+## 12. Mutation Contract
+
+기억과 관계는 게임 내 사건, 배치 결과, 면담, 보고 검토, 클론 처리에 의해 계속 변한다.
+따라서 외부 시스템은 내부 레코드를 직접 수정하지 않고 변경 함수로만 변화를 주입한다.
+
+필수 변경 함수:
+
+- 기억
+  - `AddMemoryRecord(memory)`
+  - `RemoveMemory(memoryId)`
+  - `SetMemoryStat(memoryId, stat, value)`
+  - `AdjustMemoryStat(memoryId, stat, delta)`
+- 관계
+  - `SetRelationshipStat(targetPersonnelId, stat, value)`
+  - `AdjustRelationshipStat(targetPersonnelId, stat, delta)`
+  - `RemoveRelationship(targetPersonnelId)`
+
+수치 규칙:
+
+- 기억의 `Intensity`, `Decay`는 0~100 범위로 보정한다.
+- 관계의 `Trust`, `Affinity`, `Debt`, `Resentment`, `Reliability`는 -100~100 범위로 보정한다.
+- `Adjust` 계열 함수는 “좋아짐/나빠짐”을 모두 표현할 수 있어야 한다.
+- 관계 수치 조정은 필요한 경우 대상 관계를 생성할 수 있다.
+
+데이터 제작 가이드:
+
+- 새 기억/관계 축을 추가할 때는 enum key와 변경 함수를 함께 확장한다.
+- UI, 이벤트 처리, 성장 시스템, AI 추천 시스템은 동일한 변경 인터페이스만 사용한다.
+- 기억과 관계를 직접 수정하는 임시 코드는 테스트나 에디터 생성기를 제외하고 금지한다.
+
+------
+
+## 13. Prohibitions
 
 다음은 금지한다.
 

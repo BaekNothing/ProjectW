@@ -172,6 +172,121 @@ namespace ProjectW.Tests.EditMode
         }
 
         [Test]
+        public void CharacterRuntimeData_CanReceiveInjectedCardAndPerkMutations()
+        {
+            var card = ScriptableObject.CreateInstance<ActionCardDefinition>();
+            var perk = ScriptableObject.CreateInstance<PerkDefinition>();
+            var character = ScriptableObject.CreateInstance<CharacterRuntimeData>();
+            try
+            {
+                SetPrivateField(card, "cardId", "card.growth");
+                SetPrivateField(card, "title", "Growth Card");
+                SetPrivateField(perk, "perkId", "perk.focus");
+                SetPrivateField(perk, "title", "Focus Perk");
+                SetPrivateField(character, "personnelIdOverride", "P-42");
+
+                ICharacterMutationTarget mutations = character;
+
+                Assert.IsTrue(mutations.AddCard(card).Changed);
+                Assert.IsFalse(mutations.AddCard(card).Changed);
+                Assert.IsTrue(mutations.AddPerk(perk).Changed);
+                Assert.AreEqual(1, character.Deck.Count);
+                Assert.AreEqual(1, character.Perks.Count);
+
+                var model = character.CreateRuntimeModel();
+                Assert.AreEqual("card.growth", model.Deck.Single().Id);
+                Assert.AreEqual("perk.focus", model.Perks.Single().Id);
+
+                Assert.IsTrue(mutations.RemoveCard("card.growth").Changed);
+                Assert.IsFalse(mutations.RemoveCard("card.growth").Changed);
+                Assert.IsTrue(mutations.RemovePerk("perk.focus").Changed);
+                Assert.AreEqual(0, character.Deck.Count);
+                Assert.AreEqual(0, character.Perks.Count);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(card);
+                UnityEngine.Object.DestroyImmediate(perk);
+                UnityEngine.Object.DestroyImmediate(character);
+            }
+        }
+
+        [Test]
+        public void CharacterRuntimeData_CanReceiveInjectedStatAndTraitMutations()
+        {
+            var character = ScriptableObject.CreateInstance<CharacterRuntimeData>();
+            try
+            {
+                ICharacterMutationTarget mutations = character;
+                var trait = new TraitSampleRecord
+                {
+                    TraitSampleId = "trait.overconfident",
+                    Strength = 75
+                };
+
+                Assert.IsTrue(mutations.SetStat(CharacterStatKey.Fatigue, 90).Changed);
+                Assert.IsTrue(mutations.AdjustStat(CharacterStatKey.Fatigue, 20).Changed);
+                Assert.AreEqual(100, mutations.GetStat(CharacterStatKey.Fatigue));
+
+                Assert.IsTrue(mutations.AdjustStat(CharacterStatKey.PhysicalEnergy, -200).Changed);
+                Assert.AreEqual(0, mutations.GetStat(CharacterStatKey.PhysicalEnergy));
+
+                Assert.IsTrue(mutations.SetStat(CharacterStatKey.TrustToManager, -150).Changed);
+                Assert.AreEqual(-100, mutations.GetStat(CharacterStatKey.TrustToManager));
+
+                Assert.IsTrue(mutations.AddTraitSample(trait).Changed);
+                Assert.IsFalse(mutations.AddTraitSample(trait).Changed);
+                Assert.IsTrue(mutations.AdjustTraitSampleStrength("trait.overconfident", 50).Changed);
+                Assert.AreEqual(100, character.TraitSamples.Single().Strength);
+                Assert.IsTrue(mutations.RemoveTraitSample("trait.overconfident").Changed);
+                Assert.AreEqual(0, character.TraitSamples.Count);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(character);
+            }
+        }
+
+        [Test]
+        public void CharacterRuntimeData_CanReceiveInjectedMemoryAndRelationshipMutations()
+        {
+            var character = ScriptableObject.CreateInstance<CharacterRuntimeData>();
+            try
+            {
+                ICharacterMutationTarget mutations = character;
+                var memory = new CharacterMemoryRecord
+                {
+                    MemoryId = "mem.bad-briefing",
+                    TargetId = "P-77",
+                    Intensity = 40,
+                    Decay = 5
+                };
+
+                Assert.IsTrue(mutations.AddMemoryRecord(memory).Changed);
+                Assert.IsFalse(mutations.AddMemoryRecord(memory).Changed);
+                Assert.IsTrue(mutations.AdjustMemoryStat("mem.bad-briefing", CharacterMemoryStatKey.Intensity, 90).Changed);
+                Assert.AreEqual(100, character.Memories.Single().Intensity);
+                Assert.IsTrue(mutations.SetMemoryStat("mem.bad-briefing", CharacterMemoryStatKey.Decay, -10).Changed);
+                Assert.AreEqual(0, character.Memories.Single().Decay);
+
+                Assert.IsTrue(mutations.AdjustRelationshipStat("P-77", CharacterRelationshipStatKey.Trust, 35).Changed);
+                Assert.IsTrue(mutations.AdjustRelationshipStat("P-77", CharacterRelationshipStatKey.Trust, 90).Changed);
+                Assert.AreEqual(100, character.Relationships.Single().Trust);
+                Assert.IsTrue(mutations.SetRelationshipStat("P-77", CharacterRelationshipStatKey.Resentment, -150).Changed);
+                Assert.AreEqual(-100, character.Relationships.Single().Resentment);
+
+                Assert.IsTrue(mutations.RemoveMemory("mem.bad-briefing").Changed);
+                Assert.IsTrue(mutations.RemoveRelationship("P-77").Changed);
+                Assert.AreEqual(0, character.Memories.Count);
+                Assert.AreEqual(0, character.Relationships.Count);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(character);
+            }
+        }
+
+        [Test]
         public void WorkDefinition_CreatesRuntimeEventCase()
         {
             var work = ScriptableObject.CreateInstance<WorkDefinition>();

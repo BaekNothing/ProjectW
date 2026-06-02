@@ -273,7 +273,39 @@
 
 ------
 
-## 10. Prohibitions
+## 10. Mutation Contract
+
+캐릭터가 보유한 카드, 퍽, 특성 샘플은 직접 컬렉션을 수정하지 않고 변경 함수로만 다룬다.
+
+필수 변경 함수:
+
+- 카드
+  - `AddCard(card)`
+  - `RemoveCard(cardId)`
+- 퍽
+  - `AddPerk(perk)`
+  - `RemovePerk(perkId)`
+- 특성 샘플
+  - `AddTraitSample(sample)`
+  - `RemoveTraitSample(traitSampleId)`
+  - `AdjustTraitSampleStrength(traitSampleId, delta)`
+
+설계 규칙:
+
+- 추가 함수는 중복 ID를 방지한다.
+- 제거 함수는 단건 ID를 기준으로 호출한다.
+- 수치 변경 함수는 내부에서 최소/최대 범위를 보정한다.
+- 외부 시스템은 변경 결과를 받아 후속 로그, UI, 성장 연출, 밸런스 검증에 사용할 수 있어야 한다.
+
+데이터 제작 가이드:
+
+- 새 보유 데이터 타입을 만들 때는 읽기 인터페이스와 변경 인터페이스를 함께 정의한다.
+- 데이터 원형은 ScriptableObject로 생산하되, 인게임 변화는 변경 함수로만 주입한다.
+- “직접 리스트를 꺼내서 수정하는 방식”은 제작 편의가 아니라 시스템 누수로 취급한다.
+
+------
+
+## 11. Prohibitions
 
 다음은 금지한다.
 

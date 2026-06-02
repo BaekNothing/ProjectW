@@ -149,7 +149,7 @@ graph LR
 | `Assets/Specification/` | 활성 | 규칙·PM·아키텍처 문서 |
 | `Assets/Scripts/IngameCore/CaseReview/` | **유일한 런타임 코드** | 순수 게임 로직 + SO 정의 |
 | `Assets/Editor/` | 활성 | 캐릭터 데이터 워크샵, 에디터 리프레시 |
-| `Assets/Tests/EditMode/` | 활성 | Case Review 코어 단위 테스트 (17개) |
+| `Assets/Tests/EditMode/` | 활성 | Case Review 코어 단위 테스트 |
 | `Assets/Resources/CaseReviewData/Samples/` | 활성 | 샘플 SO 에셋 (로드 코드는 아직 없음) |
 | `Assets/Scenes/MVP Scene.unity` | 존재 | 빌드 포함, Case Review 드라이버 미연결 |
 | `Assets/Scenes/CharacterDataWorkshop.unity` | 존재 | 데이터 제작 전용, 빌드 미포함 |
@@ -360,9 +360,9 @@ classDiagram
 | `Models.cs` | `GameState`, `GameConfig`, `EventCase`, `Personnel`, DTO |
 | `CoreRules.cs` | `CaseReviewRules` + 기본 정책 구현 |
 | `ReportGenerator.cs` | 일일·개별 보고서 텍스트 생성 |
-| `CharacterDataAssets.cs` | SO 인터페이스, 관계·기억 레코드 |
+| `CharacterDataAssets.cs` | SO 인터페이스, 관계·기억 레코드, 데이터 변경 인터페이스 |
 | `CharacterBaseDefinition.cs` | 시작 덱·퍼크가 있는 베이스 캐릭터 |
-| `CharacterRuntimeData.cs` | 진행 상태·관계·기억 |
+| `CharacterRuntimeData.cs` | 진행 상태·관계·기억, 외부 주입용 변경 함수 |
 | `ActionCardDefinition.cs` / `PerkDefinition.cs` | 카드·퍼크 SO |
 | `RenderResourceDefinition.cs` | UI/연출 메타 (로직 미연결) |
 | `CharacterDataWorkshop.cs` | 씬용 `MonoBehaviour` (출력 폴더만) |
@@ -439,7 +439,29 @@ flowchart TB
 
 **현재 갭:** 코드베이스에 `Resources.Load` 호출이 없다. `InitialData == null`이면 `SeedStaff()` 하드코딩 시드가 사용된다. 런타임 UI 연결 시 `Resources.LoadAll<CharacterRuntimeData>` 또는 Addressables가 자연스러운 다음 단계다.
 
-### 7.3 워크샵 씬·메뉴
+### 7.3 데이터 변경 계약
+
+캐릭터 런타임 데이터는 외부 시스템이 직접 컬렉션이나 필드를 수정하지 않는다.
+`CharacterRuntimeData`는 `ICharacterMutationTarget`을 구현하며, 성장·사건·면담·클론 처리·AI 추천 시스템은 이 인터페이스를 통해 변화를 주입한다.
+
+| 변경군 | 인터페이스 함수 |
+|--------|----------------|
+| 카드 | `AddCard`, `RemoveCard` |
+| 퍽 | `AddPerk`, `RemovePerk` |
+| 특성 샘플 | `AddTraitSample`, `RemoveTraitSample`, `AdjustTraitSampleStrength` |
+| 기억 | `AddMemoryRecord`, `RemoveMemory`, `SetMemoryStat`, `AdjustMemoryStat` |
+| 관계 | `SetRelationshipStat`, `AdjustRelationshipStat`, `RemoveRelationship` |
+| 운영 상태 | `SetStat`, `AdjustStat`, `GetStat` |
+
+규칙:
+
+- 읽기용 프로퍼티는 `IReadOnlyList`로 노출한다.
+- 쓰기는 인터페이스에 선언된 함수로만 수행한다.
+- 변경 함수는 `CharacterMutationResult`를 반환한다.
+- 수치 함수는 내부에서 유효 범위를 보정한다.
+- 새 데이터 군을 만들 때도 같은 패턴으로 읽기 인터페이스와 변경 인터페이스를 분리한다.
+
+### 7.4 워크샵 씬·메뉴
 
 | 진입 | 경로 |
 |------|------|
