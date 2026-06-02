@@ -17,6 +17,7 @@ public sealed class GameConfig
     public int AuditBudgetPerDay { get; set; } = 1;
     public int InterviewBudgetPerDay { get; set; } = 1;
     [IgnoreDataMember] public CaseReviewSeedData InitialData { get; set; }
+    [IgnoreDataMember] public CaseReviewRules Rules { get; set; }
 }
 
 [Serializable]
@@ -41,6 +42,8 @@ public sealed class GameState
     public int Overload { get; set; }
     public int GlobalLatentRisk { get; set; } = 15;
     public int TalentShortage { get; set; }
+    public int ReplacementPressure { get; set; }
+    public BossArchetype BossArchetype { get; set; } = BossArchetype.CompetentOperator;
     public int RedirectBudget { get; set; }
     public int AuditBudget { get; set; }
     public int InterviewBudget { get; set; }
@@ -52,6 +55,8 @@ public sealed class GameState
     public List<TruthFrame> TruthFrames { get; set; } = new();
     public List<VisibleLog> Logs { get; set; } = new();
     public List<DailyReportDocument> Reports { get; set; } = new();
+    public List<ActionCard> MorningCards { get; set; } = new();
+    public List<ReviewCostEntry> ReviewCosts { get; set; } = new();
     public List<string> CommandTape { get; set; } = new();
 }
 
@@ -78,6 +83,66 @@ public enum Slot
     Morning,
     Noon,
     Evening
+}
+
+[Serializable]
+public enum BossArchetype
+{
+    RationalAI,
+    CompetentOperator,
+    OrdinaryHuman,
+    TechHipster,
+    PsychoAI
+}
+
+[Serializable]
+public enum ReviewActionType
+{
+    Plan,
+    Summary,
+    Log,
+    Check,
+    Report,
+    Review,
+    Interview,
+    BossMemo
+}
+
+[Serializable]
+public enum AffinityScope
+{
+    Surface,
+    Working,
+    Trusted,
+    Compromised
+}
+
+[Serializable]
+public sealed class ActionCard
+{
+    public string Id { get; set; } = "";
+    public string OwnerPersonnelId { get; set; } = "";
+    public string Title { get; set; } = "";
+    public string Summary { get; set; } = "";
+    public List<string> Tags { get; set; } = new();
+    public int OutcomeModifier { get; set; }
+    public int RiskModifier { get; set; }
+    public int ReviewCostModifier { get; set; }
+}
+
+[Serializable]
+public sealed class ReviewCostEntry
+{
+    public int Day { get; set; }
+    public int AtSec { get; set; }
+    public ReviewActionType ActionType { get; set; }
+    public string SubjectId { get; set; } = "";
+    public string SourceType { get; set; } = "";
+    public int TimeCost { get; set; }
+    public int ResourceCost { get; set; }
+    public int FocusCost { get; set; }
+    public int TrustCost { get; set; }
+    public string Reason { get; set; } = "";
 }
 
 [Serializable]
@@ -141,7 +206,10 @@ public sealed class Personnel
     public int OptHigh { get; set; }
     public int MaxLoad { get; set; }
     public int ConnectionLimit { get; set; } = 3;
+    public string CloneLineageId { get; set; } = "";
+    public AffinityScope InformationScope { get; set; } = AffinityScope.Surface;
     public Dictionary<string, int> Aptitudes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public List<ActionCard> Deck { get; set; } = new();
     public List<PersonnelPerk> Perks { get; set; } = new();
     public List<PersonnelRelationship> Relationships { get; set; } = new();
 }

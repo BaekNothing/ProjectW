@@ -21,6 +21,57 @@ namespace ProjectW.Tests.EditMode
         }
 
         [Test]
+        public void Init_DrawsOneMorningCardForEachAvailablePersonnel()
+        {
+            var state = CaseReviewGame.Init(new GameConfig(), 1);
+            var activeStaff = state.Staff.Where(s => !s.HasLeft).Select(s => s.Id).ToList();
+
+            Assert.AreEqual(activeStaff.Count, state.MorningCards.Count);
+            CollectionAssert.AreEquivalent(activeStaff, state.MorningCards.Select(c => c.OwnerPersonnelId).ToList());
+        }
+
+        [Test]
+        public void ConfigRules_CanPlugCustomCardDrawService()
+        {
+            var state = CaseReviewGame.Init(new GameConfig
+            {
+                Rules = new CaseReviewRules
+                {
+                    CardDrawService = new FixedCardDrawService()
+                }
+            }, 1);
+
+            Assert.AreEqual(1, state.MorningCards.Count);
+            Assert.AreEqual("test-card", state.MorningCards[0].Id);
+            Assert.AreEqual(25, state.MorningCards[0].OutcomeModifier);
+        }
+
+        [Test]
+        public void ReviewActions_RecordReviewCostEntries()
+        {
+            var state = CaseReviewGame.Init(new GameConfig(), 1);
+            ForceNoon(state);
+
+            CaseReviewGame.Dispatch(state, "summary E-108");
+            CaseReviewGame.Dispatch(state, "log E-108 equip");
+
+            Assert.IsTrue(state.ReviewCosts.Any(c => c.ActionType == ReviewActionType.Summary && c.SubjectId == "E-108"));
+            Assert.IsTrue(state.ReviewCosts.Any(c => c.ActionType == ReviewActionType.Log && c.SourceType == "equip"));
+        }
+
+        [Test]
+        public void ConfirmingUnadjustedAiPlan_IncreasesReplacementPressure()
+        {
+            var state = CaseReviewGame.Init(new GameConfig(), 1);
+            var before = state.ReplacementPressure;
+
+            var result = CaseReviewGame.Dispatch(state, "confirm plan");
+
+            Assert.IsTrue(result.Success);
+            Assert.Greater(state.ReplacementPressure, before);
+        }
+
+        [Test]
         public void SummaryOnlyApprove_RaisesLatentRisk()
         {
             var state = CaseReviewGame.Init(new GameConfig(), 1);
@@ -159,6 +210,24 @@ namespace ProjectW.Tests.EditMode
             state.MorningPlan.Confirmed = true;
             state.Slot = Slot.Noon;
             state.TimeRemainingSec = state.Config.NoonSeconds;
+        }
+
+        private sealed class FixedCardDrawService : ICardDrawService
+        {
+            public List<ActionCard> DrawMorningCards(GameState state)
+            {
+                return new List<ActionCard>
+                {
+                    new ActionCard
+                    {
+                        Id = "test-card",
+                        OwnerPersonnelId = "A-17",
+                        Title = "Injected Test Card",
+                        OutcomeModifier = 25,
+                        Tags = new List<string> { "test" }
+                    }
+                };
+            }
         }
     }
 }

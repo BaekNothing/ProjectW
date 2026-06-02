@@ -36,6 +36,7 @@ public static class CaseReviewGame
         }
 
         BuildMorningPlan(state);
+        DrawMorningCards(state);
         return state;
     }
 
@@ -236,6 +237,7 @@ public static class CaseReviewGame
 
     private static void ShowPlan(GameState state, List<string> lines)
     {
+        RecordReviewCost(state, ReviewActionType.Plan, $"DAY-{state.Day:D2}", "plan");
         lines.Add($"DAY {state.MorningPlan.Day:D2} 작업계획서 {(state.MorningPlan.Confirmed ? "(확정됨)" : "(미확정)")}");
         foreach (var entry in state.MorningPlan.Entries)
         {
@@ -278,6 +280,7 @@ public static class CaseReviewGame
         }
 
         state.MorningPlan.Confirmed = true;
+        state.ReplacementPressure = Rules(state).ReplacementPressurePolicy.AfterPlanConfirmed(state, state.ReplacementPressure);
         lines.Add("OK. 작업계획서를 확정했습니다.");
         lines.Add("운영 시뮬레이션을 진행합니다...");
         state.TotalElapsedSec += state.Config.NoonSeconds;
@@ -352,6 +355,7 @@ public static class CaseReviewGame
         var item = FindCase(state, tokens, lines);
         if (item is null) return;
 
+        RecordReviewCost(state, ReviewActionType.Summary, item.Id, "summary");
         item.SummaryRead = true;
         var log = state.Logs.FirstOrDefault(l => l.EventId == item.Id && l.SourceType == "summary" && l.VisibleAtSec <= state.TotalElapsedSec);
         lines.Add(log?.Text ?? $"[SUMMARY][{item.Id}] 관리 요약이 아직 정리되지 않았습니다.");
@@ -374,6 +378,7 @@ public static class CaseReviewGame
         }
 
         var source = tokens[2].ToLowerInvariant();
+        RecordReviewCost(state, ReviewActionType.Log, item.Id, source);
         var logs = state.Logs
             .Where(l => l.EventId == item.Id && l.SourceType.Equals(source, StringComparison.OrdinalIgnoreCase) && l.VisibleAtSec <= state.TotalElapsedSec)
             .OrderBy(l => l.VisibleAtSec)
@@ -397,6 +402,7 @@ public static class CaseReviewGame
         var item = FindCase(state, tokens, lines);
         if (item is null) return;
 
+        RecordReviewCost(state, ReviewActionType.Check, item.Id, "check");
         var visible = state.Logs.Where(l => l.EventId == item.Id && l.VisibleAtSec <= state.TotalElapsedSec).ToList();
         var warnings = new List<string>();
         if (!visible.Any(l => l.SourceType == "work")) warnings.Add("work 로그 공백 존재");
@@ -504,6 +510,7 @@ public static class CaseReviewGame
         if (item.ApprovedFromSummaryOnly) unresolved += 4;
         item.LatentRisk = Clamp(item.LatentRisk + unresolved * 8 - (item.Redirected ? 15 : 0), 0, 100);
         item.Status = CaseStatus.Closed;
+        state.ReplacementPressure = Rules(state).ReplacementPressurePolicy.AfterApproval(state, item, state.ReplacementPressure);
         state.GlobalLatentRisk = Clamp(state.Queue.Where(e => e.Status != CaseStatus.Closed).Sum(e => e.LatentRisk) + item.LatentRisk, 0, 200);
         lines.Add($"OK. {item.Id} 사건 종결.");
         lines.Add($"잠복 리스크: {RiskBand(item.LatentRisk)}");
@@ -565,6 +572,7 @@ public static class CaseReviewGame
                 return Error("ERR082", "아직 결과가 생성되지 않은 작업입니다.", lines);
             }
 
+            RecordReviewCost(state, ReviewActionType.Report, item.Id, "event-report");
             lines.Add(ReportGenerator.GenerateEventReport(state, item).TrimEnd());
             return Result(true, lines);
         }
@@ -575,6 +583,7 @@ public static class CaseReviewGame
             return Error("ERR081", "아직 생성된 보고서가 없습니다. CONFIRM PLAN 이후 다시 시도하십시오.", lines);
         }
 
+        RecordReviewCost(state, ReviewActionType.Report, $"DAY-{state.Day:D2}", "daily-report");
         lines.Add(report.Body.TrimEnd());
         return Result(true, lines);
     }
@@ -588,6 +597,7 @@ public static class CaseReviewGame
 
         if (tokens[1].Equals("ALL", StringComparison.OrdinalIgnoreCase))
         {
+            RecordReviewCost(state, ReviewActionType.Review, $"DAY-{state.Day:D2}", "all");
             foreach (var item in state.Queue.Where(e => e.AutoResolved))
             {
                 item.ReportReviewed = true;
@@ -608,6 +618,7 @@ public static class CaseReviewGame
             return Error("ERR082", "아직 결과가 생성되지 않은 작업입니다.", lines);
         }
 
+        RecordReviewCost(state, ReviewActionType.Review, target.Id, "event-review");
         target.ReportReviewed = true;
         lines.Add($"OK. {target.Id} 리포트 검토 완료.");
         return Result(true, lines);
@@ -793,6 +804,7 @@ public static class CaseReviewGame
                 ResolveAttrition(state, lines);
                 SeedNextDayCases(state, lines);
                 BuildMorningPlan(state);
+                DrawMorningCards(state);
                 lines.Add($"== DAY {state.Day:D2} MORNING 지시 슬롯 시작 ==");
                 break;
         }
@@ -836,6 +848,20 @@ public static class CaseReviewGame
         state.Overload = Clamp(state.Overload + delta, 0, 100);
     }
 
+    private static CaseReviewRules Rules(GameState state) => state.Config.Rules ?? CaseReviewRules.Default;
+
+    private static void DrawMorningCards(GameState state)
+    {
+        state.MorningCards = Rules(state).CardDrawService.DrawMorningCards(state);
+    }
+
+    private static void RecordReviewCost(GameState state, ReviewActionType actionType, string subjectId, string sourceType)
+    {
+        var cost = Rules(state).ReviewCostPolicy.Assess(state, actionType, subjectId, sourceType);
+        state.ReviewCosts.Add(cost);
+        state.ReplacementPressure = Rules(state).ReplacementPressurePolicy.AfterManualReview(state, cost, state.ReplacementPressure);
+    }
+
     private static void ApplyInitialData(GameState state, CaseReviewSeedData data)
     {
         state.Staff = (data.Staff ?? new List<Personnel>()).Select(ClonePersonnel).ToList();
@@ -867,9 +893,27 @@ public static class CaseReviewGame
             OptHigh = source.OptHigh,
             MaxLoad = source.MaxLoad,
             ConnectionLimit = source.ConnectionLimit,
+            CloneLineageId = source.CloneLineageId,
+            InformationScope = source.InformationScope,
             Aptitudes = new Dictionary<string, int>(source.Aptitudes ?? new Dictionary<string, int>(), StringComparer.OrdinalIgnoreCase),
+            Deck = (source.Deck ?? new List<ActionCard>()).Select(card => CloneActionCard(card, source.Id)).ToList(),
             Perks = (source.Perks ?? new List<PersonnelPerk>()).Select(ClonePerk).ToList(),
             Relationships = (source.Relationships ?? new List<PersonnelRelationship>()).Select(CloneRelationship).ToList()
+        };
+    }
+
+    private static ActionCard CloneActionCard(ActionCard source, string ownerId = "")
+    {
+        return new ActionCard
+        {
+            Id = source.Id,
+            OwnerPersonnelId = string.IsNullOrWhiteSpace(source.OwnerPersonnelId) ? ownerId : source.OwnerPersonnelId,
+            Title = source.Title,
+            Summary = source.Summary,
+            Tags = new List<string>(source.Tags ?? new List<string>()),
+            OutcomeModifier = source.OutcomeModifier,
+            RiskModifier = source.RiskModifier,
+            ReviewCostModifier = source.ReviewCostModifier
         };
     }
 
@@ -1321,6 +1365,7 @@ public static class CaseReviewGame
 
             var previousRisk = item.LatentRisk;
             item.LatentRisk = Clamp(item.LatentRisk + Math.Max(0, 65 - score) + (item.MismatchScore * 5), 0, 100);
+            item.LatentRisk = Clamp(item.LatentRisk + ActiveCardsFor(state, item).Sum(card => card.RiskModifier), 0, 100);
             if (score >= 75)
             {
                 item.LatentRisk = Math.Max(0, item.LatentRisk - 18);
@@ -1371,9 +1416,17 @@ public static class CaseReviewGame
         var loadPenalty = team.Sum(p => Math.Max(0, p.LoadAssigned - p.OptHigh) * 3);
         var fatiguePenalty = team.Sum(p => p.Fatigue + Math.Max(0, 100 - p.PhysicalEnergy) + p.MentalStress) / Math.Max(1, team.Count * 10);
         var perkBonus = team.Sum(p => MatchingPerks(p, item).Sum(perk => perk.OutcomeModifier));
+        var cardBonus = ActiveCardsFor(state, item).Sum(card => card.OutcomeModifier);
         var relationBonus = TeamRelationBonus(team);
         var baseScore = item.BaseSuccessChance;
-        return Clamp(baseScore + skillFit + coverageBonus + perkBonus + relationBonus - singleHighSeverityPenalty - loadPenalty - fatiguePenalty, 0, 100);
+        return Clamp(baseScore + skillFit + coverageBonus + perkBonus + cardBonus + relationBonus - singleHighSeverityPenalty - loadPenalty - fatiguePenalty, 0, 100);
+    }
+
+    private static List<ActionCard> ActiveCardsFor(GameState state, EventCase item)
+    {
+        return state.MorningCards
+            .Where(card => item.AssignedPersonnel.Contains(card.OwnerPersonnelId, StringComparer.OrdinalIgnoreCase))
+            .ToList();
     }
 
     private static int Best(List<Personnel> team, string skill)
