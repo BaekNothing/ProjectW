@@ -2,6 +2,8 @@
 
 본 문서는 **AI(GPT)가 Project_W의 문서 구조와 판단 순서를 복원하기 위한 단일 진입점**이다.
 
+`Project_W`는 개발 코드명이며, 현재 게임의 작업 제목은 **외행성재척지원실 3과**다.
+
 이 문서는 개별 시스템 상세를 직접 정의하지 않는다.
 규칙의 원문은 SSOT 문서에 있으며, 본 문서는 참조 순서와 운영 규칙만 고정한다.
 
@@ -27,6 +29,7 @@ AI는 반드시 아래 순서로만 판단한다.
   - 문서 우선순위, AI 운영 규칙, 거부 조건 정의
 - **SSOT – Ingame / Outgame / Metadata / Workflow**
   - 시스템 규칙의 단일 진실원
+  - 현재 Ingame 기준은 `Assets/Specification/Ingame/SSOT – Ingame.md`에 정의된 업무 배치, 검토 비용, 카드/덱, AI 대체 압력 구조다.
 - **PM Log**
   - 프로젝트 관리 의사결정 기록 및 증빙 해석
 - **Unity Implementation**
@@ -61,3 +64,19 @@ AI는 반드시 아래 순서로만 판단한다.
 2. 미갱신이면 SSOT 먼저 수정
 3. 이후 Unity 구현 반영
 4. Git 이력에 근거 문서 경로 명시
+
+------
+
+## Current Direction Anchor
+
+현재 유효한 게임 방향은 다음과 같다.
+
+- 제목: **외행성재척지원실 3과**
+- 장르: PM 관리 경험 기반 블랙코미디 업무 배치 시뮬레이션
+- 핵심 참조:
+  - `Assets/Specification/Kickoff.md`
+  - `Assets/Specification/Ingame/SSOT – Ingame.md`
+- 폐기된 기준:
+  - 순수 관찰형 자동 서사 게임
+  - 검토 비용 없는 완전 정보 관리 UI
+  - AI 제안을 항상 정답으로 취급하는 자동 컨펌 구조

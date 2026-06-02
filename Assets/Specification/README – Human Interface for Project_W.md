@@ -2,6 +2,8 @@
 
 본 문서는 사람이 읽는 운영 가이드다.
 
+`Project_W`는 개발 코드명이며, 현재 게임의 작업 제목은 **외행성재척지원실 3과**다.
+
 이 워크스페이스는 문서를 직접 임의 편집하기보다,
 AI(GPT)에게 구조화된 요청을 전달해 갱신하는 방식으로 운영된다.
 
@@ -68,7 +70,8 @@ AI 판단 순서:
 
 ### Allowed
 
-- "Target: Assets/Specification/Ingame/SSOT – Ingame.md, Action: Review, Scope: Loop cadence, Impact: Ingame/Metadata, SSOT Change: No"
+- "Target: Assets/Specification/Ingame/SSOT – Ingame.md, Action: Review, Scope: daily assignment loop, Impact: Ingame/Metadata, SSOT Change: No"
+- "Target: Assets/Specification/Ingame/SSOT – Ingame.md, Action: Update, Scope: card/deck review cost rule, Impact: Ingame/Metadata, SSOT Change: Yes"
 - "Target: Assets/Specification/Project_W – System Index (AI Entry Point).md, Action: Update, Scope: decision order, Impact: 모든 영역, SSOT Change: Yes"
 - "Target: Assets/Specification/PM Log – Project Management Records.md, Action: Review, Scope: 이번 달 관리 활동 요약, Impact: Operation, SSOT Change: No"
 

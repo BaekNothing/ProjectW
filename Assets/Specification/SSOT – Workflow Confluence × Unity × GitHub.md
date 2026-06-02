@@ -49,7 +49,8 @@ Unity 프로젝트는 SSOT에 정의된 규칙을 구현한다.
 
 - 시스템 변경 전, 관련 Specification 업데이트가 선행되어야 한다.
 - Unity 코드는 설계 의도의 재정의나 우선순위 변경을 포함하지 않는다.
-- Loop 기반 MVP 규칙(`1 Tick / 2 seconds`)을 위반하는 구현은 허용되지 않는다.
+- 현재 Ingame MVP 기준은 `Assets/Specification/Ingame/SSOT – Ingame.md`의 하루 단위 업무 배치 루프다.
+- 과거 Routine/Observation MVP 규칙은 현재 Ingame SSOT와 충돌할 경우 현재 Ingame SSOT를 우선한다.
 
 ### Unity Editor Refresh Policy (Local Automation)
 
@@ -66,6 +67,7 @@ Unity 프로젝트는 SSOT에 정의된 규칙을 구현한다.
 - Specification의 1개 규칙 단위는 Unity의 1개 시스템/서비스 단위와 추적 가능해야 한다.
 - 파일/클래스/씬 변경은 근거 문서를 명시할 수 있어야 한다.
 - 주석은 허용되나, 문서 의미를 변경하는 근거로 사용할 수 없다.
+- 현재 `CaseReview` 구현은 `SSOT – Ingame`의 업무 배치/보고/검토 MVP를 부분 구현한 것으로 해석한다.
 
 ------
 

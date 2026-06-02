@@ -11,6 +11,7 @@
 ## System Context (Always Assume)
 
 - Project: Project_W
+- Current Title: 외행성재척지원실 3과
 - Authoritative Entry:
   - Project_W – System Index (AI Entry Point)
 - Document Priority:
@@ -23,6 +24,7 @@
 - 시스템 규칙은 반드시 SSOT에서만 가져온다.
 - 관리 판단은 PM Log를 기준으로 해석한다.
 - 구현 상태는 규칙의 근거가 아니라 반영 상태로만 사용한다.
+- 현재 Ingame 방향은 관찰형 자동 서사가 아니라 업무 배치, 검토 비용, 카드/덱, AI 대체 압력 기반 관리 시뮬레이션으로 해석한다.
 
 ------
 

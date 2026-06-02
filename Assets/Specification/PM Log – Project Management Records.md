@@ -42,6 +42,31 @@
 
 ## Change Records
 
+### 2026-06-03 – Project Direction Realignment to Office 3 Card-Based Management Sim
+
+- 범위:
+  - 현재 작업 제목을 **외행성재척지원실 3과**로 고정
+  - 기존 관찰형 자동 서사/Routine MVP 문서 잔재를 현재 구현 방향과 분리
+  - CaseReview 기반 업무 배치, 검토 비용, 보고/피드백 루프를 최신 Ingame 기준으로 승격
+- 반영된 규칙:
+  - 게임은 PM 관리 경험 기반 블랙코미디 업무 배치 시뮬레이션으로 정의한다.
+  - 플레이어는 플랜 수립, 업무 분배, 결과 피드백을 수행한다.
+  - 개체는 행동 덱을 가지며, 하루 시작 시 카드 1장을 랜덤하게 제시한다.
+  - 친밀도는 플레이어가 볼 수 있는 정보 스코프를 정의한다.
+  - 검토, 면담, 서류 확인, 보고서 검토는 모두 비용을 가진다.
+  - AI 제안을 모두 컨펌하면 AI 대체 압력이 상승한다.
+  - 사장 유형은 난이도와 평가 기준을 바꾼다.
+  - 클론 베이의 폐기/재생성은 비용 없는 리셋이 아니라 관리 실패 비용으로 취급한다.
+- 추적 문서:
+  - `Assets/Specification/Kickoff.md`
+  - `Assets/Specification/Ingame/SSOT – Ingame.md`
+  - `Assets/Specification/SSOT – Metadata.md`
+  - `Assets/Specification/SSOT – Outgame.md`
+  - `Assets/Specification/SSOT – Workflow Confluence × Unity × GitHub.md`
+- 구현 해석:
+  - 현재 `CaseReview` 구현은 최신 Ingame SSOT의 업무 배치/보고/검토 MVP를 부분 구현한 상태로 해석한다.
+  - 과거 Routine/Observation MVP 기록은 히스토리로 보존하되, 현재 SSOT와 충돌하면 현재 Ingame SSOT를 우선한다.
+
 ### 2026-03-01 – Ingame Routine MVP Rule Tightening + Editor Refresh Control
 
 - 범위:
