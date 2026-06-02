@@ -87,6 +87,7 @@ Unity 프로젝트의 **폴더·어셈블리·Case Review 구현·데이터 파�
 - 핵심 참조:
   - `Assets/Specification/Kickoff.md`
   - `Assets/Specification/Ingame/SSOT – Ingame.md`
+  - `Assets/Specification/Ingame/SSOT – Work.md`
   - `Assets/Specification/Ingame/SSOT – Characters.md`
   - `Assets/Specification/Ingame/SSOT – Character Possessions.md`
   - `Assets/Specification/Ingame/SSOT – Character Memory and Relationships.md`

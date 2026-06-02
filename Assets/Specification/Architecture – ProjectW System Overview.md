@@ -8,6 +8,7 @@
 |------|------|
 | AI·문서 우선순위 | `Project_W – System Index (AI Entry Point).md` |
 | 인게임 규칙 SSOT | `Ingame/SSOT – Ingame.md` |
+| 업무 규칙 SSOT | `Ingame/SSOT – Work.md` |
 | 아웃게임 규칙 SSOT | `SSOT – Outgame.md` |
 | 워크플로·메타 | `SSOT – Workflow Confluence × Unity × GitHub.md`, `SSOT – Metadata.md` |
 
@@ -23,6 +24,7 @@ mindmap
     게임
       PM 관리 시뮬
       블랙코미디 업무 배치
+      동적 업무 생성
       불완전 정보 + 검토 비용
     문서 계층
       System Index
@@ -59,6 +61,7 @@ flowchart TB
   end
   subgraph L2["2. 규칙 SSOT"]
     ING["SSOT – Ingame"]
+    WORK["SSOT – Work"]
     OUT["SSOT – Outgame"]
     META["SSOT – Metadata"]
     WF["SSOT – Workflow"]
@@ -74,6 +77,7 @@ flowchart TB
   end
 
   IDX --> ING & OUT & META & WF
+  ING --> WORK
   ING --> CHR
   ING -.->|규칙 반영| CODE
   CHR -.->|데이터 모델| SO
