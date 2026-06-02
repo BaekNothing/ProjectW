@@ -76,6 +76,8 @@ Unity 프로젝트의 **폴더·어셈블리·Case Review 구현·데이터 파�
 
 본 문서는 규칙 SSOT가 아니며, 구현 탐색·온보딩용이다. 규칙 충돌 시 Ingame/Outgame SSOT가 우선한다.
 
+**Git 동기화:** 추적 경로(`Specification`, `Scripts`, `Tests`, `Editor`, `CaseReviewData`) 변경 시 `python tools/sync_architecture_doc.py` 또는 `tools/install_githooks.sh`로 Architecture 문서의 `arch-sync` 지문·커밋 SHA를 갱신한다. PR CI가 `--check`로 불일치를 검출한다.
+
 ------
 
 ## Current Direction Anchor

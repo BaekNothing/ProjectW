@@ -2,6 +2,31 @@
 
 **작성 목적:** ProjectW(개발 코드명) / **외행성재척지원실 3과**의 전반적인 시스템 구조를 한눈에 파악하기 위한 구현·문서 통합 개요이다.
 
+## Git 동기화 메타데이터
+
+<!-- arch-sync:begin -->
+| 항목 | 값 |
+|------|-----|
+| **동기화 모드** | `index (pre-commit / manual)` |
+| **동기화 시각 (UTC)** | `2026-06-02T17:39:06Z` |
+| **기준 커밋 (전체 SHA)** | `74e590f7d7a27a2092c5c086b9147db2c4d9c6fb` |
+| **기준 커밋 (단축)** | `74e590f` |
+| **브랜치** | `ai-integration` |
+| **추적 경로 지문** | `sha256:b03d0b56b6fedf59ccdd4a9f6ea57e25d98ecbe290411e18524946fe4674261a` |
+| **추적 경로** | `Assets/Specification/`<br>`Assets/Scripts/`<br>`Assets/Tests/`<br>`Assets/Editor/`<br>`Assets/Resources/CaseReviewData/` |
+
+> 지문은 Git 인덱스(`git ls-files -s`)에 등록된 추적 경로 파일 목록·blob 해시의 SHA-256이다.  
+> `pre-commit` 훅 또는 `python tools/sync_architecture_doc.py` 실행 시 갱신된다. CI는 `--check`로 불일치를 검출한다.
+<!-- arch-sync:end -->
+
+**자동 추적**
+
+| 방법 | 설명 |
+|------|------|
+| 로컬 훅 | `sh tools/install_githooks.sh` → `pre-commit`이 지문 갱신, `post-commit`이 확정 SHA 반영 |
+| 수동 | `python tools/sync_architecture_doc.py` |
+| CI | PR 시 `architecture-doc-sync` 워크플로가 `--check`로 지문 불일치 검출 |
+
 **관련 문서**
 
 | 역할 | 경로 |
@@ -74,19 +99,24 @@ flowchart TB
   end
   subgraph L4["4. 이력"]
     GIT["Git Commit / PR"]
+    ARCH["본 문서\narch-sync 지문"]
   end
 
   IDX --> ING & OUT & META & WF
   ING --> WORK
   ING --> CHR
   ING -.->|규칙 반영| CODE
+  WORK -.->|EventCase 프로토| CODE
   CHR -.->|데이터 모델| SO
   CODE --> SO
   ED --> SO
   CODE --> GIT
+  GIT -->|sync_architecture_doc.py| ARCH
 ```
 
 **Sync Rule:** 문서↔구현 불일치 시 → SSOT 수정 여부 확인 → 미갱신이면 SSOT 먼저 → Unity 반영 → 커밋 메시지에 SSOT 경로 명시.
+
+**PM Log:** 판단 순서에서 **제외**(Deprecated). 유효 결정은 SSOT·Ingame `Decision Ledger`로 흡수한다.
 
 ---
 
@@ -235,6 +265,51 @@ flowchart TB
 ```
 
 검토 행동마다 `ReviewCostEntry`(시간·자원·집중·신뢰·AI 대체 압력)가 기록된다. SSOT 원칙: **전부 검토하면 늦게 실패, 전혀 검토하면 누적 실패.**
+
+### 5.4 업무 시스템 (SSOT – Work) vs `EventCase`
+
+2026-06-03 **Work Data Direction**(`SSOT – Ingame.md` §10)에 따라 업무 규칙이 `SSOT – Work.md`로 분리되었다.
+
+```mermaid
+flowchart TB
+  subgraph SSOT_Work["SSOT – Work (목표)"]
+    WD["WorkDefinition\nScriptableObject 원형"]
+    WI["WorkInstance\n런타임 인스턴스"]
+    GEN["동적 생성·spawn weight\n난이도 스케일링"]
+  end
+  subgraph Impl["CaseReview (현재)"]
+    EC["EventCase\nGameState.Queue"]
+    SEED["SeedDayOneCases /\n하드코딩·후속 생성"]
+  end
+  WD -.->|미구현| WI
+  WI -.->|대응| EC
+  GEN -.->|미구현| SEED
+```
+
+| SSOT 개념 | 현재 구현 | 상태 |
+|-----------|-----------|------|
+| `WorkInstance` | `EventCase` | 프로토타입 대응 |
+| `Urgency`, `Severity` | 동명 필드 | 부분 |
+| 업무량 | `PhysicalCost`, `MentalCost` | 초기 |
+| 잠복 리스크 | `LatentRisk` | 있음 |
+| 요구 적성 | `RequiredAptitudes` | 있음 |
+| 카드/퍽 태그 | `PerkTags`, `PerkInteractionInfo` | 초기 |
+| `WorkDefinition` SO | — | **미구현** |
+| 동적 생성 풀·가중치 | `SeedDayOneCases` 등 고정 시드 | **미구현** |
+| 동시작업 가능수 | 인력 배치만 | **미구현** |
+
+상세 매핑·금지 규칙: `Ingame/SSOT – Work.md` §11–12.
+
+### 5.5 Decision Ledger (Ingame SSOT)
+
+과거 PM Log에서 흡수된 **규칙 수준** 결정만 `SSOT – Ingame.md` §10에 보존한다. 일정·회고·증빙은 권위 범위가 아니다.
+
+| 결정 앵커 | 요약 |
+|-----------|------|
+| Current Direction | Papers Please + 덱빌딩형 PM 시뮬, 검토 비용·AI 대체 압력 |
+| Work Data Direction | 동적 업무 생성, 태그·적성·리스크, `SSOT – Work` 참조 |
+| Character Data Direction | Base/Runtime SO 분리, 카드·퍽·관계·기억 |
+| Clone and Growth | 폐기/재생성은 유료, 성장은 카드·기억 축적 |
 
 ---
 
@@ -485,18 +560,30 @@ flowchart LR
 |------|-----------|
 | `Outgame Scene.unity` 빌드 참조 | 씬 복구 또는 `EditorBuildSettings`에서 제거 |
 | README Routine Observation | 제거·갱신 또는 코드 복원 결정 |
-| `unity_gate_report.py` | 현재 `CaseReviewCoreTests` 기준으로 게이트 목록 수정 |
+| `unity_gate_report.py` | `CaseReviewCoreTests`·현행 SSOT 기준으로 게이트 목록 수정 |
+| `WorkDefinition` / 동적 spawn | `SSOT – Work` §11 추후 구현 목록 |
 | `Resources.Load` 부트스트랩 | `GameConfig.InitialData`에 샘플 SO 자동 연결 |
 | MVP Scene | `CaseReviewGame` REPL/UI 브리지 MonoBehaviour |
 | `RenderResourceDefinition` | UI 레이어에서 `IRenderableData` 소비 |
 | Outgame 시스템 | SSOT에 맞춘 별도 모듈·씬 설계 |
+| Architecture doc 지문 | 추적 경로 변경 후 `sync_architecture_doc.py` 또는 훅 설치 |
 
 ---
 
 ## 13. 한 줄 요약
 
-**ProjectW는 SSOT 문서가 규칙의 중심이고, Unity 구현은 `ProjectW.IngameCore.CaseReview` 순수 로직·ScriptableObject 캐릭터 파이프라인·에디터 워크샵·EditMode 테스트에 집중되어 있다. 씬 기반 플레이 루프와 Outgame·관찰 MVP는 문서/빌드 잔재와 분리된 상태이며, Case Review 코어를 UI·Resources에 연결하는 것이 현재 아키텍처의 주요 다음 단계다.**
+**ProjectW는 SSOT( Ingame·**Work**·Characters )가 규칙의 중심이고, Unity 구현은 `CaseReview`의 `EventCase` 프로토타입·캐릭터 SO 파이프라인·워크샵·EditMode 테스트에 집중되어 있다. 업무 동적 생성·`WorkDefinition`은 SSOT에 정의됐으나 코드 미착수이며, Git 지문(`arch-sync`)으로 본 문서와 추적 경로의 동기화를 자동 검증한다.**
 
 ---
 
-*문서 버전: 2026-06-03 · 구현 기준 커밋 워킹 트리*
+## 부록: 최근 설계 변경 요약 (2026-06)
+
+| 날짜 | 변경 | 영향 |
+|------|------|------|
+| 2026-06-03 | `SSOT – Work.md` 신설 | 업무 원형·인스턴스·동적 생성·태그 상호작용 규칙 분리 |
+| 2026-06-03 | Ingame §10 Decision Ledger | PM Log 판단 권한 폐기, 핵심 결정 SSOT 흡수 |
+| 2026-06-03 | System Index 판단 순서 정리 | PM Log → Deprecated, Git·구현 순서 명확화 |
+| 2026-06-03 | Character Data Workshop | SO 샘플·에디터 생성 파이프라인 |
+| (이전) | `CaseReviewRules` | 카드 뽑기·검토 비용·대체 압력·보스 정책 플러그 |
+
+*본 절은 수동 요약이다. Git 동기화 상태는 상단 `arch-sync` 블록을 따른다.*
