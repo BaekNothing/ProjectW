@@ -100,3 +100,13 @@ APK 빌드, 커밋, push를 AI/LLM에게 맡길 때는 아래 문서를 우선 �
 
 이 문서는 Unity 배치 빌드 명령, APK 산출물 처리, `.git` 권한 문제, Unity Package Manager IPC 실패, 커밋 로그 작성, `origin/ai-integration` push 절차를 포함한다.
 
+------
+
+## README Implementation Status Rule
+
+SSOT를 추가하거나 구현 상태가 바뀌면 루트 `README.md`의 `SSOT implementation status` 표를 같은 작업에서 갱신한다.
+
+- SSOT만 있고 구현체가 없으면 `SSOT only`로 표시한다.
+- 일부 구현이면 구현된 타입/시스템과 빠진 런타임 표면을 함께 적는다.
+- 구현 완료 또는 범위 변경이 있으면 같은 커밋에서 README 상태를 갱신한다.
+

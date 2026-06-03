@@ -8,11 +8,11 @@
 | 항목 | 값 |
 |------|-----|
 | **동기화 모드** | `index (pre-commit / manual)` |
-| **동기화 시각 (UTC)** | `2026-06-03T00:41:45Z` |
-| **기준 커밋 (전체 SHA)** | `b2bb0c039303b98a4b6bd9d6f962c47f9f3d02c1` |
-| **기준 커밋 (단축)** | `b2bb0c0` |
+| **동기화 시각 (UTC)** | `2026-06-03T06:17:31Z` |
+| **기준 커밋 (전체 SHA)** | `0b4a4e61aef3bb54b119ad7d1f294813475f5ebc` |
+| **기준 커밋 (단축)** | `0b4a4e6` |
 | **브랜치** | `ai-integration` |
-| **추적 경로 지문** | `sha256:ea8968d864312b7cfbbcac28e0bcd9234f49df2eb4aa9557911122814d85256b` |
+| **추적 경로 지문** | `sha256:2612276ddbf9ccf59ef1e525c0603470e73eed0a4c9e14a0cb481e4d6ec09e74` |
 | **추적 경로** | `Assets/Specification/`<br>`Assets/Scripts/`<br>`Assets/Tests/`<br>`Assets/Editor/`<br>`Assets/Resources/CaseReviewData/` |
 
 > 지문은 Git 인덱스(`git ls-files -s`)에 등록된 추적 경로 파일 목록·blob 해시의 SHA-256이다.  
@@ -156,7 +156,7 @@ graph LR
 | 폴더 | 상태 | 역할 |
 |------|------|------|
 | `Assets/Specification/` | 활성 | 규칙·PM·아키텍처 문서 |
-| `Assets/Scripts/IngameCore/CaseReview/` | **유일한 런타임 코드** | 순수 게임 로직 + SO 정의 + 업무 생성기 |
+| `Assets/Scripts/IngameCore/CaseReview/` | **유일한 런타임 코드** | 순수 게임 로직 + SO 정의 + 업무 생성기 + 시나리오 데이터 |
 | `Assets/Editor/` | 활성 | 캐릭터 데이터 워크샵, 에디터 리프레시 |
 | `Assets/Tests/EditMode/` | 활성 | Case Review 코어 단위 테스트 |
 | `Assets/Resources/CaseReviewData/Samples/` | 활성 | 샘플 SO 에셋 (로드 코드는 아직 없음) |
@@ -318,7 +318,7 @@ flowchart TB
 
 감사 시스템은 플레이어 선택을 MVP AI 기본안과 비교한다. MVP AI는 복잡한 인격형 의사결정자가 아니라 빈 슬롯 보충과 기존 플랜 유지에 집중하는 기준선이다.
 
-스크립트 파트는 대사, 화자, 표정, 중앙 이미지, 포커스, 선택지, 비용을 표현한다. 코어 상태를 읽을 수 있지만 상태 변경은 선택지 효과 또는 종료 효과에 명시된 비용·보상·플래그로만 적용한다.
+스크립트 파트는 대사, 화자, 표정, 중앙 이미지, 포커스, 선택지, 비용을 표현한다. 코어 상태를 읽을 수 있지만 상태 변경은 선택지 효과 또는 종료 효과에 명시된 비용·보상·플래그로만 적용한다. 현재 구현은 `ScenarioEventDefinition`, `ScenarioScriptLine`, `LocalizedTextTable` 데이터 에셋과 조회 인터페이스까지 포함하며, UI 재생/큐잉 런타임은 아직 없다.
 
 ### 5.6 업무 시스템 (SSOT – Work) vs `EventCase`
 
@@ -670,7 +670,7 @@ flowchart LR
 | `unity_gate_report.py` | `CaseReviewCoreTests`·현행 SSOT 기준으로 게이트 목록 수정 |
 | WorkDefinition 샘플 에셋 | `Resources/CaseReviewData/Samples`에 업무 샘플 생성 |
 | Boss/Audit 컨텍스트 | `WorkGenerationContext`에 보스 이벤트 압력·감사 평가 방향 추가 |
-| Script Presentation 런타임 | `ScriptEventDefinition`, `ScriptNode`, `StageCommand`, `ScriptChoice` 설계/구현 |
+| Script Presentation 런타임 | `ScenarioEventDefinition`·`LocalizedTextTable` 데이터 구현 완료, UI 재생/큐잉 런타임 구현 |
 | `Resources.Load` 부트스트랩 | `GameConfig.InitialData`에 캐릭터·업무 샘플 SO 자동 연결 |
 | MVP Scene | `CaseReviewGame` REPL/UI 브리지 MonoBehaviour 재확인 또는 구현 |
 | `RenderResourceDefinition` | UI 레이어에서 `IRenderableData` 소비 |
@@ -681,7 +681,7 @@ flowchart LR
 
 ## 13. 한 줄 요약
 
-**ProjectW는 SSOT(Ingame·Work·Script Presentation·Characters)가 규칙의 중심이고, Unity 구현은 `CaseReview`의 `EventCase` 프로토타입·`WorkDefinition` 업무 생성기·캐릭터 SO 파이프라인·워크샵·EditMode 테스트에 집중되어 있다. 장기 감사/평가 루프와 스크립트 이벤트 런타임은 SSOT에 정의됐으나 코드 미착수이며, Git 지문(`arch-sync`)으로 본 문서와 추적 경로의 동기화를 자동 검증한다.**
+**ProjectW는 SSOT(Ingame·Work·Script Presentation·Characters)가 규칙의 중심이고, Unity 구현은 `CaseReview`의 `EventCase` 프로토타입·`WorkDefinition` 업무 생성기·캐릭터 SO 파이프라인·시나리오/로컬라이제이션 데이터 에셋·워크샵·EditMode 테스트에 집중되어 있다. 장기 감사/평가 루프와 스크립트 UI 재생 런타임은 SSOT에 정의됐으나 코드 미착수이며, Git 지문(`arch-sync`)으로 본 문서와 추적 경로의 동기화를 자동 검증한다.**
 
 ---
 

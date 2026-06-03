@@ -397,6 +397,130 @@ namespace ProjectW.Tests.EditMode
         }
 
         [Test]
+        public void LocalizedTextTable_ResolvesByLanguageAndCountryWithFallback()
+        {
+            var table = ScriptableObject.CreateInstance<LocalizedTextTable>();
+            try
+            {
+                SetPrivateField(table, "defaultLanguageKey", "ko");
+                SetPrivateField(table, "defaultCountryCode", "KR");
+                SetPrivateField(table, "entries", new List<LocalizedTextEntry>
+                {
+                    new LocalizedTextEntry
+                    {
+                        Key = "scenario.audit.opening",
+                        Values = new List<LocalizedTextValue>
+                        {
+                            new LocalizedTextValue { LanguageKey = "ko", CountryCode = "KR", Text = "감사팀이 도착했다." },
+                            new LocalizedTextValue { LanguageKey = "en", CountryCode = "US", Text = "The audit team arrived." }
+                        }
+                    }
+                });
+
+                Assert.AreEqual("감사팀이 도착했다.", table.GetText("scenario.audit.opening", "ko", "KR"));
+                Assert.AreEqual("The audit team arrived.", table.GetText("scenario.audit.opening", "en", "US"));
+                Assert.AreEqual("The audit team arrived.", table.GetText("scenario.audit.opening", "en", "GB"));
+                Assert.AreEqual("감사팀이 도착했다.", table.GetText("scenario.audit.opening", "ja", "JP"));
+                Assert.AreEqual("missing.key", table.GetText("missing.key", "ko", "KR"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(table);
+            }
+        }
+
+        [Test]
+        public void ScenarioEventDefinition_StoresRowsAndResolvesLocalizedText()
+        {
+            var table = ScriptableObject.CreateInstance<LocalizedTextTable>();
+            var scenario = ScriptableObject.CreateInstance<ScenarioEventDefinition>();
+            try
+            {
+                SetPrivateField(table, "entries", new List<LocalizedTextEntry>
+                {
+                    new LocalizedTextEntry
+                    {
+                        Key = "scenario.tea.line.001",
+                        Values = new List<LocalizedTextValue>
+                        {
+                            new LocalizedTextValue { LanguageKey = "ko", CountryCode = "KR", Text = "차라도 한 잔 하죠." }
+                        }
+                    },
+                    new LocalizedTextEntry
+                    {
+                        Key = "scenario.tea.choice.listen",
+                        Values = new List<LocalizedTextValue>
+                        {
+                            new LocalizedTextValue { LanguageKey = "ko", CountryCode = "KR", Text = "끝까지 듣는다" }
+                        }
+                    }
+                });
+
+                SetPrivateField(scenario, "eventId", "scenario.tea.audit");
+                SetPrivateField(scenario, "timing", ScenarioTiming.Night);
+                SetPrivateField(scenario, "textTable", table);
+                SetPrivateField(scenario, "lines", new List<ScenarioScriptLine>
+                {
+                    new ScenarioScriptLine
+                    {
+                        LineId = "L001",
+                        Kind = ScenarioLineKind.Dialogue,
+                        SpeakerId = "P-quiet-auditor",
+                        TextKey = "scenario.tea.line.001",
+                        ExpressionKey = "tired",
+                        StageCommands = new List<ScenarioStageCommand>
+                        {
+                            new ScenarioStageCommand
+                            {
+                                CommandType = ScenarioStageCommandType.FocusSpeaker,
+                                TargetId = "P-quiet-auditor",
+                                Intensity = 1f
+                            },
+                            new ScenarioStageCommand
+                            {
+                                CommandType = ScenarioStageCommandType.DimOthers,
+                                TargetId = "others",
+                                Intensity = 0.6f
+                            }
+                        },
+                        Choices = new List<ScenarioChoice>
+                        {
+                            new ScenarioChoice
+                            {
+                                ChoiceId = "listen",
+                                LabelTextKey = "scenario.tea.choice.listen",
+                                Costs = new List<ScenarioStateEffect>
+                                {
+                                    new ScenarioStateEffect { Key = ScenarioEffectKey.FocusCost, Delta = -2 }
+                                },
+                                Effects = new List<ScenarioStateEffect>
+                                {
+                                    new ScenarioStateEffect { Key = ScenarioEffectKey.RelationshipDelta, SubjectId = "P-quiet-auditor", Delta = 5 }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                var resolved = scenario.ResolveLine(0, "ko", "KR");
+
+                Assert.AreEqual("scenario.tea.audit", scenario.EventId);
+                Assert.AreEqual(ScenarioTiming.Night, scenario.Timing);
+                Assert.AreEqual("차라도 한 잔 하죠.", resolved.Text);
+                Assert.AreEqual("P-quiet-auditor", resolved.Source.SpeakerId);
+                Assert.AreEqual(2, resolved.Source.StageCommands.Count);
+                Assert.AreEqual(ScenarioStageCommandType.FocusSpeaker, resolved.Source.StageCommands[0].CommandType);
+                Assert.AreEqual(ScenarioEffectKey.FocusCost, resolved.Source.Choices.Single().Costs.Single().Key);
+                Assert.AreEqual(ScenarioEffectKey.RelationshipDelta, resolved.Source.Choices.Single().Effects.Single().Key);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(table);
+                UnityEngine.Object.DestroyImmediate(scenario);
+            }
+        }
+
+        [Test]
         public void ReviewActions_RecordReviewCostEntries()
         {
             var state = CaseReviewGame.Init(new GameConfig(), 1);

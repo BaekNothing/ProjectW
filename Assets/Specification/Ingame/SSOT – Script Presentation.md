@@ -55,6 +55,11 @@
 
 ## 3. Script Event Data
 
+시나리오 이벤트는 **하나의 이벤트가 하나의 파일/에셋 단위**다.
+한 이벤트 파일 안에는 수많은 대사/연출 행이 순서대로 들어간다.
+
+Unity 구현 기준 원형은 `ScenarioEventDefinition` ScriptableObject다.
+
 스크립트 이벤트는 최소한 아래 정보를 가진다.
 
 - `EventId`
@@ -67,8 +72,10 @@
   - 관계, 캐릭터 상태, 업무 태그, 보스 이벤트, 감사 결과, 자본 상태, AI 대체 압력 등
 - `EntryCost`
   - 이벤트 진입에 필요한 시간, 집중도, 자본, 신뢰, 관계 자원
+- `TextTable`
+  - 이 이벤트가 참조하는 별도 텍스트 데이터
 - `Nodes`
-  - 대사, 연출, 선택지, 상태 변경으로 구성된 노드 목록
+  - 대사, 연출, 선택지, 상태 변경으로 구성된 행 목록
 - `ExitEffects`
   - 이벤트 종료 시 적용되는 명시적 결과
 - `ReplayPolicy`
@@ -79,7 +86,104 @@
 
 ------
 
-## 4. Dialogue
+## 4. Script Rows
+
+이벤트 파일 안의 각 행은 `ScenarioScriptLine`으로 표현한다.
+
+행은 다음 정보를 가진다.
+
+- `LineId`
+  - 이벤트 파일 안에서 행을 식별하는 id
+- `Kind`
+  - `Dialogue`, `Narration`, `Stage`, `Choice`, `Effect`, `StateEffect`
+- `SpeakerId`
+  - 화자 id
+- `TextKey`
+  - 직접 대사 문자열이 아니라 로컬라이제이션 텍스트 key
+- `ExpressionKey`
+  - 표정 key
+- `PoseKey`
+  - 포즈 key
+- `VoiceToneKey`
+  - 음성/톤 key
+- `CenterImage`
+  - 중앙 이미지 리소스
+- `StageCommands`
+  - 이 행에서 실행할 연출 명령 목록
+- `Choices`
+  - 이 행에서 표시할 선택지 목록
+- `Effects`
+  - 이 행에서 적용할 명시적 상태 변경 목록
+
+대사 텍스트는 행에 직접 저장하지 않는다.
+모든 표시 텍스트는 `TextKey` 또는 선택지의 `LabelTextKey`를 통해 별도 텍스트 데이터에서 가져온다.
+
+------
+
+## 5. Localized Text Data
+
+텍스트 데이터는 시나리오 이벤트와 분리한다.
+
+Unity 구현 기준 원형은 `LocalizedTextTable` ScriptableObject다.
+텍스트 테이블은 key와 언어별 값을 가진다.
+
+필수 구조:
+
+- `TableId`
+  - 텍스트 테이블 식별자
+- `DefaultLanguageKey`
+  - 기본 언어 key. 예: `ko`
+- `DefaultCountryCode`
+  - 기본 국가 코드. 예: `KR`
+- `Entries`
+  - 텍스트 key 목록
+
+각 텍스트 entry는 다음을 가진다.
+
+- `Key`
+  - 예: `scenario.tea.line.001`
+- `Values`
+  - 언어/국가별 텍스트 목록
+
+각 언어 값은 다음을 가진다.
+
+- `LanguageKey`
+  - 예: `ko`, `en`, `ja`
+- `CountryCode`
+  - 예: `KR`, `US`, `JP`
+- `Text`
+  - 실제 표시 문자열
+
+텍스트 조회 인터페이스는 `GetText(key, languageKey, countryCode)` 형태를 기본으로 한다.
+정확한 언어+국가 값이 없으면 같은 언어, 기본 언어+국가, 기본 언어 순으로 fallback한다.
+텍스트 key가 없으면 key 자체를 반환할 수 있다.
+
+언어 추가는 컬럼 추가에 준하는 데이터 확장이어야 한다.
+새 언어를 추가하기 위해 시나리오 이벤트 파일의 행 구조를 바꾸면 안 된다.
+
+------
+
+## 6. Ingame Data Interfaces
+
+시나리오 파트의 인게임 인터페이스는 데이터와 런타임을 분리한다.
+
+필수 인터페이스:
+
+- `ILocalizedTextSource`
+  - `GetText(key, languageKey, countryCode)`
+  - `TryGetText(key, languageKey, countryCode, out text)`
+- `IScenarioEventDefinition`
+  - `EventId`, `Timing`, `Priority`, `TextTable`, `Lines`
+  - `ResolveLine(index, languageKey, countryCode)`
+- `IScenarioEventProvider`
+  - 루프 타이밍과 코어 상태를 받아 후보 이벤트를 제공한다.
+
+현재 구현 범위는 데이터 에셋과 조회 인터페이스까지다.
+이벤트 선택, 큐잉, UI 재생, 상태 효과 적용 런타임은 추후 구현한다.
+
+------
+
+## 7. Dialogue
 
 대사는 화자, 텍스트, 감정 상태, 표시 방식을 가진다.
 
@@ -89,8 +193,8 @@
   - 캐릭터, 보스, 시스템, AI, 익명 화자
 - `DisplayName`
   - 화면 표시 이름
-- `Line`
-  - 대사 본문
+- `TextKey`
+  - 대사 본문을 가리키는 로컬라이제이션 key
 - `Expression`
   - 표정 키
 - `Pose`
@@ -103,7 +207,7 @@
 
 ------
 
-## 5. Visual Staging
+## 8. Visual Staging
 
 스크립트 파트는 다음 시각 요소를 사용할 수 있다.
 
@@ -125,7 +229,7 @@
 
 ------
 
-## 6. Staging Commands
+## 9. Staging Commands
 
 연출은 명령 단위로 표현한다.
 
@@ -165,7 +269,7 @@
 
 ------
 
-## 7. Choices and Costs
+## 10. Choices and Costs
 
 스크립트 이벤트는 선택지를 가질 수 있다.
 
@@ -203,7 +307,7 @@
 
 ------
 
-## 8. Speaker Layout
+## 11. Speaker Layout
 
 화자는 화면에 추가되거나 제거될 수 있으며, 인원 변화에 따라 위치가 재배치된다.
 
@@ -221,7 +325,7 @@
 
 ------
 
-## 9. Core State Boundary
+## 12. Core State Boundary
 
 스크립트 파트는 다음 코어 상태를 읽을 수 있다.
 
@@ -239,28 +343,30 @@
 
 ------
 
-## 10. Implementation Direction
+## 13. Implementation Direction
 
-향후 구현은 스크립트 이벤트를 데이터 에셋으로 생산할 수 있어야 한다.
+현재 구현은 스크립트 이벤트와 로컬라이즈드 텍스트를 데이터 에셋으로 생산하는 초기 단계다.
 
-권장 구조:
+구현된 구조:
 
 - `ScriptEventDefinition`
   - 이벤트 원형
-- `ScriptNode`
-  - 대사, 연출, 선택지, 상태 변경 노드
-- `StageCommand`
+- `ScenarioScriptLine`
+  - 대사, 연출, 선택지, 상태 변경 행
+- `ScenarioStageCommand`
   - 화면 연출 명령
-- `ScriptChoice`
+- `ScenarioChoice`
   - 선택지와 비용/효과
-- `ScriptCondition`
+- `ScenarioCondition`
   - 진입 조건과 선택지 표시 조건
+- `LocalizedTextTable`
+  - key와 언어/국가별 텍스트 값
 
 스크립트 런타임은 코어 게임 로직과 분리하되, 코어 상태 변경은 공용 변경 인터페이스를 통해 적용한다.
 
 ------
 
-## 11. Prohibitions
+## 14. Prohibitions
 
 다음은 금지한다.
 

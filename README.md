@@ -1,5 +1,35 @@
 # ProjectW
 
+## Current authority
+
+- Working title: **외행성재척지원실 3과**
+- AI entry point: `Assets/Specification/Project_W – System Index (AI Entry Point).md`
+- Current implementation overview: `Assets/Specification/Architecture – ProjectW System Overview.md`
+- Build/push guide for AI sessions: `Assets/Specification/AI Build and Git Push Guide.md`
+
+## SSOT implementation status
+
+Update this section whenever an SSOT gains or loses an implementation.
+
+| SSOT area | Current implementation status |
+|-----------|-------------------------------|
+| Ingame daily work loop | Partially implemented in `CaseReviewGame` command loop |
+| Work data and dynamic generation | Initial `WorkDefinition` / `WorkGenerationSystem` implemented |
+| Character base/runtime data | Initial ScriptableObject pipeline implemented |
+| Character cards/perks/memory/relationships | Data and mutation interfaces partially implemented |
+| Script Presentation scenario events | Data assets and localization interfaces implemented; runtime playback UI not implemented |
+| Long loop: weekly audit, monthly/quarterly evaluation, yearly settlement | SSOT only; no runtime system yet |
+| Boss events and AI-baseline audit scoring | SSOT only; no runtime scoring system yet |
+| Outgame systems | SSOT only; no Unity runtime module yet |
+| Clone disposal/regeneration loop | SSOT only; no complete runtime loop yet |
+
+README update rule:
+
+- If a new SSOT section is added without implementation, add it to the table as `SSOT only`.
+- If code implements an SSOT section, update the status in the same commit.
+- If an implementation is partial, name the concrete implemented types and the missing runtime surface.
+- After changing `Assets/Specification`, run `python tools\sync_architecture_doc.py` and include the updated Architecture document.
+
 ## Visual pipeline (current)
 
 - **Characters**: Unity `Animator` based pipeline (`RoutineCharacterAnimatorDriver` bridge).
