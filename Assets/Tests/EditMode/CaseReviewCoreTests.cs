@@ -430,6 +430,31 @@ namespace ProjectW.Tests.EditMode
         }
 
         [Test]
+        public void LocalizedTextCsv_RoundTripsSpreadsheetColumns()
+        {
+            var entries = new List<LocalizedTextEntry>
+            {
+                new LocalizedTextEntry
+                {
+                    Key = "scenario.csv.line.001",
+                    Values = new List<LocalizedTextValue>
+                    {
+                        new LocalizedTextValue { LanguageKey = "ko", CountryCode = "KR", Text = "\uc27c\ud45c, \ub530\uc634\ud45c \" \uc904\ubc14\uafc8\n\ud14c\uc2a4\ud2b8" },
+                        new LocalizedTextValue { LanguageKey = "en", CountryCode = "US", Text = "Comma, quote \" and newline\ntext" }
+                    }
+                }
+            };
+
+            var csv = LocalizedTextCsv.ToCsv(entries);
+            var imported = LocalizedTextCsv.FromCsv(csv);
+
+            Assert.AreEqual(1, imported.Count);
+            Assert.AreEqual("scenario.csv.line.001", imported[0].Key);
+            Assert.AreEqual("\uc27c\ud45c, \ub530\uc634\ud45c \" \uc904\ubc14\uafc8\n\ud14c\uc2a4\ud2b8", imported[0].Values.Single(v => v.LanguageKey == "ko").Text);
+            Assert.AreEqual("Comma, quote \" and newline\ntext", imported[0].Values.Single(v => v.LanguageKey == "en").Text);
+        }
+
+        [Test]
         public void ScenarioEventDefinition_StoresRowsAndResolvesLocalizedText()
         {
             var table = ScriptableObject.CreateInstance<LocalizedTextTable>();

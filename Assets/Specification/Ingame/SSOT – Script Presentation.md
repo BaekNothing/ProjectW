@@ -163,6 +163,37 @@ Unity 구현 기준 원형은 `LocalizedTextTable` ScriptableObject다.
 
 ------
 
+### 5.1 CSV / Spreadsheet Exchange
+
+Localized text can be edited outside Unity through CSV export/import.
+
+Canonical CSV columns:
+
+- `Key`
+  - stable localization key used by `ScenarioScriptLine.TextKey` and `ScenarioChoice.LabelTextKey`
+- language columns
+  - `ko-KR`, `en-US`, `ja-JP`, or language-only keys such as `ko`
+
+Rules:
+
+- CSV is an exchange format for display text only.
+- Scenario timing, trigger conditions, stage commands, choices, costs, and state effects stay in `ScenarioEventDefinition`.
+- Adding a language means adding a new CSV column; scenario event files do not need structural edits.
+- Import maps each language column into `LocalizedTextValue.LanguageKey` and `CountryCode`.
+- Export writes UTF-8 with BOM so Korean text opens cleanly in Excel.
+- Spreadsheet tools may be used by importing/exporting the CSV through Excel, Google Sheets, or LibreOffice.
+
+Current implementation:
+
+- `LocalizedTextCsv`
+  - converts `LocalizedTextTable` entries to/from CSV.
+- `LocalizedTextTableEditor`
+  - adds Export CSV / Import CSV buttons to the text table inspector.
+- `ScenarioDataWorkshopEditor`
+  - exposes selected-table CSV import/export and all-table CSV export from the scenario workshop scene.
+
+------
+
 ## 6. Ingame Data Interfaces
 
 시나리오 파트의 인게임 인터페이스는 데이터와 런타임을 분리한다.
@@ -361,6 +392,25 @@ Unity 구현 기준 원형은 `LocalizedTextTable` ScriptableObject다.
   - 진입 조건과 선택지 표시 조건
 - `LocalizedTextTable`
   - key와 언어/국가별 텍스트 값
+- `ScenarioDataWorkshop`
+  - 시나리오 데이터 제작용 씬 컴포넌트
+- `ScenarioDataWorkshopEditor`
+  - 별도 시나리오 도구 씬, 빈 에셋 생성, 샘플 시나리오/텍스트 생성, CSV export/import 메뉴
+- `LocalizedTextCsv`
+  - 로컬라이즈드 텍스트 테이블의 CSV 스프레드시트 변환
+- `LocalizedTextTableEditor`
+  - 텍스트 테이블 인스펙터의 CSV export/import 도구
+
+시나리오 데이터 제작은 `Assets/Scenes/ScenarioDataWorkshop.unity`에서 수행한다.
+워크샵은 기본 출력 폴더 `Assets/Resources/CaseReviewData/Scenarios` 아래에 `Events`, `Text`, `Render` 폴더를 만들 수 있다.
+워크샵에서 일괄 export한 CSV는 `Assets/Resources/CaseReviewData/Scenarios/TextCsv` 아래에 저장한다.
+
+아직 미구현인 범위:
+
+- 시나리오 이벤트 후보 큐잉
+- 시나리오 UI 재생
+- 선택지 선택 처리
+- `ScenarioStateEffect`를 실제 코어 상태에 적용하는 런타임
 
 스크립트 런타임은 코어 게임 로직과 분리하되, 코어 상태 변경은 공용 변경 인터페이스를 통해 적용한다.
 

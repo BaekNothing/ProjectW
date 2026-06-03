@@ -8,11 +8,11 @@
 | 항목 | 값 |
 |------|-----|
 | **동기화 모드** | `index (pre-commit / manual)` |
-| **동기화 시각 (UTC)** | `2026-06-03T06:17:31Z` |
-| **기준 커밋 (전체 SHA)** | `0b4a4e61aef3bb54b119ad7d1f294813475f5ebc` |
-| **기준 커밋 (단축)** | `0b4a4e6` |
+| **동기화 시각 (UTC)** | `2026-06-03T07:38:01Z` |
+| **기준 커밋 (전체 SHA)** | `62af1137a7d62bda86be77f7555fa42138eebf2a` |
+| **기준 커밋 (단축)** | `62af113` |
 | **브랜치** | `ai-integration` |
-| **추적 경로 지문** | `sha256:2612276ddbf9ccf59ef1e525c0603470e73eed0a4c9e14a0cb481e4d6ec09e74` |
+| **추적 경로 지문** | `sha256:915b66d6717b77c6010593854a28a6b02f99a5ca0ee39b28eb208219d92c42d8` |
 | **추적 경로** | `Assets/Specification/`<br>`Assets/Scripts/`<br>`Assets/Tests/`<br>`Assets/Editor/`<br>`Assets/Resources/CaseReviewData/` |
 
 > 지문은 Git 인덱스(`git ls-files -s`)에 등록된 추적 경로 파일 목록·blob 해시의 SHA-256이다.  
@@ -159,9 +159,11 @@ graph LR
 | `Assets/Scripts/IngameCore/CaseReview/` | **유일한 런타임 코드** | 순수 게임 로직 + SO 정의 + 업무 생성기 + 시나리오 데이터 |
 | `Assets/Editor/` | 활성 | 캐릭터 데이터 워크샵, 에디터 리프레시 |
 | `Assets/Tests/EditMode/` | 활성 | Case Review 코어 단위 테스트 |
-| `Assets/Resources/CaseReviewData/Samples/` | 활성 | 샘플 SO 에셋 (로드 코드는 아직 없음) |
+| `Assets/Resources/CaseReviewData/Samples/` | 활성 | 캐릭터/업무 샘플 SO 에셋 (로드 코드는 아직 없음) |
+| `Assets/Resources/CaseReviewData/Scenarios/` | 활성 | 시나리오 이벤트·텍스트·렌더 샘플 SO 에셋 |
 | `Assets/Scenes/MVP Scene.unity` | 존재 | 빌드 포함, 현재 체크아웃 기준 Case Review 씬 드라이버는 미확인 |
 | `Assets/Scenes/CharacterDataWorkshop.unity` | 존재 | 데이터 제작 전용, 빌드 미포함 |
+| `Assets/Scenes/ScenarioDataWorkshop.unity` | 존재 | 시나리오 데이터 제작 전용, 빌드 미포함 |
 | `Assets/Scenes/Outgame Scene.unity` | **누락** | 빌드 설정에만 참조 (깨진 참조) |
 | `Assets/Data`, `Prefabs`, `Materials` 등 | 빈 폴더 | 예약 |
 
@@ -318,7 +320,7 @@ flowchart TB
 
 감사 시스템은 플레이어 선택을 MVP AI 기본안과 비교한다. MVP AI는 복잡한 인격형 의사결정자가 아니라 빈 슬롯 보충과 기존 플랜 유지에 집중하는 기준선이다.
 
-스크립트 파트는 대사, 화자, 표정, 중앙 이미지, 포커스, 선택지, 비용을 표현한다. 코어 상태를 읽을 수 있지만 상태 변경은 선택지 효과 또는 종료 효과에 명시된 비용·보상·플래그로만 적용한다. 현재 구현은 `ScenarioEventDefinition`, `ScenarioScriptLine`, `LocalizedTextTable` 데이터 에셋과 조회 인터페이스까지 포함하며, UI 재생/큐잉 런타임은 아직 없다.
+스크립트 파트는 대사, 화자, 표정, 중앙 이미지, 포커스, 선택지, 비용을 표현한다. 코어 상태를 읽을 수 있지만 상태 변경은 선택지 효과 또는 종료 효과에 명시된 비용·보상·플래그로만 적용한다. 현재 구현은 `ScenarioEventDefinition`, `ScenarioScriptLine`, `LocalizedTextTable` 데이터 에셋, 조회 인터페이스, `LocalizedTextCsv` CSV 변환, `LocalizedTextTableEditor` 텍스트 import/export, `ScenarioDataWorkshop` 제작 씬/에디터까지 포함하며, UI 재생/큐잉 런타임은 아직 없다.
 
 ### 5.6 업무 시스템 (SSOT – Work) vs `EventCase`
 
@@ -440,6 +442,9 @@ classDiagram
 | `ActionCardDefinition.cs` / `PerkDefinition.cs` | 카드·퍼크 SO |
 | `RenderResourceDefinition.cs` | UI/연출 메타 (로직 미연결) |
 | `CharacterDataWorkshop.cs` | 씬용 `MonoBehaviour` (출력 폴더만) |
+| `ScenarioDataWorkshop.cs` | 시나리오 제작 씬용 `MonoBehaviour` |
+| `LocalizedTextCsv.cs` | 로컬라이즈드 텍스트 CSV 변환 |
+| `LocalizedTextTableEditor.cs` | 텍스트 테이블 CSV import/export 인스펙터 |
 
 ### 6.2 확장점 (플러그 정책)
 
@@ -507,6 +512,8 @@ flowchart TB
 
 `Assets/Resources/CaseReviewData/Samples/` (에디터 메뉴로 생성·갱신 가능)
 
+`Assets/Resources/CaseReviewData/Scenarios/` (시나리오 워크샵 메뉴로 생성·갱신 가능)
+
 | 종류 | 샘플 (접두) |
 |------|-------------|
 | Base 캐릭터 | `Base_CautiousPlanner`, `Base_QuietAuditor`, `Base_ShortcutOperator` |
@@ -544,7 +551,9 @@ flowchart TB
 | 진입 | 경로 |
 |------|------|
 | 씬 | `Assets/Scenes/CharacterDataWorkshop.unity` |
+| 시나리오 제작 씬 | `Assets/Scenes/ScenarioDataWorkshop.unity` |
 | 메뉴 | `Tools/ProjectW/Case Review/Open Character Data Workshop Scene` |
+| 시나리오 텍스트 CSV | `Tools/ProjectW/Case Review/Export Scenario Text CSV` |
 | 샘플 일괄 생성 | `Tools/ProjectW/Case Review/Create or Refresh Sample Data` |
 | 강제 리프레시 | `Tools/ProjectW/Refresh/Force Refresh` (`Ctrl+Shift+R`) |
 
@@ -671,6 +680,7 @@ flowchart LR
 | WorkDefinition 샘플 에셋 | `Resources/CaseReviewData/Samples`에 업무 샘플 생성 |
 | Boss/Audit 컨텍스트 | `WorkGenerationContext`에 보스 이벤트 압력·감사 평가 방향 추가 |
 | Script Presentation 런타임 | `ScenarioEventDefinition`·`LocalizedTextTable` 데이터 구현 완료, UI 재생/큐잉 런타임 구현 |
+| ScenarioDataWorkshop 확장 | TSV/XLSX 직접 import, 일괄 key 검증, 미번역 텍스트 리포트 |
 | `Resources.Load` 부트스트랩 | `GameConfig.InitialData`에 캐릭터·업무 샘플 SO 자동 연결 |
 | MVP Scene | `CaseReviewGame` REPL/UI 브리지 MonoBehaviour 재확인 또는 구현 |
 | `RenderResourceDefinition` | UI 레이어에서 `IRenderableData` 소비 |
@@ -681,7 +691,7 @@ flowchart LR
 
 ## 13. 한 줄 요약
 
-**ProjectW는 SSOT(Ingame·Work·Script Presentation·Characters)가 규칙의 중심이고, Unity 구현은 `CaseReview`의 `EventCase` 프로토타입·`WorkDefinition` 업무 생성기·캐릭터 SO 파이프라인·시나리오/로컬라이제이션 데이터 에셋·워크샵·EditMode 테스트에 집중되어 있다. 장기 감사/평가 루프와 스크립트 UI 재생 런타임은 SSOT에 정의됐으나 코드 미착수이며, Git 지문(`arch-sync`)으로 본 문서와 추적 경로의 동기화를 자동 검증한다.**
+**ProjectW는 SSOT(Ingame·Work·Script Presentation·Characters)가 규칙의 중심이고, Unity 구현은 `CaseReview`의 `EventCase` 프로토타입·`WorkDefinition` 업무 생성기·캐릭터 SO 파이프라인·시나리오/로컬라이제이션 데이터 에셋·CSV 텍스트 편집 도구·워크샵·EditMode 테스트에 집중되어 있다. 장기 감사/평가 루프와 스크립트 UI 재생 런타임은 SSOT에 정의됐으나 코드 미착수이며, Git 지문(`arch-sync`)으로 본 문서와 추적 경로의 동기화를 자동 검증한다.**
 
 ---
 
@@ -692,6 +702,7 @@ flowchart LR
 | 2026-06-03 | 장기 코어 루프 확장 | Daily/Weekly/Monthly/Quarterly/Yearly 평가 구조 추가 |
 | 2026-06-03 | 보스 이벤트·감사 평가 방향 | 보스 사건을 업무 생성과 평가 기준에 연결 |
 | 2026-06-03 | `SSOT – Script Presentation.md` 신설 | 대사·연출·선택지·명시적 상태 변경 경계 정의 |
+| 2026-06-03 | 시나리오 텍스트 CSV 도구 | 로컬라이즈드 텍스트 테이블을 CSV로 export/import |
 | 2026-06-03 | `WorkDefinition` / `WorkGenerationSystem` | 업무 SO 원형과 결정론적 spawn weight 생성기 초기 구현 |
 | 2026-06-03 | `SSOT – Work.md` 신설 | 업무 원형·인스턴스·동적 생성·태그 상호작용 규칙 분리 |
 | 2026-06-03 | Ingame §15 Decision Ledger | PM Log 판단 권한 폐기, 핵심 결정 SSOT 흡수 |
