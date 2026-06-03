@@ -90,3 +90,13 @@ AI 판단 순서:
 - 커밋/머지 승인
 - 일정/릴리즈 최종 확정
 
+------
+
+## AI Build and Push Operations
+
+APK 빌드, 커밋, push를 AI/LLM에게 맡길 때는 아래 문서를 우선 읽게 한다.
+
+- `Assets/Specification/AI Build and Git Push Guide.md`
+
+이 문서는 Unity 배치 빌드 명령, APK 산출물 처리, `.git` 권한 문제, Unity Package Manager IPC 실패, 커밋 로그 작성, `origin/ai-integration` push 절차를 포함한다.
+

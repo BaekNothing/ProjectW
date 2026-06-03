@@ -34,6 +34,8 @@ AI는 반드시 아래 순서로만 판단한다.
   - SSOT 실행 결과물
 - **Git History**
   - 구현 변경 이력 및 협업 근거
+- **AI Build and Git Push Guide**
+  - APK 빌드, 커밋, push 절차와 알려진 Unity/권한 실패 대응
 - **PM Log – Deprecated**
   - 규칙 판단 근거가 아니다.
   - 과거 링크 보존용 문서이며, 유효한 결정은 SSOT로 흡수되어야 한다.
@@ -74,6 +76,10 @@ AI는 반드시 아래 순서로만 판단한다.
 Unity 프로젝트의 **폴더·어셈블리·Case Review 구현·데이터 파이프라인·씬 현황** 통합 개요:
 
 - `Assets/Specification/Architecture – ProjectW System Overview.md`
+
+APK 빌드와 Git push 운영 절차:
+
+- `Assets/Specification/AI Build and Git Push Guide.md`
 
 본 문서는 규칙 SSOT가 아니며, 구현 탐색·온보딩용이다. 규칙 충돌 시 Ingame/Outgame SSOT가 우선한다.
 

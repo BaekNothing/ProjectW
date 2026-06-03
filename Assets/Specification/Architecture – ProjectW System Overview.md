@@ -8,11 +8,11 @@
 | 항목 | 값 |
 |------|-----|
 | **동기화 모드** | `index (pre-commit / manual)` |
-| **동기화 시각 (UTC)** | `2026-06-03T00:37:21Z` |
-| **기준 커밋 (전체 SHA)** | `4f70c50260fc459d2db80d37d9f396c5f38c0ede` |
-| **기준 커밋 (단축)** | `4f70c50` |
+| **동기화 시각 (UTC)** | `2026-06-03T00:41:45Z` |
+| **기준 커밋 (전체 SHA)** | `b2bb0c039303b98a4b6bd9d6f962c47f9f3d02c1` |
+| **기준 커밋 (단축)** | `b2bb0c0` |
 | **브랜치** | `ai-integration` |
-| **추적 경로 지문** | `sha256:8fa86b9e55d85b88dff1ef47d7c4ee5d06532e625b5ed8ef034e038ab9f8bb69` |
+| **추적 경로 지문** | `sha256:ea8968d864312b7cfbbcac28e0bcd9234f49df2eb4aa9557911122814d85256b` |
 | **추적 경로** | `Assets/Specification/`<br>`Assets/Scripts/`<br>`Assets/Tests/`<br>`Assets/Editor/`<br>`Assets/Resources/CaseReviewData/` |
 
 > 지문은 Git 인덱스(`git ls-files -s`)에 등록된 추적 경로 파일 목록·blob 해시의 SHA-256이다.  
