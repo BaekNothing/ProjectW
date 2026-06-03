@@ -28,7 +28,8 @@ AI는 반드시 아래 순서로만 판단한다.
   - 문서 우선순위, AI 운영 규칙, 거부 조건 정의
 - **SSOT – Ingame / Outgame / Metadata / Workflow**
   - 시스템 규칙의 단일 진실원
-  - 현재 Ingame 기준은 `Assets/Specification/Ingame/SSOT – Ingame.md`에 정의된 업무 배치, 검토 비용, 카드/덱, AI 대체 압력 구조다.
+  - 현재 Ingame 기준은 `Assets/Specification/Ingame/SSOT – Ingame.md`에 정의된 장기 코어 루프, 업무 배치, 검토 비용, 카드/덱, AI 대체 압력 구조다.
+  - 스크립트 파트와 연출 규칙은 `Assets/Specification/Ingame/SSOT – Script Presentation.md`를 따른다.
 - **Unity Implementation**
   - SSOT 실행 결과물
 - **Git History**
@@ -93,6 +94,7 @@ Unity 프로젝트의 **폴더·어셈블리·Case Review 구현·데이터 파�
   - `Assets/Specification/Ingame/SSOT – Characters.md`
   - `Assets/Specification/Ingame/SSOT – Character Possessions.md`
   - `Assets/Specification/Ingame/SSOT – Character Memory and Relationships.md`
+  - `Assets/Specification/Ingame/SSOT – Script Presentation.md`
 - 폐기된 기준:
   - 순수 관찰형 자동 서사 게임
   - 검토 비용 없는 완전 정보 관리 UI

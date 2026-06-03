@@ -41,6 +41,8 @@ def run_git(*args: str) -> str:
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
     if result.returncode != 0:
@@ -50,8 +52,9 @@ def run_git(*args: str) -> str:
 
 def tracked_index_entries() -> list[str]:
     lines: list[str] = []
+    arch_doc_rel = ARCH_DOC.relative_to(REPO_ROOT).as_posix()
     for root in TRACK_ROOTS:
-        output = run_git("ls-files", "-s", "--", root)
+        output = run_git("-c", "core.quotePath=false", "ls-files", "-s", "--", root)
         if not output:
             continue
         for line in output.splitlines():
@@ -59,6 +62,8 @@ def tracked_index_entries() -> list[str]:
             if len(parts) != 2:
                 continue
             meta, path = parts
+            if path == arch_doc_rel:
+                continue
             blob = meta.split()[1]
             lines.append(f"{path}\t{blob}")
     return sorted(set(lines))
@@ -120,6 +125,7 @@ def build_sync_block(
 | **추적 경로** | {paths_cell} |
 
 > 지문은 Git 인덱스(`git ls-files -s`)에 등록된 추적 경로 파일 목록·blob 해시의 SHA-256이다.  
+> 자기참조를 피하기 위해 본 Architecture 문서 자체는 지문 계산에서 제외한다.
 > `pre-commit` 훅 또는 `python tools/sync_architecture_doc.py` 실행 시 갱신된다. CI는 `--check`로 불일치를 검출한다.
 """
 

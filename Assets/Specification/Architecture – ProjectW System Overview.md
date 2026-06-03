@@ -8,14 +8,15 @@
 | 항목 | 값 |
 |------|-----|
 | **동기화 모드** | `index (pre-commit / manual)` |
-| **동기화 시각 (UTC)** | `2026-06-02T17:39:06Z` |
-| **기준 커밋 (전체 SHA)** | `74e590f7d7a27a2092c5c086b9147db2c4d9c6fb` |
-| **기준 커밋 (단축)** | `74e590f` |
+| **동기화 시각 (UTC)** | `2026-06-03T00:37:21Z` |
+| **기준 커밋 (전체 SHA)** | `4f70c50260fc459d2db80d37d9f396c5f38c0ede` |
+| **기준 커밋 (단축)** | `4f70c50` |
 | **브랜치** | `ai-integration` |
-| **추적 경로 지문** | `sha256:b03d0b56b6fedf59ccdd4a9f6ea57e25d98ecbe290411e18524946fe4674261a` |
+| **추적 경로 지문** | `sha256:8fa86b9e55d85b88dff1ef47d7c4ee5d06532e625b5ed8ef034e038ab9f8bb69` |
 | **추적 경로** | `Assets/Specification/`<br>`Assets/Scripts/`<br>`Assets/Tests/`<br>`Assets/Editor/`<br>`Assets/Resources/CaseReviewData/` |
 
 > 지문은 Git 인덱스(`git ls-files -s`)에 등록된 추적 경로 파일 목록·blob 해시의 SHA-256이다.  
+> 자기참조를 피하기 위해 본 Architecture 문서 자체는 지문 계산에서 제외한다.
 > `pre-commit` 훅 또는 `python tools/sync_architecture_doc.py` 실행 시 갱신된다. CI는 `--check`로 불일치를 검출한다.
 <!-- arch-sync:end -->
 
@@ -34,6 +35,7 @@
 | AI·문서 우선순위 | `Project_W – System Index (AI Entry Point).md` |
 | 인게임 규칙 SSOT | `Ingame/SSOT – Ingame.md` |
 | 업무 규칙 SSOT | `Ingame/SSOT – Work.md` |
+| 스크립트·연출 SSOT | `Ingame/SSOT – Script Presentation.md` |
 | 아웃게임 규칙 SSOT | `SSOT – Outgame.md` |
 | 워크플로·메타 | `SSOT – Workflow Confluence × Unity × GitHub.md`, `SSOT – Metadata.md` |
 
@@ -49,14 +51,17 @@ mindmap
     게임
       PM 관리 시뮬
       블랙코미디 업무 배치
+      장기 생존 평가
       동적 업무 생성
       불완전 정보 + 검토 비용
+      스크립트 이벤트 연출
     문서 계층
       System Index
       SSOT Ingame/Outgame
       Deprecated PM Log
     Unity 구현
       Case Review 코어
+      WorkDefinition 생성기
       ScriptableObject 데이터
       에디터 워크샵
     미연결/레거시
@@ -71,6 +76,7 @@ mindmap
 | **작업 제목** | 외행성재척지원실 3과 |
 | **장르·핵심** | 중간관리자 시점의 업무 배치·서류 검토·덱 기반 개체 행동·피드백 루프 |
 | **플레이어 목표** | AI 제안과 인간 검토 사이에서 비용을 조절하며, AI 대체 불가한 관리 가치를 증명 |
+| **장기 구조** | 일일 업무 → 주간 감사 → 월별 평가 → 분기 평가 → 연말 정산 |
 | **폐기된 방향** | 순수 관찰형 자동 서사, 검토 비용 없는 완전 정보 UI, AI 제안 무조건 정답 처리 |
 
 ---
@@ -88,6 +94,7 @@ flowchart TB
     ING["SSOT – Ingame"]
     WORK["SSOT – Work"]
     OUT["SSOT – Outgame"]
+    SCRIPT["SSOT – Script Presentation"]
     META["SSOT – Metadata"]
     WF["SSOT – Workflow"]
     CHR["Characters / Possessions / Memory"]
@@ -104,9 +111,11 @@ flowchart TB
 
   IDX --> ING & OUT & META & WF
   ING --> WORK
+  ING --> SCRIPT
   ING --> CHR
   ING -.->|규칙 반영| CODE
   WORK -.->|EventCase 프로토| CODE
+  SCRIPT -.->|이벤트·연출 목표| CODE
   CHR -.->|데이터 모델| SO
   CODE --> SO
   ED --> SO
@@ -147,11 +156,11 @@ graph LR
 | 폴더 | 상태 | 역할 |
 |------|------|------|
 | `Assets/Specification/` | 활성 | 규칙·PM·아키텍처 문서 |
-| `Assets/Scripts/IngameCore/CaseReview/` | **유일한 런타임 코드** | 순수 게임 로직 + SO 정의 |
+| `Assets/Scripts/IngameCore/CaseReview/` | **유일한 런타임 코드** | 순수 게임 로직 + SO 정의 + 업무 생성기 |
 | `Assets/Editor/` | 활성 | 캐릭터 데이터 워크샵, 에디터 리프레시 |
 | `Assets/Tests/EditMode/` | 활성 | Case Review 코어 단위 테스트 |
 | `Assets/Resources/CaseReviewData/Samples/` | 활성 | 샘플 SO 에셋 (로드 코드는 아직 없음) |
-| `Assets/Scenes/MVP Scene.unity` | 존재 | 빌드 포함, Case Review 드라이버 미연결 |
+| `Assets/Scenes/MVP Scene.unity` | 존재 | 빌드 포함, 현재 체크아웃 기준 Case Review 씬 드라이버는 미확인 |
 | `Assets/Scenes/CharacterDataWorkshop.unity` | 존재 | 데이터 제작 전용, 빌드 미포함 |
 | `Assets/Scenes/Outgame Scene.unity` | **누락** | 빌드 설정에만 참조 (깨진 참조) |
 | `Assets/Data`, `Prefabs`, `Materials` 등 | 빈 폴더 | 예약 |
@@ -167,6 +176,7 @@ graph TB
     CRG["CaseReviewGame"]
     MDL["Models / CoreRules"]
     RPT["ReportGenerator"]
+    WGEN["WorkDefinition /\nWorkGenerationSystem"]
     SO_DEF["*Definition ScriptableObjects"]
     WS_MB["CharacterDataWorkshop MonoBehaviour"]
   end
@@ -187,7 +197,7 @@ graph TB
 
 | 어셈블리 | 플랫폼 | 포함 |
 |----------|--------|------|
-| `Scripts` | Player + Editor | CaseReview 전 모듈 |
+| `Scripts` | Player + Editor | CaseReview 전 모듈, WorkDefinition, WorkGenerationSystem |
 | `ProjectW.Tests.EditMode` | Editor only | `CaseReviewCoreTests.cs` |
 | `Assembly-CSharp-Editor` | Editor | 워크샵·메뉴·리프레시 |
 
@@ -197,21 +207,41 @@ graph TB
 
 ## 5. 인게임 설계 (SSOT) vs 구현 (Case Review)
 
-### 5.1 SSOT 일일 루프
+### 5.1 SSOT 장기 루프
+
+최신 Ingame SSOT는 하루 단위 업무를 상위 평가 주기와 연결한다.
 
 ```mermaid
 flowchart LR
-  M["1. Morning Draft\n덱 1장 + AI 초안"]
-  R["2. Review & Planning\n검토 비용"]
-  A["3. Assignment\n배치·플랜"]
-  E["4. Execution\n결과 시뮬"]
-  F["5. Feedback\n카드·관계·압력"]
+  D["Daily Work\n오전 검토 / 오후 실행 / 밤 휴식"]
+  W["Weekly Audit\nAI 기본안 대비 감사"]
+  M["Monthly Evaluation\n자본·조직·대체 압력"]
+  Q["Quarterly Evaluation\n생존성·난이도 갱신"]
+  Y["Yearly Settlement\n장기 결산·엔딩"]
 
-  M --> R --> A --> E --> F
-  F -->|NEXT DAY| M
+  D --> W --> M --> Q --> Y
+  W --> D
+  M --> D
+  Q --> D
 ```
 
-### 5.2 구현 슬롯·명령 매핑
+세션 기본 범위는 6개월~2년이다. 2년 뒤 AI 도래는 피할 수 없는 종료 조건이며, 그 전까지 누적 평가·자본 상태·조직 상태·AI 대체 압력이 생존/대체 판단을 만든다.
+
+### 5.2 SSOT 일일 루프
+
+```mermaid
+flowchart LR
+  MOR["1. Morning / Review\n검토·면담·티타임·Alert"]
+  AFT["2. Afternoon / Execution\n배치·플랜 실행"]
+  NIG["3. Night / Rest\n피드백·보고·회복"]
+
+  MOR --> AFT --> NIG
+  NIG -->|NEXT DAY| MOR
+```
+
+기존 `Morning Draft → Review & Planning → Assignment → Execution → Feedback` 구조는 위 3슬롯 구조 안으로 흡수된다.
+
+### 5.3 구현 슬롯·명령 매핑
 
 `CaseReviewGame`은 텍스트 명령 REPL로 위 루프를 프로토타이핑한다.
 
@@ -244,7 +274,7 @@ stateDiagram-v2
 
 **대표 명령:** `HELP`, `STATUS`, `PLAN`, `CONFIRM PLAN`, `ADJUST`, `QUEUE`, `OPEN`, `SUMMARY`, `LOG`, `CHECK`, `ASSIGN`, `REDIRECT`, `REPORT`, `REVIEW`, `APPROVE`, `HOLD`, `NEXT DAY`
 
-### 5.3 진실 vs 표면 (정보 비대칭)
+### 5.4 진실 vs 표면 (정보 비대칭)
 
 ```mermaid
 flowchart TB
@@ -266,9 +296,33 @@ flowchart TB
 
 검토 행동마다 `ReviewCostEntry`(시간·자원·집중·신뢰·AI 대체 압력)가 기록된다. SSOT 원칙: **전부 검토하면 늦게 실패, 전혀 검토하면 누적 실패.**
 
-### 5.4 업무 시스템 (SSOT – Work) vs `EventCase`
+### 5.5 보스 이벤트·감사·스크립트 파트
 
-2026-06-03 **Work Data Direction**(`SSOT – Ingame.md` §10)에 따라 업무 규칙이 `SSOT – Work.md`로 분리되었다.
+```mermaid
+flowchart TB
+  BOSS["Boss Event\n상위 사건·평가 기준 흔들기"]
+  WORKGEN["WorkGenerationSystem\n업무 큐로 분해"]
+  AUDIT["Audit / Evaluation\nAI 기본안 vs 플레이어 선택"]
+  SCRIPT["Script Presentation\n대사·연출·선택지"]
+  STATE["Core State\n자본·압력·관계·업무"]
+
+  BOSS --> WORKGEN
+  BOSS --> SCRIPT
+  WORKGEN --> STATE
+  STATE --> AUDIT
+  AUDIT --> STATE
+  SCRIPT -->|명시된 비용·보상·플래그만| STATE
+```
+
+보스 이벤트는 단순 랜덤 업무가 아니라 자본, 조직 상태, 업무 큐, 평가 기준, AI 대체 압력에 영향을 주는 상위 사건이다. 업무 생성기는 이를 `boss`, `audit`, `ai`, `emergency`, `morale`, `legal` 태그 업무로 분해할 수 있다.
+
+감사 시스템은 플레이어 선택을 MVP AI 기본안과 비교한다. MVP AI는 복잡한 인격형 의사결정자가 아니라 빈 슬롯 보충과 기존 플랜 유지에 집중하는 기준선이다.
+
+스크립트 파트는 대사, 화자, 표정, 중앙 이미지, 포커스, 선택지, 비용을 표현한다. 코어 상태를 읽을 수 있지만 상태 변경은 선택지 효과 또는 종료 효과에 명시된 비용·보상·플래그로만 적용한다.
+
+### 5.6 업무 시스템 (SSOT – Work) vs `EventCase`
+
+2026-06-03 **Work Data Direction**(`SSOT – Ingame.md` §15)에 따라 업무 규칙이 `SSOT – Work.md`로 분리되었다.
 
 ```mermaid
 flowchart TB
@@ -279,11 +333,16 @@ flowchart TB
   end
   subgraph Impl["CaseReview (현재)"]
     EC["EventCase\nGameState.Queue"]
-    SEED["SeedDayOneCases /\n하드코딩·후속 생성"]
+    WDEF["WorkDefinition SO"]
+    WGEN["WorkGenerationSystem"]
+    SEED["SeedDayOneCases\nfallback"]
   end
-  WD -.->|미구현| WI
+  WD --> WDEF
+  WDEF -->|CreateInstance| EC
   WI -.->|대응| EC
-  GEN -.->|미구현| SEED
+  GEN --> WGEN
+  WGEN --> EC
+  SEED -.->|InitialData 없을 때| EC
 ```
 
 | SSOT 개념 | 현재 구현 | 상태 |
@@ -294,15 +353,15 @@ flowchart TB
 | 잠복 리스크 | `LatentRisk` | 있음 |
 | 요구 적성 | `RequiredAptitudes` | 있음 |
 | 카드/퍽 태그 | `PerkTags`, `PerkInteractionInfo` | 초기 |
-| `WorkDefinition` SO | — | **미구현** |
-| 동적 생성 풀·가중치 | `SeedDayOneCases` 등 고정 시드 | **미구현** |
-| 동시작업 가능수 | 인력 배치만 | **미구현** |
+| `WorkDefinition` SO | `WorkDefinition` | 초기 구현 |
+| 동적 생성 풀·가중치 | `WorkGenerationSystem`, `WorkSpawnProfile` | 초기 구현 |
+| 동시작업 가능수 | `ConcurrentLimit`, `ConcurrentSlotCost` | 데이터 필드 구현, 실행 규칙 부분 |
 
 상세 매핑·금지 규칙: `Ingame/SSOT – Work.md` §11–12.
 
-### 5.5 Decision Ledger (Ingame SSOT)
+### 5.7 Decision Ledger (Ingame SSOT)
 
-과거 PM Log에서 흡수된 **규칙 수준** 결정만 `SSOT – Ingame.md` §10에 보존한다. 일정·회고·증빙은 권위 범위가 아니다.
+과거 PM Log에서 흡수된 **규칙 수준** 결정만 `SSOT – Ingame.md` §15에 보존한다. 일정·회고·증빙은 권위 범위가 아니다.
 
 | 결정 앵커 | 요약 |
 |-----------|------|
@@ -310,6 +369,8 @@ flowchart TB
 | Work Data Direction | 동적 업무 생성, 태그·적성·리스크, `SSOT – Work` 참조 |
 | Character Data Direction | Base/Runtime SO 분리, 카드·퍽·관계·기억 |
 | Clone and Growth | 폐기/재생성은 유료, 성장은 카드·기억 축적 |
+| Long Loop Direction | 일일 업무, 주간 감사, 월별·분기별 평가, 연말 정산 |
+| Script Presentation Direction | 코어 상태를 읽는 대사·연출·선택지, 명시된 효과만 상태 반영 |
 
 ---
 
@@ -340,6 +401,15 @@ classDiagram
   class IReportGenerator {
     <<interface>>
   }
+  class WorkDefinition {
+    ScriptableObject
+    +EvaluateSpawnWeight()
+    +CreateInstance()
+  }
+  class WorkGenerationSystem {
+    +Generate()
+    +PrefixFor()
+  }
   class CharacterBaseDefinition {
     ScriptableObject
   }
@@ -350,6 +420,8 @@ classDiagram
   CaseReviewGame --> GameState
   GameState --> CaseReviewRules : via GameConfig
   CaseReviewGame --> IReportGenerator
+  CaseReviewGame --> WorkGenerationSystem
+  WorkDefinition --> EventCase : CreateInstance
   CharacterBaseDefinition --> Personnel : CreateRuntimeModel
   CharacterRuntimeData --> Personnel
 ```
@@ -360,6 +432,8 @@ classDiagram
 | `Models.cs` | `GameState`, `GameConfig`, `EventCase`, `Personnel`, DTO |
 | `CoreRules.cs` | `CaseReviewRules` + 기본 정책 구현 |
 | `ReportGenerator.cs` | 일일·개별 보고서 텍스트 생성 |
+| `WorkDefinition.cs` | 업무 원형 SO, spawn weight 평가, `EventCase` 생성 |
+| `WorkGenerationSystem.cs` | `WorkDefinition` 후보 풀의 결정론적 가중치 선택 |
 | `CharacterDataAssets.cs` | SO 인터페이스, 관계·기억 레코드, 데이터 변경 인터페이스 |
 | `CharacterBaseDefinition.cs` | 시작 덱·퍼크가 있는 베이스 캐릭터 |
 | `CharacterRuntimeData.cs` | 진행 상태·관계·기억, 외부 주입용 변경 함수 |
@@ -398,6 +472,7 @@ flowchart TB
     RUN["CharacterRuntimeData"]
     CARD["ActionCardDefinition"]
     PERK["PerkDefinition"]
+    WDEF["WorkDefinition"]
     RR["RenderResourceDefinition"]
   end
   subgraph ResourcesPath["Resources (선택 로드)"]
@@ -411,6 +486,7 @@ flowchart TB
   subgraph Game["게임"]
     INIT["CaseReviewGame.Init\nGameConfig.InitialData"]
     GS["GameState.Staff"]
+    GQ["GameState.Queue"]
   end
 
   MENU --> GEN
@@ -421,7 +497,9 @@ flowchart TB
   RUN -->|BuildInitialStaff| PER
   CARD --> AC
   PERK --> PP
+  WDEF -->|WorkGenerationSystem| GQ
   INIT --> GS
+  INIT --> GQ
   PER --> GS
 ```
 
@@ -437,7 +515,7 @@ flowchart TB
 | 퍼크 | `Perk_PanicImproviser`, `Perk_PatternAuditor`, `Perk_ProcedureLoyalist` |
 | 렌더 | `RR_CautiousPlanner`, `RR_QuietAuditor`, `RR_ShortcutOperator` |
 
-**현재 갭:** 코드베이스에 `Resources.Load` 호출이 없다. `InitialData == null`이면 `SeedStaff()` 하드코딩 시드가 사용된다. 런타임 UI 연결 시 `Resources.LoadAll<CharacterRuntimeData>` 또는 Addressables가 자연스러운 다음 단계다.
+**현재 갭:** 코드베이스에 `Resources.Load` 호출이 없다. `InitialData == null`이면 `SeedStaff()`와 `SeedDayOneCases()` 하드코딩 시드가 사용된다. `CaseReviewSeedData.WorkDefinitions`가 주어지면 `DefaultWorkGenerationService`가 초기 큐를 생성한다. 런타임 UI 연결 시 `Resources.LoadAll<CharacterRuntimeData>`와 `Resources.LoadAll<WorkDefinition>` 또는 Addressables가 자연스러운 다음 단계다.
 
 ### 7.3 데이터 변경 계약
 
@@ -476,11 +554,12 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-  TST["EditMode Tests\n17 × NUnit"]
+  TST["EditMode Tests\nNUnit"]
   CRG["CaseReviewGame"]
   TST -->|Replay hash| CRG
   TST -->|SO → Personnel| CRG
   TST -->|Review cost / pressure| CRG
+  TST -->|WorkDefinition / generation| CRG
   GATE["tools/unity_gate_report.py"]
   GATE -.->|참조: 제거된 MVP 테스트| X["불일치 ⚠"]
 ```
@@ -501,6 +580,9 @@ flowchart LR
 | `ConfirmPlan_*` / `Report_*` / `EventReports_*` | 일 운영·보고 루프 |
 | `HighRetentionRisk_*` | 이탈·채용 |
 | `MorningPlan_CanBeAdjusted*` | 플랜 조정 |
+| `WorkDefinition_CreatesRuntimeEventCase` | 업무 SO → `EventCase` 변환 |
+| `WorkGeneration_UsesDifficultyAndConditionWeights` | 난이도·조건 기반 spawn weight |
+| `InitialData_CanGenerateQueueFromWorkDefinitions` | 초기 데이터의 업무 정의 기반 큐 생성 |
 
 PlayMode 테스트는 없다.
 
@@ -513,6 +595,7 @@ flowchart TB
   subgraph Implemented["구현됨"]
     INIT["CaseReviewGame.Init"]
     DISP["Dispatch / Advance"]
+    GEN["WorkDefinition /\nWorkGenerationSystem"]
     TEST["EditMode Tests"]
   end
   subgraph SceneOnly["씬만 존재"]
@@ -526,7 +609,8 @@ flowchart TB
   end
 
   TEST --> INIT
-  MVP -.->|드라이버 없음| INIT
+  TEST --> GEN
+  MVP -.->|현재 체크아웃 기준 드라이버 미확인| INIT
   WORK -->|SO 생성만| SO["ScriptableObjects"]
   OUT -.x|missing file| OUT
 ```
@@ -534,7 +618,8 @@ flowchart TB
 | 진입 유형 | 상태 |
 |-----------|------|
 | 게임 로직 | `CaseReviewGame` 정적 API — **MonoBehaviour 부트스트랩 없음** |
-| 플레이 가능 빌드 루프 | **미구현** (씬 UI 미연결) |
+| 업무 생성 | `WorkDefinition` + `WorkGenerationSystem` 초기 구현 |
+| 플레이 가능 빌드 루프 | **현재 체크아웃 기준 미구현/미확인** (씬 UI 연결 상태 재검증 필요) |
 | 데이터 제작 | 워크샵 씬 + 에디터 메뉴 |
 | `GameManager` / `Bootstrap` | 없음 |
 
@@ -583,9 +668,11 @@ flowchart LR
 | `Outgame Scene.unity` 빌드 참조 | 씬 복구 또는 `EditorBuildSettings`에서 제거 |
 | README Routine Observation | 제거·갱신 또는 코드 복원 결정 |
 | `unity_gate_report.py` | `CaseReviewCoreTests`·현행 SSOT 기준으로 게이트 목록 수정 |
-| `WorkDefinition` / 동적 spawn | `SSOT – Work` §11 추후 구현 목록 |
-| `Resources.Load` 부트스트랩 | `GameConfig.InitialData`에 샘플 SO 자동 연결 |
-| MVP Scene | `CaseReviewGame` REPL/UI 브리지 MonoBehaviour |
+| WorkDefinition 샘플 에셋 | `Resources/CaseReviewData/Samples`에 업무 샘플 생성 |
+| Boss/Audit 컨텍스트 | `WorkGenerationContext`에 보스 이벤트 압력·감사 평가 방향 추가 |
+| Script Presentation 런타임 | `ScriptEventDefinition`, `ScriptNode`, `StageCommand`, `ScriptChoice` 설계/구현 |
+| `Resources.Load` 부트스트랩 | `GameConfig.InitialData`에 캐릭터·업무 샘플 SO 자동 연결 |
+| MVP Scene | `CaseReviewGame` REPL/UI 브리지 MonoBehaviour 재확인 또는 구현 |
 | `RenderResourceDefinition` | UI 레이어에서 `IRenderableData` 소비 |
 | Outgame 시스템 | SSOT에 맞춘 별도 모듈·씬 설계 |
 | Architecture doc 지문 | 추적 경로 변경 후 `sync_architecture_doc.py` 또는 훅 설치 |
@@ -594,7 +681,7 @@ flowchart LR
 
 ## 13. 한 줄 요약
 
-**ProjectW는 SSOT( Ingame·**Work**·Characters )가 규칙의 중심이고, Unity 구현은 `CaseReview`의 `EventCase` 프로토타입·캐릭터 SO 파이프라인·워크샵·EditMode 테스트에 집중되어 있다. 업무 동적 생성·`WorkDefinition`은 SSOT에 정의됐으나 코드 미착수이며, Git 지문(`arch-sync`)으로 본 문서와 추적 경로의 동기화를 자동 검증한다.**
+**ProjectW는 SSOT(Ingame·Work·Script Presentation·Characters)가 규칙의 중심이고, Unity 구현은 `CaseReview`의 `EventCase` 프로토타입·`WorkDefinition` 업무 생성기·캐릭터 SO 파이프라인·워크샵·EditMode 테스트에 집중되어 있다. 장기 감사/평가 루프와 스크립트 이벤트 런타임은 SSOT에 정의됐으나 코드 미착수이며, Git 지문(`arch-sync`)으로 본 문서와 추적 경로의 동기화를 자동 검증한다.**
 
 ---
 
@@ -602,8 +689,12 @@ flowchart LR
 
 | 날짜 | 변경 | 영향 |
 |------|------|------|
+| 2026-06-03 | 장기 코어 루프 확장 | Daily/Weekly/Monthly/Quarterly/Yearly 평가 구조 추가 |
+| 2026-06-03 | 보스 이벤트·감사 평가 방향 | 보스 사건을 업무 생성과 평가 기준에 연결 |
+| 2026-06-03 | `SSOT – Script Presentation.md` 신설 | 대사·연출·선택지·명시적 상태 변경 경계 정의 |
+| 2026-06-03 | `WorkDefinition` / `WorkGenerationSystem` | 업무 SO 원형과 결정론적 spawn weight 생성기 초기 구현 |
 | 2026-06-03 | `SSOT – Work.md` 신설 | 업무 원형·인스턴스·동적 생성·태그 상호작용 규칙 분리 |
-| 2026-06-03 | Ingame §10 Decision Ledger | PM Log 판단 권한 폐기, 핵심 결정 SSOT 흡수 |
+| 2026-06-03 | Ingame §15 Decision Ledger | PM Log 판단 권한 폐기, 핵심 결정 SSOT 흡수 |
 | 2026-06-03 | System Index 판단 순서 정리 | PM Log → Deprecated, Git·구현 순서 명확화 |
 | 2026-06-03 | Character Data Workshop | SO 샘플·에디터 생성 파이프라인 |
 | (이전) | `CaseReviewRules` | 카드 뽑기·검토 비용·대체 압력·보스 정책 플러그 |
