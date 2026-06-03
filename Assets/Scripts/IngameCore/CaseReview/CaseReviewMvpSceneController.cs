@@ -1,0 +1,1163 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
+using UnityEngine.UI;
+
+namespace ProjectW.IngameCore.CaseReview
+{
+    public sealed class CaseReviewMvpSceneController : MonoBehaviour
+    {
+        private const int MaxLogLines = 28;
+
+        private readonly List<string> visibleLogLines = new();
+        private readonly List<Button> actionButtons = new();
+        private readonly Dictionary<string, List<string>> plannedAssignments = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, DebugDeckState> debugDecks = new(StringComparer.OrdinalIgnoreCase);
+
+        private Text statusText;
+        private Text boardTitleText;
+        private Text actionTitleText;
+        private Text actionHintText;
+        private Text debugGaugeText;
+        private Text staffTitleText;
+        private Text cardHandTitleText;
+        private Text logText;
+        private Text milestoneText;
+        private Transform actionButtonRoot;
+        private Transform boardCardRoot;
+        private Transform rosterRoot;
+        private Transform cardHandRoot;
+        private Transform dragLayer;
+        private Font uiFont;
+        private string selectedPersonnelId = "";
+        private int cardStateDay = -1;
+
+        public GameState CurrentState { get; private set; }
+
+        public IReadOnlyList<string> VisibleLogLines => visibleLogLines;
+
+        private void Awake()
+        {
+            EnsureEventSystem();
+            BuildUi();
+            InitializeForTests();
+        }
+
+        public void InitializeForTests(int seed = 1)
+        {
+            CurrentState = CaseReviewGame.Init(new GameConfig(), seed);
+            visibleLogLines.Clear();
+            selectedPersonnelId = CurrentState.Staff.FirstOrDefault(person => !person.HasLeft)?.Id ?? "";
+            cardStateDay = -1;
+            debugDecks.Clear();
+            SyncAssignmentsFromPlan();
+            EnsureCardStateForToday();
+            AddLog("MVP cycle started. Continue day by day until an ending condition appears.");
+            Render();
+        }
+
+        public void ClickShowPlan()
+        {
+            Dispatch("plan");
+        }
+
+        public void ClickOpenPriorityWork()
+        {
+            var id = FirstActiveEventId();
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                AddLog("No active work is available.");
+                Render();
+                return;
+            }
+
+            Dispatch($"open {id}");
+            Dispatch($"summary {id}");
+        }
+
+        public void ClickRecommendedAdjust()
+        {
+            if (CurrentState is null)
+            {
+                return;
+            }
+
+            var entry = CurrentState.MorningPlan?.Entries?.FirstOrDefault();
+            if (entry is null)
+            {
+                AddLog("No morning plan entry is available.");
+                Render();
+                return;
+            }
+
+            var people = CurrentState.Staff
+                .Where(person => !person.HasLeft)
+                .OrderBy(person => person.LoadAssigned)
+                .ThenByDescending(person => person.TrustToManager)
+                .Take(2)
+                .Select(person => person.Id)
+                .ToList();
+
+            if (people.Count == 0)
+            {
+                AddLog("No available personnel for adjustment.");
+                Render();
+                return;
+            }
+
+            plannedAssignments[entry.EventId] = people;
+            SyncPlanAdjustment(entry.EventId);
+            Render();
+        }
+
+        public void ClickConfirmPlan()
+        {
+            SyncAllPlanAdjustments();
+            UseRandomCardsForAssignedWork();
+            Dispatch("confirm plan");
+        }
+
+        public void ClickReportDay()
+        {
+            if (CurrentState?.Slot == Slot.Evening)
+            {
+                AddNightSummaryLog();
+                Render();
+                return;
+            }
+
+            Dispatch("report");
+        }
+
+        public void ClickReportNextEvent()
+        {
+            var target = CurrentState?.Queue
+                .Where(item => item.AutoResolved)
+                .OrderBy(item => item.ReportReviewed)
+                .ThenByDescending(item => item.Severity + item.Urgency)
+                .FirstOrDefault();
+
+            if (target is null)
+            {
+                AddLog("No resolved event report is available.");
+                Render();
+                return;
+            }
+
+            Dispatch($"report {target.Id}");
+        }
+
+        public void ClickReviewAll()
+        {
+            Dispatch("review all");
+        }
+
+        public void ClickNextDay()
+        {
+            AutoReviewNightReports();
+            Dispatch("next day");
+            if (CurrentState is not null && CurrentState.Slot == Slot.Morning)
+            {
+                SyncAssignmentsFromPlan();
+                EnsureCardStateForToday();
+            }
+        }
+
+        public void SelectPersonnel(string personnelId)
+        {
+            if (CurrentState?.Staff.Any(person => person.Id.Equals(personnelId, StringComparison.OrdinalIgnoreCase)) != true)
+            {
+                return;
+            }
+
+            selectedPersonnelId = personnelId;
+            Render();
+        }
+
+        public void DropPersonnelOnWork(string personnelId, string eventId, string sourceEventId)
+        {
+            if (CurrentState?.Slot != Slot.Morning)
+            {
+                AddLog("Drag assignment is only available in the morning.");
+                Render();
+                return;
+            }
+
+            var item = FindEvent(eventId);
+            if (item is null)
+            {
+                return;
+            }
+
+            var assignment = AssignmentFor(eventId);
+            var maxSlots = Math.Max(1, item.MaxPersonnelCount);
+            if (assignment.Any(id => id.Equals(personnelId, StringComparison.OrdinalIgnoreCase)))
+            {
+                AddLog($"{personnelId} is already assigned to {eventId}.");
+                Render();
+                return;
+            }
+
+            if (assignment.Count >= maxSlots)
+            {
+                AddLog($"{eventId} slots are full ({assignment.Count}/{maxSlots}).");
+                Render();
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(sourceEventId) && !sourceEventId.Equals(eventId, StringComparison.OrdinalIgnoreCase))
+            {
+                RemovePersonnelFromWork(personnelId, sourceEventId, renderAfter: false);
+            }
+
+            assignment.Add(personnelId);
+            SyncPlanAdjustment(eventId);
+            AddLog($"{eventId} slot filled: {assignment.Count}/{maxSlots}");
+            Render();
+        }
+
+        public void DropPersonnelOnRoster(string personnelId, string sourceEventId)
+        {
+            if (string.IsNullOrWhiteSpace(sourceEventId))
+            {
+                SelectPersonnel(personnelId);
+                return;
+            }
+
+            RemovePersonnelFromWork(personnelId, sourceEventId, renderAfter: true);
+        }
+
+        public void RemovePersonnelFromWork(string personnelId, string eventId)
+        {
+            RemovePersonnelFromWork(personnelId, eventId, renderAfter: true);
+        }
+
+        private void Dispatch(string command)
+        {
+            if (CurrentState is null)
+            {
+                return;
+            }
+
+            AddLog($"> {command.ToUpperInvariant()}");
+            var result = CaseReviewGame.Dispatch(CurrentState, command);
+            if (result.Lines.Count == 0)
+            {
+                AddLog(result.Success ? "OK." : result.Code);
+            }
+            else
+            {
+                foreach (var line in result.Lines)
+                {
+                    AddLog(line);
+                }
+            }
+
+            Render();
+        }
+
+        private void Render()
+        {
+            if (CurrentState is null || statusText is null)
+            {
+                return;
+            }
+
+            statusText.text = BuildStatusLine();
+            milestoneText.text = CurrentState.Slot == Slot.Morning
+                ? "Loop continues: assign work, confirm, read the night summary."
+                : "Night summary only. Start the next morning when ready.";
+
+            EnsureCardStateForToday();
+            RenderBoard();
+            RenderDebugGauges();
+            RenderRoster();
+            RenderCardHand();
+            RenderActions();
+            logText.text = string.Join("\n", visibleLogLines);
+        }
+
+        private string BuildStatusLine()
+        {
+            var activeQueue = CurrentState.Queue.Count(item => item.Status != CaseStatus.Closed);
+            return $"DAY {CurrentState.Day:00} | {CurrentState.Slot.ToString().ToUpperInvariant()} | Queue {activeQueue}/{CurrentState.Config.QueueSoftCap} | OVR {CurrentState.Overload} | AI Pressure {CurrentState.ReplacementPressure} | Redirect {CurrentState.RedirectBudget} | Audit {CurrentState.AuditBudget} | Interview {CurrentState.InterviewBudget}";
+        }
+
+        private void RenderBoard()
+        {
+            ClearDynamicRoot(boardCardRoot);
+            if (CurrentState.Slot == Slot.Morning)
+            {
+                boardTitleText.text = CurrentState.MorningPlan.Confirmed ? "Work Slots - Confirmed" : "Work Slots";
+                foreach (var entry in CurrentState.MorningPlan.Entries)
+                {
+                    CreateWorkCard(entry);
+                }
+
+                return;
+            }
+
+            boardTitleText.text = "Night Summary";
+            CreateNightSummaryCard();
+        }
+
+        private static string FormatResolvedEvent(EventCase item)
+        {
+            var review = item.ReportReviewed ? "Reviewed" : "Needs review";
+            var risk = item.LatentRisk >= 60 ? "High" : item.LatentRisk >= 30 ? "Medium" : "Low";
+            return $"{item.Id}  {item.Title}\n{review} | Outcome {item.OutcomeScore} | Risk {risk}\n{item.ResultSummary}";
+        }
+
+        private void RenderDebugGauges()
+        {
+            var activeQueue = CurrentState.Queue.Count(item => item.Status != CaseStatus.Closed);
+            var lines = new List<string>
+            {
+                "Gauge Debug",
+                GaugeLine("Overload", CurrentState.Overload, 100),
+                GaugeLine("Global Risk", CurrentState.GlobalLatentRisk, 200),
+                GaugeLine("AI Pressure", CurrentState.ReplacementPressure, 100),
+                GaugeLine("Talent Gap", CurrentState.TalentShortage, 10),
+                GaugeLine("Queue", activeQueue, CurrentState.Config.QueueHardCap),
+                GaugeLine("Redirect", CurrentState.RedirectBudget, CurrentState.Config.RedirectBudgetPerDay),
+                GaugeLine("Audit", CurrentState.AuditBudget, CurrentState.Config.AuditBudgetPerDay),
+                GaugeLine("Interview", CurrentState.InterviewBudget, CurrentState.Config.InterviewBudgetPerDay)
+            };
+
+            lines.Add("People");
+            lines.AddRange(CurrentState.Staff
+                .Where(person => !person.HasLeft)
+                .Take(4)
+                .Select(person =>
+                    $"{person.Id} LOAD {Bar(person.LoadAssigned, Math.Max(1, person.MaxLoad))} {person.LoadAssigned}/{Math.Max(1, person.MaxLoad)}  " +
+                    $"FAT {Bar(person.Fatigue, 100)} {person.Fatigue:000}  " +
+                    $"TRUST {Bar(person.TrustToManager, 100)} {person.TrustToManager:000}  " +
+                    $"RISK {Bar(person.RetentionRisk, 100)} {person.RetentionRisk:000}"));
+
+            lines.Add("Work");
+            lines.AddRange(CurrentState.Queue
+                .Where(item => item.Status != CaseStatus.Closed || item.AutoResolved)
+                .OrderByDescending(item => item.Urgency + item.Severity + item.LatentRisk)
+                .Take(4)
+                .Select(item =>
+                    $"{item.Id} URG {Bar(item.Urgency, 100)} {item.Urgency:000}  " +
+                    $"SEV {Bar(item.Severity, 100)} {item.Severity:000}  " +
+                    $"RISK {Bar(item.LatentRisk, 100)} {item.LatentRisk:000}  " +
+                    $"OUT {Bar(item.OutcomeScore, 100)} {item.OutcomeScore:000}"));
+
+            debugGaugeText.text = string.Join("\n", lines);
+        }
+
+        private void RenderRoster()
+        {
+            ClearDynamicRoot(rosterRoot);
+            staffTitleText.text = "Characters";
+            foreach (var person in CurrentState.Staff.Where(person => !person.HasLeft))
+            {
+                CreateCharacterToken(person, rosterRoot, "", selectedPersonnelId.Equals(person.Id, StringComparison.OrdinalIgnoreCase));
+            }
+        }
+
+        private void RenderCardHand()
+        {
+            ClearDynamicRoot(cardHandRoot);
+            var person = CurrentState.Staff.FirstOrDefault(item => item.Id.Equals(selectedPersonnelId, StringComparison.OrdinalIgnoreCase))
+                ?? CurrentState.Staff.FirstOrDefault(item => !item.HasLeft);
+            if (person is null)
+            {
+                cardHandTitleText.text = "Today Cards";
+                return;
+            }
+
+            selectedPersonnelId = person.Id;
+            var deck = DeckFor(person.Id);
+            cardHandTitleText.text = $"{person.Name}'s Today Cards ({deck.TodayHand.Count}/5 from {deck.Pool.Count})";
+            foreach (var card in deck.TodayHand)
+            {
+                CreateCardFace(card, cardHandRoot, deck.UsedToday.Contains(card.Id));
+            }
+        }
+
+        private void RenderActions()
+        {
+            foreach (var button in actionButtons)
+            {
+                Destroy(button.gameObject);
+            }
+
+            actionButtons.Clear();
+
+            if (CurrentState.Slot == Slot.Morning)
+            {
+                actionTitleText.text = "Morning: drag people into work slots";
+                actionHintText.text = CurrentState.MorningPlan.Confirmed
+                    ? "The plan is confirmed. Operations have moved to evening."
+                    : "Drag a character from the roster into a work slot. Drag a slotted token back to Characters to remove it.";
+                AddActionButton("Plan", ClickShowPlan, true);
+                AddActionButton("Open Priority", ClickOpenPriorityWork, !CurrentState.MorningPlan.Confirmed);
+                AddActionButton("Recommended Adjust", ClickRecommendedAdjust, !CurrentState.MorningPlan.Confirmed);
+                AddActionButton("Confirm Plan", ClickConfirmPlan, !CurrentState.MorningPlan.Confirmed);
+                return;
+            }
+
+            actionTitleText.text = "Night: summary only";
+            actionHintText.text = "Skip detailed review. Read the summary, then continue the loop.";
+
+            AddActionButton("Show Summary", ClickReportDay, true);
+            AddActionButton("Next Morning", ClickNextDay, true);
+        }
+
+        private void AddActionButton(string label, UnityEngine.Events.UnityAction action, bool interactable)
+        {
+            var buttonObject = CreateUiObject(label + " Button", actionButtonRoot);
+            var image = buttonObject.AddComponent<Image>();
+            image.color = interactable ? new Color(0.25f, 0.36f, 0.44f, 1f) : new Color(0.16f, 0.18f, 0.2f, 1f);
+
+            var button = buttonObject.AddComponent<Button>();
+            button.interactable = interactable;
+            button.targetGraphic = image;
+            button.onClick.AddListener(action);
+
+            var layout = buttonObject.AddComponent<LayoutElement>();
+            layout.minHeight = 46;
+            layout.flexibleWidth = 1;
+
+            var labelText = CreateText(label, buttonObject.transform, 16, FontStyle.Bold, TextAnchor.MiddleCenter);
+            Stretch(labelText.rectTransform);
+
+            actionButtons.Add(button);
+        }
+
+        private void BuildUi()
+        {
+            uiFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+
+            var canvasObject = CreateUiObject("MVP Cycle Canvas", transform);
+            var canvas = canvasObject.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.pixelPerfect = true;
+            var scaler = canvasObject.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920, 1080);
+            scaler.matchWidthOrHeight = 0.5f;
+            canvasObject.AddComponent<GraphicRaycaster>();
+
+            var root = CreatePanel("Root", canvasObject.transform, new Color(0.06f, 0.07f, 0.08f, 1f));
+            Stretch((RectTransform)root);
+            var rootLayout = root.gameObject.AddComponent<VerticalLayoutGroup>();
+            rootLayout.padding = new RectOffset(18, 18, 16, 16);
+            rootLayout.spacing = 12;
+            rootLayout.childForceExpandWidth = true;
+            rootLayout.childForceExpandHeight = false;
+
+            var statusPanel = CreatePanel("Status Bar", root, new Color(0.10f, 0.12f, 0.13f, 1f));
+            statusPanel.gameObject.AddComponent<LayoutElement>().minHeight = 58;
+            statusText = CreateText("", statusPanel, 18, FontStyle.Bold, TextAnchor.MiddleLeft);
+            statusText.rectTransform.offsetMin = new Vector2(16, 0);
+            statusText.rectTransform.offsetMax = new Vector2(-16, 0);
+
+            var debugPanel = CreatePanel("Gauge Debug", root, new Color(0.07f, 0.08f, 0.09f, 1f));
+            debugPanel.gameObject.AddComponent<LayoutElement>().minHeight = 164;
+            debugGaugeText = CreateText("", debugPanel, 12, FontStyle.Normal, TextAnchor.UpperLeft);
+            debugGaugeText.rectTransform.offsetMin = new Vector2(14, 10);
+            debugGaugeText.rectTransform.offsetMax = new Vector2(-14, -10);
+
+            var body = CreateUiObject("Body", root);
+            var bodyLayoutElement = body.AddComponent<LayoutElement>();
+            bodyLayoutElement.flexibleHeight = 1;
+            bodyLayoutElement.minHeight = 360;
+            var bodyLayout = body.AddComponent<HorizontalLayoutGroup>();
+            bodyLayout.spacing = 12;
+            bodyLayout.childForceExpandHeight = true;
+            bodyLayout.childForceExpandWidth = false;
+
+            var board = CreateColumn(body.transform, "Work Board", 0.48f, 620);
+            boardTitleText = CreateHeader("Work Slots", board);
+            boardCardRoot = CreateDynamicRoot("Work Cards", board);
+
+            var roster = CreateColumn(body.transform, "Characters", 0.22f, 280);
+            staffTitleText = CreateHeader("Characters", roster);
+            rosterRoot = CreateDynamicRoot("Character Tokens", roster);
+            roster.gameObject.AddComponent<RosterDropTarget>().Initialize(this);
+
+            var hand = CreateColumn(body.transform, "Today Cards", 0.17f, 240);
+            cardHandTitleText = CreateHeader("Today Cards", hand);
+            cardHandRoot = CreateDynamicRoot("Card Faces", hand);
+
+            var actions = CreateColumn(body.transform, "Action Guide", 0.20f, 260);
+            actionTitleText = CreateHeader("Actions", actions);
+            actionHintText = CreateText("", actions, 14, FontStyle.Normal, TextAnchor.UpperLeft);
+            actionHintText.gameObject.AddComponent<LayoutElement>().minHeight = 58;
+            actionButtonRoot = CreateUiObject("Action Buttons", actions).transform;
+            var actionButtonLayout = actionButtonRoot.gameObject.AddComponent<VerticalLayoutGroup>();
+            actionButtonLayout.spacing = 8;
+            actionButtonLayout.childForceExpandWidth = true;
+            actionButtonLayout.childForceExpandHeight = false;
+            actionButtonRoot.gameObject.AddComponent<LayoutElement>().flexibleHeight = 1;
+            milestoneText = CreateText("", actions, 14, FontStyle.Bold, TextAnchor.LowerLeft);
+            milestoneText.gameObject.AddComponent<LayoutElement>().minHeight = 56;
+
+            var logPanel = CreatePanel("Command Log", root, new Color(0.08f, 0.09f, 0.10f, 1f));
+            logPanel.gameObject.AddComponent<LayoutElement>().minHeight = 170;
+            logText = CreateText("", logPanel, 13, FontStyle.Normal, TextAnchor.UpperLeft);
+            logText.rectTransform.offsetMin = new Vector2(14, 12);
+            logText.rectTransform.offsetMax = new Vector2(-14, -12);
+
+            dragLayer = CreateUiObject("Drag Layer", canvasObject.transform).transform;
+            Stretch((RectTransform)dragLayer);
+            dragLayer.SetAsLastSibling();
+        }
+
+        private Transform CreateColumn(Transform parent, string name, float flexibleWidth, float minWidth)
+        {
+            var panel = CreatePanel(name, parent, new Color(0.11f, 0.13f, 0.15f, 1f));
+            var layoutElement = panel.gameObject.AddComponent<LayoutElement>();
+            layoutElement.flexibleWidth = flexibleWidth;
+            layoutElement.minWidth = minWidth;
+
+            var layout = panel.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.padding = new RectOffset(14, 14, 12, 12);
+            layout.spacing = 10;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+            return panel;
+        }
+
+        private Text CreateHeader(string value, Transform parent)
+        {
+            var text = CreateText(value, parent, 20, FontStyle.Bold, TextAnchor.MiddleLeft);
+            text.gameObject.AddComponent<LayoutElement>().minHeight = 28;
+            return text;
+        }
+
+        private Text CreateBodyText(Transform parent)
+        {
+            var text = CreateText("", parent, 14, FontStyle.Normal, TextAnchor.UpperLeft);
+            text.gameObject.AddComponent<LayoutElement>().flexibleHeight = 1;
+            return text;
+        }
+
+        private Transform CreatePanel(string name, Transform parent, Color color)
+        {
+            var panel = CreateUiObject(name, parent).transform;
+            var image = panel.gameObject.AddComponent<Image>();
+            image.color = color;
+            return panel;
+        }
+
+        private Text CreateText(string value, Transform parent, int fontSize, FontStyle style, TextAnchor alignment)
+        {
+            var textObject = CreateUiObject("Text", parent);
+            var text = textObject.AddComponent<Text>();
+            text.text = value;
+            text.font = uiFont;
+            text.fontSize = fontSize;
+            text.fontStyle = style;
+            text.alignment = alignment;
+            text.color = new Color(0.89f, 0.91f, 0.90f, 1f);
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            text.verticalOverflow = VerticalWrapMode.Truncate;
+            Stretch(text.rectTransform);
+            return text;
+        }
+
+        private static GameObject CreateUiObject(string name, Transform parent)
+        {
+            var instance = new GameObject(name, typeof(RectTransform));
+            instance.transform.SetParent(parent, false);
+            return instance;
+        }
+
+        private static void Stretch(RectTransform rectTransform)
+        {
+            rectTransform.anchorMin = Vector2.zero;
+            rectTransform.anchorMax = Vector2.one;
+            rectTransform.offsetMin = Vector2.zero;
+            rectTransform.offsetMax = Vector2.zero;
+        }
+
+        private Transform CreateDynamicRoot(string name, Transform parent)
+        {
+            var root = CreateUiObject(name, parent).transform;
+            var layout = root.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.spacing = 8;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+            root.gameObject.AddComponent<LayoutElement>().flexibleHeight = 1;
+            return root;
+        }
+
+        private void ClearDynamicRoot(Transform root)
+        {
+            if (root is null)
+            {
+                return;
+            }
+
+            for (var index = root.childCount - 1; index >= 0; index--)
+            {
+                Destroy(root.GetChild(index).gameObject);
+            }
+        }
+
+        private void CreateWorkCard(WorkPlanEntry entry)
+        {
+            var item = FindEvent(entry.EventId);
+            if (item is null)
+            {
+                return;
+            }
+
+            var assignment = AssignmentFor(entry.EventId);
+            var maxSlots = Math.Max(1, item.MaxPersonnelCount);
+            var panel = CreatePanel("Work " + entry.EventId, boardCardRoot, new Color(0.14f, 0.16f, 0.18f, 1f));
+            panel.gameObject.AddComponent<LayoutElement>().minHeight = 134;
+            var layout = panel.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.padding = new RectOffset(10, 10, 8, 8);
+            layout.spacing = 6;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+
+            var remaining = item.Status == CaseStatus.Closed ? 0 : Math.Max(1, item.Volume);
+            var tags = WorkTags(item);
+            CreateText($"{item.Id}  {item.Title}", panel, 16, FontStyle.Bold, TextAnchor.MiddleLeft)
+                .gameObject.AddComponent<LayoutElement>().minHeight = 22;
+            CreateText($"Remaining {remaining} | Slots {assignment.Count}/{maxSlots} | Tags {tags}", panel, 13, FontStyle.Normal, TextAnchor.MiddleLeft)
+                .gameObject.AddComponent<LayoutElement>().minHeight = 20;
+            CreateText($"URG {item.Urgency}  SEV {item.Severity}  RISK {item.LatentRisk}  TTL {Math.Max(0, item.TtlSec)}s", panel, 12, FontStyle.Normal, TextAnchor.MiddleLeft)
+                .gameObject.AddComponent<LayoutElement>().minHeight = 18;
+
+            var slots = CreateUiObject("Slots", panel).transform;
+            var slotLayout = slots.gameObject.AddComponent<HorizontalLayoutGroup>();
+            slotLayout.spacing = 6;
+            slotLayout.childForceExpandWidth = true;
+            slotLayout.childForceExpandHeight = false;
+            slots.gameObject.AddComponent<LayoutElement>().minHeight = 48;
+
+            for (var slotIndex = 0; slotIndex < maxSlots; slotIndex++)
+            {
+                var slot = CreatePanel($"Slot {slotIndex + 1}", slots, new Color(0.09f, 0.10f, 0.11f, 1f));
+                slot.gameObject.AddComponent<LayoutElement>().minHeight = 46;
+                slot.gameObject.AddComponent<WorkSlotDropTarget>().Initialize(this, entry.EventId);
+
+                if (slotIndex < assignment.Count)
+                {
+                    var person = CurrentState.Staff.FirstOrDefault(candidate => candidate.Id.Equals(assignment[slotIndex], StringComparison.OrdinalIgnoreCase));
+                    if (person is not null)
+                    {
+                        CreateCharacterToken(person, slot, entry.EventId, false);
+                    }
+                }
+                else
+                {
+                    var label = CreateText("Drop", slot, 13, FontStyle.Normal, TextAnchor.MiddleCenter);
+                    label.color = new Color(0.45f, 0.50f, 0.52f, 1f);
+                }
+            }
+        }
+
+        private void CreateReportCard(EventCase item)
+        {
+            var panel = CreatePanel("Report " + item.Id, boardCardRoot, new Color(0.14f, 0.16f, 0.18f, 1f));
+            panel.gameObject.AddComponent<LayoutElement>().minHeight = 104;
+            var layout = panel.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.padding = new RectOffset(10, 10, 8, 8);
+            layout.spacing = 6;
+
+            CreateText(FormatResolvedEvent(item), panel, 13, FontStyle.Normal, TextAnchor.UpperLeft)
+                .gameObject.AddComponent<LayoutElement>().minHeight = 86;
+        }
+
+        private void CreateNightSummaryCard()
+        {
+            var resolved = CurrentState.Queue.Where(item => item.AutoResolved).ToList();
+            var closed = CurrentState.Queue.Count(item => item.Status == CaseStatus.Closed);
+            var open = CurrentState.Queue.Count(item => item.Status != CaseStatus.Closed);
+            var averageOutcome = resolved.Count == 0 ? 0 : Mathf.RoundToInt((float)resolved.Average(item => item.OutcomeScore));
+            var highestRisk = resolved.OrderByDescending(item => item.LatentRisk).FirstOrDefault();
+            var pendingReviewCount = resolved.Count(item => !item.ReportReviewed);
+
+            var panel = CreatePanel("Night Summary Card", boardCardRoot, new Color(0.14f, 0.16f, 0.18f, 1f));
+            panel.gameObject.AddComponent<LayoutElement>().minHeight = 220;
+            var layout = panel.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.padding = new RectOffset(14, 14, 12, 12);
+            layout.spacing = 8;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+
+            CreateText($"DAY {CurrentState.Day:00} SUMMARY", panel, 20, FontStyle.Bold, TextAnchor.MiddleLeft)
+                .gameObject.AddComponent<LayoutElement>().minHeight = 28;
+            CreateText($"Resolved {resolved.Count} | Closed {closed} | Open {open} | Avg Outcome {averageOutcome} | OVR {CurrentState.Overload} | Global Risk {CurrentState.GlobalLatentRisk}", panel, 14, FontStyle.Normal, TextAnchor.MiddleLeft)
+                .gameObject.AddComponent<LayoutElement>().minHeight = 24;
+            CreateText($"Highest risk: {(highestRisk is null ? "none" : $"{highestRisk.Id} {highestRisk.Title} / risk {highestRisk.LatentRisk}")}", panel, 14, FontStyle.Normal, TextAnchor.MiddleLeft)
+                .gameObject.AddComponent<LayoutElement>().minHeight = 24;
+            CreateText($"Detailed review is hidden for MVP flow. Pending reports will be auto-cleared on Next Morning: {pendingReviewCount}", panel, 13, FontStyle.Italic, TextAnchor.MiddleLeft)
+                .gameObject.AddComponent<LayoutElement>().minHeight = 24;
+
+            foreach (var item in resolved.OrderByDescending(item => item.Severity + item.Urgency).Take(4))
+            {
+                CreateText($"{item.Id} | OUT {item.OutcomeScore} | RISK {item.LatentRisk} | {item.ResultSummary}", panel, 13, FontStyle.Normal, TextAnchor.UpperLeft)
+                    .gameObject.AddComponent<LayoutElement>().minHeight = 34;
+            }
+        }
+
+        private void CreateCharacterToken(Personnel person, Transform parent, string sourceEventId, bool selected)
+        {
+            var token = CreatePanel("Character " + person.Id, parent, selected ? new Color(0.23f, 0.30f, 0.36f, 1f) : new Color(0.17f, 0.20f, 0.22f, 1f));
+            token.gameObject.AddComponent<LayoutElement>().minHeight = 42;
+            if (parent.GetComponent<WorkSlotDropTarget>() is not null)
+            {
+                Stretch((RectTransform)token);
+            }
+
+            var drag = token.gameObject.AddComponent<DraggableCharacterToken>();
+            drag.Initialize(this, person.Id, sourceEventId, dragLayer);
+
+            var text = CreateText($"{person.Id} {person.Name}\nLoad {person.LoadAssigned}/{Math.Max(1, person.MaxLoad)} | Fat {person.Fatigue} | Trust {person.TrustToManager}", token, 12, FontStyle.Bold, TextAnchor.MiddleCenter);
+            text.raycastTarget = false;
+        }
+
+        private void CreateCardFace(DebugCard card, Transform parent, bool used)
+        {
+            var panel = CreatePanel("Card " + card.Id, parent, used ? new Color(0.11f, 0.11f, 0.11f, 1f) : new Color(0.18f, 0.15f, 0.22f, 1f));
+            panel.gameObject.AddComponent<LayoutElement>().minHeight = 66;
+            var text = CreateText($"{card.Title}\n{string.Join(", ", card.Tags)} | OUT {Signed(card.OutcomeModifier)} RISK {Signed(card.RiskModifier)}\n{(used ? "USED" : card.Summary)}", panel, 12, used ? FontStyle.Italic : FontStyle.Normal, TextAnchor.MiddleLeft);
+            text.rectTransform.offsetMin = new Vector2(8, 4);
+            text.rectTransform.offsetMax = new Vector2(-8, -4);
+            text.color = used ? new Color(0.52f, 0.52f, 0.52f, 1f) : new Color(0.91f, 0.89f, 0.94f, 1f);
+        }
+
+        private void SyncAssignmentsFromPlan()
+        {
+            plannedAssignments.Clear();
+            if (CurrentState?.MorningPlan?.Entries is null)
+            {
+                return;
+            }
+
+            foreach (var entry in CurrentState.MorningPlan.Entries)
+            {
+                plannedAssignments[entry.EventId] = entry.PlannedPersonnel.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            }
+        }
+
+        private List<string> AssignmentFor(string eventId)
+        {
+            if (!plannedAssignments.TryGetValue(eventId, out var assignment))
+            {
+                var entry = CurrentState?.MorningPlan?.Entries.FirstOrDefault(item => item.EventId.Equals(eventId, StringComparison.OrdinalIgnoreCase));
+                assignment = entry?.PlannedPersonnel.Distinct(StringComparer.OrdinalIgnoreCase).ToList() ?? new List<string>();
+                plannedAssignments[eventId] = assignment;
+            }
+
+            return assignment;
+        }
+
+        private void SyncPlanAdjustment(string eventId)
+        {
+            var assignment = AssignmentFor(eventId);
+            if (assignment.Count == 0)
+            {
+                DispatchWithoutRender($"adjust {eventId} none");
+                return;
+            }
+
+            DispatchWithoutRender($"adjust {eventId} {string.Join(",", assignment)}");
+        }
+
+        private void SyncAllPlanAdjustments()
+        {
+            if (CurrentState?.Slot != Slot.Morning)
+            {
+                return;
+            }
+
+            foreach (var eventId in plannedAssignments.Keys.ToList())
+            {
+                SyncPlanAdjustment(eventId);
+            }
+        }
+
+        private void DispatchWithoutRender(string command)
+        {
+            AddLog($"> {command.ToUpperInvariant()}");
+            var result = CaseReviewGame.Dispatch(CurrentState, command);
+            foreach (var line in result.Lines)
+            {
+                AddLog(line);
+            }
+        }
+
+        private void RemovePersonnelFromWork(string personnelId, string eventId, bool renderAfter)
+        {
+            var assignment = AssignmentFor(eventId);
+            var removed = assignment.RemoveAll(id => id.Equals(personnelId, StringComparison.OrdinalIgnoreCase)) > 0;
+            if (removed)
+            {
+                SyncPlanAdjustment(eventId);
+                AddLog($"{personnelId} removed from {eventId}.");
+            }
+
+            if (renderAfter)
+            {
+                Render();
+            }
+        }
+
+        private void UseRandomCardsForAssignedWork()
+        {
+            if (CurrentState?.Slot != Slot.Morning)
+            {
+                return;
+            }
+
+            var random = new System.Random(CurrentState.Seed + CurrentState.Day * 1009);
+            foreach (var entry in CurrentState.MorningPlan.Entries)
+            {
+                foreach (var personId in AssignmentFor(entry.EventId))
+                {
+                    var deck = DeckFor(personId);
+                    var available = deck.TodayHand.Where(card => !deck.UsedToday.Contains(card.Id)).ToList();
+                    if (available.Count == 0)
+                    {
+                        AddLog($"{personId} has no unused cards for {entry.EventId}.");
+                        continue;
+                    }
+
+                    var used = available[random.Next(available.Count)];
+                    deck.UsedToday.Add(used.Id);
+                    AddLog($"{entry.EventId}: {personId} used card [{used.Title}]");
+                }
+            }
+        }
+
+        private void AutoReviewNightReports()
+        {
+            if (CurrentState?.Slot != Slot.Evening)
+            {
+                return;
+            }
+
+            if (!CurrentState.Queue.Any(item => item.AutoResolved && !item.ReportReviewed))
+            {
+                return;
+            }
+
+            DispatchWithoutRender("review all");
+            AddLog("Night review details skipped. Reports auto-cleared for MVP flow.");
+        }
+
+        private void AddNightSummaryLog()
+        {
+            if (CurrentState is null)
+            {
+                return;
+            }
+
+            var resolved = CurrentState.Queue.Where(item => item.AutoResolved).ToList();
+            var averageOutcome = resolved.Count == 0 ? 0 : Mathf.RoundToInt((float)resolved.Average(item => item.OutcomeScore));
+            var highestRisk = resolved.OrderByDescending(item => item.LatentRisk).FirstOrDefault();
+            AddLog($"DAY {CurrentState.Day:00} SUMMARY | Resolved {resolved.Count} | Avg Outcome {averageOutcome} | OVR {CurrentState.Overload} | Risk {CurrentState.GlobalLatentRisk}");
+            if (highestRisk is not null)
+            {
+                AddLog($"Focus: {highestRisk.Id} risk {highestRisk.LatentRisk} / {highestRisk.ResultSummary}");
+            }
+        }
+
+        private void EnsureCardStateForToday()
+        {
+            if (CurrentState is null || cardStateDay == CurrentState.Day)
+            {
+                return;
+            }
+
+            cardStateDay = CurrentState.Day;
+            foreach (var person in CurrentState.Staff.Where(person => !person.HasLeft))
+            {
+                debugDecks[person.Id] = GenerateDeck(person);
+            }
+        }
+
+        private DebugDeckState DeckFor(string personnelId)
+        {
+            EnsureCardStateForToday();
+            return debugDecks.TryGetValue(personnelId, out var deck) ? deck : new DebugDeckState();
+        }
+
+        private DebugDeckState GenerateDeck(Personnel person)
+        {
+            var templates = DebugCardTemplates();
+            var random = new System.Random(StableHash($"{CurrentState.Seed}:{CurrentState.Day}:{person.Id}:deck"));
+            var pool = new List<DebugCard>();
+            for (var index = 0; index < 20; index++)
+            {
+                var template = templates[random.Next(templates.Count)];
+                pool.Add(new DebugCard
+                {
+                    Id = $"{person.Id}-C{index + 1:00}",
+                    Title = template.Title,
+                    Summary = template.Summary,
+                    Tags = template.Tags.ToList(),
+                    OutcomeModifier = template.OutcomeModifier,
+                    RiskModifier = template.RiskModifier
+                });
+            }
+
+            return new DebugDeckState
+            {
+                Pool = pool,
+                TodayHand = pool.OrderBy(_ => random.Next()).Take(5).ToList()
+            };
+        }
+
+        private static List<DebugCard> DebugCardTemplates()
+        {
+            return new List<DebugCard>
+            {
+                new() { Title = "Fast Triage", Summary = "Cuts setup time.", Tags = new List<string> { "speed", "review" }, OutcomeModifier = 8, RiskModifier = 3 },
+                new() { Title = "Second Pair", Summary = "Adds cross-check discipline.", Tags = new List<string> { "audit", "team" }, OutcomeModifier = 5, RiskModifier = -7 },
+                new() { Title = "Shortcut Patch", Summary = "Skips a slow protocol.", Tags = new List<string> { "speed", "unsafe" }, OutcomeModifier = 12, RiskModifier = 10 },
+                new() { Title = "Quiet Notes", Summary = "Finds hidden context.", Tags = new List<string> { "intel", "memory" }, OutcomeModifier = 4, RiskModifier = -4 },
+                new() { Title = "Stress Buffer", Summary = "Protects morale under load.", Tags = new List<string> { "care", "fatigue" }, OutcomeModifier = 3, RiskModifier = -6 },
+            };
+        }
+
+        private EventCase FindEvent(string eventId)
+        {
+            return CurrentState?.Queue.FirstOrDefault(item => item.Id.Equals(eventId, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static string WorkTags(EventCase item)
+        {
+            var tags = new List<string> { item.Kind, item.Subsystem };
+            tags.AddRange(item.Tags);
+            tags.AddRange(item.PerkTags);
+            return string.Join(", ", tags.Where(tag => !string.IsNullOrWhiteSpace(tag)).Distinct(StringComparer.OrdinalIgnoreCase).Take(5));
+        }
+
+        private static int StableHash(string value)
+        {
+            unchecked
+            {
+                var hash = 23;
+                foreach (var character in value)
+                {
+                    hash = hash * 31 + character;
+                }
+
+                return Math.Abs(hash);
+            }
+        }
+
+        private void AddLog(string line)
+        {
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                return;
+            }
+
+            visibleLogLines.Add(line);
+            while (visibleLogLines.Count > MaxLogLines)
+            {
+                visibleLogLines.RemoveAt(0);
+            }
+        }
+
+        private string FirstActiveEventId()
+        {
+            return CurrentState?.Queue
+                .Where(item => item.Status != CaseStatus.Closed)
+                .OrderByDescending(item => item.Urgency + item.Severity)
+                .Select(item => item.Id)
+                .FirstOrDefault() ?? "";
+        }
+
+        private static string Signed(int value)
+        {
+            return value >= 0 ? "+" + value : value.ToString();
+        }
+
+        private static string GaugeLine(string label, int value, int max)
+        {
+            return $"{label,-12} {Bar(value, max)} {value:000}/{Math.Max(1, max):000}";
+        }
+
+        private static string Bar(int value, int max)
+        {
+            const int width = 12;
+            var safeMax = Math.Max(1, max);
+            var filled = Mathf.Clamp(Mathf.RoundToInt(width * Mathf.Clamp01(value / (float)safeMax)), 0, width);
+            return "[" + new string('#', filled) + new string('.', width - filled) + "]";
+        }
+
+        private static void EnsureEventSystem()
+        {
+            if (FindFirstObjectByType<EventSystem>() != null)
+            {
+                return;
+            }
+
+            var eventSystemObject = new GameObject("EventSystem");
+            eventSystemObject.AddComponent<EventSystem>();
+            eventSystemObject.AddComponent<InputSystemUIInputModule>();
+        }
+    }
+
+    internal sealed class WorkSlotDropTarget : MonoBehaviour
+    {
+        public CaseReviewMvpSceneController Controller { get; private set; }
+        public string EventId { get; private set; } = "";
+
+        public void Initialize(CaseReviewMvpSceneController controller, string eventId)
+        {
+            Controller = controller;
+            EventId = eventId;
+        }
+    }
+
+    internal sealed class RosterDropTarget : MonoBehaviour
+    {
+        public CaseReviewMvpSceneController Controller { get; private set; }
+
+        public void Initialize(CaseReviewMvpSceneController controller)
+        {
+            Controller = controller;
+        }
+    }
+
+    [RequireComponent(typeof(CanvasGroup))]
+    internal sealed class DraggableCharacterToken : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerClickHandler
+    {
+        private CaseReviewMvpSceneController controller;
+        private string personnelId = "";
+        private string sourceEventId = "";
+        private Transform dragLayer;
+        private RectTransform dragLayerRect;
+        private RectTransform ghost;
+        private CanvasGroup canvasGroup;
+
+        public void Initialize(CaseReviewMvpSceneController owner, string id, string sourceWorkId, Transform dragRoot)
+        {
+            controller = owner;
+            personnelId = id;
+            sourceEventId = sourceWorkId ?? "";
+            dragLayer = dragRoot;
+            dragLayerRect = dragRoot as RectTransform;
+            canvasGroup = EnsureCanvasGroup();
+        }
+
+        public void OnPointerClick(PointerEventData eventData)
+        {
+            controller.SelectPersonnel(personnelId);
+        }
+
+        public void OnBeginDrag(PointerEventData eventData)
+        {
+            canvasGroup = EnsureCanvasGroup();
+            canvasGroup.blocksRaycasts = false;
+            canvasGroup.alpha = 0.45f;
+            var ghostObject = new GameObject("Drag " + personnelId, typeof(RectTransform));
+            ghost = ghostObject.GetComponent<RectTransform>();
+            ghost.SetParent(dragLayer != null ? dragLayer : transform.parent, false);
+            ghost.SetAsLastSibling();
+            ghost.sizeDelta = new Vector2(120, 44);
+            var image = ghostObject.AddComponent<Image>();
+            image.color = new Color(0.28f, 0.38f, 0.46f, 0.86f);
+            image.raycastTarget = false;
+            MoveGhost(eventData);
+        }
+
+        public void OnDrag(PointerEventData eventData)
+        {
+            MoveGhost(eventData);
+        }
+
+        public void OnEndDrag(PointerEventData eventData)
+        {
+            canvasGroup = EnsureCanvasGroup();
+            canvasGroup.blocksRaycasts = true;
+            canvasGroup.alpha = 1f;
+            if (ghost is not null)
+            {
+                Destroy(ghost.gameObject);
+            }
+
+            var workSlot = RaycastFor<WorkSlotDropTarget>(eventData);
+            if (workSlot is not null)
+            {
+                workSlot.Controller.DropPersonnelOnWork(personnelId, workSlot.EventId, sourceEventId);
+                return;
+            }
+
+            var roster = RaycastFor<RosterDropTarget>(eventData);
+            if (roster is not null)
+            {
+                roster.Controller.DropPersonnelOnRoster(personnelId, sourceEventId);
+            }
+        }
+
+        private void MoveGhost(PointerEventData eventData)
+        {
+            if (ghost is null)
+            {
+                return;
+            }
+
+            if (dragLayerRect is not null
+                && RectTransformUtility.ScreenPointToLocalPointInRectangle(dragLayerRect, eventData.position, eventData.pressEventCamera, out var localPoint))
+            {
+                ghost.anchoredPosition = localPoint;
+                return;
+            }
+
+            ghost.position = eventData.position;
+        }
+
+        private CanvasGroup EnsureCanvasGroup()
+        {
+            var group = gameObject.GetComponent<CanvasGroup>();
+            if (group == null)
+            {
+                group = gameObject.AddComponent<CanvasGroup>();
+            }
+
+            return group;
+        }
+
+        private static T RaycastFor<T>(PointerEventData eventData) where T : Component
+        {
+            var hits = new List<RaycastResult>();
+            EventSystem.current.RaycastAll(eventData, hits);
+            foreach (var hit in hits)
+            {
+                var component = hit.gameObject.GetComponentInParent<T>();
+                if (component != null)
+                {
+                    return component;
+                }
+            }
+
+            return null;
+        }
+    }
+
+    internal sealed class DebugDeckState
+    {
+        public List<DebugCard> Pool { get; set; } = new();
+        public List<DebugCard> TodayHand { get; set; } = new();
+        public HashSet<string> UsedToday { get; } = new(StringComparer.OrdinalIgnoreCase);
+    }
+
+    internal sealed class DebugCard
+    {
+        public string Id { get; set; } = "";
+        public string Title { get; set; } = "";
+        public string Summary { get; set; } = "";
+        public List<string> Tags { get; set; } = new();
+        public int OutcomeModifier { get; set; }
+        public int RiskModifier { get; set; }
+    }
+}

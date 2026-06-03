@@ -321,8 +321,11 @@ public static class CaseReviewGame
             return;
         }
 
-        var people = ParsePeople(tokens.Skip(2));
-        if (!ValidPeople(state, people))
+        var clearAssignment = tokens.Count == 3
+            && (tokens[2].Equals("none", StringComparison.OrdinalIgnoreCase)
+                || tokens[2].Equals("clear", StringComparison.OrdinalIgnoreCase));
+        var people = clearAssignment ? new List<string>() : ParsePeople(tokens.Skip(2));
+        if (!clearAssignment && !ValidPeople(state, people))
         {
             ErrorLine("ERR041", "인력 지정이 잘못되었습니다.", lines);
             return;
@@ -331,7 +334,8 @@ public static class CaseReviewGame
         entry.PlannedPersonnel = people;
         entry.Adjusted = true;
         entry.Reason = "관리자 조정";
-        lines.Add($"OK. {entry.EventId} 계획 배정을 {string.Join(",", people)}로 조정했습니다.");
+        var assigned = people.Count == 0 ? "none" : string.Join(",", people);
+        lines.Add($"OK. {entry.EventId} 계획 배정을 {assigned}로 조정했습니다.");
     }
 
     private static void Open(GameState state, List<string> tokens, List<string> lines)
