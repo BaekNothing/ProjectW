@@ -828,10 +828,10 @@ namespace ProjectW.IngameCore.CaseReview
             impactRect.offsetMax = Vector2.zero;
             workSceneImpactRoot = CreateUiObject("Impact Body", impactPanel).transform;
             Stretch((RectTransform)workSceneImpactRoot);
-            workSceneCardText = CreateText("", workSceneImpactRoot, 20, FontStyle.Bold, TextAnchor.UpperLeft);
+            workSceneCardText = CreateText("", workSceneImpactRoot, 17, FontStyle.Bold, TextAnchor.UpperLeft);
             workSceneCardText.rectTransform.offsetMin = new Vector2(20f, 230f);
             workSceneCardText.rectTransform.offsetMax = new Vector2(-20f, -20f);
-            workSceneImpactText = CreateText("", workSceneImpactRoot, 18, FontStyle.Normal, TextAnchor.UpperLeft);
+            workSceneImpactText = CreateText("", workSceneImpactRoot, 16, FontStyle.Normal, TextAnchor.UpperLeft);
             workSceneImpactText.rectTransform.offsetMin = new Vector2(20f, 80f);
             workSceneImpactText.rectTransform.offsetMax = new Vector2(-20f, -220f);
             workSceneProgressText = CreateText("", workSceneImpactRoot, 16, FontStyle.Bold, TextAnchor.LowerLeft);
@@ -1024,11 +1024,11 @@ namespace ProjectW.IngameCore.CaseReview
             workSceneTitleText.text = $"Work Performance {workPerformanceIndex + 1}/{workPerformanceEvents.Count}";
             workSceneActorText.text = $"{performance.PersonnelId}\n{performance.PersonnelName}\n\nused";
             workSceneWorkText.text = $"{performance.EventId}\n{performance.WorkTitle}\n\n{performance.ResultSummary}";
-            workSceneCardText.text = $"{performance.CardTitle}\n{string.Join(", ", performance.Tags)}";
+            workSceneCardText.text = BuildHandRevealText(performance, progress);
             workSceneImpactText.text =
                 $"Outcome {performance.OutcomeBefore} -> {LerpInt(performance.OutcomeBefore, performance.OutcomeAfter, progress)} ({Signed(performance.OutcomeModifier)})\n" +
                 $"Risk {performance.RiskBefore} -> {LerpInt(performance.RiskBefore, performance.RiskAfter, progress)} ({Signed(performance.RiskModifier)})\n\n" +
-                performance.CardSummary;
+                $"Selected: {performance.CardTitle}\n{performance.CardSummary}";
             workSceneProgressText.text =
                 $"OUT {Bar(LerpInt(0, Mathf.Abs(performance.OutcomeModifier), progress), 12)} {Signed(performance.OutcomeModifier)}\n" +
                 $"RISK {Bar(LerpInt(0, Mathf.Abs(performance.RiskModifier), progress), 12)} {Signed(performance.RiskModifier)}";
@@ -1043,6 +1043,27 @@ namespace ProjectW.IngameCore.CaseReview
             {
                 workSceneOverlay.SetActive(false);
             }
+        }
+
+        private static string BuildHandRevealText(WorkPerformanceEvent performance, float progress)
+        {
+            var revealSelection = progress >= 0.45f;
+            var lines = new List<string> { "TODAY HAND" };
+            foreach (var card in performance.HandCards)
+            {
+                var marker = card.IsUsed
+                    ? revealSelection ? "> USED" : "> ???"
+                    : "  ";
+                lines.Add($"{marker} {card.Title} | OUT {Signed(card.OutcomeModifier)} RISK {Signed(card.RiskModifier)}");
+            }
+
+            if (!revealSelection)
+            {
+                lines.Add("");
+                lines.Add("choosing...");
+            }
+
+            return string.Join("\n", lines);
         }
 
         private Transform CreateColumn(Transform parent, string name, float flexibleWidth, float minWidth)
@@ -1377,6 +1398,13 @@ namespace ProjectW.IngameCore.CaseReview
                         CardTitle = used.Title,
                         CardSummary = used.Summary,
                         Tags = used.Tags.ToList(),
+                        HandCards = deck.TodayHand.Select(card => new WorkPerformanceCardSnapshot
+                        {
+                            Title = card.Title,
+                            OutcomeModifier = card.OutcomeModifier,
+                            RiskModifier = card.RiskModifier,
+                            IsUsed = card.Id.Equals(used.Id, StringComparison.OrdinalIgnoreCase)
+                        }).ToList(),
                         OutcomeBefore = item?.OutcomeScore ?? 0,
                         RiskBefore = item?.LatentRisk ?? 0,
                         OutcomeModifier = used.OutcomeModifier,
@@ -1746,6 +1774,7 @@ namespace ProjectW.IngameCore.CaseReview
         public string CardTitle { get; set; } = "";
         public string CardSummary { get; set; } = "";
         public List<string> Tags { get; set; } = new();
+        public List<WorkPerformanceCardSnapshot> HandCards { get; set; } = new();
         public int OutcomeBefore { get; set; }
         public int OutcomeAfter { get; set; }
         public int RiskBefore { get; set; }
@@ -1753,5 +1782,13 @@ namespace ProjectW.IngameCore.CaseReview
         public int OutcomeModifier { get; set; }
         public int RiskModifier { get; set; }
         public string ResultSummary { get; set; } = "";
+    }
+
+    internal sealed class WorkPerformanceCardSnapshot
+    {
+        public string Title { get; set; } = "";
+        public int OutcomeModifier { get; set; }
+        public int RiskModifier { get; set; }
+        public bool IsUsed { get; set; }
     }
 }

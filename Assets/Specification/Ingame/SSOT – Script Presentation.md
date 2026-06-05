@@ -554,6 +554,8 @@ Scenario runtime implementation should be split into these responsibilities.
 - `WorkPerformancePresentation`
   - may play after morning plan confirmation and before or over the evening summary
   - shows each assigned worker, the card used for the target work, and the visible outcome/risk influence
+  - should reveal the worker's whole current hand first, then clearly mark which card was selected and used for dramatic payoff
+  - the unused hand cards are presentation context only; only the selected card is converted into runtime card influence
   - card effects must still flow through explicit runtime data such as `ActionCard.TargetEventId`; the presentation must not mutate core state directly
 - `ScenarioEffectApplier`
   - applies declared state effects through public core mutation interfaces only
