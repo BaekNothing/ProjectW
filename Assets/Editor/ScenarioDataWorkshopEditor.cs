@@ -148,8 +148,14 @@ public static class ScenarioDataWorkshopGenerator
 
         var scenario = CreateOrLoad<ScenarioEventDefinition>($"{root}/Events/Scenario_TeaAudit.asset");
         SetField(scenario, "eventId", "scenario.tea-audit");
+        SetField(scenario, "playbackStateKey", "scenario.tea-audit");
         SetField(scenario, "timing", ScenarioTiming.Night);
         SetField(scenario, "priority", 10);
+        SetField(scenario, "triggerMode", ScenarioTriggerMode.Both);
+        SetField(scenario, "allowedExplicitLocations", new List<ScenarioExplicitLocation>
+        {
+            ScenarioExplicitLocation.AuditBriefing
+        });
         SetField(scenario, "renderResources", render);
         SetField(scenario, "textTable", text);
         SetField(scenario, "triggerConditions", new List<ScenarioCondition>

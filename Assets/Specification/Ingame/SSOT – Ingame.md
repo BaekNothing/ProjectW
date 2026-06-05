@@ -104,6 +104,19 @@ AI 제안과 인간적 검토 사이에서 비용을 조절하여,
 
 ------
 
+### 3.1 Scenario Playback Between Loop Phases
+
+Scenario playback is allowed between core-loop phases when a scenario event's trigger conditions and replay policy match the current state.
+
+Rules:
+
+- Scenario events may be triggered automatically at loop boundaries or explicitly from a UI location such as character outing, consultation, boss call, or audit briefing.
+- Each scenario event must declare trigger conditions and must have playback state so the runtime can know whether it has been seen, completed, skipped, queued, or cooled down.
+- Scenario playback may read core state, but core state may change only through declared state effects.
+- Presentation requirements, including character panels, panel positions, effects, bottom text box typewriter playback, skip, and autoplay, are defined in `SSOT – Script Presentation.md`.
+
+------
+
 ## 4. Cards and Decks
 
 각 개체는 행동 덱을 가진다.

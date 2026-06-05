@@ -53,6 +53,34 @@
 
 ------
 
+### 2.1 Loop Boundary and Explicit Trigger Playback
+
+Script events may be played in two ways.
+
+1. Loop boundary playback
+   - The scenario runtime checks eligible events between core-loop phases.
+   - Examples: after morning assignment confirmation, before execution summary, after night summary, before weekly audit.
+   - Each event must declare trigger conditions. The runtime must not play a scenario only because an asset exists.
+2. Explicit location playback
+   - The player may enter a scenario from an explicit UI location.
+   - Examples: character outing, consultation, special visit, boss call, audit briefing.
+   - Explicit playback still uses the same conditions, replay policy, and state-effect rules as loop boundary playback.
+
+The scenario scheduler must keep playback state separate from core game state.
+
+Required playback state:
+
+- whether an event has been seen
+- last played day or loop cycle
+- current cooldown state
+- whether the event is queued, playing, completed, skipped, or blocked
+- selected branch or choice result if the event has branches
+
+Playback state is used only for scenario eligibility and replay control.
+Core resources, relationship values, work status, audit flags, and similar gameplay state must change only through declared state effects.
+
+------
+
 ## 3. Script Event Data
 
 시나리오 이벤트는 **하나의 이벤트가 하나의 파일/에셋 단위**다.
@@ -83,6 +111,29 @@ Unity 구현 기준 원형은 `ScenarioEventDefinition` ScriptableObject다.
 
 이벤트는 숨은 상태를 직접 바꿔서는 안 된다.
 모든 변경은 `ExitEffects` 또는 선택지 효과에 명시되어야 한다.
+
+------
+
+### 3.1 Trigger and Playback Fields
+
+Scenario event data must include enough information to decide whether the event can play and whether it has already been consumed.
+
+Required or equivalent fields:
+
+- `PlaybackStateKey`
+  - save data key used to store seen/completed/cooldown/branch state
+- `TriggerMode`
+  - `LoopBoundary`, `Explicit`, or both
+- `TriggerConditions`
+  - conditions evaluated against core state and scenario playback state
+- `AllowedExplicitLocations`
+  - optional UI locations where the event can be started directly, such as `CharacterOuting`, `BossCall`, `AuditBriefing`
+- `ReplayPolicy`
+  - one-shot, cooldown, repeatable, or once-per-cycle policy
+- `Priority`
+  - ordering when multiple events are eligible at the same timing
+
+An event that has no valid trigger condition is treated as authoring-only data and must not be auto-played by the runtime.
 
 ------
 
@@ -260,6 +311,47 @@ Current implementation:
 
 ------
 
+### 8.1 Runtime Presentation UI
+
+The runtime scenario player must support the following presentation layers.
+
+- Character panel
+  - Displays one or more speakers.
+  - Supports speaker id, display name, portrait/render resource, expression, pose, and focus state.
+- Panel position
+  - Speaker panels may be positioned left, center, right, foreground, background, or explicit anchored positions.
+  - Movement must not cover the text box or active choices.
+- Panel output
+  - Lines may add, remove, move, dim, focus, or swap character panels.
+  - Panel changes are presentation commands, not gameplay state changes.
+- Effect output
+  - Supports screen shake, flash, speed lines, glitch, dim, highlight, and similar effects.
+  - Effects must have a completion state so skip/click can finish them immediately.
+- Direction output
+  - A line may combine character panel changes, effect output, center image changes, background changes, and text output.
+  - Direction output is considered complete only when all line-level presentation commands are complete or skipped.
+
+The bottom text box is canonical for dialogue and narration.
+
+Text box rules:
+
+- Text appears with typewriter playback by default.
+- A click during typewriter playback immediately reveals the full line and completes all line-level presentation commands.
+- After the full line is visible and presentation is complete, the next click advances to the next line.
+- The player must not advance to the next line while text is still partially hidden unless the same click first completes the current line.
+- Choices are shown only after the full line and its presentation commands are complete.
+
+Top-right controls:
+
+- `Skip`
+  - Immediately completes the current event according to skip policy.
+  - Skip must apply only declared skip-safe effects or the same final effects as normal completion if the event defines them.
+- `AutoPlay`
+  - Advances lines automatically after typewriter and presentation completion.
+  - AutoPlay pauses on choices, blocked costs, explicit confirmation prompts, or any line marked non-auto.
+
+------
+
 ## 9. Staging Commands
 
 연출은 명령 단위로 표현한다.
@@ -297,6 +389,23 @@ Current implementation:
 
 연출 명령은 코어 상태를 직접 변경하지 않는다.
 상태 변경은 선택지 효과 또는 이벤트 종료 효과로만 적용한다.
+
+------
+
+### 9.1 Additional Runtime Commands
+
+The runtime player may add command types equivalent to the following when implementing the presentation UI.
+
+- `CompleteEffects`
+  - current line's pending presentation effects are completed immediately.
+- `SetPanelPosition`
+  - moves a character panel to a named or anchored position.
+- `SetAutoPlayable`
+  - marks whether the current line can be advanced by AutoPlay.
+- `SetTypewriterSpeed`
+  - overrides typewriter speed for the current line or event.
+
+These commands are presentation commands. They must not directly mutate gameplay state.
 
 ------
 
@@ -413,6 +522,28 @@ Current implementation:
 - `ScenarioStateEffect`를 실제 코어 상태에 적용하는 런타임
 
 스크립트 런타임은 코어 게임 로직과 분리하되, 코어 상태 변경은 공용 변경 인터페이스를 통해 적용한다.
+
+------
+
+### 13.1 Runtime Playback Implementation Target
+
+Scenario runtime implementation should be split into these responsibilities.
+
+- `ScenarioScheduler`
+  - checks loop-boundary timing and explicit-location requests
+  - evaluates trigger conditions, priority, replay policy, and playback state
+- `ScenarioPlaybackState`
+  - stores seen/completed/cooldown/queued/playing/skipped state
+  - stores branch or choice result when required for replay policy
+- `ScenarioPlayer`
+  - plays resolved lines, stage commands, typewriter text, choices, skip, and autoplay
+- `ScenarioPresentationView`
+  - owns character panels, panel positions, effect output, bottom text box, top-right skip/autoplay controls
+- `ScenarioEffectApplier`
+  - applies declared state effects through public core mutation interfaces only
+
+Current data assets already cover part of this shape.
+Runtime scheduling, playback state persistence, presentation UI, typewriter playback, skip, autoplay, explicit-location entry, and state-effect application remain implementation targets.
 
 ------
 

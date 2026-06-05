@@ -9,6 +9,9 @@ public sealed class ScenarioEventDefinition : ScriptableObject, IScenarioEventDe
     [SerializeField] private string eventId = "";
     [SerializeField] private ScenarioTiming timing = ScenarioTiming.Morning;
     [SerializeField] private int priority;
+    [SerializeField] private string playbackStateKey = "";
+    [SerializeField] private ScenarioTriggerMode triggerMode = ScenarioTriggerMode.LoopBoundary;
+    [SerializeField] private List<ScenarioExplicitLocation> allowedExplicitLocations = new();
     [SerializeField] private RenderResourceDefinition renderResources;
     [SerializeField] private LocalizedTextTable textTable;
     [SerializeField] private List<ScenarioCondition> triggerConditions = new();
@@ -20,6 +23,9 @@ public sealed class ScenarioEventDefinition : ScriptableObject, IScenarioEventDe
     public string EventId => eventId;
     public ScenarioTiming Timing => timing;
     public int Priority => priority;
+    public string PlaybackStateKey => string.IsNullOrWhiteSpace(playbackStateKey) ? eventId : playbackStateKey;
+    public ScenarioTriggerMode TriggerMode => triggerMode;
+    public IReadOnlyList<ScenarioExplicitLocation> AllowedExplicitLocations => allowedExplicitLocations;
     public RenderResourceDefinition RenderResources => renderResources;
     public LocalizedTextTable TextTable => textTable;
     public IReadOnlyList<ScenarioCondition> TriggerConditions => triggerConditions;

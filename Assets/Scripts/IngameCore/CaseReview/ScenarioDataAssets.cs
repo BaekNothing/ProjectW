@@ -16,6 +16,11 @@ public interface IScenarioEventDefinition
     string EventId { get; }
     ScenarioTiming Timing { get; }
     int Priority { get; }
+    string PlaybackStateKey { get; }
+    ScenarioTriggerMode TriggerMode { get; }
+    IReadOnlyList<ScenarioExplicitLocation> AllowedExplicitLocations { get; }
+    IReadOnlyList<ScenarioCondition> TriggerConditions { get; }
+    ScenarioReplayPolicy ReplayPolicy { get; }
     LocalizedTextTable TextTable { get; }
     IReadOnlyList<ScenarioScriptLine> Lines { get; }
     ScenarioResolvedLine ResolveLine(int index, string languageKey, string countryCode = "");
@@ -122,6 +127,33 @@ public enum ScenarioTiming
     YearlySettlement
 }
 
+public enum ScenarioTriggerMode
+{
+    LoopBoundary,
+    Explicit,
+    Both
+}
+
+public enum ScenarioExplicitLocation
+{
+    None,
+    CharacterOuting,
+    Consultation,
+    BossCall,
+    AuditBriefing,
+    SpecialVisit
+}
+
+public enum ScenarioPlaybackStatus
+{
+    None,
+    Queued,
+    Playing,
+    Completed,
+    Skipped,
+    Blocked
+}
+
 public enum ScenarioLineKind
 {
     Dialogue,
@@ -146,6 +178,10 @@ public enum ScenarioStageCommandType
     Collapse,
     ShowSpeedLines,
     ShowEffect,
+    CompleteEffects,
+    SetPanelPosition,
+    SetAutoPlayable,
+    SetTypewriterSpeed,
     DimOthers,
     ClearStage
 }
