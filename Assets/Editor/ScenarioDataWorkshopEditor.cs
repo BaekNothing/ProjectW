@@ -179,6 +179,7 @@ public static class ScenarioDataWorkshopGenerator
                 LineId = "L001",
                 Kind = ScenarioLineKind.Narration,
                 TextKey = "scenario.tea-audit.line.001",
+                PortraitIds = new List<string> { "A", "P-quiet-auditor" },
                 CenterImage = render,
                 StageCommands = new List<ScenarioStageCommand>
                 {
@@ -191,6 +192,7 @@ public static class ScenarioDataWorkshopGenerator
                 LineId = "L002",
                 Kind = ScenarioLineKind.Dialogue,
                 SpeakerId = "P-quiet-auditor",
+                PortraitIds = new List<string> { "A", "P-quiet-auditor", "C" },
                 TextKey = "scenario.tea-audit.line.002",
                 ExpressionKey = "tired",
                 PoseKey = "lean",

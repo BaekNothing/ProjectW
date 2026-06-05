@@ -52,6 +52,7 @@ public sealed class ScenarioScriptLine
     public string LineId = "";
     public ScenarioLineKind Kind = ScenarioLineKind.Dialogue;
     public string SpeakerId = "";
+    public List<string> PortraitIds = new();
     public string TextKey = "";
     public string ExpressionKey = "";
     public string PoseKey = "";
@@ -178,12 +179,12 @@ public enum ScenarioStageCommandType
     Collapse,
     ShowSpeedLines,
     ShowEffect,
+    DimOthers,
+    ClearStage,
     CompleteEffects,
     SetPanelPosition,
     SetAutoPlayable,
-    SetTypewriterSpeed,
-    DimOthers,
-    ClearStage
+    SetTypewriterSpeed
 }
 
 public enum ScenarioConditionKey

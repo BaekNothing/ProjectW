@@ -15,6 +15,10 @@ MonoBehaviour:
   eventId: scenario.tea-audit
   timing: 2
   priority: 10
+  playbackStateKey: scenario.tea-audit
+  triggerMode: 2
+  allowedExplicitLocations:
+  - 4
   renderResources: {fileID: 11400000, guid: 0ec84032786c9774e98e7f3f48be3321, type: 2}
   textTable: {fileID: 11400000, guid: 927e0a225a0aa5543bd4efc58d73ffc9, type: 2}
   triggerConditions:
@@ -32,6 +36,9 @@ MonoBehaviour:
   - LineId: L001
     Kind: 1
     SpeakerId: 
+    PortraitIds:
+    - A
+    - P-quiet-auditor
     TextKey: scenario.tea-audit.line.001
     ExpressionKey: 
     PoseKey: 
@@ -55,6 +62,10 @@ MonoBehaviour:
   - LineId: L002
     Kind: 0
     SpeakerId: P-quiet-auditor
+    PortraitIds:
+    - A
+    - P-quiet-auditor
+    - C
     TextKey: scenario.tea-audit.line.002
     ExpressionKey: tired
     PoseKey: lean

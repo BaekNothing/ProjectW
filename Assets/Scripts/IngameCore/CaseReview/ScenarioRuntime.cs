@@ -217,6 +217,30 @@ public static class ScenarioConditionEvaluator
     }
 }
 
+[Serializable]
+public sealed class ScenarioStageState
+{
+    public List<ScenarioPortraitState> Portraits = new();
+    public List<string> RemovedPortraitIds = new();
+
+    public ScenarioPortraitState FindPortrait(string portraitId)
+    {
+        return Portraits.FirstOrDefault(portrait => portrait.PortraitId.Equals(portraitId, StringComparison.OrdinalIgnoreCase));
+    }
+}
+
+[Serializable]
+public sealed class ScenarioPortraitState
+{
+    public string PortraitId = "";
+    public int SlotIndex;
+    public float NormalizedX;
+    public float PreviousNormalizedX;
+    public bool IsMoving;
+    public bool IsFocused;
+    public bool IsDimmed;
+}
+
 public sealed class ScenarioPlaybackSession
 {
     private readonly IScenarioEventDefinition definition;
@@ -237,6 +261,7 @@ public sealed class ScenarioPlaybackSession
     public bool IsLineComplete { get; private set; }
     public bool IsEventComplete { get; private set; }
     public bool AutoPlayEnabled { get; private set; }
+    public ScenarioStageState StageState { get; private set; } = new();
 
     public void SetAutoPlay(bool enabled)
     {
@@ -324,8 +349,88 @@ public sealed class ScenarioPlaybackSession
     private void LoadCurrentLine()
     {
         CurrentLine = definition.ResolveLine(lineIndex, languageKey, countryCode);
+        StageState = ScenarioPortraitLayout.Build(CurrentLine.Source, StageState);
         VisibleText = "";
         IsLineComplete = string.IsNullOrEmpty(CurrentLine.Text);
+    }
+}
+
+public static class ScenarioPortraitLayout
+{
+    private const float MovementEpsilon = 0.0001f;
+
+    public static ScenarioStageState Build(ScenarioScriptLine line, ScenarioStageState previousState = null)
+    {
+        var portraitIds = NormalizePortraitIds(line?.PortraitIds);
+        var previousById = previousState?.Portraits.ToDictionary(
+            portrait => portrait.PortraitId,
+            StringComparer.OrdinalIgnoreCase) ?? new Dictionary<string, ScenarioPortraitState>(StringComparer.OrdinalIgnoreCase);
+        var visibleIds = new HashSet<string>(portraitIds, StringComparer.OrdinalIgnoreCase);
+        var state = new ScenarioStageState();
+        var speakerId = line?.SpeakerId ?? "";
+        var speakerIsVisible = !string.IsNullOrWhiteSpace(speakerId) && visibleIds.Contains(speakerId);
+
+        for (var index = 0; index < portraitIds.Count; index++)
+        {
+            var portraitId = portraitIds[index];
+            var targetX = CalculateNormalizedX(index, portraitIds.Count);
+            var hadPrevious = previousById.TryGetValue(portraitId, out var previous);
+            var previousX = hadPrevious ? previous.NormalizedX : targetX;
+            var isFocused = speakerIsVisible && portraitId.Equals(speakerId, StringComparison.OrdinalIgnoreCase);
+
+            state.Portraits.Add(new ScenarioPortraitState
+            {
+                PortraitId = portraitId,
+                SlotIndex = index,
+                NormalizedX = targetX,
+                PreviousNormalizedX = previousX,
+                IsMoving = hadPrevious && Math.Abs(previousX - targetX) > MovementEpsilon,
+                IsFocused = isFocused,
+                IsDimmed = speakerIsVisible && !isFocused
+            });
+        }
+
+        foreach (var previousId in previousById.Keys)
+        {
+            if (!visibleIds.Contains(previousId))
+            {
+                state.RemovedPortraitIds.Add(previousId);
+            }
+        }
+
+        return state;
+    }
+
+    public static float CalculateNormalizedX(int index, int count)
+    {
+        if (count <= 0)
+        {
+            return 0.5f;
+        }
+
+        return (index + 1f) / (count + 1f);
+    }
+
+    private static List<string> NormalizePortraitIds(IReadOnlyList<string> portraitIds)
+    {
+        var normalized = new List<string>();
+        if (portraitIds is null)
+        {
+            return normalized;
+        }
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var portraitId in portraitIds)
+        {
+            if (string.IsNullOrWhiteSpace(portraitId) || !seen.Add(portraitId))
+            {
+                continue;
+            }
+
+            normalized.Add(portraitId);
+        }
+
+        return normalized;
     }
 }
 }

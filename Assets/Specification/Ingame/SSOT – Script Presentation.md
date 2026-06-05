@@ -151,6 +151,10 @@ An event that has no valid trigger condition is treated as authoring-only data a
   - 화자 id
 - `TextKey`
   - 직접 대사 문자열이 아니라 로컬라이제이션 텍스트 key
+- `PortraitIds`
+  - ordered character portrait ids visible on this line, such as `A`, `B`, `C`, or real character ids
+  - the runtime lays them out from left to right at equal normalized bands
+  - when the next line changes the portrait list or count, existing portraits move from their previous normalized position to the new one
 - `ExpressionKey`
   - 표정 key
 - `PoseKey`
@@ -448,6 +452,14 @@ These commands are presentation commands. They must not directly mutate gameplay
 ------
 
 ## 11. Speaker Layout
+
+Minimal runtime layout rules:
+
+- Each `ScenarioScriptLine.PortraitIds` value becomes a visible portrait panel for that line.
+- Portrait panels use normalized horizontal positions: one portrait is centered at `0.5`; three portraits use `0.25`, `0.5`, `0.75`.
+- The general formula is `(index + 1) / (count + 1)`.
+- If a portrait id existed on the previous line but its normalized position changed, the presentation view should move it from the previous position to the new position.
+- If `SpeakerId` exists in the current `PortraitIds`, non-speaker portraits are dimmed and the speaker portrait is focused.
 
 화자는 화면에 추가되거나 제거될 수 있으며, 인원 변화에 따라 위치가 재배치된다.
 

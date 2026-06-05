@@ -17,6 +17,9 @@ namespace ProjectW.IngameCore.CaseReview
         private readonly Dictionary<string, List<string>> plannedAssignments = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, DebugDeckState> debugDecks = new(StringComparer.OrdinalIgnoreCase);
 
+        private const string SampleScenarioResourcePath = "CaseReviewData/Scenarios/Events/Scenario_TeaAudit";
+        private const float ScenarioTypewriterCharactersPerSecond = 42f;
+
         private Text statusText;
         private Text boardTitleText;
         private Text actionTitleText;
@@ -26,12 +29,23 @@ namespace ProjectW.IngameCore.CaseReview
         private Text cardHandTitleText;
         private Text logText;
         private Text milestoneText;
+        private Text scenarioTitleText;
+        private Text scenarioSpeakerText;
+        private Text scenarioBodyText;
+        private Text scenarioAutoButtonText;
         private Transform actionButtonRoot;
         private Transform boardCardRoot;
         private Transform rosterRoot;
         private Transform cardHandRoot;
+        private Transform scenarioPortraitRoot;
+        private Transform scenarioChoiceRoot;
         private Transform dragLayer;
+        private GameObject scenarioOverlay;
         private Font uiFont;
+        private ScenarioEventDefinition sampleScenario;
+        private ScenarioPlaybackSession scenarioSession;
+        private float scenarioTypewriterAccumulator;
+        private bool scenarioAutoPlay;
         private string selectedPersonnelId = "";
         private int cardStateDay = -1;
 
@@ -46,6 +60,29 @@ namespace ProjectW.IngameCore.CaseReview
             InitializeForTests();
         }
 
+        private void Update()
+        {
+            if (scenarioSession is null || scenarioSession.IsEventComplete)
+            {
+                return;
+            }
+
+            scenarioTypewriterAccumulator += Time.unscaledDeltaTime * ScenarioTypewriterCharactersPerSecond;
+            var characterCount = Mathf.FloorToInt(scenarioTypewriterAccumulator);
+            if (characterCount > 0)
+            {
+                scenarioTypewriterAccumulator -= characterCount;
+                scenarioSession.AdvanceTypewriter(characterCount);
+                RenderScenarioOverlay();
+            }
+
+            if (scenarioAutoPlay && scenarioSession.IsLineComplete)
+            {
+                scenarioSession.TickAutoPlay();
+                RenderScenarioOverlay();
+            }
+        }
+
         public void InitializeForTests(int seed = 1)
         {
             CurrentState = CaseReviewGame.Init(new GameConfig(), seed);
@@ -53,8 +90,11 @@ namespace ProjectW.IngameCore.CaseReview
             selectedPersonnelId = CurrentState.Staff.FirstOrDefault(person => !person.HasLeft)?.Id ?? "";
             cardStateDay = -1;
             debugDecks.Clear();
+            scenarioSession = null;
+            scenarioAutoPlay = false;
             SyncAssignmentsFromPlan();
             EnsureCardStateForToday();
+            HideScenarioOverlay();
             AddLog("MVP cycle started. Continue day by day until an ending condition appears.");
             Render();
         }
@@ -164,6 +204,68 @@ namespace ProjectW.IngameCore.CaseReview
                 SyncAssignmentsFromPlan();
                 EnsureCardStateForToday();
             }
+        }
+
+        public void ClickPlaySampleScenario()
+        {
+            sampleScenario ??= Resources.Load<ScenarioEventDefinition>(SampleScenarioResourcePath);
+            if (sampleScenario is null)
+            {
+                AddLog($"Scenario sample not found: Resources/{SampleScenarioResourcePath}");
+                Render();
+                return;
+            }
+
+            scenarioSession = new ScenarioPlaybackSession(sampleScenario, "ko", "KR");
+            scenarioTypewriterAccumulator = 0f;
+            scenarioAutoPlay = false;
+            AddLog($"Scenario sample opened: {sampleScenario.EventId}");
+            RenderScenarioOverlay();
+        }
+
+        public void ClickScenarioNext()
+        {
+            if (scenarioSession is null)
+            {
+                return;
+            }
+
+            scenarioSession.Click();
+            scenarioTypewriterAccumulator = 0f;
+            if (scenarioSession.IsEventComplete)
+            {
+                AddLog("Scenario sample completed.");
+                HideScenarioOverlay();
+                Render();
+                return;
+            }
+
+            RenderScenarioOverlay();
+        }
+
+        public void ClickScenarioSkip()
+        {
+            if (scenarioSession is null)
+            {
+                return;
+            }
+
+            scenarioSession.Skip();
+            AddLog("Scenario sample skipped.");
+            HideScenarioOverlay();
+            Render();
+        }
+
+        public void ClickScenarioToggleAuto()
+        {
+            if (scenarioSession is null)
+            {
+                return;
+            }
+
+            scenarioAutoPlay = !scenarioAutoPlay;
+            scenarioSession.SetAutoPlay(scenarioAutoPlay);
+            RenderScenarioOverlay();
         }
 
         public void SelectPersonnel(string personnelId)
@@ -278,6 +380,10 @@ namespace ProjectW.IngameCore.CaseReview
             RenderCardHand();
             RenderActions();
             logText.text = string.Join("\n", visibleLogLines);
+            if (scenarioSession is not null)
+            {
+                RenderScenarioOverlay();
+            }
         }
 
         private string BuildStatusLine()
@@ -400,6 +506,7 @@ namespace ProjectW.IngameCore.CaseReview
                 AddActionButton("Open Priority", ClickOpenPriorityWork, !CurrentState.MorningPlan.Confirmed);
                 AddActionButton("Recommended Adjust", ClickRecommendedAdjust, !CurrentState.MorningPlan.Confirmed);
                 AddActionButton("Confirm Plan", ClickConfirmPlan, !CurrentState.MorningPlan.Confirmed);
+                AddActionButton("Scenario Sample", ClickPlaySampleScenario, true);
                 return;
             }
 
@@ -408,6 +515,7 @@ namespace ProjectW.IngameCore.CaseReview
 
             AddActionButton("Show Summary", ClickReportDay, true);
             AddActionButton("Next Morning", ClickNextDay, true);
+            AddActionButton("Scenario Sample", ClickPlaySampleScenario, true);
         }
 
         private void AddActionButton(string label, UnityEngine.Events.UnityAction action, bool interactable)
@@ -509,6 +617,220 @@ namespace ProjectW.IngameCore.CaseReview
             dragLayer = CreateUiObject("Drag Layer", canvasObject.transform).transform;
             Stretch((RectTransform)dragLayer);
             dragLayer.SetAsLastSibling();
+
+            BuildScenarioOverlay(canvasObject.transform);
+            dragLayer.SetAsLastSibling();
+        }
+
+        private void BuildScenarioOverlay(Transform parent)
+        {
+            scenarioOverlay = CreateUiObject("Scenario Sample Overlay", parent);
+            Stretch((RectTransform)scenarioOverlay.transform);
+            var blocker = scenarioOverlay.AddComponent<Image>();
+            blocker.color = new Color(0.02f, 0.025f, 0.03f, 0.94f);
+
+            var topBar = CreatePanel("Scenario Top Bar", scenarioOverlay.transform, new Color(0.07f, 0.08f, 0.09f, 0.92f));
+            var topRect = (RectTransform)topBar;
+            topRect.anchorMin = new Vector2(0f, 1f);
+            topRect.anchorMax = new Vector2(1f, 1f);
+            topRect.pivot = new Vector2(0.5f, 1f);
+            topRect.sizeDelta = new Vector2(0f, 66f);
+            topRect.anchoredPosition = Vector2.zero;
+            scenarioTitleText = CreateText("Scenario", topBar, 20, FontStyle.Bold, TextAnchor.MiddleLeft);
+            scenarioTitleText.rectTransform.offsetMin = new Vector2(24f, 0f);
+            scenarioTitleText.rectTransform.offsetMax = new Vector2(-360f, 0f);
+
+            var skipButton = CreateOverlayButton("Skip", topBar, new Vector2(-210f, -33f), ClickScenarioSkip);
+            ((RectTransform)skipButton.transform).sizeDelta = new Vector2(120f, 42f);
+            var autoButton = CreateOverlayButton("Auto", topBar, new Vector2(-76f, -33f), ClickScenarioToggleAuto);
+            ((RectTransform)autoButton.transform).sizeDelta = new Vector2(120f, 42f);
+            scenarioAutoButtonText = autoButton.GetComponentInChildren<Text>();
+
+            scenarioPortraitRoot = CreateUiObject("Portrait Stage", scenarioOverlay.transform).transform;
+            var stageRect = (RectTransform)scenarioPortraitRoot;
+            stageRect.anchorMin = new Vector2(0.03f, 0.28f);
+            stageRect.anchorMax = new Vector2(0.97f, 0.86f);
+            stageRect.offsetMin = Vector2.zero;
+            stageRect.offsetMax = Vector2.zero;
+
+            var textBox = CreatePanel("Scenario Text Box", scenarioOverlay.transform, new Color(0.08f, 0.09f, 0.10f, 0.98f));
+            var textBoxRect = (RectTransform)textBox;
+            textBoxRect.anchorMin = new Vector2(0.08f, 0.04f);
+            textBoxRect.anchorMax = new Vector2(0.92f, 0.24f);
+            textBoxRect.offsetMin = Vector2.zero;
+            textBoxRect.offsetMax = Vector2.zero;
+
+            scenarioSpeakerText = CreateText("", textBox, 18, FontStyle.Bold, TextAnchor.UpperLeft);
+            scenarioSpeakerText.rectTransform.anchorMin = new Vector2(0f, 1f);
+            scenarioSpeakerText.rectTransform.anchorMax = new Vector2(1f, 1f);
+            scenarioSpeakerText.rectTransform.pivot = new Vector2(0.5f, 1f);
+            scenarioSpeakerText.rectTransform.offsetMin = new Vector2(22f, -48f);
+            scenarioSpeakerText.rectTransform.offsetMax = new Vector2(-160f, -12f);
+
+            scenarioBodyText = CreateText("", textBox, 24, FontStyle.Normal, TextAnchor.UpperLeft);
+            scenarioBodyText.rectTransform.offsetMin = new Vector2(22f, 24f);
+            scenarioBodyText.rectTransform.offsetMax = new Vector2(-160f, -58f);
+
+            var nextButton = CreateOverlayButton("Next", textBox, new Vector2(-76f, 46f), ClickScenarioNext);
+            ((RectTransform)nextButton.transform).sizeDelta = new Vector2(116f, 56f);
+
+            scenarioChoiceRoot = CreateUiObject("Scenario Choices", textBox).transform;
+            var choiceRect = (RectTransform)scenarioChoiceRoot;
+            choiceRect.anchorMin = new Vector2(0f, 0f);
+            choiceRect.anchorMax = new Vector2(1f, 0f);
+            choiceRect.pivot = new Vector2(0.5f, 0f);
+            choiceRect.offsetMin = new Vector2(22f, 10f);
+            choiceRect.offsetMax = new Vector2(-160f, 52f);
+            var choicesLayout = scenarioChoiceRoot.gameObject.AddComponent<HorizontalLayoutGroup>();
+            choicesLayout.spacing = 8f;
+            choicesLayout.childForceExpandWidth = false;
+            choicesLayout.childForceExpandHeight = true;
+
+            scenarioOverlay.SetActive(false);
+        }
+
+        private Button CreateOverlayButton(string label, Transform parent, Vector2 anchoredPosition, UnityEngine.Events.UnityAction action)
+        {
+            var buttonObject = CreateUiObject(label + " Button", parent);
+            var rect = (RectTransform)buttonObject.transform;
+            rect.anchorMin = new Vector2(1f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = anchoredPosition;
+            rect.sizeDelta = new Vector2(110f, 42f);
+            var image = buttonObject.AddComponent<Image>();
+            image.color = new Color(0.22f, 0.30f, 0.36f, 1f);
+            var button = buttonObject.AddComponent<Button>();
+            button.targetGraphic = image;
+            button.onClick.AddListener(action);
+            var text = CreateText(label, buttonObject.transform, 16, FontStyle.Bold, TextAnchor.MiddleCenter);
+            text.raycastTarget = false;
+            return button;
+        }
+
+        private void RenderScenarioOverlay()
+        {
+            if (scenarioOverlay is null || scenarioSession is null)
+            {
+                return;
+            }
+
+            scenarioOverlay.SetActive(true);
+            scenarioTitleText.text = $"{scenarioSession.CurrentLine.Source?.LineId ?? "END"} | {sampleScenario?.EventId ?? "scenario"}";
+            scenarioSpeakerText.text = string.IsNullOrWhiteSpace(scenarioSession.CurrentLine.Source?.SpeakerId)
+                ? "Narration"
+                : scenarioSession.CurrentLine.Source.SpeakerId;
+            scenarioBodyText.text = scenarioSession.VisibleText;
+            if (scenarioAutoButtonText is not null)
+            {
+                scenarioAutoButtonText.text = scenarioAutoPlay ? "Auto On" : "Auto";
+            }
+
+            RenderScenarioPortraits();
+            RenderScenarioChoices();
+        }
+
+        private void HideScenarioOverlay()
+        {
+            scenarioSession = null;
+            scenarioAutoPlay = false;
+            scenarioTypewriterAccumulator = 0f;
+            if (scenarioOverlay is not null)
+            {
+                scenarioOverlay.SetActive(false);
+            }
+        }
+
+        private void RenderScenarioPortraits()
+        {
+            ClearDynamicRoot(scenarioPortraitRoot);
+            if (scenarioSession?.StageState is null)
+            {
+                return;
+            }
+
+            foreach (var portrait in scenarioSession.StageState.Portraits)
+            {
+                var panel = CreatePanel("Portrait " + portrait.PortraitId, scenarioPortraitRoot, PortraitColor(portrait));
+                var rect = (RectTransform)panel;
+                rect.anchorMin = new Vector2(portrait.NormalizedX, 0.5f);
+                rect.anchorMax = new Vector2(portrait.NormalizedX, 0.5f);
+                rect.pivot = new Vector2(0.5f, 0.5f);
+                rect.anchoredPosition = Vector2.zero;
+                rect.sizeDelta = new Vector2(portrait.IsFocused ? 300f : 260f, portrait.IsFocused ? 430f : 390f);
+
+                var label = portrait.PortraitId;
+                if (portrait.IsMoving)
+                {
+                    label += $"\nmove {portrait.PreviousNormalizedX:0.00}->{portrait.NormalizedX:0.00}";
+                }
+
+                if (portrait.IsFocused)
+                {
+                    label += "\nSPEAKER";
+                }
+                else if (portrait.IsDimmed)
+                {
+                    label += "\nDIM";
+                }
+
+                var text = CreateText(label, panel, 24, FontStyle.Bold, TextAnchor.MiddleCenter);
+                text.raycastTarget = false;
+            }
+        }
+
+        private void RenderScenarioChoices()
+        {
+            ClearDynamicRoot(scenarioChoiceRoot);
+            var choices = scenarioSession?.CurrentLine.Source?.Choices;
+            if (choices is null || choices.Count == 0 || !scenarioSession.IsLineComplete)
+            {
+                return;
+            }
+
+            foreach (var choice in choices)
+            {
+                var label = ResolveScenarioChoiceLabel(choice);
+                var buttonObject = CreateUiObject("Choice " + choice.ChoiceId, scenarioChoiceRoot);
+                var image = buttonObject.AddComponent<Image>();
+                image.color = new Color(0.20f, 0.22f, 0.25f, 1f);
+                var button = buttonObject.AddComponent<Button>();
+                button.targetGraphic = image;
+                button.onClick.AddListener(() =>
+                {
+                    AddLog($"Scenario choice selected: {choice.ChoiceId}");
+                    ClickScenarioNext();
+                });
+                var layout = buttonObject.AddComponent<LayoutElement>();
+                layout.minWidth = 220f;
+                layout.minHeight = 42f;
+                var text = CreateText(label, buttonObject.transform, 14, FontStyle.Bold, TextAnchor.MiddleCenter);
+                text.raycastTarget = false;
+            }
+        }
+
+        private string ResolveScenarioChoiceLabel(ScenarioChoice choice)
+        {
+            if (choice is null || sampleScenario is null)
+            {
+                return "";
+            }
+
+            return sampleScenario.TextTable != null
+                ? sampleScenario.TextTable.GetText(choice.LabelTextKey, "ko", "KR")
+                : choice.LabelTextKey;
+        }
+
+        private static Color PortraitColor(ScenarioPortraitState portrait)
+        {
+            if (portrait.IsFocused)
+            {
+                return new Color(0.32f, 0.48f, 0.56f, 1f);
+            }
+
+            return portrait.IsDimmed
+                ? new Color(0.10f, 0.11f, 0.12f, 0.78f)
+                : new Color(0.18f, 0.24f, 0.28f, 1f);
         }
 
         private Transform CreateColumn(Transform parent, string name, float flexibleWidth, float minWidth)

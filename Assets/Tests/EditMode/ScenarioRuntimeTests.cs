@@ -125,6 +125,78 @@ namespace ProjectW.Tests.EditMode
             Assert.AreEqual("L1", session.CurrentLine.Source.LineId);
         }
 
+        [Test]
+        public void PlaybackSession_LaysOutPortraitsByEqualBands()
+        {
+            var scenario = Scenario("scenario.portraits");
+            scenario.MutableLines.Add(new ScenarioScriptLine
+            {
+                LineId = "L1",
+                TextKey = "Line",
+                PortraitIds = new List<string> { "A", "B", "C" }
+            });
+
+            var session = new ScenarioPlaybackSession(scenario, "ko", "KR");
+
+            Assert.AreEqual(3, session.StageState.Portraits.Count);
+            AssertFloat(0.25f, session.StageState.FindPortrait("A").NormalizedX);
+            AssertFloat(0.5f, session.StageState.FindPortrait("B").NormalizedX);
+            AssertFloat(0.75f, session.StageState.FindPortrait("C").NormalizedX);
+        }
+
+        [Test]
+        public void PlaybackSession_MarksPortraitMovementWhenLineLayoutChanges()
+        {
+            var scenario = Scenario("scenario.move");
+            scenario.MutableLines.Add(new ScenarioScriptLine
+            {
+                LineId = "L1",
+                TextKey = "First",
+                PortraitIds = new List<string> { "A", "B" }
+            });
+            scenario.MutableLines.Add(new ScenarioScriptLine
+            {
+                LineId = "L2",
+                TextKey = "Second",
+                PortraitIds = new List<string> { "A", "B", "C" }
+            });
+            var session = new ScenarioPlaybackSession(scenario, "ko", "KR");
+
+            session.Click();
+            session.Click();
+
+            var a = session.StageState.FindPortrait("A");
+            var b = session.StageState.FindPortrait("B");
+            var c = session.StageState.FindPortrait("C");
+            Assert.IsTrue(a.IsMoving);
+            Assert.IsTrue(b.IsMoving);
+            Assert.IsFalse(c.IsMoving);
+            AssertFloat(1f / 3f, a.PreviousNormalizedX);
+            AssertFloat(0.25f, a.NormalizedX);
+            AssertFloat(2f / 3f, b.PreviousNormalizedX);
+            AssertFloat(0.5f, b.NormalizedX);
+        }
+
+        [Test]
+        public void PlaybackSession_DimsNonSpeakerPortraitsWhenSpeakerIsVisible()
+        {
+            var scenario = Scenario("scenario.focus");
+            scenario.MutableLines.Add(new ScenarioScriptLine
+            {
+                LineId = "L1",
+                SpeakerId = "B",
+                TextKey = "Line",
+                PortraitIds = new List<string> { "A", "B", "C" }
+            });
+
+            var session = new ScenarioPlaybackSession(scenario, "ko", "KR");
+
+            Assert.IsTrue(session.StageState.FindPortrait("B").IsFocused);
+            Assert.IsFalse(session.StageState.FindPortrait("B").IsDimmed);
+            Assert.IsTrue(session.StageState.FindPortrait("A").IsDimmed);
+            Assert.IsTrue(session.StageState.FindPortrait("C").IsDimmed);
+        }
+
         private static ScenarioEventContext Context(int day = 1, params string[] tags)
         {
             return new ScenarioEventContext
@@ -148,6 +220,11 @@ namespace ProjectW.Tests.EditMode
                 PlaybackStateKeyValue = eventId,
                 TriggerModeValue = triggerMode
             };
+        }
+
+        private static void AssertFloat(float expected, float actual)
+        {
+            Assert.AreEqual(expected, actual, 0.0001f);
         }
 
         private sealed class FixedScenarioProvider : IScenarioEventProvider
