@@ -19,6 +19,7 @@ namespace ProjectW.IngameCore.CaseReview
 
         private const string SampleScenarioResourcePath = "CaseReviewData/Scenarios/Events/Scenario_TeaAudit";
         private const float ScenarioTypewriterCharactersPerSecond = 42f;
+        private const float WorkPerformanceAutoSeconds = 1.8f;
 
         private Text statusText;
         private Text boardTitleText;
@@ -33,19 +34,31 @@ namespace ProjectW.IngameCore.CaseReview
         private Text scenarioSpeakerText;
         private Text scenarioBodyText;
         private Text scenarioAutoButtonText;
+        private Text workSceneTitleText;
+        private Text workSceneWorkText;
+        private Text workSceneActorText;
+        private Text workSceneCardText;
+        private Text workSceneImpactText;
+        private Text workSceneProgressText;
         private Transform actionButtonRoot;
         private Transform boardCardRoot;
         private Transform rosterRoot;
         private Transform cardHandRoot;
         private Transform scenarioPortraitRoot;
         private Transform scenarioChoiceRoot;
+        private Transform workSceneActorRoot;
+        private Transform workSceneImpactRoot;
         private Transform dragLayer;
         private GameObject scenarioOverlay;
+        private GameObject workSceneOverlay;
         private Font uiFont;
         private ScenarioEventDefinition sampleScenario;
         private ScenarioPlaybackSession scenarioSession;
         private float scenarioTypewriterAccumulator;
         private bool scenarioAutoPlay;
+        private readonly List<WorkPerformanceEvent> workPerformanceEvents = new();
+        private int workPerformanceIndex;
+        private float workPerformanceTimer;
         private string selectedPersonnelId = "";
         private int cardStateDay = -1;
 
@@ -61,6 +74,19 @@ namespace ProjectW.IngameCore.CaseReview
         }
 
         private void Update()
+        {
+            if (scenarioSession is null || scenarioSession.IsEventComplete)
+            {
+                UpdateWorkPerformanceOverlay();
+            }
+            else
+            {
+                UpdateScenarioOverlay();
+                UpdateWorkPerformanceOverlay();
+            }
+        }
+
+        private void UpdateScenarioOverlay()
         {
             if (scenarioSession is null || scenarioSession.IsEventComplete)
             {
@@ -83,6 +109,17 @@ namespace ProjectW.IngameCore.CaseReview
             }
         }
 
+        private void UpdateWorkPerformanceOverlay()
+        {
+            if (workSceneOverlay is null || !workSceneOverlay.activeSelf || workPerformanceEvents.Count == 0)
+            {
+                return;
+            }
+
+            workPerformanceTimer += Time.unscaledDeltaTime;
+            RenderWorkPerformanceOverlay();
+        }
+
         public void InitializeForTests(int seed = 1)
         {
             CurrentState = CaseReviewGame.Init(new GameConfig(), seed);
@@ -92,9 +129,13 @@ namespace ProjectW.IngameCore.CaseReview
             debugDecks.Clear();
             scenarioSession = null;
             scenarioAutoPlay = false;
+            workPerformanceEvents.Clear();
+            workPerformanceIndex = 0;
+            workPerformanceTimer = 0f;
             SyncAssignmentsFromPlan();
             EnsureCardStateForToday();
             HideScenarioOverlay();
+            HideWorkPerformanceOverlay();
             AddLog("MVP cycle started. Continue day by day until an ending condition appears.");
             Render();
         }
@@ -156,8 +197,12 @@ namespace ProjectW.IngameCore.CaseReview
         public void ClickConfirmPlan()
         {
             SyncAllPlanAdjustments();
-            UseRandomCardsForAssignedWork();
+            var workEvents = UseRandomCardsForAssignedWork();
             Dispatch("confirm plan");
+            if (workEvents.Count > 0)
+            {
+                BeginWorkPerformanceOverlay(workEvents);
+            }
         }
 
         public void ClickReportDay()
@@ -266,6 +311,34 @@ namespace ProjectW.IngameCore.CaseReview
             scenarioAutoPlay = !scenarioAutoPlay;
             scenarioSession.SetAutoPlay(scenarioAutoPlay);
             RenderScenarioOverlay();
+        }
+
+        public void ClickWorkSceneNext()
+        {
+            if (workPerformanceEvents.Count == 0)
+            {
+                HideWorkPerformanceOverlay();
+                return;
+            }
+
+            if (workPerformanceIndex >= workPerformanceEvents.Count - 1)
+            {
+                AddLog("Work performance scene completed.");
+                HideWorkPerformanceOverlay();
+                Render();
+                return;
+            }
+
+            workPerformanceIndex++;
+            workPerformanceTimer = 0f;
+            RenderWorkPerformanceOverlay();
+        }
+
+        public void ClickWorkSceneSkip()
+        {
+            AddLog("Work performance scene skipped.");
+            HideWorkPerformanceOverlay();
+            Render();
         }
 
         public void SelectPersonnel(string personnelId)
@@ -383,6 +456,11 @@ namespace ProjectW.IngameCore.CaseReview
             if (scenarioSession is not null)
             {
                 RenderScenarioOverlay();
+            }
+
+            if (workSceneOverlay is not null && workSceneOverlay.activeSelf)
+            {
+                RenderWorkPerformanceOverlay();
             }
         }
 
@@ -619,6 +697,7 @@ namespace ProjectW.IngameCore.CaseReview
             dragLayer.SetAsLastSibling();
 
             BuildScenarioOverlay(canvasObject.transform);
+            BuildWorkPerformanceOverlay(canvasObject.transform);
             dragLayer.SetAsLastSibling();
         }
 
@@ -687,6 +766,79 @@ namespace ProjectW.IngameCore.CaseReview
             choicesLayout.childForceExpandHeight = true;
 
             scenarioOverlay.SetActive(false);
+        }
+
+        private void BuildWorkPerformanceOverlay(Transform parent)
+        {
+            workSceneOverlay = CreateUiObject("Work Performance Overlay", parent);
+            Stretch((RectTransform)workSceneOverlay.transform);
+            var blocker = workSceneOverlay.AddComponent<Image>();
+            blocker.color = new Color(0.025f, 0.030f, 0.034f, 0.95f);
+
+            var topBar = CreatePanel("Work Scene Top Bar", workSceneOverlay.transform, new Color(0.07f, 0.08f, 0.09f, 0.94f));
+            var topRect = (RectTransform)topBar;
+            topRect.anchorMin = new Vector2(0f, 1f);
+            topRect.anchorMax = new Vector2(1f, 1f);
+            topRect.pivot = new Vector2(0.5f, 1f);
+            topRect.sizeDelta = new Vector2(0f, 70f);
+            topRect.anchoredPosition = Vector2.zero;
+            workSceneTitleText = CreateText("Work Performance", topBar, 22, FontStyle.Bold, TextAnchor.MiddleLeft);
+            workSceneTitleText.rectTransform.offsetMin = new Vector2(24f, 0f);
+            workSceneTitleText.rectTransform.offsetMax = new Vector2(-360f, 0f);
+
+            var skipButton = CreateOverlayButton("Skip", topBar, new Vector2(-210f, -35f), ClickWorkSceneSkip);
+            ((RectTransform)skipButton.transform).sizeDelta = new Vector2(120f, 42f);
+            var nextButton = CreateOverlayButton("Next", topBar, new Vector2(-76f, -35f), ClickWorkSceneNext);
+            ((RectTransform)nextButton.transform).sizeDelta = new Vector2(120f, 42f);
+
+            var stage = CreateUiObject("Work Scene Stage", workSceneOverlay.transform).transform;
+            var stageRect = (RectTransform)stage;
+            stageRect.anchorMin = new Vector2(0.04f, 0.14f);
+            stageRect.anchorMax = new Vector2(0.96f, 0.88f);
+            stageRect.offsetMin = Vector2.zero;
+            stageRect.offsetMax = Vector2.zero;
+
+            var actorPanel = CreatePanel("Worker Panel", stage, new Color(0.12f, 0.17f, 0.20f, 1f));
+            var actorRect = (RectTransform)actorPanel;
+            actorRect.anchorMin = new Vector2(0f, 0.10f);
+            actorRect.anchorMax = new Vector2(0.27f, 0.90f);
+            actorRect.offsetMin = Vector2.zero;
+            actorRect.offsetMax = Vector2.zero;
+            workSceneActorRoot = CreateUiObject("Worker Body", actorPanel).transform;
+            Stretch((RectTransform)workSceneActorRoot);
+            workSceneActorText = CreateText("", workSceneActorRoot, 24, FontStyle.Bold, TextAnchor.MiddleCenter);
+            workSceneActorText.rectTransform.offsetMin = new Vector2(18f, 18f);
+            workSceneActorText.rectTransform.offsetMax = new Vector2(-18f, -18f);
+
+            var workPanel = CreatePanel("Work Panel", stage, new Color(0.10f, 0.11f, 0.13f, 1f));
+            var workRect = (RectTransform)workPanel;
+            workRect.anchorMin = new Vector2(0.31f, 0.20f);
+            workRect.anchorMax = new Vector2(0.66f, 0.80f);
+            workRect.offsetMin = Vector2.zero;
+            workRect.offsetMax = Vector2.zero;
+            workSceneWorkText = CreateText("", workPanel, 20, FontStyle.Bold, TextAnchor.MiddleCenter);
+            workSceneWorkText.rectTransform.offsetMin = new Vector2(22f, 18f);
+            workSceneWorkText.rectTransform.offsetMax = new Vector2(-22f, -18f);
+
+            var impactPanel = CreatePanel("Impact Panel", stage, new Color(0.14f, 0.13f, 0.17f, 1f));
+            var impactRect = (RectTransform)impactPanel;
+            impactRect.anchorMin = new Vector2(0.70f, 0.10f);
+            impactRect.anchorMax = new Vector2(1f, 0.90f);
+            impactRect.offsetMin = Vector2.zero;
+            impactRect.offsetMax = Vector2.zero;
+            workSceneImpactRoot = CreateUiObject("Impact Body", impactPanel).transform;
+            Stretch((RectTransform)workSceneImpactRoot);
+            workSceneCardText = CreateText("", workSceneImpactRoot, 20, FontStyle.Bold, TextAnchor.UpperLeft);
+            workSceneCardText.rectTransform.offsetMin = new Vector2(20f, 230f);
+            workSceneCardText.rectTransform.offsetMax = new Vector2(-20f, -20f);
+            workSceneImpactText = CreateText("", workSceneImpactRoot, 18, FontStyle.Normal, TextAnchor.UpperLeft);
+            workSceneImpactText.rectTransform.offsetMin = new Vector2(20f, 80f);
+            workSceneImpactText.rectTransform.offsetMax = new Vector2(-20f, -220f);
+            workSceneProgressText = CreateText("", workSceneImpactRoot, 16, FontStyle.Bold, TextAnchor.LowerLeft);
+            workSceneProgressText.rectTransform.offsetMin = new Vector2(20f, 20f);
+            workSceneProgressText.rectTransform.offsetMax = new Vector2(-20f, -340f);
+
+            workSceneOverlay.SetActive(false);
         }
 
         private Button CreateOverlayButton(string label, Transform parent, Vector2 anchoredPosition, UnityEngine.Events.UnityAction action)
@@ -831,6 +983,66 @@ namespace ProjectW.IngameCore.CaseReview
             return portrait.IsDimmed
                 ? new Color(0.10f, 0.11f, 0.12f, 0.78f)
                 : new Color(0.18f, 0.24f, 0.28f, 1f);
+        }
+
+        private void BeginWorkPerformanceOverlay(List<WorkPerformanceEvent> events)
+        {
+            workPerformanceEvents.Clear();
+            workPerformanceEvents.AddRange(events);
+            HydrateWorkPerformanceResults();
+            workPerformanceIndex = 0;
+            workPerformanceTimer = 0f;
+            RenderWorkPerformanceOverlay();
+        }
+
+        private void HydrateWorkPerformanceResults()
+        {
+            foreach (var performance in workPerformanceEvents)
+            {
+                var item = FindEvent(performance.EventId);
+                if (item is null)
+                {
+                    continue;
+                }
+
+                performance.OutcomeAfter = item.OutcomeScore;
+                performance.RiskAfter = item.LatentRisk;
+                performance.ResultSummary = item.ResultSummary;
+            }
+        }
+
+        private void RenderWorkPerformanceOverlay()
+        {
+            if (workSceneOverlay is null || workPerformanceEvents.Count == 0)
+            {
+                return;
+            }
+
+            var performance = workPerformanceEvents[Mathf.Clamp(workPerformanceIndex, 0, workPerformanceEvents.Count - 1)];
+            var progress = Mathf.Clamp01(workPerformanceTimer / WorkPerformanceAutoSeconds);
+            workSceneOverlay.SetActive(true);
+            workSceneTitleText.text = $"Work Performance {workPerformanceIndex + 1}/{workPerformanceEvents.Count}";
+            workSceneActorText.text = $"{performance.PersonnelId}\n{performance.PersonnelName}\n\nused";
+            workSceneWorkText.text = $"{performance.EventId}\n{performance.WorkTitle}\n\n{performance.ResultSummary}";
+            workSceneCardText.text = $"{performance.CardTitle}\n{string.Join(", ", performance.Tags)}";
+            workSceneImpactText.text =
+                $"Outcome {performance.OutcomeBefore} -> {LerpInt(performance.OutcomeBefore, performance.OutcomeAfter, progress)} ({Signed(performance.OutcomeModifier)})\n" +
+                $"Risk {performance.RiskBefore} -> {LerpInt(performance.RiskBefore, performance.RiskAfter, progress)} ({Signed(performance.RiskModifier)})\n\n" +
+                performance.CardSummary;
+            workSceneProgressText.text =
+                $"OUT {Bar(LerpInt(0, Mathf.Abs(performance.OutcomeModifier), progress), 12)} {Signed(performance.OutcomeModifier)}\n" +
+                $"RISK {Bar(LerpInt(0, Mathf.Abs(performance.RiskModifier), progress), 12)} {Signed(performance.RiskModifier)}";
+        }
+
+        private void HideWorkPerformanceOverlay()
+        {
+            workPerformanceEvents.Clear();
+            workPerformanceIndex = 0;
+            workPerformanceTimer = 0f;
+            if (workSceneOverlay is not null)
+            {
+                workSceneOverlay.SetActive(false);
+            }
         }
 
         private Transform CreateColumn(Transform parent, string name, float flexibleWidth, float minWidth)
@@ -1129,16 +1341,19 @@ namespace ProjectW.IngameCore.CaseReview
             }
         }
 
-        private void UseRandomCardsForAssignedWork()
+        private List<WorkPerformanceEvent> UseRandomCardsForAssignedWork()
         {
+            var performances = new List<WorkPerformanceEvent>();
             if (CurrentState?.Slot != Slot.Morning)
             {
-                return;
+                return performances;
             }
 
             var random = new System.Random(CurrentState.Seed + CurrentState.Day * 1009);
+            var activeCards = new List<ActionCard>();
             foreach (var entry in CurrentState.MorningPlan.Entries)
             {
+                var item = FindEvent(entry.EventId);
                 foreach (var personId in AssignmentFor(entry.EventId))
                 {
                     var deck = DeckFor(personId);
@@ -1151,9 +1366,28 @@ namespace ProjectW.IngameCore.CaseReview
 
                     var used = available[random.Next(available.Count)];
                     deck.UsedToday.Add(used.Id);
+                    activeCards.Add(ToRuntimeCard(used, personId, entry.EventId));
+                    var person = CurrentState.Staff.FirstOrDefault(candidate => candidate.Id.Equals(personId, StringComparison.OrdinalIgnoreCase));
+                    performances.Add(new WorkPerformanceEvent
+                    {
+                        EventId = entry.EventId,
+                        WorkTitle = item?.Title ?? entry.EventId,
+                        PersonnelId = personId,
+                        PersonnelName = person?.Name ?? personId,
+                        CardTitle = used.Title,
+                        CardSummary = used.Summary,
+                        Tags = used.Tags.ToList(),
+                        OutcomeBefore = item?.OutcomeScore ?? 0,
+                        RiskBefore = item?.LatentRisk ?? 0,
+                        OutcomeModifier = used.OutcomeModifier,
+                        RiskModifier = used.RiskModifier
+                    });
                     AddLog($"{entry.EventId}: {personId} used card [{used.Title}]");
                 }
             }
+
+            CurrentState.MorningCards = activeCards;
+            return performances;
         }
 
         private void AutoReviewNightReports()
@@ -1247,6 +1481,21 @@ namespace ProjectW.IngameCore.CaseReview
             };
         }
 
+        private static ActionCard ToRuntimeCard(DebugCard card, string personnelId, string eventId)
+        {
+            return new ActionCard
+            {
+                Id = card.Id,
+                OwnerPersonnelId = personnelId,
+                TargetEventId = eventId,
+                Title = card.Title,
+                Summary = card.Summary,
+                Tags = card.Tags.ToList(),
+                OutcomeModifier = card.OutcomeModifier,
+                RiskModifier = card.RiskModifier
+            };
+        }
+
         private EventCase FindEvent(string eventId)
         {
             return CurrentState?.Queue.FirstOrDefault(item => item.Id.Equals(eventId, StringComparison.OrdinalIgnoreCase));
@@ -1313,6 +1562,11 @@ namespace ProjectW.IngameCore.CaseReview
             var safeMax = Math.Max(1, max);
             var filled = Mathf.Clamp(Mathf.RoundToInt(width * Mathf.Clamp01(value / (float)safeMax)), 0, width);
             return "[" + new string('#', filled) + new string('.', width - filled) + "]";
+        }
+
+        private static int LerpInt(int from, int to, float progress)
+        {
+            return Mathf.RoundToInt(Mathf.Lerp(from, to, Mathf.Clamp01(progress)));
         }
 
         private static void EnsureEventSystem()
@@ -1481,5 +1735,23 @@ namespace ProjectW.IngameCore.CaseReview
         public List<string> Tags { get; set; } = new();
         public int OutcomeModifier { get; set; }
         public int RiskModifier { get; set; }
+    }
+
+    internal sealed class WorkPerformanceEvent
+    {
+        public string EventId { get; set; } = "";
+        public string WorkTitle { get; set; } = "";
+        public string PersonnelId { get; set; } = "";
+        public string PersonnelName { get; set; } = "";
+        public string CardTitle { get; set; } = "";
+        public string CardSummary { get; set; } = "";
+        public List<string> Tags { get; set; } = new();
+        public int OutcomeBefore { get; set; }
+        public int OutcomeAfter { get; set; }
+        public int RiskBefore { get; set; }
+        public int RiskAfter { get; set; }
+        public int OutcomeModifier { get; set; }
+        public int RiskModifier { get; set; }
+        public string ResultSummary { get; set; } = "";
     }
 }

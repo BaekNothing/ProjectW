@@ -631,6 +631,39 @@ namespace ProjectW.Tests.EditMode
         }
 
         [Test]
+        public void ConfirmPlan_AppliesTargetedCardsOnlyToMatchingWork()
+        {
+            var baseline = CaseReviewGame.Init(new GameConfig(), 1);
+            CaseReviewGame.Dispatch(baseline, "adjust E-108 B-04");
+            CaseReviewGame.Dispatch(baseline, "adjust R-211 B-04");
+            CaseReviewGame.Dispatch(baseline, "confirm plan");
+            var baselineTarget = baseline.Queue.Single(item => item.Id == "E-108");
+            var baselineOther = baseline.Queue.Single(item => item.Id == "R-211");
+
+            var targeted = CaseReviewGame.Init(new GameConfig(), 1);
+            CaseReviewGame.Dispatch(targeted, "adjust E-108 B-04");
+            CaseReviewGame.Dispatch(targeted, "adjust R-211 B-04");
+            targeted.MorningCards = new List<ActionCard>
+            {
+                new()
+                {
+                    Id = "card.targeted",
+                    OwnerPersonnelId = "B-04",
+                    TargetEventId = "E-108",
+                    OutcomeModifier = 25,
+                    RiskModifier = -10
+                }
+            };
+
+            CaseReviewGame.Dispatch(targeted, "confirm plan");
+            var targetedEvent = targeted.Queue.Single(item => item.Id == "E-108");
+            var otherEvent = targeted.Queue.Single(item => item.Id == "R-211");
+
+            Assert.Greater(targetedEvent.OutcomeScore, baselineTarget.OutcomeScore);
+            Assert.AreEqual(baselineOther.OutcomeScore, otherEvent.OutcomeScore);
+        }
+
+        [Test]
         public void Report_AfterConfirmPlan_ReturnsGeneratedDailyReport()
         {
             var state = CaseReviewGame.Init(new GameConfig(), 1);

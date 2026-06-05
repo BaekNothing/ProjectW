@@ -960,6 +960,7 @@ public static class CaseReviewGame
         {
             Id = source.Id,
             OwnerPersonnelId = string.IsNullOrWhiteSpace(source.OwnerPersonnelId) ? ownerId : source.OwnerPersonnelId,
+            TargetEventId = source.TargetEventId,
             Title = source.Title,
             Summary = source.Summary,
             Tags = new List<string>(source.Tags ?? new List<string>()),
@@ -1494,6 +1495,8 @@ public static class CaseReviewGame
     {
         return state.MorningCards
             .Where(card => item.AssignedPersonnel.Contains(card.OwnerPersonnelId, StringComparer.OrdinalIgnoreCase))
+            .Where(card => string.IsNullOrWhiteSpace(card.TargetEventId)
+                || card.TargetEventId.Equals(item.Id, StringComparison.OrdinalIgnoreCase))
             .ToList();
     }
 

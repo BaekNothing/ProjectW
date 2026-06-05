@@ -124,6 +124,7 @@ public sealed class ActionCard
 {
     public string Id { get; set; } = "";
     public string OwnerPersonnelId { get; set; } = "";
+    public string TargetEventId { get; set; } = "";
     public string Title { get; set; } = "";
     public string Summary { get; set; } = "";
     public List<string> Tags { get; set; } = new();

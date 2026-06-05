@@ -551,6 +551,10 @@ Scenario runtime implementation should be split into these responsibilities.
   - plays resolved lines, stage commands, typewriter text, choices, skip, and autoplay
 - `ScenarioPresentationView`
   - owns character panels, panel positions, effect output, bottom text box, top-right skip/autoplay controls
+- `WorkPerformancePresentation`
+  - may play after morning plan confirmation and before or over the evening summary
+  - shows each assigned worker, the card used for the target work, and the visible outcome/risk influence
+  - card effects must still flow through explicit runtime data such as `ActionCard.TargetEventId`; the presentation must not mutate core state directly
 - `ScenarioEffectApplier`
   - applies declared state effects through public core mutation interfaces only
 
