@@ -8,11 +8,11 @@
 | 항목 | 값 |
 |------|-----|
 | **동기화 모드** | `index (pre-commit / manual)` |
-| **동기화 시각 (UTC)** | `2026-06-06T14:35:36Z` |
-| **기준 커밋 (전체 SHA)** | `64ff38ea0af2e1c6d954af004900b50643685362` |
-| **기준 커밋 (단축)** | `64ff38e` |
+| **동기화 시각 (UTC)** | `2026-06-06T15:34:27Z` |
+| **기준 커밋 (전체 SHA)** | `4ab3039207a5cdb70ee0c3fafb6bdd4c35d18569` |
+| **기준 커밋 (단축)** | `4ab3039` |
 | **브랜치** | `ai-integration` |
-| **추적 경로 지문** | `sha256:c0f3d501d2494f86299b1472d267a73f761313e8cd8f6e365d7946e34039b402` |
+| **추적 경로 지문** | `sha256:2dd58fa5a0db82e0bf1b7107924642f303a2f2fbdfa1b3905287d53cfd12bca3` |
 | **추적 경로** | `Assets/Specification/`<br>`Assets/Scripts/`<br>`Assets/Tests/`<br>`Assets/Editor/`<br>`Assets/Resources/CaseReviewData/` |
 
 > 지문은 Git 인덱스(`git ls-files -s`)에 등록된 추적 경로 파일 목록·blob 해시의 SHA-256이다.  
@@ -386,8 +386,9 @@ flowchart TB
 | Dev Tools | 샘플 시나리오 재생과 향후 개발 전용 도구 진입점 |
 | 창 조작 | 드래그 이동, 세션 내 위치 기억, 리사이즈, 최소 크기, 기본 세로 스크롤 |
 | 가독성 기준 | MVP UI 텍스트 최소 30 px, 이에 맞춘 버튼·슬롯·카드·로그 높이 확장 |
-| 업무 배치 | `TodayWorkPlan`의 업무 슬롯에 캐릭터 드래그 앤 드롭 또는 후보 모드 선택 |
-| 후보 모드 | 빈 슬롯 또는 캐릭터 선택 상태에서 `CharacterProfiling`이 삽입 가능 캐릭터를 정상 표시하고 불가 캐릭터를 dim 처리 |
+| 업무 배치 | `TodayWorkPlan`의 슬롯을 선택하면 창 내부가 아니라 별도 floating panel이 오른쪽에 열리고 캐릭터 선택 리스트 표시 |
+| 캐릭터 선택 행 | 얼굴 placeholder, 이름/id, load/fatigue/trust 상태를 표시하고 선택 불가 캐릭터는 floating picker 안에서 dim 처리 |
+| Character Profiling | 상단 ID/이름 탭 그리드, 1단 얼굴+캐릭터 상태, 2단 Today Card 목록의 세로 구조 |
 | 실행 피드백 | `CONFIRM PLAN` 후 worker hand reveal과 used-card highlight를 보여주는 work performance overlay |
 | 상태 경계 | `CaseReviewGame.Dispatch`와 명시적 assignment sync 경계를 유지 |
 
@@ -455,7 +456,7 @@ classDiagram
 | 파일 | 책임 |
 |------|------|
 | `CaseReviewGame.cs` | 유일한 게임 엔진 진입점, 명령·틱·일 진행 |
-| `CaseReviewMvpSceneController.cs` | MVP Scene 런타임 UGUI 데스크탑, 목적 중심 창, drag/drop assignment, work performance overlay |
+| `CaseReviewMvpSceneController.cs` | MVP Scene 런타임 UGUI 데스크탑, 목적 중심 창, assignment picker, work performance overlay |
 | `Models.cs` | `GameState`, `GameConfig`, `EventCase`, `Personnel`, DTO |
 | `CoreRules.cs` | `CaseReviewRules` + 기본 정책 구현 |
 | `ReportGenerator.cs` | 일일·개별 보고서 텍스트 생성 |
@@ -737,7 +738,7 @@ flowchart LR
 | 2026-06-03 | Ingame §15 Decision Ledger | PM Log 판단 권한 폐기, 핵심 결정 SSOT 흡수 |
 | 2026-06-03 | System Index 판단 순서 정리 | PM Log → Deprecated, Git·구현 순서 명확화 |
 | 2026-06-06 | MVP Scene 데스크탑 UI 3창 재구성 | Current Work, Today Plan, Character Profiling, Dev Tools 목적 중심 창과 데스크탑 shortcut 구조 |
-| 2026-06-06 | MVP UI 접근성 기준 | 모든 런타임 UI 텍스트 최소 30 px, 창 기본 스크롤, drag/resize/위치 기억, assignment 후보 dim 처리 |
+| 2026-06-06 | MVP UI 접근성 기준 | 모든 런타임 UI 텍스트 최소 30 px, 창 기본 스크롤, drag/resize/위치 기억, assignment picker dim 처리 |
 | 2026-06-03 | Character Data Workshop | SO 샘플·에디터 생성 파이프라인 |
 | (이전) | `CaseReviewRules` | 카드 뽑기·검토 비용·대체 압력·보스 정책 플러그 |
 

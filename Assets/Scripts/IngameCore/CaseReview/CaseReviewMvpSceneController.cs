@@ -79,8 +79,8 @@ namespace ProjectW.IngameCore.CaseReview
         private float workPerformanceTimer;
         private string selectedPersonnelId = "";
         private string selectedWorkId = "";
-        private string candidateAssignmentEventId = "";
-        private bool showAssignmentCandidates;
+        private string assignmentPickerEventId = "";
+        private int assignmentPickerSlotIndex = -1;
         private MvpDesktopWindow focusedWindow = MvpDesktopWindow.None;
         private int cardStateDay = -1;
 
@@ -148,8 +148,8 @@ namespace ProjectW.IngameCore.CaseReview
             visibleLogLines.Clear();
             selectedPersonnelId = CurrentState.Staff.FirstOrDefault(person => !person.HasLeft)?.Id ?? "";
             selectedWorkId = CurrentState.MorningPlan?.Entries?.FirstOrDefault()?.EventId ?? FirstActiveEventId();
-            candidateAssignmentEventId = "";
-            showAssignmentCandidates = false;
+            assignmentPickerEventId = "";
+            assignmentPickerSlotIndex = -1;
             openWindows.Clear();
             windowLayouts.Clear();
             focusedWindow = MvpDesktopWindow.None;
@@ -408,8 +408,6 @@ namespace ProjectW.IngameCore.CaseReview
 
             assignment.Add(personnelId);
             SyncPlanAdjustment(eventId);
-            candidateAssignmentEventId = "";
-            showAssignmentCandidates = false;
             AddLog($"{eventId} slot filled: {assignment.Count}/{maxSlots}");
             Render();
         }
@@ -581,6 +579,7 @@ namespace ProjectW.IngameCore.CaseReview
                     break;
                 case MvpDesktopWindow.TodayWorkPlan:
                     CreateTodayWorkPlanWindow();
+                    CreateFloatingAssignmentPicker();
                     break;
                 case MvpDesktopWindow.CharacterProfiling:
                     CreateCharacterProfilingWindow();
@@ -596,11 +595,6 @@ namespace ProjectW.IngameCore.CaseReview
             if (window == MvpDesktopWindow.None)
             {
                 return;
-            }
-
-            if (window == MvpDesktopWindow.CharacterProfiling)
-            {
-                ActivateCandidateModeForSelectedWork();
             }
 
             openWindows.Add(window);
@@ -630,8 +624,6 @@ namespace ProjectW.IngameCore.CaseReview
         private void SelectWorkFile(string eventId)
         {
             selectedWorkId = eventId;
-            candidateAssignmentEventId = "";
-            showAssignmentCandidates = false;
             OpenDesktopWindow(MvpDesktopWindow.CurrentWorkDashboard);
             Render();
         }
@@ -854,38 +846,22 @@ namespace ProjectW.IngameCore.CaseReview
         private void CreateCharacterProfilingWindow()
         {
             var panel = CreateDockWindow(MvpDesktopWindow.CharacterProfiling, "CHARACTER PROFILING", new Vector2(0.48f, 0.16f), new Vector2(0.96f, 0.92f), IdCardColor);
-            panel.gameObject.AddComponent<RosterDropTarget>().Initialize(this);
-            var body = CreateUiObject("Profile Body", panel).transform;
-            body.gameObject.AddComponent<LayoutElement>().flexibleHeight = 1;
-            var bodyLayout = body.gameObject.AddComponent<HorizontalLayoutGroup>();
-            bodyLayout.spacing = 10;
-            bodyLayout.childForceExpandHeight = true;
-
-            rosterRoot = CreatePanel("Personnel Cards", body, new Color(0.64f, 0.70f, 0.68f, 1f));
-            rosterRoot.gameObject.AddComponent<LayoutElement>().flexibleWidth = 0.42f;
-            var rosterLayout = rosterRoot.gameObject.AddComponent<VerticalLayoutGroup>();
+            rosterRoot = CreatePanel("Character Tabs", panel, new Color(0.64f, 0.70f, 0.68f, 1f));
+            rosterRoot.gameObject.AddComponent<LayoutElement>().minHeight = 238;
+            var rosterLayout = rosterRoot.gameObject.AddComponent<GridLayoutGroup>();
             rosterLayout.padding = new RectOffset(8, 8, 8, 8);
-            rosterLayout.spacing = 6;
-            rosterLayout.childForceExpandWidth = true;
-            if (showAssignmentCandidates && !string.IsNullOrWhiteSpace(candidateAssignmentEventId))
-            {
-                var candidateHeader = CreateText($"INSERT CANDIDATES FOR {candidateAssignmentEventId}\nAvailable: {BuildCandidatePersonnelLine(candidateAssignmentEventId)}\nDimmed IDs cannot be inserted into this slot.", rosterRoot, 16, FontStyle.Bold, TextAnchor.MiddleLeft);
-                candidateHeader.color = PaperTextColor;
-                candidateHeader.gameObject.AddComponent<LayoutElement>().minHeight = 132;
-            }
-
+            rosterLayout.spacing = new Vector2(8, 8);
+            rosterLayout.cellSize = new Vector2(190, 66);
+            rosterLayout.constraint = GridLayoutGroup.Constraint.Flexible;
+            rosterLayout.startAxis = GridLayoutGroup.Axis.Horizontal;
+            rosterLayout.childAlignment = TextAnchor.UpperLeft;
             foreach (var person in CurrentState.Staff.Where(person => !person.HasLeft))
             {
-                var candidateMode = showAssignmentCandidates && !string.IsNullOrWhiteSpace(candidateAssignmentEventId);
-                var canInsert = !candidateMode || CanInsertPersonnelIntoWork(person, candidateAssignmentEventId);
-                var suffix = candidateMode
-                    ? canInsert ? "CAN INSERT" : "UNAVAILABLE"
-                    : "";
-                CreateCharacterToken(person, rosterRoot, "", selectedPersonnelId.Equals(person.Id, StringComparison.OrdinalIgnoreCase), !canInsert, suffix);
+                CreateCharacterTab(person, rosterRoot, selectedPersonnelId.Equals(person.Id, StringComparison.OrdinalIgnoreCase));
             }
 
-            var profilePanel = CreatePanel("Profile Detail", body, PaperColor);
-            profilePanel.gameObject.AddComponent<LayoutElement>().flexibleWidth = 0.58f;
+            var profilePanel = CreatePanel("Profile Status", panel, PaperColor);
+            profilePanel.gameObject.AddComponent<LayoutElement>().minHeight = 180;
             var profileLayout = profilePanel.gameObject.AddComponent<VerticalLayoutGroup>();
             profileLayout.padding = new RectOffset(10, 10, 10, 10);
             profileLayout.spacing = 8;
@@ -893,10 +869,24 @@ namespace ProjectW.IngameCore.CaseReview
             var selected = CurrentState.Staff.FirstOrDefault(person => person.Id.Equals(selectedPersonnelId, StringComparison.OrdinalIgnoreCase));
             if (selected is not null)
             {
-                var detail = CreateText($"ID {selected.Id}  {selected.Name}\nLOAD {selected.LoadAssigned}/{Math.Max(1, selected.MaxLoad)} | FATIGUE {selected.Fatigue} | TRUST {selected.TrustToManager} | RETENTION {selected.RetentionRisk}", profilePanel, 16, FontStyle.Bold, TextAnchor.UpperLeft);
+                var statusRow = CreateUiObject("Profile Status Row", profilePanel).transform;
+                statusRow.gameObject.AddComponent<LayoutElement>().minHeight = 144;
+                var statusLayout = statusRow.gameObject.AddComponent<HorizontalLayoutGroup>();
+                statusLayout.spacing = 10;
+                statusLayout.childForceExpandHeight = true;
+                statusLayout.childForceExpandWidth = false;
+                CreateCharacterFaceBlock(selected, statusRow);
+                var detail = CreateText($"ID {selected.Id}  {selected.Name}\nLOAD {selected.LoadAssigned}/{Math.Max(1, selected.MaxLoad)} | FATIGUE {selected.Fatigue} | TRUST {selected.TrustToManager} | RETENTION {selected.RetentionRisk}", statusRow, 16, FontStyle.Bold, TextAnchor.MiddleLeft);
                 detail.color = PaperTextColor;
-                detail.gameObject.AddComponent<LayoutElement>().minHeight = 124;
-                cardHandRoot = CreateDynamicRoot("Today Hand", profilePanel);
+                var detailLayout = detail.gameObject.AddComponent<LayoutElement>();
+                detailLayout.flexibleWidth = 1;
+                detailLayout.minHeight = 124;
+                cardHandRoot = CreatePanel("Today Cards", panel, new Color(0.30f, 0.25f, 0.18f, 1f));
+                cardHandRoot.gameObject.AddComponent<LayoutElement>().minHeight = 360;
+                var cardLayout = cardHandRoot.gameObject.AddComponent<VerticalLayoutGroup>();
+                cardLayout.padding = new RectOffset(10, 10, 10, 10);
+                cardLayout.spacing = 8;
+                cardLayout.childForceExpandWidth = true;
                 var deck = DeckFor(selected.Id);
                 foreach (var card in deck.TodayHand)
                 {
@@ -975,112 +965,277 @@ namespace ProjectW.IngameCore.CaseReview
                 CreateWindowButton($"{work.Id}\n{work.Title}", entries, selected ? FolderDarkColor : PaperColor, () =>
                 {
                     selectedWorkId = work.Id;
-                    candidateAssignmentEventId = "";
-                    showAssignmentCandidates = false;
+                    assignmentPickerEventId = "";
+                    assignmentPickerSlotIndex = -1;
                     OpenDesktopWindow(MvpDesktopWindow.TodayWorkPlan);
                     Render();
                 }, 58, selected ? CrtTextColor : PaperTextColor);
             }
 
-            var plan = CreateText($"SELECTED FILE {item.Id}  {item.Title}\nDrag personnel IDs into sockets, then approve the plan.", parent, 13, FontStyle.Bold, TextAnchor.UpperLeft);
+            var plan = CreateText($"SELECTED FILE {item.Id}  {item.Title}\nSelect personnel from each slot list, then approve the plan.", parent, 13, FontStyle.Bold, TextAnchor.UpperLeft);
             plan.color = PaperTextColor;
             plan.gameObject.AddComponent<LayoutElement>().minHeight = 94;
             var assignment = AssignmentFor(item.Id);
-            var slots = CreateUiObject("Assignment Slots", parent).transform;
-            var slotLayout = slots.gameObject.AddComponent<HorizontalLayoutGroup>();
+            var assignmentBody = CreateUiObject("Assignment Picker Body", parent).transform;
+            assignmentBody.gameObject.AddComponent<LayoutElement>().minHeight = 390;
+            var slots = CreateUiObject("Assignment Slots", assignmentBody).transform;
+            Stretch((RectTransform)slots);
+            var slotLayout = slots.gameObject.AddComponent<VerticalLayoutGroup>();
             slotLayout.spacing = 8;
             slotLayout.childForceExpandWidth = true;
-            slotLayout.childForceExpandHeight = true;
-            slots.gameObject.AddComponent<LayoutElement>().minHeight = 116;
+            slotLayout.childForceExpandHeight = false;
             var maxSlots = Math.Max(1, item.MaxPersonnelCount);
             for (var slotIndex = 0; slotIndex < maxSlots; slotIndex++)
             {
-                var slot = CreatePanel($"ID Slot {slotIndex + 1}", slots, new Color(0.24f, 0.19f, 0.13f, 1f));
-                var slotElement = slot.gameObject.AddComponent<LayoutElement>();
-                slotElement.minWidth = 150;
-                slotElement.minHeight = 104;
-                slot.gameObject.AddComponent<WorkSlotDropTarget>().Initialize(this, item.Id);
-                if (slotIndex < assignment.Count)
-                {
-                    var person = CurrentState.Staff.FirstOrDefault(candidate => candidate.Id.Equals(assignment[slotIndex], StringComparison.OrdinalIgnoreCase));
-                    if (person is not null)
-                    {
-                        CreateCharacterToken(person, slot, item.Id, false);
-                    }
-                }
-                else
-                {
-                    var button = slot.gameObject.AddComponent<Button>();
-                    button.targetGraphic = slot.GetComponent<Image>();
-                    button.onClick.AddListener(() => ClickEmptyAssignmentSlot(item.Id));
-                    var label = CreateText("EMPTY ID SOCKET", slot, 16, FontStyle.Bold, TextAnchor.MiddleCenter);
-                    label.color = new Color(0.62f, 0.52f, 0.36f, 1f);
-                    label.raycastTarget = false;
-                }
+                CreateAssignmentSlotPicker(item, assignment, slotIndex, slots);
             }
         }
 
-        private void ActivateCandidateModeForSelectedWork()
+        private void CreateAssignmentSlotPicker(EventCase item, List<string> assignment, int slotIndex, Transform parent)
         {
-            if (CurrentState?.Slot != Slot.Morning)
+            var assignedId = slotIndex < assignment.Count ? assignment[slotIndex] : "";
+            var assigned = string.IsNullOrWhiteSpace(assignedId)
+                ? null
+                : CurrentState.Staff.FirstOrDefault(person => person.Id.Equals(assignedId, StringComparison.OrdinalIgnoreCase));
+            var pickerOpen = assignmentPickerSlotIndex == slotIndex
+                && assignmentPickerEventId.Equals(item.Id, StringComparison.OrdinalIgnoreCase);
+            var slot = CreatePanel($"Assignment Slot {slotIndex + 1}", parent, pickerOpen ? FolderDarkColor : new Color(0.24f, 0.19f, 0.13f, 1f));
+            var slotElement = slot.gameObject.AddComponent<LayoutElement>();
+            slotElement.minHeight = 112;
+            var slotLayout = slot.gameObject.AddComponent<VerticalLayoutGroup>();
+            slotLayout.padding = new RectOffset(8, 8, 8, 8);
+            slotLayout.spacing = 8;
+            slotLayout.childForceExpandWidth = true;
+            slotLayout.childForceExpandHeight = false;
+
+            var label = assigned is null
+                ? $"SLOT {slotIndex + 1}\nEMPTY - SELECT CHARACTER"
+                : $"SLOT {slotIndex + 1}\n{BuildPersonnelPickerLabel(assigned)}";
+            CreateWindowButton(label, slot, assigned is null ? TerminalButtonColor : IdCardColor, () =>
+            {
+                ToggleAssignmentPicker(item.Id, slotIndex);
+            }, 96, assigned is null ? CrtTextColor : PaperTextColor);
+
+            if (!pickerOpen)
             {
                 return;
             }
 
-            var item = SelectedWorkOrFallback();
+            var hint = CreateText("Picker opened on the right.", slot, 13, FontStyle.Bold, TextAnchor.MiddleLeft);
+            hint.color = CrtTextColor;
+            hint.gameObject.AddComponent<LayoutElement>().minHeight = 48;
+        }
+
+        private void CreateAssignmentPickerWing(EventCase item, List<string> assignment, Transform parent)
+        {
+            var wing = CreatePanel("Character Picker Wing", parent, FolderDarkColor);
+            var wingElement = wing.gameObject.AddComponent<LayoutElement>();
+            wingElement.flexibleWidth = 0.55f;
+            wingElement.minWidth = 430;
+            var wingLayout = wing.gameObject.AddComponent<VerticalLayoutGroup>();
+            wingLayout.padding = new RectOffset(10, 10, 10, 10);
+            wingLayout.spacing = 8;
+            wingLayout.childForceExpandWidth = true;
+            wingLayout.childForceExpandHeight = false;
+
+            var slotOpen = assignmentPickerSlotIndex >= 0 && assignmentPickerEventId.Equals(item.Id, StringComparison.OrdinalIgnoreCase);
+            var headerText = slotOpen
+                ? $"SLOT {assignmentPickerSlotIndex + 1} CHARACTER SELECT"
+                : "CHARACTER SELECT";
+            var header = CreateText(headerText, wing, 16, FontStyle.Bold, TextAnchor.MiddleLeft);
+            header.color = CrtTextColor;
+            header.gameObject.AddComponent<LayoutElement>().minHeight = 54;
+
+            if (!slotOpen)
+            {
+                var empty = CreateText("Select a slot on the left.", wing, 13, FontStyle.Bold, TextAnchor.MiddleLeft);
+                empty.color = CrtTextColor;
+                empty.gameObject.AddComponent<LayoutElement>().minHeight = 90;
+                return;
+            }
+
+            var assignedId = assignmentPickerSlotIndex < assignment.Count ? assignment[assignmentPickerSlotIndex] : "";
+            var listContent = CreateEmbeddedScrollContent("Character Wing Dropdown", wing, 300);
+            CreateWindowButton("NONE\nClear this slot", listContent, PaperColor, () =>
+            {
+                SelectPersonnelForAssignmentSlot(item.Id, assignmentPickerSlotIndex, "");
+            }, 86, PaperTextColor);
+
+            foreach (var person in CurrentState.Staff.Where(person => !person.HasLeft))
+            {
+                var selectable = CanSelectPersonnelForSlot(person, item.Id, assignmentPickerSlotIndex);
+                var currentSlot = assignedId.Equals(person.Id, StringComparison.OrdinalIgnoreCase);
+                var assignedElsewhere = FindAssignedEventId(person.Id, item.Id);
+                var status = string.IsNullOrWhiteSpace(assignedElsewhere) || currentSlot
+                    ? BuildPersonnelPickerStatus(person)
+                    : $"{BuildPersonnelPickerStatus(person)} | MOVE FROM {assignedElsewhere}";
+                var rowLabel = $"FACE {person.Id}\n{person.Name} ({person.Id})\n{status}";
+                var rowColor = currentSlot ? new Color(0.90f, 0.88f, 0.72f, 1f) : selectable ? IdCardColor : new Color(0.34f, 0.36f, 0.34f, 0.72f);
+                var button = CreateWindowButton(rowLabel, listContent, rowColor, () =>
+                {
+                    SelectPersonnelForAssignmentSlot(item.Id, assignmentPickerSlotIndex, person.Id);
+                }, 124, selectable ? PaperTextColor : new Color(PaperTextColor.r, PaperTextColor.g, PaperTextColor.b, 0.42f));
+                button.interactable = selectable;
+            }
+        }
+
+        private void CreateFloatingAssignmentPicker()
+        {
+            if (assignmentPickerSlotIndex < 0 || string.IsNullOrWhiteSpace(assignmentPickerEventId))
+            {
+                return;
+            }
+
+            var item = FindEvent(assignmentPickerEventId);
             if (item is null)
             {
                 return;
             }
 
-            candidateAssignmentEventId = item.Id;
-            showAssignmentCandidates = true;
+            var assignment = AssignmentFor(item.Id);
+            var panel = CreatePanel("Floating Character Picker", windowLayer, FolderDarkColor);
+            var rect = (RectTransform)panel;
+            var todayLayout = WindowLayoutFor(MvpDesktopWindow.TodayWorkPlan, new Vector2(0.12f, 0.12f), new Vector2(0.78f, 0.86f));
+            var width = Mathf.Min(0.26f, Mathf.Max(0.18f, 0.98f - todayLayout.AnchorMax.x - 0.01f));
+            var minX = todayLayout.AnchorMax.x + 0.01f;
+            if (minX + width > 0.98f)
+            {
+                minX = Mathf.Max(0.02f, todayLayout.AnchorMin.x - width - 0.01f);
+            }
+
+            rect.anchorMin = new Vector2(minX, todayLayout.AnchorMin.y);
+            rect.anchorMax = new Vector2(Mathf.Min(0.98f, minX + width), todayLayout.AnchorMax.y);
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            panel.SetAsLastSibling();
+
+            var layout = panel.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.padding = new RectOffset(12, 12, 12, 12);
+            layout.spacing = 8;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+
+            CreateAssignmentPickerWing(item, assignment, panel);
         }
 
-        private void ClickEmptyAssignmentSlot(string eventId)
+        private Transform CreateEmbeddedScrollContent(string name, Transform parent, float minHeight)
         {
-            selectedWorkId = eventId;
-            candidateAssignmentEventId = eventId;
-            if (openWindows.Contains(MvpDesktopWindow.CharacterProfiling))
+            var scrollRoot = CreatePanel(name, parent, new Color(0.08f, 0.09f, 0.08f, 0.72f));
+            scrollRoot.gameObject.AddComponent<LayoutElement>().minHeight = minHeight;
+            var scrollRect = scrollRoot.gameObject.AddComponent<ScrollRect>();
+            scrollRect.horizontal = false;
+            scrollRect.vertical = true;
+            scrollRect.movementType = ScrollRect.MovementType.Clamped;
+            scrollRect.scrollSensitivity = 36f;
+
+            var viewport = CreateUiObject("Viewport", scrollRoot).transform;
+            Stretch((RectTransform)viewport);
+            var viewportImage = viewport.gameObject.AddComponent<Image>();
+            viewportImage.color = new Color(0f, 0f, 0f, 0.01f);
+            viewportImage.raycastTarget = true;
+            var mask = viewport.gameObject.AddComponent<Mask>();
+            mask.showMaskGraphic = false;
+
+            var content = CreateUiObject("Content", viewport).transform;
+            var contentRect = (RectTransform)content;
+            contentRect.anchorMin = new Vector2(0f, 1f);
+            contentRect.anchorMax = new Vector2(1f, 1f);
+            contentRect.pivot = new Vector2(0.5f, 1f);
+            contentRect.anchoredPosition = Vector2.zero;
+            contentRect.sizeDelta = Vector2.zero;
+            var layout = content.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.padding = new RectOffset(8, 8, 8, 8);
+            layout.spacing = 8;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+            var fitter = content.gameObject.AddComponent<ContentSizeFitter>();
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            scrollRect.viewport = (RectTransform)viewport;
+            scrollRect.content = contentRect;
+            return content;
+        }
+
+        private void ToggleAssignmentPicker(string eventId, int slotIndex)
+        {
+            if (assignmentPickerSlotIndex == slotIndex && assignmentPickerEventId.Equals(eventId, StringComparison.OrdinalIgnoreCase))
             {
-                showAssignmentCandidates = true;
-                AddLog($"Assignment candidates shown for {eventId}.");
+                assignmentPickerEventId = "";
+                assignmentPickerSlotIndex = -1;
             }
             else
             {
-                showAssignmentCandidates = false;
-                AddLog($"Open character profiling to fill {eventId}.");
+                assignmentPickerEventId = eventId;
+                assignmentPickerSlotIndex = slotIndex;
             }
 
-            OpenDesktopWindow(MvpDesktopWindow.CharacterProfiling);
             Render();
         }
 
-        private bool CanInsertPersonnelIntoWork(Personnel person, string eventId)
+        private void SelectPersonnelForAssignmentSlot(string eventId, int slotIndex, string personnelId)
         {
-            if (CurrentState?.Slot != Slot.Morning || person is null || person.HasLeft)
+            var assignment = AssignmentFor(eventId);
+            while (assignment.Count <= slotIndex)
             {
-                return false;
+                assignment.Add("");
             }
 
-            var item = FindEvent(eventId);
-            if (item is null)
+            var current = assignment[slotIndex];
+            if (!string.IsNullOrWhiteSpace(current))
+            {
+                assignment[slotIndex] = "";
+            }
+
+            if (!string.IsNullOrWhiteSpace(personnelId))
+            {
+                var existingEventId = FindAssignedEventId(personnelId, eventId);
+                if (!string.IsNullOrWhiteSpace(existingEventId))
+                {
+                    RemovePersonnelFromWork(personnelId, existingEventId, renderAfter: false);
+                }
+
+                for (var index = 0; index < assignment.Count; index++)
+                {
+                    if (index != slotIndex && assignment[index].Equals(personnelId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        assignment[index] = "";
+                    }
+                }
+
+                assignment[slotIndex] = personnelId;
+            }
+
+            SyncPlanAdjustment(eventId);
+            assignmentPickerEventId = "";
+            assignmentPickerSlotIndex = -1;
+            AddLog(string.IsNullOrWhiteSpace(personnelId) ? $"{eventId} slot cleared." : $"{eventId} slot selected: {personnelId}.");
+            Render();
+        }
+
+        private bool CanSelectPersonnelForSlot(Personnel person, string eventId, int slotIndex)
+        {
+            if (person is null || person.HasLeft || CurrentState?.Slot != Slot.Morning)
             {
                 return false;
             }
 
             var assignment = AssignmentFor(eventId);
-            return !assignment.Any(id => id.Equals(person.Id, StringComparison.OrdinalIgnoreCase))
-                && assignment.Count < Math.Max(1, item.MaxPersonnelCount);
+            if (slotIndex < assignment.Count && assignment[slotIndex].Equals(person.Id, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return !assignment.Any(id => id.Equals(person.Id, StringComparison.OrdinalIgnoreCase));
         }
 
-        private string BuildCandidatePersonnelLine(string eventId)
+        private static string BuildPersonnelPickerLabel(Personnel person)
         {
-            var candidates = CurrentState.Staff
-                .Where(person => CanInsertPersonnelIntoWork(person, eventId))
-                .Select(person => person.Id)
-                .ToList();
-            return candidates.Count == 0 ? "none" : string.Join(", ", candidates);
+            return $"FACE {person.Id} | {person.Name} ({person.Id})\n{BuildPersonnelPickerStatus(person)}";
+        }
+
+        private static string BuildPersonnelPickerStatus(Personnel person)
+        {
+            return $"LOAD {person.LoadAssigned}/{Math.Max(1, person.MaxLoad)} | FAT {person.Fatigue} | TRUST {person.TrustToManager}";
         }
 
         private void CreateProgressRow(string label, int value, int max, Transform parent, Color color)
@@ -1275,7 +1430,6 @@ namespace ProjectW.IngameCore.CaseReview
                 actionHintText.text = CurrentState.MorningPlan.Confirmed
                     ? "> PLAN STAMPED. OPERATIONS MOVED TO NIGHT."
                     : "> INSERT personnel IDs into file slots. Return an ID to the rack to clear it.";
-                AddActionButton("> PLAN", ClickShowPlan, true);
                 AddActionButton("> OPEN PRIORITY FILE", ClickOpenPriorityWork, !CurrentState.MorningPlan.Confirmed);
                 AddActionButton("> STAMP APPROVED", ClickConfirmPlan, !CurrentState.MorningPlan.Confirmed);
                 return;
@@ -1960,6 +2114,39 @@ namespace ProjectW.IngameCore.CaseReview
             text.raycastTarget = false;
         }
 
+        private void CreateCharacterTab(Personnel person, Transform parent, bool selected)
+        {
+            var tab = CreatePanel("Character Tab " + person.Id, parent, selected ? new Color(0.90f, 0.88f, 0.72f, 1f) : IdCardColor);
+            var layout = tab.gameObject.AddComponent<LayoutElement>();
+            layout.minWidth = 190;
+            layout.minHeight = 66;
+            var button = tab.gameObject.AddComponent<Button>();
+            button.targetGraphic = tab.GetComponent<Image>();
+            button.onClick.AddListener(() =>
+            {
+                selectedPersonnelId = person.Id;
+                Render();
+            });
+
+            var text = CreateText($"{person.Id}\n{person.Name}", tab, 16, FontStyle.Bold, TextAnchor.MiddleCenter);
+            text.rectTransform.offsetMin = new Vector2(6, 4);
+            text.rectTransform.offsetMax = new Vector2(-6, -4);
+            text.color = PaperTextColor;
+            text.raycastTarget = false;
+        }
+
+        private void CreateCharacterFaceBlock(Personnel person, Transform parent)
+        {
+            var face = CreatePanel("Character Face " + person.Id, parent, IdCardColor);
+            var layout = face.gameObject.AddComponent<LayoutElement>();
+            layout.minWidth = 132;
+            layout.preferredWidth = 132;
+            layout.minHeight = 132;
+            var text = CreateText($"FACE\n{person.Id}", face, 16, FontStyle.Bold, TextAnchor.MiddleCenter);
+            text.color = PaperTextColor;
+            text.raycastTarget = false;
+        }
+
         private void CreateCardFace(DebugCard card, Transform parent, bool used)
         {
             var panel = CreatePanel("Desk Card " + card.Id, parent, used ? new Color(0.46f, 0.43f, 0.36f, 1f) : PaperColor);
@@ -1999,13 +2186,14 @@ namespace ProjectW.IngameCore.CaseReview
         private void SyncPlanAdjustment(string eventId)
         {
             var assignment = AssignmentFor(eventId);
-            if (assignment.Count == 0)
+            var compactAssignment = assignment.Where(id => !string.IsNullOrWhiteSpace(id)).ToList();
+            if (compactAssignment.Count == 0)
             {
                 DispatchWithoutRender($"adjust {eventId} none");
                 return;
             }
 
-            DispatchWithoutRender($"adjust {eventId} {string.Join(",", assignment)}");
+            DispatchWithoutRender($"adjust {eventId} {string.Join(",", compactAssignment)}");
         }
 
         private void SyncAllPlanAdjustments()
