@@ -125,16 +125,20 @@ Rules:
 
 - The desktop uses square shortcuts with short labels, aligned from the upper-left like a simple Windows desktop.
 - Connected player functions are grouped into purpose-centered windows instead of many independent popups:
-  - `Current Work Dashboard`: current work status, queue, risks, selected work detail, progress, worker timeline, night report summary, system diagnostics, people/work gauges, and recent logs.
-  - `Today Work Plan`: daily plan entries, a floating right-side character selection panel for assignment slots, command panel, approval, summary, and next-morning flow.
+  - `Current Work Dashboard`: current work status, queue, risks, selected work detail, progress, worker timeline, system diagnostics, people/work gauges, and recent logs.
+  - `Today Work Plan`: daily plan entries and a floating right-side character selection panel for assignment slots.
+  - `Daily Report`: resolved work and night summary popup.
   - `Character Profiling`: top ID/name character tabs, selected character face/status, today cards, and used-card state.
   - `Dev Tools`: sample scenario playback and future development-only tools.
 - Windows are draggable, resizable, remember their current layout for the session, and enforce a minimum size.
 - Window contents must support vertical scrolling by default because MVP readability uses large UI text.
 - Runtime text in this MVP UI should not render below 30 px.
+- Desktop shortcuts are stable and do not appear/disappear by phase. If a window is opened at a phase that does not allow editing, it shows the latest available information read-only, or an explicit empty state if no information exists.
 - Assignment slots in `Today Work Plan` open a separate right-side floating character picker panel. Each picker row shows a face placeholder, name/id, and compact status.
+- Floating picker panels follow their owner window when the owner window is dragged or resized.
 - Characters that cannot be inserted into a picker row are dimmed in that picker. `Character Profiling` keeps a consistent layout regardless of assignment context.
 - Character tabs show only ID and name. For up to 12 characters, the tab area should wrap into roughly two or three rows when the window is narrow.
+- `Today Work Plan` decides assignment only. `STAMP APPROVED / Start Work` and `NEXT MORNING / Advance Day` live as desktop lower-right action buttons. Report summary is opened from `Daily Report`, not from `Today Work Plan`.
 - Character selection state may be shared between `Character Profiling` and `Today Work Plan`, but core state changes still pass through `CaseReviewGame.Dispatch` or explicit assignment sync boundaries.
 - Desktop chrome may reorganize presentation, but it must not replace the daily loop: review, assignment, confirmation, execution feedback, night summary, next morning.
 

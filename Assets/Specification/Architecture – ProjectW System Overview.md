@@ -380,13 +380,17 @@ flowchart TB
 
 | 영역 | 현재 구현 |
 |------|-----------|
-| 데스크탑 진입 | 좌상단 정렬 1:1 shortcut: `Current Work`, `Today Plan`, `Characters`, `Dev Tools` |
-| 창 구조 | `CurrentWorkDashboard`, `TodayWorkPlan`, `CharacterProfiling`, `DevTools` 목적 중심 창 |
+| 데스크탑 진입 | 좌상단 정렬 1:1 shortcut: `Current Work`, `Today Plan`, `Daily Report`, `Characters`, `Dev Tools` |
+| 창 구조 | `CurrentWorkDashboard`, `TodayWorkPlan`, `DailyReport`, `CharacterProfiling`, `DevTools` 목적 중심 창 |
 | Current Work | 업무 현황과 SYS DIAG, 사람/업무 gauge, 최근 로그를 함께 표시 |
+| Daily Report | 최신 일일 리포트 summary 팝업, 리포트가 없으면 empty state 표시 |
 | Dev Tools | 샘플 시나리오 재생과 향후 개발 전용 도구 진입점 |
 | 창 조작 | 드래그 이동, 세션 내 위치 기억, 리사이즈, 최소 크기, 기본 세로 스크롤 |
 | 가독성 기준 | MVP UI 텍스트 최소 30 px, 이에 맞춘 버튼·슬롯·카드·로그 높이 확장 |
+| Phase 처리 | desktop shortcut은 phase에 따라 사라지지 않으며, 부적합 phase에서는 최신 정보를 read-only로 표시 |
+| Desktop Actions | 우하단 고정 액션 버튼: Morning에는 `STAMP APPROVED / Start Work`, Evening에는 `NEXT MORNING / Advance Day` 활성화 |
 | 업무 배치 | `TodayWorkPlan`의 슬롯을 선택하면 창 내부가 아니라 별도 floating panel이 오른쪽에 열리고 캐릭터 선택 리스트 표시 |
+| Floating Wing | owner 창 이동/리사이즈 시 `WindowLayoutState` 기준으로 다시 계산되어 따라붙음 |
 | 캐릭터 선택 행 | 얼굴 placeholder, 이름/id, load/fatigue/trust 상태를 표시하고 선택 불가 캐릭터는 floating picker 안에서 dim 처리 |
 | Character Profiling | 상단 ID/이름 탭 그리드, 1단 얼굴+캐릭터 상태, 2단 Today Card 목록의 세로 구조 |
 | 실행 피드백 | `CONFIRM PLAN` 후 worker hand reveal과 used-card highlight를 보여주는 work performance overlay |
@@ -658,7 +662,7 @@ flowchart TB
 | 게임 로직 | `CaseReviewGame` 정적 API |
 | MVP Scene 플레이 | `CaseReviewMvpSceneController`가 런타임 UGUI 데스크탑으로 `CaseReviewGame` 일일 루프를 구동 |
 | 업무 생성 | `WorkDefinition` + `WorkGenerationSystem` 초기 구현 |
-| 플레이 가능 빌드 루프 | Morning plan → assignment → confirm → work performance overlay → Evening report → next morning |
+| 플레이 가능 빌드 루프 | Morning plan → assignment → confirm → work performance overlay → Daily Report → next morning |
 | 데이터 제작 | 워크샵 씬 + 에디터 메뉴 |
 | `GameManager` / `Bootstrap` | 없음 |
 
