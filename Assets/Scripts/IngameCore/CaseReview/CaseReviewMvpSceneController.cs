@@ -192,41 +192,6 @@ namespace ProjectW.IngameCore.CaseReview
             Render();
         }
 
-        public void ClickRecommendedAdjust()
-        {
-            if (CurrentState is null)
-            {
-                return;
-            }
-
-            var entry = CurrentState.MorningPlan?.Entries?.FirstOrDefault();
-            if (entry is null)
-            {
-                AddLog("No morning plan entry is available.");
-                Render();
-                return;
-            }
-
-            var people = CurrentState.Staff
-                .Where(person => !person.HasLeft)
-                .OrderBy(person => person.LoadAssigned)
-                .ThenByDescending(person => person.TrustToManager)
-                .Take(2)
-                .Select(person => person.Id)
-                .ToList();
-
-            if (people.Count == 0)
-            {
-                AddLog("No available personnel for adjustment.");
-                Render();
-                return;
-            }
-
-            plannedAssignments[entry.EventId] = people;
-            SyncPlanAdjustment(entry.EventId);
-            Render();
-        }
-
         public void ClickConfirmPlan()
         {
             SyncAllPlanAdjustments();
@@ -817,6 +782,7 @@ namespace ProjectW.IngameCore.CaseReview
             if (CurrentState.Slot == Slot.Evening)
             {
                 CreateNightSummarySection(panel);
+                CreateCurrentDiagnosticsSection(panel);
                 return;
             }
 
@@ -860,6 +826,8 @@ namespace ProjectW.IngameCore.CaseReview
                 CreateProgressRow("Risk", selectedWork.LatentRisk, 100, detailPanel, WarningStampColor);
                 CreateAssignmentTimeline(selectedWork, detailPanel);
             }
+
+            CreateCurrentDiagnosticsSection(panel);
         }
 
         private void CreateTodayWorkPlanWindow()
@@ -935,19 +903,15 @@ namespace ProjectW.IngameCore.CaseReview
                     CreateCardFace(card, cardHandRoot, deck.UsedToday.Contains(card.Id));
                 }
             }
-
-            CreateWindowButton("> PLAY SCENARIO SAMPLE", panel, TerminalButtonColor, ClickPlaySampleScenario, 82, CrtTextColor);
         }
 
         private void CreateDevToolsWindow()
         {
             var panel = CreateDockWindow(MvpDesktopWindow.DevTools, "DEV TOOLS", new Vector2(0.04f, 0.08f), new Vector2(0.44f, 0.62f), CrtPanelColor);
-            debugGaugeText = CreateText("", panel, 11, FontStyle.Normal, TextAnchor.UpperLeft);
-            debugGaugeText.gameObject.AddComponent<LayoutElement>().minHeight = 260;
-            RenderDebugGauges();
-            var recentLogs = visibleLogLines.Skip(Math.Max(0, visibleLogLines.Count - 12));
-            var log = CreateText("RECENT LOG\n" + string.Join("\n", recentLogs), panel, 11, FontStyle.Normal, TextAnchor.UpperLeft);
-            log.gameObject.AddComponent<LayoutElement>().flexibleHeight = 1;
+            CreateHeader("SCENARIO LAB", panel);
+            var note = CreateText("Sample scenario playback and future development-only tools live here.", panel, 13, FontStyle.Bold, TextAnchor.UpperLeft);
+            note.gameObject.AddComponent<LayoutElement>().minHeight = 86;
+            CreateWindowButton("> PLAY SCENARIO SAMPLE", panel, TerminalButtonColor, ClickPlaySampleScenario, 82, CrtTextColor);
         }
 
         private IReadOnlyList<DesktopShortcutDefinition> DesktopShortcuts()
@@ -957,7 +921,7 @@ namespace ProjectW.IngameCore.CaseReview
                 new("current-work", "Current Work", "Status, risk, and progress", "WORK", MvpDesktopWindow.CurrentWorkDashboard, FolderColor, PaperTextColor),
                 new("today-plan", "Today Plan", "Plan, approval, and commands", "PLAN", MvpDesktopWindow.TodayWorkPlan, TerminalButtonColor, CrtTextColor),
                 new("characters", "Characters", "Profiles and daily cards", "ID", MvpDesktopWindow.CharacterProfiling, IdCardColor, PaperTextColor),
-                new("dev-tools", "Dev Tools", "Diagnostics and logs", "DEV", MvpDesktopWindow.DevTools, CrtPanelColor, CrtTextColor),
+                new("dev-tools", "Dev Tools", "Scenario lab and debug tools", "DEV", MvpDesktopWindow.DevTools, CrtPanelColor, CrtTextColor),
             };
         }
 
@@ -972,6 +936,17 @@ namespace ProjectW.IngameCore.CaseReview
         {
             boardCardRoot = CreateDynamicRoot("Night Report Body", parent);
             CreateNightSummaryCard();
+        }
+
+        private void CreateCurrentDiagnosticsSection(Transform parent)
+        {
+            CreateHeader("SYS DIAG", parent);
+            debugGaugeText = CreateText("", parent, 11, FontStyle.Normal, TextAnchor.UpperLeft);
+            debugGaugeText.gameObject.AddComponent<LayoutElement>().minHeight = 320;
+            RenderDebugGauges();
+            var recentLogs = visibleLogLines.Skip(Math.Max(0, visibleLogLines.Count - 12));
+            var log = CreateText("RECENT LOG\n" + string.Join("\n", recentLogs), parent, 11, FontStyle.Normal, TextAnchor.UpperLeft);
+            log.gameObject.AddComponent<LayoutElement>().minHeight = 220;
         }
 
         private void CreatePlanAssignmentSection(Transform parent)
@@ -1302,9 +1277,7 @@ namespace ProjectW.IngameCore.CaseReview
                     : "> INSERT personnel IDs into file slots. Return an ID to the rack to clear it.";
                 AddActionButton("> PLAN", ClickShowPlan, true);
                 AddActionButton("> OPEN PRIORITY FILE", ClickOpenPriorityWork, !CurrentState.MorningPlan.Confirmed);
-                AddActionButton("> RUN RECOMMENDED ASSIGNMENT", ClickRecommendedAdjust, !CurrentState.MorningPlan.Confirmed);
                 AddActionButton("> STAMP APPROVED", ClickConfirmPlan, !CurrentState.MorningPlan.Confirmed);
-                AddActionButton("> LOAD MESSAGE SAMPLE", ClickPlaySampleScenario, true);
                 return;
             }
 
@@ -1313,7 +1286,6 @@ namespace ProjectW.IngameCore.CaseReview
 
             AddActionButton("> PRINT SUMMARY", ClickReportDay, true);
             AddActionButton("> NEXT MORNING", ClickNextDay, true);
-            AddActionButton("> LOAD MESSAGE SAMPLE", ClickPlaySampleScenario, true);
         }
 
         private void AddActionButton(string label, UnityEngine.Events.UnityAction action, bool interactable)

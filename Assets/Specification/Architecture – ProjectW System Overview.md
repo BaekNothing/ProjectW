@@ -8,11 +8,11 @@
 | 항목 | 값 |
 |------|-----|
 | **동기화 모드** | `index (pre-commit / manual)` |
-| **동기화 시각 (UTC)** | `2026-06-06T14:17:39Z` |
-| **기준 커밋 (전체 SHA)** | `05dd66316209726468d17e496fbdec80738963f5` |
-| **기준 커밋 (단축)** | `05dd663` |
+| **동기화 시각 (UTC)** | `2026-06-06T14:35:36Z` |
+| **기준 커밋 (전체 SHA)** | `64ff38ea0af2e1c6d954af004900b50643685362` |
+| **기준 커밋 (단축)** | `64ff38e` |
 | **브랜치** | `ai-integration` |
-| **추적 경로 지문** | `sha256:189d0fd19e99b1539a675b887e3ebe48b9bfd57008239d3a09003aec6ff132ba` |
+| **추적 경로 지문** | `sha256:c0f3d501d2494f86299b1472d267a73f761313e8cd8f6e365d7946e34039b402` |
 | **추적 경로** | `Assets/Specification/`<br>`Assets/Scripts/`<br>`Assets/Tests/`<br>`Assets/Editor/`<br>`Assets/Resources/CaseReviewData/` |
 
 > 지문은 Git 인덱스(`git ls-files -s`)에 등록된 추적 경로 파일 목록·blob 해시의 SHA-256이다.  
@@ -320,7 +320,7 @@ flowchart TB
 
 감사 시스템은 플레이어 선택을 MVP AI 기본안과 비교한다. MVP AI는 복잡한 인격형 의사결정자가 아니라 빈 슬롯 보충과 기존 플랜 유지에 집중하는 기준선이다.
 
-스크립트 파트는 대사, 화자, 표정, 중앙 이미지, 포커스, 선택지, 비용을 표현한다. 코어 상태를 읽을 수 있지만 상태 변경은 선택지 효과 또는 종료 효과에 명시된 비용·보상·플래그로만 적용한다. 현재 구현은 `ScenarioEventDefinition`, `ScenarioScriptLine`, `LocalizedTextTable` 데이터 에셋, 조회 인터페이스, `LocalizedTextCsv` CSV 변환, `LocalizedTextTableEditor` 텍스트 import/export, `ScenarioDataWorkshop` 제작 씬/에디터를 포함한다. `CaseReviewMvpSceneController`에는 Character Profiling에서 명시적으로 실행하는 샘플 시나리오 뷰어가 있으나, SSOT가 요구하는 조건 기반 큐잉/스케줄러 런타임은 아직 없다.
+스크립트 파트는 대사, 화자, 표정, 중앙 이미지, 포커스, 선택지, 비용을 표현한다. 코어 상태를 읽을 수 있지만 상태 변경은 선택지 효과 또는 종료 효과에 명시된 비용·보상·플래그로만 적용한다. 현재 구현은 `ScenarioEventDefinition`, `ScenarioScriptLine`, `LocalizedTextTable` 데이터 에셋, 조회 인터페이스, `LocalizedTextCsv` CSV 변환, `LocalizedTextTableEditor` 텍스트 import/export, `ScenarioDataWorkshop` 제작 씬/에디터를 포함한다. `CaseReviewMvpSceneController`에는 Dev Tools에서 명시적으로 실행하는 샘플 시나리오 뷰어가 있으나, SSOT가 요구하는 조건 기반 큐잉/스케줄러 런타임은 아직 없다.
 
 ### 5.6 업무 시스템 (SSOT – Work) vs `EventCase`
 
@@ -382,6 +382,8 @@ flowchart TB
 |------|-----------|
 | 데스크탑 진입 | 좌상단 정렬 1:1 shortcut: `Current Work`, `Today Plan`, `Characters`, `Dev Tools` |
 | 창 구조 | `CurrentWorkDashboard`, `TodayWorkPlan`, `CharacterProfiling`, `DevTools` 목적 중심 창 |
+| Current Work | 업무 현황과 SYS DIAG, 사람/업무 gauge, 최근 로그를 함께 표시 |
+| Dev Tools | 샘플 시나리오 재생과 향후 개발 전용 도구 진입점 |
 | 창 조작 | 드래그 이동, 세션 내 위치 기억, 리사이즈, 최소 크기, 기본 세로 스크롤 |
 | 가독성 기준 | MVP UI 텍스트 최소 30 px, 이에 맞춘 버튼·슬롯·카드·로그 높이 확장 |
 | 업무 배치 | `TodayWorkPlan`의 업무 슬롯에 캐릭터 드래그 앤 드롭 또는 후보 모드 선택 |

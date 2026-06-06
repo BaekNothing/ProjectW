@@ -125,10 +125,10 @@ Rules:
 
 - The desktop uses square shortcuts with short labels, aligned from the upper-left like a simple Windows desktop.
 - Connected player functions are grouped into purpose-centered windows instead of many independent popups:
-  - `Current Work Dashboard`: current work status, queue, risks, selected work detail, progress, worker timeline, and night report summary.
-  - `Today Work Plan`: daily plan entries, assignment slots, command panel, approval, recommended adjustment, summary, and next-morning flow.
-  - `Character Profiling`: personnel cards, selected character detail, today cards, used-card state, and explicit scenario entry.
-  - `Dev Tools`: system diagnostics, people/work gauges, and recent logs for development use.
+  - `Current Work Dashboard`: current work status, queue, risks, selected work detail, progress, worker timeline, night report summary, system diagnostics, people/work gauges, and recent logs.
+  - `Today Work Plan`: daily plan entries, assignment slots, command panel, approval, summary, and next-morning flow.
+  - `Character Profiling`: personnel cards, selected character detail, today cards, and used-card state.
+  - `Dev Tools`: sample scenario playback and future development-only tools.
 - Windows are draggable, resizable, remember their current layout for the session, and enforce a minimum size.
 - Window contents must support vertical scrolling by default because MVP readability uses large UI text.
 - Runtime text in this MVP UI should not render below 30 px.
