@@ -8,11 +8,11 @@
 | 항목 | 값 |
 |------|-----|
 | **동기화 모드** | `index (pre-commit / manual)` |
-| **동기화 시각 (UTC)** | `2026-06-05T10:45:09Z` |
-| **기준 커밋 (전체 SHA)** | `3545a6fac966b0b88f2793624d94a7d98b83314b` |
-| **기준 커밋 (단축)** | `3545a6f` |
+| **동기화 시각 (UTC)** | `2026-06-06T14:17:39Z` |
+| **기준 커밋 (전체 SHA)** | `05dd66316209726468d17e496fbdec80738963f5` |
+| **기준 커밋 (단축)** | `05dd663` |
 | **브랜치** | `ai-integration` |
-| **추적 경로 지문** | `sha256:cf11c5d4d6039383d61fee0befec56494705d8bf802df55c6b66b307c3a6d68b` |
+| **추적 경로 지문** | `sha256:189d0fd19e99b1539a675b887e3ebe48b9bfd57008239d3a09003aec6ff132ba` |
 | **추적 경로** | `Assets/Specification/`<br>`Assets/Scripts/`<br>`Assets/Tests/`<br>`Assets/Editor/`<br>`Assets/Resources/CaseReviewData/` |
 
 > 지문은 Git 인덱스(`git ls-files -s`)에 등록된 추적 경로 파일 목록·blob 해시의 SHA-256이다.  
@@ -61,11 +61,11 @@ mindmap
       Deprecated PM Log
     Unity 구현
       Case Review 코어
+      MVP Scene 데스크탑 UI
       WorkDefinition 생성기
       ScriptableObject 데이터
       에디터 워크샵
     미연결/레거시
-      MVP Scene UI
       Routine Observation
       Outgame Scene 파일
 ```
@@ -156,12 +156,12 @@ graph LR
 | 폴더 | 상태 | 역할 |
 |------|------|------|
 | `Assets/Specification/` | 활성 | 규칙·PM·아키텍처 문서 |
-| `Assets/Scripts/IngameCore/CaseReview/` | **유일한 런타임 코드** | 순수 게임 로직 + SO 정의 + 업무 생성기 + 시나리오 데이터 |
+| `Assets/Scripts/IngameCore/CaseReview/` | **유일한 런타임 코드** | 순수 게임 로직 + MVP Scene UGUI 드라이버 + SO 정의 + 업무 생성기 + 시나리오 데이터 |
 | `Assets/Editor/` | 활성 | 캐릭터 데이터 워크샵, 에디터 리프레시 |
 | `Assets/Tests/EditMode/` | 활성 | Case Review 코어 단위 테스트 |
 | `Assets/Resources/CaseReviewData/Samples/` | 활성 | 캐릭터/업무 샘플 SO 에셋 (로드 코드는 아직 없음) |
 | `Assets/Resources/CaseReviewData/Scenarios/` | 활성 | 시나리오 이벤트·텍스트·렌더 샘플 SO 에셋 |
-| `Assets/Scenes/MVP Scene.unity` | 존재 | 빌드 포함, 현재 체크아웃 기준 Case Review 씬 드라이버는 미확인 |
+| `Assets/Scenes/MVP Scene.unity` | 존재 | 빌드 포함, `CaseReviewMvpSceneController` 런타임 UGUI 드라이버로 MVP 일일 루프 플레이 |
 | `Assets/Scenes/CharacterDataWorkshop.unity` | 존재 | 데이터 제작 전용, 빌드 미포함 |
 | `Assets/Scenes/ScenarioDataWorkshop.unity` | 존재 | 시나리오 데이터 제작 전용, 빌드 미포함 |
 | `Assets/Scenes/Outgame Scene.unity` | **누락** | 빌드 설정에만 참조 (깨진 참조) |
@@ -320,7 +320,7 @@ flowchart TB
 
 감사 시스템은 플레이어 선택을 MVP AI 기본안과 비교한다. MVP AI는 복잡한 인격형 의사결정자가 아니라 빈 슬롯 보충과 기존 플랜 유지에 집중하는 기준선이다.
 
-스크립트 파트는 대사, 화자, 표정, 중앙 이미지, 포커스, 선택지, 비용을 표현한다. 코어 상태를 읽을 수 있지만 상태 변경은 선택지 효과 또는 종료 효과에 명시된 비용·보상·플래그로만 적용한다. 현재 구현은 `ScenarioEventDefinition`, `ScenarioScriptLine`, `LocalizedTextTable` 데이터 에셋, 조회 인터페이스, `LocalizedTextCsv` CSV 변환, `LocalizedTextTableEditor` 텍스트 import/export, `ScenarioDataWorkshop` 제작 씬/에디터까지 포함하며, UI 재생/큐잉 런타임은 아직 없다.
+스크립트 파트는 대사, 화자, 표정, 중앙 이미지, 포커스, 선택지, 비용을 표현한다. 코어 상태를 읽을 수 있지만 상태 변경은 선택지 효과 또는 종료 효과에 명시된 비용·보상·플래그로만 적용한다. 현재 구현은 `ScenarioEventDefinition`, `ScenarioScriptLine`, `LocalizedTextTable` 데이터 에셋, 조회 인터페이스, `LocalizedTextCsv` CSV 변환, `LocalizedTextTableEditor` 텍스트 import/export, `ScenarioDataWorkshop` 제작 씬/에디터를 포함한다. `CaseReviewMvpSceneController`에는 Character Profiling에서 명시적으로 실행하는 샘플 시나리오 뷰어가 있으나, SSOT가 요구하는 조건 기반 큐잉/스케줄러 런타임은 아직 없다.
 
 ### 5.6 업무 시스템 (SSOT – Work) vs `EventCase`
 
@@ -374,6 +374,21 @@ flowchart TB
 | Long Loop Direction | 일일 업무, 주간 감사, 월별·분기별 평가, 연말 정산 |
 | Script Presentation Direction | 코어 상태를 읽는 대사·연출·선택지, 명시된 효과만 상태 반영 |
 
+### 5.8 MVP Scene Runtime UI
+
+현재 MVP Scene의 플레이 가능 UI는 `CaseReviewMvpSceneController`가 런타임에 생성하는 UGUI 데스크탑이다.
+
+| 영역 | 현재 구현 |
+|------|-----------|
+| 데스크탑 진입 | 좌상단 정렬 1:1 shortcut: `Current Work`, `Today Plan`, `Characters`, `Dev Tools` |
+| 창 구조 | `CurrentWorkDashboard`, `TodayWorkPlan`, `CharacterProfiling`, `DevTools` 목적 중심 창 |
+| 창 조작 | 드래그 이동, 세션 내 위치 기억, 리사이즈, 최소 크기, 기본 세로 스크롤 |
+| 가독성 기준 | MVP UI 텍스트 최소 30 px, 이에 맞춘 버튼·슬롯·카드·로그 높이 확장 |
+| 업무 배치 | `TodayWorkPlan`의 업무 슬롯에 캐릭터 드래그 앤 드롭 또는 후보 모드 선택 |
+| 후보 모드 | 빈 슬롯 또는 캐릭터 선택 상태에서 `CharacterProfiling`이 삽입 가능 캐릭터를 정상 표시하고 불가 캐릭터를 dim 처리 |
+| 실행 피드백 | `CONFIRM PLAN` 후 worker hand reveal과 used-card highlight를 보여주는 work performance overlay |
+| 상태 경계 | `CaseReviewGame.Dispatch`와 명시적 assignment sync 경계를 유지 |
+
 ---
 
 ## 6. Case Review 모듈 상세
@@ -388,6 +403,12 @@ classDiagram
     +Advance()
     +Snapshot()
     +Replay()
+  }
+  class CaseReviewMvpSceneController {
+    MonoBehaviour
+    +InitializeForTests()
+    +ClickConfirmPlan()
+    +ClickNextDay()
   }
   class GameState {
     +Day Slot Staff Queue
@@ -419,6 +440,7 @@ classDiagram
     ScriptableObject
   }
 
+  CaseReviewMvpSceneController --> CaseReviewGame : Dispatch boundary
   CaseReviewGame --> GameState
   GameState --> CaseReviewRules : via GameConfig
   CaseReviewGame --> IReportGenerator
@@ -431,6 +453,7 @@ classDiagram
 | 파일 | 책임 |
 |------|------|
 | `CaseReviewGame.cs` | 유일한 게임 엔진 진입점, 명령·틱·일 진행 |
+| `CaseReviewMvpSceneController.cs` | MVP Scene 런타임 UGUI 데스크탑, 목적 중심 창, drag/drop assignment, work performance overlay |
 | `Models.cs` | `GameState`, `GameConfig`, `EventCase`, `Personnel`, DTO |
 | `CoreRules.cs` | `CaseReviewRules` + 기본 정책 구현 |
 | `ReportGenerator.cs` | 일일·개별 보고서 텍스트 생성 |
@@ -604,11 +627,12 @@ flowchart TB
   subgraph Implemented["구현됨"]
     INIT["CaseReviewGame.Init"]
     DISP["Dispatch / Advance"]
+    UI["CaseReviewMvpSceneController\nruntime UGUI desktop"]
     GEN["WorkDefinition /\nWorkGenerationSystem"]
     TEST["EditMode Tests"]
   end
-  subgraph SceneOnly["씬만 존재"]
-    MVP["MVP Scene.unity\n(빌드 index 1)"]
+  subgraph SceneRuntime["씬 진입점"]
+    MVP["MVP Scene.unity\nCase Review MVP"]
     WORK["CharacterDataWorkshop.unity"]
   end
   subgraph Broken["깨짐/레거시"]
@@ -619,16 +643,19 @@ flowchart TB
 
   TEST --> INIT
   TEST --> GEN
-  MVP -.->|현재 체크아웃 기준 드라이버 미확인| INIT
+  MVP --> UI
+  UI --> INIT
+  UI --> DISP
   WORK -->|SO 생성만| SO["ScriptableObjects"]
   OUT -.x|missing file| OUT
 ```
 
 | 진입 유형 | 상태 |
 |-----------|------|
-| 게임 로직 | `CaseReviewGame` 정적 API — **MonoBehaviour 부트스트랩 없음** |
+| 게임 로직 | `CaseReviewGame` 정적 API |
+| MVP Scene 플레이 | `CaseReviewMvpSceneController`가 런타임 UGUI 데스크탑으로 `CaseReviewGame` 일일 루프를 구동 |
 | 업무 생성 | `WorkDefinition` + `WorkGenerationSystem` 초기 구현 |
-| 플레이 가능 빌드 루프 | **현재 체크아웃 기준 미구현/미확인** (씬 UI 연결 상태 재검증 필요) |
+| 플레이 가능 빌드 루프 | Morning plan → assignment → confirm → work performance overlay → Evening report → next morning |
 | 데이터 제작 | 워크샵 씬 + 에디터 메뉴 |
 | `GameManager` / `Bootstrap` | 없음 |
 
@@ -679,10 +706,10 @@ flowchart LR
 | `unity_gate_report.py` | `CaseReviewCoreTests`·현행 SSOT 기준으로 게이트 목록 수정 |
 | WorkDefinition 샘플 에셋 | `Resources/CaseReviewData/Samples`에 업무 샘플 생성 |
 | Boss/Audit 컨텍스트 | `WorkGenerationContext`에 보스 이벤트 압력·감사 평가 방향 추가 |
-| Script Presentation 런타임 | `ScenarioEventDefinition`·`LocalizedTextTable` 데이터 구현 완료, UI 재생/큐잉 런타임 구현 |
+| Script Presentation 런타임 | MVP 명시 실행 뷰어 이후 조건 기반 시나리오 큐잉/스케줄러 구현 |
 | ScenarioDataWorkshop 확장 | TSV/XLSX 직접 import, 일괄 key 검증, 미번역 텍스트 리포트 |
 | `Resources.Load` 부트스트랩 | `GameConfig.InitialData`에 캐릭터·업무 샘플 SO 자동 연결 |
-| MVP Scene | `CaseReviewGame` REPL/UI 브리지 MonoBehaviour 재확인 또는 구현 |
+| MVP Scene | 대형 폰트/스크롤 기준에서 실제 기기별 레이아웃 QA와 PlayMode 테스트 추가 |
 | `RenderResourceDefinition` | UI 레이어에서 `IRenderableData` 소비 |
 | Outgame 시스템 | SSOT에 맞춘 별도 모듈·씬 설계 |
 | Architecture doc 지문 | 추적 경로 변경 후 `sync_architecture_doc.py` 또는 훅 설치 |
@@ -691,7 +718,7 @@ flowchart LR
 
 ## 13. 한 줄 요약
 
-**ProjectW는 SSOT(Ingame·Work·Script Presentation·Characters)가 규칙의 중심이고, Unity 구현은 `CaseReview`의 `EventCase` 프로토타입·`WorkDefinition` 업무 생성기·캐릭터 SO 파이프라인·시나리오/로컬라이제이션 데이터 에셋·CSV 텍스트 편집 도구·워크샵·EditMode 테스트에 집중되어 있다. 장기 감사/평가 루프와 스크립트 UI 재생 런타임은 SSOT에 정의됐으나 코드 미착수이며, Git 지문(`arch-sync`)으로 본 문서와 추적 경로의 동기화를 자동 검증한다.**
+**ProjectW는 SSOT(Ingame·Work·Script Presentation·Characters)가 규칙의 중심이고, Unity 구현은 `CaseReview`의 `EventCase` 프로토타입·MVP Scene 런타임 데스크탑 UI·`WorkDefinition` 업무 생성기·캐릭터 SO 파이프라인·시나리오/로컬라이제이션 데이터 에셋·CSV 텍스트 편집 도구·워크샵·EditMode 테스트에 집중되어 있다. 장기 감사/평가 루프와 조건 기반 시나리오 큐잉은 SSOT에 정의됐으나 아직 확장 과제이며, Git 지문(`arch-sync`)으로 본 문서와 추적 경로의 동기화를 자동 검증한다.**
 
 ---
 
@@ -707,6 +734,8 @@ flowchart LR
 | 2026-06-03 | `SSOT – Work.md` 신설 | 업무 원형·인스턴스·동적 생성·태그 상호작용 규칙 분리 |
 | 2026-06-03 | Ingame §15 Decision Ledger | PM Log 판단 권한 폐기, 핵심 결정 SSOT 흡수 |
 | 2026-06-03 | System Index 판단 순서 정리 | PM Log → Deprecated, Git·구현 순서 명확화 |
+| 2026-06-06 | MVP Scene 데스크탑 UI 3창 재구성 | Current Work, Today Plan, Character Profiling, Dev Tools 목적 중심 창과 데스크탑 shortcut 구조 |
+| 2026-06-06 | MVP UI 접근성 기준 | 모든 런타임 UI 텍스트 최소 30 px, 창 기본 스크롤, drag/resize/위치 기억, assignment 후보 dim 처리 |
 | 2026-06-03 | Character Data Workshop | SO 샘플·에디터 생성 파이프라인 |
 | (이전) | `CaseReviewRules` | 카드 뽑기·검토 비용·대체 압력·보스 정책 플러그 |
 

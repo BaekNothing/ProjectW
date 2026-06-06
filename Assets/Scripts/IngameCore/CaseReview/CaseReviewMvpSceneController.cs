@@ -16,10 +16,15 @@ namespace ProjectW.IngameCore.CaseReview
         private readonly List<Button> actionButtons = new();
         private readonly Dictionary<string, List<string>> plannedAssignments = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, DebugDeckState> debugDecks = new(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<MvpDesktopWindow> openWindows = new();
+        private readonly Dictionary<MvpDesktopWindow, WindowLayoutState> windowLayouts = new();
 
         private const string SampleScenarioResourcePath = "CaseReviewData/Scenarios/Events/Scenario_TeaAudit";
         private const float ScenarioTypewriterCharactersPerSecond = 42f;
         private const float WorkPerformanceAutoSeconds = 1.8f;
+        private const int MinUiFontSize = 30;
+        private const float WindowMinWidth = 520f;
+        private const float WindowMinHeight = 360f;
         private static readonly Color DeskColor = new(0.18f, 0.14f, 0.10f, 1f);
         private static readonly Color CrtShellColor = new(0.075f, 0.095f, 0.085f, 1f);
         private static readonly Color CrtPanelColor = new(0.045f, 0.075f, 0.065f, 1f);
@@ -51,6 +56,8 @@ namespace ProjectW.IngameCore.CaseReview
         private Text workSceneCardText;
         private Text workSceneImpactText;
         private Text workSceneProgressText;
+        private Transform desktopObjectRoot;
+        private Transform windowLayer;
         private Transform actionButtonRoot;
         private Transform boardCardRoot;
         private Transform rosterRoot;
@@ -71,6 +78,10 @@ namespace ProjectW.IngameCore.CaseReview
         private int workPerformanceIndex;
         private float workPerformanceTimer;
         private string selectedPersonnelId = "";
+        private string selectedWorkId = "";
+        private string candidateAssignmentEventId = "";
+        private bool showAssignmentCandidates;
+        private MvpDesktopWindow focusedWindow = MvpDesktopWindow.None;
         private int cardStateDay = -1;
 
         public GameState CurrentState { get; private set; }
@@ -136,6 +147,12 @@ namespace ProjectW.IngameCore.CaseReview
             CurrentState = CaseReviewGame.Init(new GameConfig(), seed);
             visibleLogLines.Clear();
             selectedPersonnelId = CurrentState.Staff.FirstOrDefault(person => !person.HasLeft)?.Id ?? "";
+            selectedWorkId = CurrentState.MorningPlan?.Entries?.FirstOrDefault()?.EventId ?? FirstActiveEventId();
+            candidateAssignmentEventId = "";
+            showAssignmentCandidates = false;
+            openWindows.Clear();
+            windowLayouts.Clear();
+            focusedWindow = MvpDesktopWindow.None;
             cardStateDay = -1;
             debugDecks.Clear();
             scenarioSession = null;
@@ -154,6 +171,8 @@ namespace ProjectW.IngameCore.CaseReview
         public void ClickShowPlan()
         {
             Dispatch("plan");
+            OpenDesktopWindow(MvpDesktopWindow.TodayWorkPlan);
+            Render();
         }
 
         public void ClickOpenPriorityWork()
@@ -168,6 +187,9 @@ namespace ProjectW.IngameCore.CaseReview
 
             Dispatch($"open {id}");
             Dispatch($"summary {id}");
+            selectedWorkId = id;
+            OpenDesktopWindow(MvpDesktopWindow.CurrentWorkDashboard);
+            Render();
         }
 
         public void ClickRecommendedAdjust()
@@ -210,9 +232,19 @@ namespace ProjectW.IngameCore.CaseReview
             SyncAllPlanAdjustments();
             var workEvents = UseRandomCardsForAssignedWork();
             Dispatch("confirm plan");
+            if (CurrentState?.Slot == Slot.Evening)
+            {
+                openWindows.Clear();
+                focusedWindow = MvpDesktopWindow.None;
+            }
+
             if (workEvents.Count > 0)
             {
                 BeginWorkPerformanceOverlay(workEvents);
+            }
+            else
+            {
+                Render();
             }
         }
 
@@ -259,6 +291,10 @@ namespace ProjectW.IngameCore.CaseReview
             {
                 SyncAssignmentsFromPlan();
                 EnsureCardStateForToday();
+                selectedWorkId = CurrentState.MorningPlan?.Entries?.FirstOrDefault()?.EventId ?? FirstActiveEventId();
+                openWindows.Clear();
+                focusedWindow = MvpDesktopWindow.None;
+                Render();
             }
         }
 
@@ -360,6 +396,7 @@ namespace ProjectW.IngameCore.CaseReview
             }
 
             selectedPersonnelId = personnelId;
+            OpenDesktopWindow(MvpDesktopWindow.CharacterProfiling);
             Render();
         }
 
@@ -394,13 +431,20 @@ namespace ProjectW.IngameCore.CaseReview
                 return;
             }
 
+            var existingEventId = FindAssignedEventId(personnelId, eventId);
             if (!string.IsNullOrWhiteSpace(sourceEventId) && !sourceEventId.Equals(eventId, StringComparison.OrdinalIgnoreCase))
             {
                 RemovePersonnelFromWork(personnelId, sourceEventId, renderAfter: false);
             }
+            else if (!string.IsNullOrWhiteSpace(existingEventId))
+            {
+                RemovePersonnelFromWork(personnelId, existingEventId, renderAfter: false);
+            }
 
             assignment.Add(personnelId);
             SyncPlanAdjustment(eventId);
+            candidateAssignmentEventId = "";
+            showAssignmentCandidates = false;
             AddLog($"{eventId} slot filled: {assignment.Count}/{maxSlots}");
             Render();
         }
@@ -453,17 +497,17 @@ namespace ProjectW.IngameCore.CaseReview
             }
 
             statusText.text = BuildStatusLine();
-            milestoneText.text = CurrentState.Slot == Slot.Morning
-                ? "Loop continues: assign work, confirm, read the night summary."
-                : "Night summary only. Start the next morning when ready.";
+            if (milestoneText != null)
+            {
+                milestoneText.text = CurrentState.Slot == Slot.Morning
+                    ? "Loop continues: assign work, confirm, read the night summary."
+                    : "Night summary only. Start the next morning when ready.";
+            }
 
             EnsureCardStateForToday();
-            RenderBoard();
-            RenderDebugGauges();
-            RenderRoster();
-            RenderCardHand();
-            RenderActions();
-            logText.text = string.Join("\n", visibleLogLines);
+            RenderDesktopObjects();
+            RenderDesktopWindows();
+            logText.text = BuildPrinterLogText();
             if (scenarioSession is not null)
             {
                 RenderScenarioOverlay();
@@ -479,6 +523,671 @@ namespace ProjectW.IngameCore.CaseReview
         {
             var activeQueue = CurrentState.Queue.Count(item => item.Status != CaseStatus.Closed);
             return $"[PROJECT_W INTERNAL TERMINAL]  DAY {CurrentState.Day:00}  |  {CurrentState.Slot.ToString().ToUpperInvariant()}  |  QUEUE {activeQueue}/{CurrentState.Config.QueueSoftCap}  |  OVR {CurrentState.Overload}  |  AI PRESSURE {CurrentState.ReplacementPressure}  |  REDIRECT {CurrentState.RedirectBudget}  |  AUDIT {CurrentState.AuditBudget}  |  INTERVIEW {CurrentState.InterviewBudget}";
+        }
+
+        private void RenderDesktopObjects()
+        {
+            ClearDynamicRoot(desktopObjectRoot);
+            if (desktopObjectRoot is null)
+            {
+                return;
+            }
+
+            var shortcuts = DesktopShortcuts()
+                .Where(shortcut => shortcut.IsEnabled?.Invoke() != false)
+                .ToList();
+
+            const float iconSize = 112f;
+            const float labelHeight = 58f;
+            const float gap = 22f;
+            const float startX = 28f;
+            const float startY = -28f;
+            const int columns = 4;
+
+            for (var index = 0; index < shortcuts.Count; index++)
+            {
+                var shortcut = shortcuts[index];
+                var column = index % columns;
+                var row = index / columns;
+                var cell = CreateUiObject("Shortcut " + shortcut.Id, desktopObjectRoot).transform;
+                var cellRect = (RectTransform)cell;
+                cellRect.anchorMin = new Vector2(0f, 1f);
+                cellRect.anchorMax = new Vector2(0f, 1f);
+                cellRect.pivot = new Vector2(0f, 1f);
+                cellRect.sizeDelta = new Vector2(iconSize, iconSize + labelHeight);
+                cellRect.anchoredPosition = new Vector2(startX + column * (iconSize + gap), startY - row * (iconSize + labelHeight + gap));
+
+                var icon = CreatePanel("Icon", cell, shortcut.Color);
+                var iconRect = (RectTransform)icon;
+                iconRect.anchorMin = new Vector2(0f, 1f);
+                iconRect.anchorMax = new Vector2(0f, 1f);
+                iconRect.pivot = new Vector2(0f, 1f);
+                iconRect.sizeDelta = new Vector2(iconSize, iconSize);
+                iconRect.anchoredPosition = Vector2.zero;
+                var button = icon.gameObject.AddComponent<Button>();
+                button.targetGraphic = icon.GetComponent<Image>();
+                button.onClick.AddListener(() =>
+                {
+                    OpenDesktopWindow(shortcut.TargetWindow);
+                    Render();
+                });
+
+                var glyph = CreateText(shortcut.IconText, icon, 28, FontStyle.Bold, TextAnchor.MiddleCenter);
+                glyph.color = shortcut.TextColor;
+                glyph.raycastTarget = false;
+
+                var label = CreateText(shortcut.Label, cell, 13, FontStyle.Bold, TextAnchor.UpperCenter);
+                label.color = CrtTextColor;
+                label.raycastTarget = false;
+                label.rectTransform.anchorMin = new Vector2(0f, 0f);
+                label.rectTransform.anchorMax = new Vector2(1f, 0f);
+                label.rectTransform.pivot = new Vector2(0.5f, 0f);
+                label.rectTransform.sizeDelta = new Vector2(0f, labelHeight);
+                label.rectTransform.anchoredPosition = Vector2.zero;
+            }
+        }
+
+        private void RenderDesktopWindows()
+        {
+            ClearDynamicRoot(windowLayer);
+            actionButtons.Clear();
+            if (windowLayer is null)
+            {
+                return;
+            }
+
+            foreach (var window in openWindows.Where(window => window != focusedWindow).ToList())
+            {
+                RenderDesktopWindow(window);
+            }
+
+            if (focusedWindow != MvpDesktopWindow.None && openWindows.Contains(focusedWindow))
+            {
+                RenderDesktopWindow(focusedWindow);
+            }
+        }
+
+        private void RenderDesktopWindow(MvpDesktopWindow window)
+        {
+            switch (window)
+            {
+                case MvpDesktopWindow.CurrentWorkDashboard:
+                    CreateCurrentWorkDashboardWindow();
+                    break;
+                case MvpDesktopWindow.TodayWorkPlan:
+                    CreateTodayWorkPlanWindow();
+                    break;
+                case MvpDesktopWindow.CharacterProfiling:
+                    CreateCharacterProfilingWindow();
+                    break;
+                case MvpDesktopWindow.DevTools:
+                    CreateDevToolsWindow();
+                    break;
+            }
+        }
+
+        private void OpenDesktopWindow(MvpDesktopWindow window)
+        {
+            if (window == MvpDesktopWindow.None)
+            {
+                return;
+            }
+
+            if (window == MvpDesktopWindow.CharacterProfiling)
+            {
+                ActivateCandidateModeForSelectedWork();
+            }
+
+            openWindows.Add(window);
+            focusedWindow = window;
+        }
+
+        private void CloseDesktopWindow(MvpDesktopWindow window)
+        {
+            openWindows.Remove(window);
+            focusedWindow = openWindows.LastOrDefault();
+            Render();
+        }
+
+        private void TryOpenCardsWindow()
+        {
+            if (string.IsNullOrWhiteSpace(selectedPersonnelId))
+            {
+                AddLog("No personnel selected.");
+                Render();
+                return;
+            }
+
+            OpenDesktopWindow(MvpDesktopWindow.CharacterProfiling);
+            Render();
+        }
+
+        private void SelectWorkFile(string eventId)
+        {
+            selectedWorkId = eventId;
+            candidateAssignmentEventId = "";
+            showAssignmentCandidates = false;
+            OpenDesktopWindow(MvpDesktopWindow.CurrentWorkDashboard);
+            Render();
+        }
+
+        private Transform CreateDockWindow(MvpDesktopWindow window, string title, Vector2 anchorMin, Vector2 anchorMax, Color color)
+        {
+            var panel = CreatePanel(title + " Window", windowLayer, color);
+            var rect = (RectTransform)panel;
+            var layoutState = WindowLayoutFor(window, anchorMin, anchorMax);
+            rect.anchorMin = layoutState.AnchorMin;
+            rect.anchorMax = layoutState.AnchorMax;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            var image = panel.GetComponent<Image>();
+            if (image is not null)
+            {
+                image.raycastTarget = true;
+            }
+
+            var layout = panel.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.padding = new RectOffset(12, 12, 10, 12);
+            layout.spacing = 8;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+
+            var titleBar = CreateUiObject("Title Bar", panel).transform;
+            titleBar.gameObject.AddComponent<LayoutElement>().minHeight = 58;
+            var titleBarImage = titleBar.gameObject.AddComponent<Image>();
+            titleBarImage.color = new Color(0f, 0f, 0f, 0.01f);
+            titleBar.gameObject.AddComponent<DesktopWindowDragHandle>().Initialize(this, window, rect, windowLayer as RectTransform);
+            var titleText = CreateText(title, titleBar, 18, FontStyle.Bold, TextAnchor.MiddleLeft);
+            titleText.color = color == PaperColor || color == FolderColor || color == IdCardColor ? PaperTextColor : CrtTextColor;
+            titleText.raycastTarget = false;
+            titleText.rectTransform.offsetMax = new Vector2(-120f, 0f);
+            var close = CreateSmallWindowButton("CLOSE", titleBar, () => CloseDesktopWindow(window));
+            var closeRect = (RectTransform)close.transform;
+            closeRect.anchorMin = new Vector2(1f, 0f);
+            closeRect.anchorMax = new Vector2(1f, 1f);
+            closeRect.pivot = new Vector2(1f, 0.5f);
+            closeRect.sizeDelta = new Vector2(110f, 0f);
+            closeRect.anchoredPosition = Vector2.zero;
+            var resizeHandle = CreatePanel("Resize Handle", panel, new Color(0.04f, 0.05f, 0.04f, 0.55f));
+            var resizeRect = (RectTransform)resizeHandle;
+            resizeRect.anchorMin = new Vector2(1f, 0f);
+            resizeRect.anchorMax = new Vector2(1f, 0f);
+            resizeRect.pivot = new Vector2(1f, 0f);
+            resizeRect.sizeDelta = new Vector2(36f, 36f);
+            resizeRect.anchoredPosition = Vector2.zero;
+            resizeHandle.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+            resizeHandle.gameObject.AddComponent<DesktopWindowResizeHandle>().Initialize(this, window, rect, windowLayer as RectTransform);
+            var scrollContent = CreateWindowScrollContent(panel);
+            resizeHandle.SetAsLastSibling();
+            return scrollContent;
+        }
+
+        private Transform CreateWindowScrollContent(Transform parent)
+        {
+            var scrollRoot = CreateUiObject("Window Scroll", parent).transform;
+            var rootElement = scrollRoot.gameObject.AddComponent<LayoutElement>();
+            rootElement.flexibleHeight = 1;
+            rootElement.minHeight = 120;
+            var scrollRect = scrollRoot.gameObject.AddComponent<ScrollRect>();
+            scrollRect.horizontal = false;
+            scrollRect.vertical = true;
+            scrollRect.movementType = ScrollRect.MovementType.Clamped;
+            scrollRect.scrollSensitivity = 36f;
+
+            var viewport = CreateUiObject("Viewport", scrollRoot).transform;
+            Stretch((RectTransform)viewport);
+            var viewportImage = viewport.gameObject.AddComponent<Image>();
+            viewportImage.color = new Color(0f, 0f, 0f, 0.01f);
+            viewportImage.raycastTarget = true;
+            var mask = viewport.gameObject.AddComponent<Mask>();
+            mask.showMaskGraphic = false;
+
+            var content = CreateUiObject("Content", viewport).transform;
+            var contentRect = (RectTransform)content;
+            contentRect.anchorMin = new Vector2(0f, 1f);
+            contentRect.anchorMax = new Vector2(1f, 1f);
+            contentRect.pivot = new Vector2(0.5f, 1f);
+            contentRect.anchoredPosition = Vector2.zero;
+            contentRect.sizeDelta = Vector2.zero;
+            var layout = content.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.spacing = 8;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+            var fitter = content.gameObject.AddComponent<ContentSizeFitter>();
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            scrollRect.viewport = (RectTransform)viewport;
+            scrollRect.content = contentRect;
+            return content;
+        }
+
+        internal void FocusDesktopWindow(MvpDesktopWindow window)
+        {
+            if (!openWindows.Contains(window))
+            {
+                return;
+            }
+
+            focusedWindow = window;
+        }
+
+        internal WindowLayoutState RememberWindowLayout(MvpDesktopWindow window, Vector2 anchorMin, Vector2 anchorMax)
+        {
+            var parentRect = windowLayer as RectTransform;
+            var state = ClampWindowLayout(anchorMin, anchorMax, parentRect);
+            windowLayouts[window] = state;
+            return state;
+        }
+
+        private WindowLayoutState WindowLayoutFor(MvpDesktopWindow window, Vector2 defaultMin, Vector2 defaultMax)
+        {
+            if (windowLayouts.TryGetValue(window, out var state))
+            {
+                return state;
+            }
+
+            state = ClampWindowLayout(defaultMin, defaultMax, windowLayer as RectTransform);
+            windowLayouts[window] = state;
+            return state;
+        }
+
+        private static WindowLayoutState ClampWindowLayout(Vector2 anchorMin, Vector2 anchorMax, RectTransform parent)
+        {
+            var parentSize = parent is null ? new Vector2(1920f, 1080f) : parent.rect.size;
+            var minAnchorSize = new Vector2(
+                Mathf.Clamp01(WindowMinWidth / Mathf.Max(1f, parentSize.x)),
+                Mathf.Clamp01(WindowMinHeight / Mathf.Max(1f, parentSize.y)));
+
+            var size = anchorMax - anchorMin;
+            size.x = Mathf.Max(size.x, minAnchorSize.x);
+            size.y = Mathf.Max(size.y, minAnchorSize.y);
+
+            anchorMin.x = Mathf.Clamp(anchorMin.x, 0f, 1f - size.x);
+            anchorMin.y = Mathf.Clamp(anchorMin.y, 0f, 1f - size.y);
+            anchorMax = anchorMin + size;
+            anchorMax.x = Mathf.Clamp01(anchorMax.x);
+            anchorMax.y = Mathf.Clamp01(anchorMax.y);
+            return new WindowLayoutState(anchorMin, anchorMax);
+        }
+
+        private void CreateCurrentWorkDashboardWindow()
+        {
+            var panel = CreateDockWindow(MvpDesktopWindow.CurrentWorkDashboard, "CURRENT WORK DASHBOARD", new Vector2(0.04f, 0.20f), new Vector2(0.70f, 0.92f), CrtPanelColor);
+            CreateDashboardStatusSection(panel);
+            if (CurrentState.Slot == Slot.Evening)
+            {
+                CreateNightSummarySection(panel);
+                return;
+            }
+
+            var body = CreateUiObject("Dashboard Body", panel).transform;
+            body.gameObject.AddComponent<LayoutElement>().flexibleHeight = 1;
+            var bodyLayout = body.gameObject.AddComponent<HorizontalLayoutGroup>();
+            bodyLayout.spacing = 10;
+            bodyLayout.childForceExpandHeight = true;
+
+            var list = CreatePanel("Work List", body, FolderDarkColor);
+            list.gameObject.AddComponent<LayoutElement>().flexibleWidth = 0.36f;
+            var listLayout = list.gameObject.AddComponent<VerticalLayoutGroup>();
+            listLayout.padding = new RectOffset(8, 8, 8, 8);
+            listLayout.spacing = 6;
+            listLayout.childForceExpandWidth = true;
+            foreach (var entry in CurrentState.MorningPlan?.Entries ?? Enumerable.Empty<WorkPlanEntry>())
+            {
+                var item = FindEvent(entry.EventId);
+                if (item is null)
+                {
+                    continue;
+                }
+
+                var selected = item.Id.Equals(selectedWorkId, StringComparison.OrdinalIgnoreCase);
+                CreateWindowButton($"{item.Id}\n{item.Title}", list, selected ? FolderColor : PaperColor, () => SelectWorkFile(item.Id), 104, selected ? WarningStampColor : PaperTextColor);
+            }
+
+            var detailPanel = CreatePanel("Work Detail", body, FolderColor);
+            detailPanel.gameObject.AddComponent<LayoutElement>().flexibleWidth = 0.64f;
+            var detailLayout = detailPanel.gameObject.AddComponent<VerticalLayoutGroup>();
+            detailLayout.padding = new RectOffset(10, 10, 10, 10);
+            detailLayout.spacing = 8;
+            detailLayout.childForceExpandWidth = true;
+            var selectedWork = SelectedWorkOrFallback();
+            if (selectedWork is not null)
+            {
+                var detail = CreateText($"FILE {selectedWork.Id}  {selectedWork.Title}\nLabels: {WorkTags(selectedWork)}\nRemaining {Math.Max(1, selectedWork.Volume)} | URG {selectedWork.Urgency} | SEV {selectedWork.Severity} | RISK {selectedWork.LatentRisk} | TTL {Math.Max(0, selectedWork.TtlSec)}s", detailPanel, 14, FontStyle.Bold, TextAnchor.UpperLeft);
+                detail.color = PaperTextColor;
+                detail.gameObject.AddComponent<LayoutElement>().minHeight = 150;
+                CreateProgressRow("Outcome", selectedWork.OutcomeScore, 100, detailPanel, PaperTextColor);
+                CreateProgressRow("Risk", selectedWork.LatentRisk, 100, detailPanel, WarningStampColor);
+                CreateAssignmentTimeline(selectedWork, detailPanel);
+            }
+        }
+
+        private void CreateTodayWorkPlanWindow()
+        {
+            var panel = CreateDockWindow(MvpDesktopWindow.TodayWorkPlan, "TODAY WORK PLAN", new Vector2(0.12f, 0.12f), new Vector2(0.78f, 0.86f), FolderColor);
+            if (CurrentState.Slot == Slot.Morning)
+            {
+                CreatePlanAssignmentSection(panel);
+            }
+
+            actionTitleText = CreateHeader("COMMAND PANEL", panel);
+            actionHintText = CreateText("", panel, 13, FontStyle.Normal, TextAnchor.UpperLeft);
+            actionHintText.gameObject.AddComponent<LayoutElement>().minHeight = 86;
+            actionButtonRoot = CreateUiObject("Command Buttons", panel).transform;
+            var layout = actionButtonRoot.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.spacing = 6;
+            layout.childForceExpandWidth = true;
+            actionButtonRoot.gameObject.AddComponent<LayoutElement>().flexibleHeight = 1;
+            milestoneText = CreateText("", panel, 12, FontStyle.Bold, TextAnchor.LowerLeft);
+            milestoneText.gameObject.AddComponent<LayoutElement>().minHeight = 58;
+            RenderActions();
+        }
+
+        private void CreateCharacterProfilingWindow()
+        {
+            var panel = CreateDockWindow(MvpDesktopWindow.CharacterProfiling, "CHARACTER PROFILING", new Vector2(0.48f, 0.16f), new Vector2(0.96f, 0.92f), IdCardColor);
+            panel.gameObject.AddComponent<RosterDropTarget>().Initialize(this);
+            var body = CreateUiObject("Profile Body", panel).transform;
+            body.gameObject.AddComponent<LayoutElement>().flexibleHeight = 1;
+            var bodyLayout = body.gameObject.AddComponent<HorizontalLayoutGroup>();
+            bodyLayout.spacing = 10;
+            bodyLayout.childForceExpandHeight = true;
+
+            rosterRoot = CreatePanel("Personnel Cards", body, new Color(0.64f, 0.70f, 0.68f, 1f));
+            rosterRoot.gameObject.AddComponent<LayoutElement>().flexibleWidth = 0.42f;
+            var rosterLayout = rosterRoot.gameObject.AddComponent<VerticalLayoutGroup>();
+            rosterLayout.padding = new RectOffset(8, 8, 8, 8);
+            rosterLayout.spacing = 6;
+            rosterLayout.childForceExpandWidth = true;
+            if (showAssignmentCandidates && !string.IsNullOrWhiteSpace(candidateAssignmentEventId))
+            {
+                var candidateHeader = CreateText($"INSERT CANDIDATES FOR {candidateAssignmentEventId}\nAvailable: {BuildCandidatePersonnelLine(candidateAssignmentEventId)}\nDimmed IDs cannot be inserted into this slot.", rosterRoot, 16, FontStyle.Bold, TextAnchor.MiddleLeft);
+                candidateHeader.color = PaperTextColor;
+                candidateHeader.gameObject.AddComponent<LayoutElement>().minHeight = 132;
+            }
+
+            foreach (var person in CurrentState.Staff.Where(person => !person.HasLeft))
+            {
+                var candidateMode = showAssignmentCandidates && !string.IsNullOrWhiteSpace(candidateAssignmentEventId);
+                var canInsert = !candidateMode || CanInsertPersonnelIntoWork(person, candidateAssignmentEventId);
+                var suffix = candidateMode
+                    ? canInsert ? "CAN INSERT" : "UNAVAILABLE"
+                    : "";
+                CreateCharacterToken(person, rosterRoot, "", selectedPersonnelId.Equals(person.Id, StringComparison.OrdinalIgnoreCase), !canInsert, suffix);
+            }
+
+            var profilePanel = CreatePanel("Profile Detail", body, PaperColor);
+            profilePanel.gameObject.AddComponent<LayoutElement>().flexibleWidth = 0.58f;
+            var profileLayout = profilePanel.gameObject.AddComponent<VerticalLayoutGroup>();
+            profileLayout.padding = new RectOffset(10, 10, 10, 10);
+            profileLayout.spacing = 8;
+            profileLayout.childForceExpandWidth = true;
+            var selected = CurrentState.Staff.FirstOrDefault(person => person.Id.Equals(selectedPersonnelId, StringComparison.OrdinalIgnoreCase));
+            if (selected is not null)
+            {
+                var detail = CreateText($"ID {selected.Id}  {selected.Name}\nLOAD {selected.LoadAssigned}/{Math.Max(1, selected.MaxLoad)} | FATIGUE {selected.Fatigue} | TRUST {selected.TrustToManager} | RETENTION {selected.RetentionRisk}", profilePanel, 16, FontStyle.Bold, TextAnchor.UpperLeft);
+                detail.color = PaperTextColor;
+                detail.gameObject.AddComponent<LayoutElement>().minHeight = 124;
+                cardHandRoot = CreateDynamicRoot("Today Hand", profilePanel);
+                var deck = DeckFor(selected.Id);
+                foreach (var card in deck.TodayHand)
+                {
+                    CreateCardFace(card, cardHandRoot, deck.UsedToday.Contains(card.Id));
+                }
+            }
+
+            CreateWindowButton("> PLAY SCENARIO SAMPLE", panel, TerminalButtonColor, ClickPlaySampleScenario, 82, CrtTextColor);
+        }
+
+        private void CreateDevToolsWindow()
+        {
+            var panel = CreateDockWindow(MvpDesktopWindow.DevTools, "DEV TOOLS", new Vector2(0.04f, 0.08f), new Vector2(0.44f, 0.62f), CrtPanelColor);
+            debugGaugeText = CreateText("", panel, 11, FontStyle.Normal, TextAnchor.UpperLeft);
+            debugGaugeText.gameObject.AddComponent<LayoutElement>().minHeight = 260;
+            RenderDebugGauges();
+            var recentLogs = visibleLogLines.Skip(Math.Max(0, visibleLogLines.Count - 12));
+            var log = CreateText("RECENT LOG\n" + string.Join("\n", recentLogs), panel, 11, FontStyle.Normal, TextAnchor.UpperLeft);
+            log.gameObject.AddComponent<LayoutElement>().flexibleHeight = 1;
+        }
+
+        private IReadOnlyList<DesktopShortcutDefinition> DesktopShortcuts()
+        {
+            return new List<DesktopShortcutDefinition>
+            {
+                new("current-work", "Current Work", "Status, risk, and progress", "WORK", MvpDesktopWindow.CurrentWorkDashboard, FolderColor, PaperTextColor),
+                new("today-plan", "Today Plan", "Plan, approval, and commands", "PLAN", MvpDesktopWindow.TodayWorkPlan, TerminalButtonColor, CrtTextColor),
+                new("characters", "Characters", "Profiles and daily cards", "ID", MvpDesktopWindow.CharacterProfiling, IdCardColor, PaperTextColor),
+                new("dev-tools", "Dev Tools", "Diagnostics and logs", "DEV", MvpDesktopWindow.DevTools, CrtPanelColor, CrtTextColor),
+            };
+        }
+
+        private void CreateDashboardStatusSection(Transform parent)
+        {
+            var activeQueue = CurrentState.Queue.Count(item => item.Status != CaseStatus.Closed);
+            var text = CreateText($"DAY {CurrentState.Day:00} | {CurrentState.Slot.ToString().ToUpperInvariant()} | QUEUE {activeQueue}/{CurrentState.Config.QueueSoftCap} | OVR {CurrentState.Overload} | AI {CurrentState.ReplacementPressure} | GLOBAL RISK {CurrentState.GlobalLatentRisk}", parent, 13, FontStyle.Bold, TextAnchor.MiddleLeft);
+            text.gameObject.AddComponent<LayoutElement>().minHeight = 58;
+        }
+
+        private void CreateNightSummarySection(Transform parent)
+        {
+            boardCardRoot = CreateDynamicRoot("Night Report Body", parent);
+            CreateNightSummaryCard();
+        }
+
+        private void CreatePlanAssignmentSection(Transform parent)
+        {
+            var item = SelectedWorkOrFallback();
+            if (item is null)
+            {
+                return;
+            }
+
+            var entries = CreateUiObject("Plan Entries", parent).transform;
+            var entryLayout = entries.gameObject.AddComponent<HorizontalLayoutGroup>();
+            entryLayout.spacing = 8;
+            entryLayout.childForceExpandWidth = true;
+            entryLayout.childForceExpandHeight = true;
+            entries.gameObject.AddComponent<LayoutElement>().minHeight = 112;
+            foreach (var entry in CurrentState.MorningPlan?.Entries ?? Enumerable.Empty<WorkPlanEntry>())
+            {
+                var work = FindEvent(entry.EventId);
+                if (work is null)
+                {
+                    continue;
+                }
+
+                var selected = work.Id.Equals(item.Id, StringComparison.OrdinalIgnoreCase);
+                CreateWindowButton($"{work.Id}\n{work.Title}", entries, selected ? FolderDarkColor : PaperColor, () =>
+                {
+                    selectedWorkId = work.Id;
+                    candidateAssignmentEventId = "";
+                    showAssignmentCandidates = false;
+                    OpenDesktopWindow(MvpDesktopWindow.TodayWorkPlan);
+                    Render();
+                }, 58, selected ? CrtTextColor : PaperTextColor);
+            }
+
+            var plan = CreateText($"SELECTED FILE {item.Id}  {item.Title}\nDrag personnel IDs into sockets, then approve the plan.", parent, 13, FontStyle.Bold, TextAnchor.UpperLeft);
+            plan.color = PaperTextColor;
+            plan.gameObject.AddComponent<LayoutElement>().minHeight = 94;
+            var assignment = AssignmentFor(item.Id);
+            var slots = CreateUiObject("Assignment Slots", parent).transform;
+            var slotLayout = slots.gameObject.AddComponent<HorizontalLayoutGroup>();
+            slotLayout.spacing = 8;
+            slotLayout.childForceExpandWidth = true;
+            slotLayout.childForceExpandHeight = true;
+            slots.gameObject.AddComponent<LayoutElement>().minHeight = 116;
+            var maxSlots = Math.Max(1, item.MaxPersonnelCount);
+            for (var slotIndex = 0; slotIndex < maxSlots; slotIndex++)
+            {
+                var slot = CreatePanel($"ID Slot {slotIndex + 1}", slots, new Color(0.24f, 0.19f, 0.13f, 1f));
+                var slotElement = slot.gameObject.AddComponent<LayoutElement>();
+                slotElement.minWidth = 150;
+                slotElement.minHeight = 104;
+                slot.gameObject.AddComponent<WorkSlotDropTarget>().Initialize(this, item.Id);
+                if (slotIndex < assignment.Count)
+                {
+                    var person = CurrentState.Staff.FirstOrDefault(candidate => candidate.Id.Equals(assignment[slotIndex], StringComparison.OrdinalIgnoreCase));
+                    if (person is not null)
+                    {
+                        CreateCharacterToken(person, slot, item.Id, false);
+                    }
+                }
+                else
+                {
+                    var button = slot.gameObject.AddComponent<Button>();
+                    button.targetGraphic = slot.GetComponent<Image>();
+                    button.onClick.AddListener(() => ClickEmptyAssignmentSlot(item.Id));
+                    var label = CreateText("EMPTY ID SOCKET", slot, 16, FontStyle.Bold, TextAnchor.MiddleCenter);
+                    label.color = new Color(0.62f, 0.52f, 0.36f, 1f);
+                    label.raycastTarget = false;
+                }
+            }
+        }
+
+        private void ActivateCandidateModeForSelectedWork()
+        {
+            if (CurrentState?.Slot != Slot.Morning)
+            {
+                return;
+            }
+
+            var item = SelectedWorkOrFallback();
+            if (item is null)
+            {
+                return;
+            }
+
+            candidateAssignmentEventId = item.Id;
+            showAssignmentCandidates = true;
+        }
+
+        private void ClickEmptyAssignmentSlot(string eventId)
+        {
+            selectedWorkId = eventId;
+            candidateAssignmentEventId = eventId;
+            if (openWindows.Contains(MvpDesktopWindow.CharacterProfiling))
+            {
+                showAssignmentCandidates = true;
+                AddLog($"Assignment candidates shown for {eventId}.");
+            }
+            else
+            {
+                showAssignmentCandidates = false;
+                AddLog($"Open character profiling to fill {eventId}.");
+            }
+
+            OpenDesktopWindow(MvpDesktopWindow.CharacterProfiling);
+            Render();
+        }
+
+        private bool CanInsertPersonnelIntoWork(Personnel person, string eventId)
+        {
+            if (CurrentState?.Slot != Slot.Morning || person is null || person.HasLeft)
+            {
+                return false;
+            }
+
+            var item = FindEvent(eventId);
+            if (item is null)
+            {
+                return false;
+            }
+
+            var assignment = AssignmentFor(eventId);
+            return !assignment.Any(id => id.Equals(person.Id, StringComparison.OrdinalIgnoreCase))
+                && assignment.Count < Math.Max(1, item.MaxPersonnelCount);
+        }
+
+        private string BuildCandidatePersonnelLine(string eventId)
+        {
+            var candidates = CurrentState.Staff
+                .Where(person => CanInsertPersonnelIntoWork(person, eventId))
+                .Select(person => person.Id)
+                .ToList();
+            return candidates.Count == 0 ? "none" : string.Join(", ", candidates);
+        }
+
+        private void CreateProgressRow(string label, int value, int max, Transform parent, Color color)
+        {
+            var text = CreateText($"{label,-10} {Bar(value, max)} {value:000}/{Math.Max(1, max):000}", parent, 13, FontStyle.Bold, TextAnchor.MiddleLeft);
+            text.color = color;
+            text.gameObject.AddComponent<LayoutElement>().minHeight = 52;
+        }
+
+        private void CreateAssignmentTimeline(EventCase item, Transform parent)
+        {
+            var assignment = AssignmentFor(item.Id);
+            var lines = new List<string> { "WORKER TIMELINE" };
+            if (assignment.Count == 0)
+            {
+                lines.Add("No personnel assigned.");
+            }
+            else
+            {
+                var maxSlots = Math.Max(1, item.MaxPersonnelCount);
+                for (var index = 0; index < assignment.Count; index++)
+                {
+                    var person = CurrentState.Staff.FirstOrDefault(candidate => candidate.Id.Equals(assignment[index], StringComparison.OrdinalIgnoreCase));
+                    var progress = Mathf.RoundToInt(100f * (index + 1) / Math.Max(1, maxSlots));
+                    lines.Add($"{assignment[index],-6} {person?.Name ?? "Unknown",-16} {Bar(progress, 100)}");
+                }
+            }
+
+            var text = CreateText(string.Join("\n", lines), parent, 12, FontStyle.Bold, TextAnchor.UpperLeft);
+            text.color = PaperTextColor;
+            text.gameObject.AddComponent<LayoutElement>().flexibleHeight = 1;
+        }
+
+        private EventCase SelectedWorkOrFallback()
+        {
+            var item = string.IsNullOrWhiteSpace(selectedWorkId) ? null : FindEvent(selectedWorkId);
+            item ??= CurrentState.MorningPlan?.Entries?.Select(entry => FindEvent(entry.EventId)).FirstOrDefault(candidate => candidate is not null);
+            item ??= CurrentState.Queue.FirstOrDefault(candidate => candidate.Status != CaseStatus.Closed);
+            if (item is not null)
+            {
+                selectedWorkId = item.Id;
+            }
+
+            return item;
+        }
+
+        private Button CreateWindowButton(string label, Transform parent, Color color, UnityEngine.Events.UnityAction onClick, float minHeight, Color textColor)
+        {
+            var buttonObject = CreatePanel("Button " + label, parent, color);
+            buttonObject.gameObject.AddComponent<LayoutElement>().minHeight = Mathf.Max(minHeight, 86f);
+            var button = buttonObject.gameObject.AddComponent<Button>();
+            button.targetGraphic = buttonObject.GetComponent<Image>();
+            button.onClick.AddListener(onClick);
+            var text = CreateText(label, buttonObject, 13, FontStyle.Bold, TextAnchor.MiddleLeft);
+            text.color = textColor;
+            text.rectTransform.offsetMin = new Vector2(10f, 4f);
+            text.rectTransform.offsetMax = new Vector2(-10f, -4f);
+            text.raycastTarget = false;
+            return button;
+        }
+
+        private Button CreateSmallWindowButton(string label, Transform parent, UnityEngine.Events.UnityAction onClick)
+        {
+            var buttonObject = CreatePanel(label + " Button", parent, TerminalButtonColor);
+            var button = buttonObject.gameObject.AddComponent<Button>();
+            button.targetGraphic = buttonObject.GetComponent<Image>();
+            button.onClick.AddListener(onClick);
+            var text = CreateText(label, buttonObject, 11, FontStyle.Bold, TextAnchor.MiddleCenter);
+            text.raycastTarget = false;
+            return button;
+        }
+
+        private string BuildCompactDiag()
+        {
+            return $"OVR {CurrentState.Overload} | AI {CurrentState.ReplacementPressure}\nRISK {CurrentState.GlobalLatentRisk}";
+        }
+
+        private string BuildPrinterLogText()
+        {
+            var count = Math.Min(3, visibleLogLines.Count);
+            var recent = visibleLogLines.Skip(Math.Max(0, visibleLogLines.Count - count));
+            return "PRINT LOG:\n" + string.Join("\n", recent);
         }
 
         private void RenderBoard()
@@ -619,7 +1328,7 @@ namespace ProjectW.IngameCore.CaseReview
             button.onClick.AddListener(action);
 
             var layout = buttonObject.AddComponent<LayoutElement>();
-            layout.minHeight = 46;
+            layout.minHeight = 76;
             layout.flexibleWidth = 1;
 
             var labelText = CreateText(label, buttonObject.transform, 16, FontStyle.Bold, TextAnchor.MiddleCenter);
@@ -651,58 +1360,28 @@ namespace ProjectW.IngameCore.CaseReview
             rootLayout.childForceExpandHeight = false;
 
             var statusPanel = CreatePanel("CRT System Bar", root, CrtShellColor);
-            statusPanel.gameObject.AddComponent<LayoutElement>().minHeight = 58;
+            statusPanel.gameObject.AddComponent<LayoutElement>().minHeight = 86;
             statusText = CreateText("", statusPanel, 18, FontStyle.Bold, TextAnchor.MiddleLeft);
             statusText.rectTransform.offsetMin = new Vector2(16, 0);
             statusText.rectTransform.offsetMax = new Vector2(-16, 0);
 
-            var debugPanel = CreatePanel("SYS DIAG", root, CrtPanelColor);
-            debugPanel.gameObject.AddComponent<LayoutElement>().minHeight = 112;
-            debugGaugeText = CreateText("", debugPanel, 12, FontStyle.Normal, TextAnchor.UpperLeft);
-            debugGaugeText.rectTransform.offsetMin = new Vector2(14, 10);
-            debugGaugeText.rectTransform.offsetMax = new Vector2(-14, -10);
+            var desktop = CreatePanel("Desktop Workspace", root, new Color(0.16f, 0.12f, 0.08f, 1f));
+            var desktopLayout = desktop.gameObject.AddComponent<LayoutElement>();
+            desktopLayout.flexibleHeight = 1;
+            desktopLayout.minHeight = 600;
 
-            var body = CreateUiObject("Body", root);
-            var bodyLayoutElement = body.AddComponent<LayoutElement>();
-            bodyLayoutElement.flexibleHeight = 1;
-            bodyLayoutElement.minHeight = 360;
-            var bodyLayout = body.AddComponent<HorizontalLayoutGroup>();
-            bodyLayout.spacing = 12;
-            bodyLayout.childForceExpandHeight = true;
-            bodyLayout.childForceExpandWidth = false;
-
-            var board = CreateColumn(body.transform, "Inbox File Tray", 0.48f, 620, FolderDarkColor);
-            boardTitleText = CreateHeader("INBOX FILE TRAY", board);
-            boardCardRoot = CreateDynamicRoot("Work Cards", board);
-
-            var roster = CreateColumn(body.transform, "Personnel Card Rack", 0.22f, 280, new Color(0.20f, 0.18f, 0.14f, 1f));
-            staffTitleText = CreateHeader("PERSONNEL", roster);
-            rosterRoot = CreateDynamicRoot("Character Tokens", roster);
-            roster.gameObject.AddComponent<RosterDropTarget>().Initialize(this);
-
-            var hand = CreateColumn(body.transform, "Today Hand Area", 0.17f, 240, new Color(0.30f, 0.25f, 0.18f, 1f));
-            cardHandTitleText = CreateHeader("TODAY HAND", hand);
-            cardHandRoot = CreateDynamicRoot("Card Faces", hand);
-
-            var actions = CreateColumn(body.transform, "Command Terminal", 0.20f, 260, CrtPanelColor);
-            actionTitleText = CreateHeader("COMMAND TERMINAL", actions);
-            actionHintText = CreateText("", actions, 14, FontStyle.Normal, TextAnchor.UpperLeft);
-            actionHintText.gameObject.AddComponent<LayoutElement>().minHeight = 58;
-            actionButtonRoot = CreateUiObject("Action Buttons", actions).transform;
-            var actionButtonLayout = actionButtonRoot.gameObject.AddComponent<VerticalLayoutGroup>();
-            actionButtonLayout.spacing = 8;
-            actionButtonLayout.childForceExpandWidth = true;
-            actionButtonLayout.childForceExpandHeight = false;
-            actionButtonRoot.gameObject.AddComponent<LayoutElement>().flexibleHeight = 1;
-            milestoneText = CreateText("", actions, 14, FontStyle.Bold, TextAnchor.LowerLeft);
-            milestoneText.gameObject.AddComponent<LayoutElement>().minHeight = 56;
+            desktopObjectRoot = CreateUiObject("Desktop Object Layer", desktop).transform;
+            Stretch((RectTransform)desktopObjectRoot);
 
             var logPanel = CreatePanel("Dot Matrix Command Log", root, PaperColor);
-            logPanel.gameObject.AddComponent<LayoutElement>().minHeight = 170;
+            logPanel.gameObject.AddComponent<LayoutElement>().minHeight = 160;
             logText = CreateText("", logPanel, 13, FontStyle.Normal, TextAnchor.UpperLeft);
             logText.color = PaperTextColor;
             logText.rectTransform.offsetMin = new Vector2(14, 12);
             logText.rectTransform.offsetMax = new Vector2(-14, -12);
+
+            windowLayer = CreateUiObject("Window Layer", canvasObject.transform).transform;
+            Stretch((RectTransform)windowLayer);
 
             dragLayer = CreateUiObject("Drag Layer", canvasObject.transform).transform;
             Stretch((RectTransform)dragLayer);
@@ -725,16 +1404,16 @@ namespace ProjectW.IngameCore.CaseReview
             topRect.anchorMin = new Vector2(0f, 1f);
             topRect.anchorMax = new Vector2(1f, 1f);
             topRect.pivot = new Vector2(0.5f, 1f);
-            topRect.sizeDelta = new Vector2(0f, 66f);
+            topRect.sizeDelta = new Vector2(0f, 86f);
             topRect.anchoredPosition = Vector2.zero;
             scenarioTitleText = CreateText("INTERNAL MESSAGE VIEWER", topBar, 20, FontStyle.Bold, TextAnchor.MiddleLeft);
             scenarioTitleText.rectTransform.offsetMin = new Vector2(24f, 0f);
             scenarioTitleText.rectTransform.offsetMax = new Vector2(-360f, 0f);
 
             var skipButton = CreateOverlayButton("Skip", topBar, new Vector2(-210f, -33f), ClickScenarioSkip);
-            ((RectTransform)skipButton.transform).sizeDelta = new Vector2(120f, 42f);
+            ((RectTransform)skipButton.transform).sizeDelta = new Vector2(150f, 58f);
             var autoButton = CreateOverlayButton("Auto", topBar, new Vector2(-76f, -33f), ClickScenarioToggleAuto);
-            ((RectTransform)autoButton.transform).sizeDelta = new Vector2(120f, 42f);
+            ((RectTransform)autoButton.transform).sizeDelta = new Vector2(150f, 58f);
             scenarioAutoButtonText = autoButton.GetComponentInChildren<Text>();
 
             scenarioPortraitRoot = CreateUiObject("Portrait Stage", scenarioOverlay.transform).transform;
@@ -765,7 +1444,7 @@ namespace ProjectW.IngameCore.CaseReview
             scenarioBodyText.rectTransform.offsetMax = new Vector2(-160f, -58f);
 
             var nextButton = CreateOverlayButton("Next", textBox, new Vector2(-76f, 46f), ClickScenarioNext);
-            ((RectTransform)nextButton.transform).sizeDelta = new Vector2(116f, 56f);
+            ((RectTransform)nextButton.transform).sizeDelta = new Vector2(150f, 66f);
 
             scenarioChoiceRoot = CreateUiObject("Scenario Choices", textBox).transform;
             var choiceRect = (RectTransform)scenarioChoiceRoot;
@@ -794,16 +1473,16 @@ namespace ProjectW.IngameCore.CaseReview
             topRect.anchorMin = new Vector2(0f, 1f);
             topRect.anchorMax = new Vector2(1f, 1f);
             topRect.pivot = new Vector2(0.5f, 1f);
-            topRect.sizeDelta = new Vector2(0f, 70f);
+            topRect.sizeDelta = new Vector2(0f, 90f);
             topRect.anchoredPosition = Vector2.zero;
             workSceneTitleText = CreateText("PROCESSING REPORT", topBar, 22, FontStyle.Bold, TextAnchor.MiddleLeft);
             workSceneTitleText.rectTransform.offsetMin = new Vector2(24f, 0f);
             workSceneTitleText.rectTransform.offsetMax = new Vector2(-360f, 0f);
 
             var skipButton = CreateOverlayButton("Skip", topBar, new Vector2(-210f, -35f), ClickWorkSceneSkip);
-            ((RectTransform)skipButton.transform).sizeDelta = new Vector2(120f, 42f);
+            ((RectTransform)skipButton.transform).sizeDelta = new Vector2(150f, 58f);
             var nextButton = CreateOverlayButton("Next", topBar, new Vector2(-76f, -35f), ClickWorkSceneNext);
-            ((RectTransform)nextButton.transform).sizeDelta = new Vector2(120f, 42f);
+            ((RectTransform)nextButton.transform).sizeDelta = new Vector2(150f, 58f);
 
             var stage = CreateUiObject("Work Scene Stage", workSceneOverlay.transform).transform;
             var stageRect = (RectTransform)stage;
@@ -868,7 +1547,7 @@ namespace ProjectW.IngameCore.CaseReview
             rect.anchorMax = new Vector2(1f, 1f);
             rect.pivot = new Vector2(0.5f, 0.5f);
             rect.anchoredPosition = anchoredPosition;
-            rect.sizeDelta = new Vector2(110f, 42f);
+            rect.sizeDelta = new Vector2(150f, 58f);
             var image = buttonObject.AddComponent<Image>();
             image.color = TerminalButtonColor;
             var button = buttonObject.AddComponent<Button>();
@@ -975,7 +1654,7 @@ namespace ProjectW.IngameCore.CaseReview
                 });
                 var layout = buttonObject.AddComponent<LayoutElement>();
                 layout.minWidth = 220f;
-                layout.minHeight = 42f;
+                layout.minHeight = 76f;
                 var text = CreateText("> " + label, buttonObject.transform, 14, FontStyle.Bold, TextAnchor.MiddleCenter);
                 text.color = CrtTextColor;
                 text.raycastTarget = false;
@@ -1106,7 +1785,7 @@ namespace ProjectW.IngameCore.CaseReview
         private Text CreateHeader(string value, Transform parent)
         {
             var text = CreateText(value, parent, 20, FontStyle.Bold, TextAnchor.MiddleLeft);
-            text.gameObject.AddComponent<LayoutElement>().minHeight = 28;
+            text.gameObject.AddComponent<LayoutElement>().minHeight = 52;
             return text;
         }
 
@@ -1131,7 +1810,7 @@ namespace ProjectW.IngameCore.CaseReview
             var text = textObject.AddComponent<Text>();
             text.text = value;
             text.font = uiFont;
-            text.fontSize = fontSize;
+            text.fontSize = Mathf.Max(MinUiFontSize, fontSize);
             text.fontStyle = style;
             text.alignment = alignment;
             text.color = CrtTextColor;
@@ -1191,7 +1870,7 @@ namespace ProjectW.IngameCore.CaseReview
             var assignment = AssignmentFor(entry.EventId);
             var maxSlots = Math.Max(1, item.MaxPersonnelCount);
             var panel = CreatePanel("Work File " + entry.EventId, boardCardRoot, FolderColor);
-            panel.gameObject.AddComponent<LayoutElement>().minHeight = 134;
+            panel.gameObject.AddComponent<LayoutElement>().minHeight = 196;
             var layout = panel.gameObject.AddComponent<VerticalLayoutGroup>();
             layout.padding = new RectOffset(10, 10, 8, 8);
             layout.spacing = 6;
@@ -1202,25 +1881,25 @@ namespace ProjectW.IngameCore.CaseReview
             var tags = WorkTags(item);
             var title = CreateText($"FILE {item.Id}  {item.Title}", panel, 16, FontStyle.Bold, TextAnchor.MiddleLeft);
             title.color = PaperTextColor;
-            title.gameObject.AddComponent<LayoutElement>().minHeight = 22;
+            title.gameObject.AddComponent<LayoutElement>().minHeight = 46;
             var detail = CreateText($"Remaining sheets {remaining} | ID slots {assignment.Count}/{maxSlots} | Labels {tags}", panel, 13, FontStyle.Normal, TextAnchor.MiddleLeft);
             detail.color = PaperTextColor;
-            detail.gameObject.AddComponent<LayoutElement>().minHeight = 20;
+            detail.gameObject.AddComponent<LayoutElement>().minHeight = 44;
             var riskLine = CreateText($"STAMP URG {item.Urgency}  SEV {item.Severity}  RISK {item.LatentRisk}  DEADLINE {Math.Max(0, item.TtlSec)}s", panel, 12, FontStyle.Bold, TextAnchor.MiddleLeft);
             riskLine.color = item.LatentRisk >= 60 || item.Urgency >= 70 ? WarningStampColor : PaperTextColor;
-            riskLine.gameObject.AddComponent<LayoutElement>().minHeight = 18;
+            riskLine.gameObject.AddComponent<LayoutElement>().minHeight = 44;
 
             var slots = CreateUiObject("Slots", panel).transform;
             var slotLayout = slots.gameObject.AddComponent<HorizontalLayoutGroup>();
             slotLayout.spacing = 6;
             slotLayout.childForceExpandWidth = true;
             slotLayout.childForceExpandHeight = false;
-            slots.gameObject.AddComponent<LayoutElement>().minHeight = 48;
+            slots.gameObject.AddComponent<LayoutElement>().minHeight = 86;
 
             for (var slotIndex = 0; slotIndex < maxSlots; slotIndex++)
             {
                 var slot = CreatePanel($"ID Slot {slotIndex + 1}", slots, new Color(0.24f, 0.19f, 0.13f, 1f));
-                slot.gameObject.AddComponent<LayoutElement>().minHeight = 46;
+                slot.gameObject.AddComponent<LayoutElement>().minHeight = 82;
                 slot.gameObject.AddComponent<WorkSlotDropTarget>().Initialize(this, entry.EventId);
 
                 if (slotIndex < assignment.Count)
@@ -1242,14 +1921,14 @@ namespace ProjectW.IngameCore.CaseReview
         private void CreateReportCard(EventCase item)
         {
             var panel = CreatePanel("Report " + item.Id, boardCardRoot, PaperColor);
-            panel.gameObject.AddComponent<LayoutElement>().minHeight = 104;
+            panel.gameObject.AddComponent<LayoutElement>().minHeight = 150;
             var layout = panel.gameObject.AddComponent<VerticalLayoutGroup>();
             layout.padding = new RectOffset(10, 10, 8, 8);
             layout.spacing = 6;
 
             var reportText = CreateText(FormatResolvedEvent(item), panel, 13, FontStyle.Normal, TextAnchor.UpperLeft);
             reportText.color = PaperTextColor;
-            reportText.gameObject.AddComponent<LayoutElement>().minHeight = 86;
+            reportText.gameObject.AddComponent<LayoutElement>().minHeight = 128;
         }
 
         private void CreateNightSummaryCard()
@@ -1262,7 +1941,7 @@ namespace ProjectW.IngameCore.CaseReview
             var pendingReviewCount = resolved.Count(item => !item.ReportReviewed);
 
             var panel = CreatePanel("Night Summary Card", boardCardRoot, PaperColor);
-            panel.gameObject.AddComponent<LayoutElement>().minHeight = 220;
+            panel.gameObject.AddComponent<LayoutElement>().minHeight = 320;
             var layout = panel.gameObject.AddComponent<VerticalLayoutGroup>();
             layout.padding = new RectOffset(14, 14, 12, 12);
             layout.spacing = 8;
@@ -1271,29 +1950,30 @@ namespace ProjectW.IngameCore.CaseReview
 
             var summaryTitle = CreateText($"DAY {CurrentState.Day:00} REPORT - STAMPED", panel, 20, FontStyle.Bold, TextAnchor.MiddleLeft);
             summaryTitle.color = PaperTextColor;
-            summaryTitle.gameObject.AddComponent<LayoutElement>().minHeight = 28;
+            summaryTitle.gameObject.AddComponent<LayoutElement>().minHeight = 52;
             var summaryLine = CreateText($"Resolved {resolved.Count} | Closed {closed} | Open {open} | Avg Outcome {averageOutcome} | OVR {CurrentState.Overload} | Global Risk {CurrentState.GlobalLatentRisk}", panel, 14, FontStyle.Normal, TextAnchor.MiddleLeft);
             summaryLine.color = PaperTextColor;
-            summaryLine.gameObject.AddComponent<LayoutElement>().minHeight = 24;
+            summaryLine.gameObject.AddComponent<LayoutElement>().minHeight = 48;
             var highRiskLine = CreateText($"Highest risk: {(highestRisk is null ? "none" : $"{highestRisk.Id} {highestRisk.Title} / risk {highestRisk.LatentRisk}")}", panel, 14, FontStyle.Bold, TextAnchor.MiddleLeft);
             highRiskLine.color = highestRisk is not null && highestRisk.LatentRisk >= 60 ? WarningStampColor : PaperTextColor;
-            highRiskLine.gameObject.AddComponent<LayoutElement>().minHeight = 24;
+            highRiskLine.gameObject.AddComponent<LayoutElement>().minHeight = 48;
             var pendingLine = CreateText($"MVP filing note: pending reports auto-clear on Next Morning: {pendingReviewCount}", panel, 13, FontStyle.Italic, TextAnchor.MiddleLeft);
             pendingLine.color = PaperTextColor;
-            pendingLine.gameObject.AddComponent<LayoutElement>().minHeight = 24;
+            pendingLine.gameObject.AddComponent<LayoutElement>().minHeight = 48;
 
             foreach (var item in resolved.OrderByDescending(item => item.Severity + item.Urgency).Take(4))
             {
                 var itemText = CreateText($"{item.Id} | OUT {item.OutcomeScore} | RISK {item.LatentRisk} | {item.ResultSummary}", panel, 13, FontStyle.Normal, TextAnchor.UpperLeft);
                 itemText.color = PaperTextColor;
-                itemText.gameObject.AddComponent<LayoutElement>().minHeight = 34;
+                itemText.gameObject.AddComponent<LayoutElement>().minHeight = 64;
             }
         }
 
-        private void CreateCharacterToken(Personnel person, Transform parent, string sourceEventId, bool selected)
+        private void CreateCharacterToken(Personnel person, Transform parent, string sourceEventId, bool selected, bool dimmed = false, string statusSuffix = "")
         {
-            var token = CreatePanel("Personnel ID " + person.Id, parent, selected ? new Color(0.90f, 0.88f, 0.72f, 1f) : IdCardColor);
-            token.gameObject.AddComponent<LayoutElement>().minHeight = 42;
+            var baseColor = selected ? new Color(0.90f, 0.88f, 0.72f, 1f) : IdCardColor;
+            var token = CreatePanel("Personnel ID " + person.Id, parent, dimmed ? new Color(baseColor.r * 0.55f, baseColor.g * 0.55f, baseColor.b * 0.55f, 0.72f) : baseColor);
+            token.gameObject.AddComponent<LayoutElement>().minHeight = 110;
             if (parent.GetComponent<WorkSlotDropTarget>() is not null)
             {
                 Stretch((RectTransform)token);
@@ -1302,16 +1982,17 @@ namespace ProjectW.IngameCore.CaseReview
             var drag = token.gameObject.AddComponent<DraggableCharacterToken>();
             drag.Initialize(this, person.Id, sourceEventId, dragLayer);
 
-            var text = CreateText($"ID {person.Id}  {person.Name}\nLOAD {person.LoadAssigned}/{Math.Max(1, person.MaxLoad)} | FAT {person.Fatigue} | TRUST {person.TrustToManager}", token, 12, FontStyle.Bold, TextAnchor.MiddleCenter);
-            text.color = PaperTextColor;
+            var suffix = string.IsNullOrWhiteSpace(statusSuffix) ? "" : $"\n{statusSuffix}";
+            var text = CreateText($"ID {person.Id}  {person.Name}\nLOAD {person.LoadAssigned}/{Math.Max(1, person.MaxLoad)} | FAT {person.Fatigue} | TRUST {person.TrustToManager}{suffix}", token, 16, FontStyle.Bold, TextAnchor.MiddleCenter);
+            text.color = dimmed ? new Color(PaperTextColor.r, PaperTextColor.g, PaperTextColor.b, 0.45f) : PaperTextColor;
             text.raycastTarget = false;
         }
 
         private void CreateCardFace(DebugCard card, Transform parent, bool used)
         {
             var panel = CreatePanel("Desk Card " + card.Id, parent, used ? new Color(0.46f, 0.43f, 0.36f, 1f) : PaperColor);
-            panel.gameObject.AddComponent<LayoutElement>().minHeight = 66;
-            var text = CreateText($"{card.Title}\n{string.Join(", ", card.Tags)} | OUT {Signed(card.OutcomeModifier)} RISK {Signed(card.RiskModifier)}\n{(used ? "STAMP: USED" : card.Summary)}", panel, 12, used ? FontStyle.Italic : FontStyle.Normal, TextAnchor.MiddleLeft);
+            panel.gameObject.AddComponent<LayoutElement>().minHeight = 140;
+            var text = CreateText($"{card.Title}\n{string.Join(", ", card.Tags)} | OUT {Signed(card.OutcomeModifier)} RISK {Signed(card.RiskModifier)}\n{(used ? "STAMP: USED" : card.Summary)}", panel, 16, used ? FontStyle.Italic : FontStyle.Normal, TextAnchor.MiddleLeft);
             text.rectTransform.offsetMin = new Vector2(8, 4);
             text.rectTransform.offsetMax = new Vector2(-8, -4);
             text.color = used ? WarningStampColor : PaperTextColor;
@@ -1392,6 +2073,24 @@ namespace ProjectW.IngameCore.CaseReview
             {
                 Render();
             }
+        }
+
+        private string FindAssignedEventId(string personnelId, string exceptEventId)
+        {
+            foreach (var pair in plannedAssignments)
+            {
+                if (pair.Key.Equals(exceptEventId, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (pair.Value.Any(id => id.Equals(personnelId, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return pair.Key;
+                }
+            }
+
+            return "";
         }
 
         private List<WorkPerformanceEvent> UseRandomCardsForAssignedWork()
@@ -1642,6 +2341,188 @@ namespace ProjectW.IngameCore.CaseReview
         }
     }
 
+    internal enum MvpDesktopWindow
+    {
+        None,
+        CurrentWorkDashboard,
+        TodayWorkPlan,
+        CharacterProfiling,
+        DevTools
+    }
+
+    internal sealed class DesktopShortcutDefinition
+    {
+        public DesktopShortcutDefinition(string id, string label, string summary, string iconText, MvpDesktopWindow targetWindow, Color color, Color textColor, Func<bool> isEnabled = null)
+        {
+            Id = id;
+            Label = label;
+            Summary = summary;
+            IconText = iconText;
+            TargetWindow = targetWindow;
+            Color = color;
+            TextColor = textColor;
+            IsEnabled = isEnabled;
+        }
+
+        public string Id { get; }
+        public string Label { get; }
+        public string Summary { get; }
+        public string IconText { get; }
+        public MvpDesktopWindow TargetWindow { get; }
+        public Color Color { get; }
+        public Color TextColor { get; }
+        public Func<bool> IsEnabled { get; }
+    }
+
+    internal readonly struct WindowLayoutState
+    {
+        public WindowLayoutState(Vector2 anchorMin, Vector2 anchorMax)
+        {
+            AnchorMin = anchorMin;
+            AnchorMax = anchorMax;
+        }
+
+        public Vector2 AnchorMin { get; }
+        public Vector2 AnchorMax { get; }
+    }
+
+    internal sealed class DesktopWindowDragHandle : MonoBehaviour, IBeginDragHandler, IDragHandler, IPointerDownHandler
+    {
+        private CaseReviewMvpSceneController controller;
+        private MvpDesktopWindow window;
+        private RectTransform windowRect;
+        private RectTransform parentRect;
+        private Vector2 startAnchorMin;
+        private Vector2 startAnchorMax;
+        private Vector2 startScreenPosition;
+
+        public void Initialize(CaseReviewMvpSceneController owner, MvpDesktopWindow targetWindow, RectTransform targetRect, RectTransform targetParent)
+        {
+            controller = owner;
+            window = targetWindow;
+            windowRect = targetRect;
+            parentRect = targetParent;
+        }
+
+        public void OnPointerDown(PointerEventData eventData)
+        {
+            controller?.FocusDesktopWindow(window);
+            windowRect?.SetAsLastSibling();
+        }
+
+        public void OnBeginDrag(PointerEventData eventData)
+        {
+            if (windowRect is null)
+            {
+                return;
+            }
+
+            controller?.FocusDesktopWindow(window);
+            windowRect.SetAsLastSibling();
+            startAnchorMin = windowRect.anchorMin;
+            startAnchorMax = windowRect.anchorMax;
+            startScreenPosition = eventData.position;
+        }
+
+        public void OnDrag(PointerEventData eventData)
+        {
+            if (controller is null || windowRect is null)
+            {
+                return;
+            }
+
+            var parentSize = ParentSize();
+            var delta = eventData.position - startScreenPosition;
+            var anchorDelta = new Vector2(delta.x / parentSize.x, delta.y / parentSize.y);
+            var state = controller.RememberWindowLayout(window, startAnchorMin + anchorDelta, startAnchorMax + anchorDelta);
+            Apply(state);
+        }
+
+        private Vector2 ParentSize()
+        {
+            var size = parentRect is null ? new Vector2(1920f, 1080f) : parentRect.rect.size;
+            return new Vector2(Mathf.Max(1f, size.x), Mathf.Max(1f, size.y));
+        }
+
+        private void Apply(WindowLayoutState state)
+        {
+            windowRect.anchorMin = state.AnchorMin;
+            windowRect.anchorMax = state.AnchorMax;
+            windowRect.offsetMin = Vector2.zero;
+            windowRect.offsetMax = Vector2.zero;
+        }
+    }
+
+    internal sealed class DesktopWindowResizeHandle : MonoBehaviour, IBeginDragHandler, IDragHandler, IPointerDownHandler
+    {
+        private CaseReviewMvpSceneController controller;
+        private MvpDesktopWindow window;
+        private RectTransform windowRect;
+        private RectTransform parentRect;
+        private Vector2 startAnchorMin;
+        private Vector2 startAnchorMax;
+        private Vector2 startScreenPosition;
+
+        public void Initialize(CaseReviewMvpSceneController owner, MvpDesktopWindow targetWindow, RectTransform targetRect, RectTransform targetParent)
+        {
+            controller = owner;
+            window = targetWindow;
+            windowRect = targetRect;
+            parentRect = targetParent;
+        }
+
+        public void OnPointerDown(PointerEventData eventData)
+        {
+            controller?.FocusDesktopWindow(window);
+            windowRect?.SetAsLastSibling();
+        }
+
+        public void OnBeginDrag(PointerEventData eventData)
+        {
+            if (windowRect is null)
+            {
+                return;
+            }
+
+            controller?.FocusDesktopWindow(window);
+            windowRect.SetAsLastSibling();
+            startAnchorMin = windowRect.anchorMin;
+            startAnchorMax = windowRect.anchorMax;
+            startScreenPosition = eventData.position;
+        }
+
+        public void OnDrag(PointerEventData eventData)
+        {
+            if (controller is null || windowRect is null)
+            {
+                return;
+            }
+
+            var parentSize = ParentSize();
+            var delta = eventData.position - startScreenPosition;
+            var anchorDelta = new Vector2(delta.x / parentSize.x, delta.y / parentSize.y);
+            var state = controller.RememberWindowLayout(
+                window,
+                new Vector2(startAnchorMin.x, startAnchorMin.y + anchorDelta.y),
+                new Vector2(startAnchorMax.x + anchorDelta.x, startAnchorMax.y));
+            Apply(state);
+        }
+
+        private Vector2 ParentSize()
+        {
+            var size = parentRect is null ? new Vector2(1920f, 1080f) : parentRect.rect.size;
+            return new Vector2(Mathf.Max(1f, size.x), Mathf.Max(1f, size.y));
+        }
+
+        private void Apply(WindowLayoutState state)
+        {
+            windowRect.anchorMin = state.AnchorMin;
+            windowRect.anchorMax = state.AnchorMax;
+            windowRect.offsetMin = Vector2.zero;
+            windowRect.offsetMax = Vector2.zero;
+        }
+    }
+
     internal sealed class WorkSlotDropTarget : MonoBehaviour
     {
         public CaseReviewMvpSceneController Controller { get; private set; }
@@ -1699,7 +2580,7 @@ namespace ProjectW.IngameCore.CaseReview
             ghost = ghostObject.GetComponent<RectTransform>();
             ghost.SetParent(dragLayer != null ? dragLayer : transform.parent, false);
             ghost.SetAsLastSibling();
-            ghost.sizeDelta = new Vector2(120, 44);
+            ghost.sizeDelta = new Vector2(180, 64);
             var image = ghostObject.AddComponent<Image>();
             image.color = new Color(0.28f, 0.38f, 0.46f, 0.86f);
             image.raycastTarget = false;

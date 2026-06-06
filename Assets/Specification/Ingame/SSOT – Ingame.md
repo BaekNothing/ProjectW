@@ -117,6 +117,27 @@ Rules:
 
 ------
 
+### 3.2 MVP Scene Desktop UI
+
+The current MVP Scene is a runtime-generated desktop-style UGUI surface for validating the daily management loop.
+
+Rules:
+
+- The desktop uses square shortcuts with short labels, aligned from the upper-left like a simple Windows desktop.
+- Connected player functions are grouped into purpose-centered windows instead of many independent popups:
+  - `Current Work Dashboard`: current work status, queue, risks, selected work detail, progress, worker timeline, and night report summary.
+  - `Today Work Plan`: daily plan entries, assignment slots, command panel, approval, recommended adjustment, summary, and next-morning flow.
+  - `Character Profiling`: personnel cards, selected character detail, today cards, used-card state, and explicit scenario entry.
+  - `Dev Tools`: system diagnostics, people/work gauges, and recent logs for development use.
+- Windows are draggable, resizable, remember their current layout for the session, and enforce a minimum size.
+- Window contents must support vertical scrolling by default because MVP readability uses large UI text.
+- Runtime text in this MVP UI should not render below 30 px.
+- Assignment slots in `Today Work Plan` open or focus `Character Profiling`. When a slot is selected, the profile window may enter candidate mode: insertable characters remain normal and unavailable characters are dimmed.
+- Character selection state is shared between `Character Profiling` and `Today Work Plan`, but core state changes still pass through `CaseReviewGame.Dispatch` or explicit assignment sync boundaries.
+- Desktop chrome may reorganize presentation, but it must not replace the daily loop: review, assignment, confirmation, execution feedback, night summary, next morning.
+
+------
+
 ## 4. Cards and Decks
 
 각 개체는 행동 덱을 가진다.
