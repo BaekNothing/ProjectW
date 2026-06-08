@@ -237,6 +237,7 @@ public sealed class ScenarioPortraitState
     public float NormalizedX;
     public float PreviousNormalizedX;
     public bool IsMoving;
+    public bool IsNewlyJoined;
     public bool IsFocused;
     public bool IsDimmed;
 }
@@ -385,6 +386,7 @@ public static class ScenarioPortraitLayout
                 NormalizedX = targetX,
                 PreviousNormalizedX = previousX,
                 IsMoving = hadPrevious && Math.Abs(previousX - targetX) > MovementEpsilon,
+                IsNewlyJoined = !hadPrevious,
                 IsFocused = isFocused,
                 IsDimmed = speakerIsVisible && !isFocused
             });

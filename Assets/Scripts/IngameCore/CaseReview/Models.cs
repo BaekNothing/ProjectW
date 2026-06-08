@@ -131,6 +131,10 @@ public sealed class ActionCard
     public int OutcomeModifier { get; set; }
     public int RiskModifier { get; set; }
     public int ReviewCostModifier { get; set; }
+    public int CriticalChancePercent { get; set; }
+    public float CriticalMultiplier { get; set; } = 1f;
+    public bool CriticalTriggered { get; set; }
+    public int CriticalRoll { get; set; }
 }
 
 [Serializable]

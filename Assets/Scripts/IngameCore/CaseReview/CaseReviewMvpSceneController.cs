@@ -59,15 +59,18 @@ namespace ProjectW.IngameCore.CaseReview
         private Transform rosterRoot;
         private Transform cardHandRoot;
         private Transform scenarioPortraitRoot;
+        private Transform scenarioMeetingContentRoot;
         private Transform scenarioChoiceRoot;
         private Transform workSceneActorRoot;
         private Transform workSceneImpactRoot;
         private Transform dragLayer;
         private GameObject scenarioOverlay;
         private GameObject workSceneOverlay;
+        private Text scenarioMeetingEffectText;
         private Font uiFont;
         private ScenarioEventDefinition sampleScenario;
         private ScenarioPlaybackSession scenarioSession;
+        private string scenarioMeetingLayoutSignature = "";
         private float scenarioTypewriterAccumulator;
         private bool scenarioAutoPlay;
         private readonly List<WorkPerformanceEvent> workPerformanceEvents = new();
@@ -1581,7 +1584,7 @@ namespace ProjectW.IngameCore.CaseReview
                     }
                 }
 
-                lines.Add($"  Expected card delta: OUT {Signed(expected.Outcome)} | RISK {Signed(expected.Risk)}");
+                lines.Add($"  Low card delta: OUT {Signed(expected.Outcome)} | RISK {Signed(expected.Risk)}");
                 lines.Add($"  Basis: {entry.Reason}{(entry.Adjusted ? " | adjusted" : "")}");
                 lines.Add("");
             }
@@ -1802,12 +1805,32 @@ namespace ProjectW.IngameCore.CaseReview
             ((RectTransform)autoButton.transform).sizeDelta = new Vector2(150f, 58f);
             scenarioAutoButtonText = autoButton.GetComponentInChildren<Text>();
 
-            scenarioPortraitRoot = CreateUiObject("Portrait Stage", scenarioOverlay.transform).transform;
-            var stageRect = (RectTransform)scenarioPortraitRoot;
+            var meetingMask = CreatePanel("Zoom Meeting Mask", scenarioOverlay.transform, new Color(0.018f, 0.025f, 0.023f, 1f));
+            var mask = meetingMask.gameObject.AddComponent<Mask>();
+            mask.showMaskGraphic = true;
+            scenarioPortraitRoot = meetingMask;
+            var stageRect = (RectTransform)meetingMask;
             stageRect.anchorMin = new Vector2(0.03f, 0.28f);
             stageRect.anchorMax = new Vector2(0.97f, 0.86f);
             stageRect.offsetMin = Vector2.zero;
             stageRect.offsetMax = Vector2.zero;
+
+            scenarioMeetingContentRoot = CreateUiObject("Zoom Meeting Tiles", scenarioPortraitRoot).transform;
+            Stretch((RectTransform)scenarioMeetingContentRoot);
+
+            var meetingChrome = CreatePanel("Zoom Meeting Chrome", scenarioPortraitRoot, new Color(0f, 0f, 0f, 0.28f));
+            var chromeRect = (RectTransform)meetingChrome;
+            chromeRect.anchorMin = new Vector2(0f, 1f);
+            chromeRect.anchorMax = new Vector2(1f, 1f);
+            chromeRect.pivot = new Vector2(0.5f, 1f);
+            chromeRect.sizeDelta = new Vector2(0f, 46f);
+            chromeRect.anchoredPosition = Vector2.zero;
+            var chromeText = CreateText("SECURE MEETING ROOM", meetingChrome, 14, FontStyle.Bold, TextAnchor.MiddleLeft);
+            chromeText.rectTransform.offsetMin = new Vector2(16f, 0f);
+            chromeText.rectTransform.offsetMax = new Vector2(-260f, 0f);
+            scenarioMeetingEffectText = CreateText("", meetingChrome, 14, FontStyle.Bold, TextAnchor.MiddleRight);
+            scenarioMeetingEffectText.rectTransform.offsetMin = new Vector2(260f, 0f);
+            scenarioMeetingEffectText.rectTransform.offsetMax = new Vector2(-16f, 0f);
 
             var textBox = CreatePanel("Internal Message Output", scenarioOverlay.transform, CrtPanelColor);
             var textBoxRect = (RectTransform)textBox;
@@ -1963,6 +1986,7 @@ namespace ProjectW.IngameCore.CaseReview
             }
 
             RenderScenarioPortraits();
+            UpdateScenarioMeetingMotion();
             RenderScenarioChoices();
         }
 
@@ -1971,6 +1995,7 @@ namespace ProjectW.IngameCore.CaseReview
             scenarioSession = null;
             scenarioAutoPlay = false;
             scenarioTypewriterAccumulator = 0f;
+            scenarioMeetingLayoutSignature = "";
             if (scenarioOverlay is not null)
             {
                 scenarioOverlay.SetActive(false);
@@ -1979,40 +2004,76 @@ namespace ProjectW.IngameCore.CaseReview
 
         private void RenderScenarioPortraits()
         {
-            ClearDynamicRoot(scenarioPortraitRoot);
             if (scenarioSession?.StageState is null)
+            {
+                ClearDynamicRoot(scenarioMeetingContentRoot);
+                scenarioMeetingLayoutSignature = "";
+                if (scenarioMeetingEffectText is not null)
+                {
+                    scenarioMeetingEffectText.text = "";
+                }
+
+                return;
+            }
+
+            var portraits = OrderMeetingParticipants(scenarioSession.StageState.Portraits);
+            var stageCommands = scenarioSession.CurrentLine.Source?.StageCommands;
+            if (scenarioMeetingEffectText is not null)
+            {
+                scenarioMeetingEffectText.text = BuildScenarioEffectText(stageCommands);
+            }
+
+            var layoutSignature = BuildMeetingLayoutSignature(scenarioSession.CurrentLine.Source?.LineId, portraits);
+            if (layoutSignature.Equals(scenarioMeetingLayoutSignature, StringComparison.Ordinal))
             {
                 return;
             }
 
-            foreach (var portrait in scenarioSession.StageState.Portraits)
+            scenarioMeetingLayoutSignature = layoutSignature;
+            ClearDynamicRoot(scenarioMeetingContentRoot);
+
+            var slotCount = portraits.Count <= 1 ? portraits.Count : 4;
+            var visibleCount = portraits.Count <= 4 ? portraits.Count : 3;
+            var stageAspect = MeetingStageAspect();
+            for (var index = 0; index < visibleCount; index++)
             {
-                var panel = CreatePanel("Portrait " + portrait.PortraitId, scenarioPortraitRoot, PortraitColor(portrait));
+                var portrait = portraits[index];
+                var panel = CreatePanel("Meeting Tile " + portrait.PortraitId, scenarioMeetingContentRoot, MeetingTileColor(portrait));
                 var rect = (RectTransform)panel;
-                rect.anchorMin = new Vector2(portrait.NormalizedX, 0.5f);
-                rect.anchorMax = new Vector2(portrait.NormalizedX, 0.5f);
-                rect.pivot = new Vector2(0.5f, 0.5f);
-                rect.anchoredPosition = Vector2.zero;
-                rect.sizeDelta = new Vector2(portrait.IsFocused ? 300f : 260f, portrait.IsFocused ? 430f : 390f);
+                var tile = CalculateMeetingTileRect(index, portraits.Count, stageAspect);
+                rect.anchorMin = tile.AnchorMin;
+                rect.anchorMax = tile.AnchorMax;
+                rect.offsetMin = tile.OffsetMin;
+                rect.offsetMax = tile.OffsetMax;
 
-                var label = $"PERSONNEL FILE\n{portrait.PortraitId}";
-                if (portrait.IsMoving)
-                {
-                    label += $"\nmove {portrait.PreviousNormalizedX:0.00}->{portrait.NormalizedX:0.00}";
-                }
+                RenderMeetingParticipantTile(panel, portrait);
+            }
 
-                if (portrait.IsFocused)
+            if (portraits.Count > 1 && portraits.Count <= 4)
+            {
+                for (var index = visibleCount; index < slotCount; index++)
                 {
-                    label += "\nACTIVE";
+                    var emptyPanel = CreatePanel("Meeting Tile Empty " + index, scenarioMeetingContentRoot, new Color(0.040f, 0.048f, 0.044f, 1f));
+                    var rect = (RectTransform)emptyPanel;
+                    var tile = CalculateMeetingTileRect(index, portraits.Count, stageAspect);
+                    rect.anchorMin = tile.AnchorMin;
+                    rect.anchorMax = tile.AnchorMax;
+                    rect.offsetMin = tile.OffsetMin;
+                    rect.offsetMax = tile.OffsetMax;
+                    RenderMeetingEmptyTile(emptyPanel);
                 }
-                else if (portrait.IsDimmed)
-                {
-                    label += "\nARCHIVED";
-                }
+            }
 
-                var text = CreateText(label, panel, 24, FontStyle.Bold, TextAnchor.MiddleCenter);
-                text.color = PaperTextColor;
-                text.raycastTarget = false;
+            if (portraits.Count > 4)
+            {
+                var overflowPanel = CreatePanel("Meeting Tile Overflow", scenarioMeetingContentRoot, new Color(0.055f, 0.065f, 0.060f, 1f));
+                var rect = (RectTransform)overflowPanel;
+                var tile = CalculateMeetingTileRect(3, portraits.Count, stageAspect);
+                rect.anchorMin = tile.AnchorMin;
+                rect.anchorMax = tile.AnchorMax;
+                rect.offsetMin = tile.OffsetMin;
+                rect.offsetMax = tile.OffsetMax;
+                RenderMeetingOverflowTile(overflowPanel, portraits.Count - 4);
             }
         }
 
@@ -2059,16 +2120,278 @@ namespace ProjectW.IngameCore.CaseReview
                 : choice.LabelTextKey;
         }
 
-        private static Color PortraitColor(ScenarioPortraitState portrait)
+        private static Color MeetingTileColor(ScenarioPortraitState portrait)
         {
             if (portrait.IsFocused)
             {
-                return IdCardColor;
+                return new Color(0.30f, 0.48f, 0.38f, 1f);
             }
 
             return portrait.IsDimmed
-                ? new Color(0.20f, 0.19f, 0.16f, 0.78f)
-                : PaperColor;
+                ? new Color(0.06f, 0.07f, 0.065f, 1f)
+                : new Color(0.10f, 0.13f, 0.12f, 1f);
+        }
+
+        private static Color MeetingFeedColor(ScenarioPortraitState portrait)
+        {
+            if (portrait.IsFocused)
+            {
+                return new Color(0.075f, 0.12f, 0.095f, 1f);
+            }
+
+            return portrait.IsDimmed
+                ? new Color(0.025f, 0.030f, 0.028f, 1f)
+                : new Color(0.045f, 0.060f, 0.055f, 1f);
+        }
+
+        private void RenderMeetingParticipantTile(Transform panel, ScenarioPortraitState portrait)
+        {
+            var border = CreatePanel("Camera Feed Border", panel, portrait.IsFocused ? CrtTextColor : new Color(0.16f, 0.20f, 0.18f, 1f));
+            Stretch((RectTransform)border);
+            var inset = CreatePanel("Camera Feed", border, MeetingFeedColor(portrait));
+            var insetRect = (RectTransform)inset;
+            insetRect.offsetMin = new Vector2(4f, 4f);
+            insetRect.offsetMax = new Vector2(-4f, -4f);
+
+            var label = $"{portrait.PortraitId}\n";
+            if (portrait.IsNewlyJoined)
+            {
+                label += "JOINED\n";
+            }
+            else if (portrait.IsMoving)
+            {
+                label += $"REORDER {portrait.PreviousNormalizedX:0.00}->{portrait.NormalizedX:0.00}\n";
+            }
+
+            if (portrait.IsFocused)
+            {
+                label += "SPEAKING";
+            }
+            else if (portrait.IsDimmed)
+            {
+                label += "LISTENING";
+            }
+            else
+            {
+                label += "CONNECTED";
+            }
+
+            var text = CreateText(label, inset, portrait.IsFocused ? 28 : 24, FontStyle.Bold, TextAnchor.MiddleCenter);
+            text.color = portrait.IsDimmed ? new Color(0.54f, 0.60f, 0.56f, 1f) : CrtTextColor;
+            text.raycastTarget = false;
+
+            var namePlate = CreatePanel("Participant Name Plate", inset, new Color(0f, 0f, 0f, portrait.IsFocused ? 0.72f : 0.56f));
+            var nameRect = (RectTransform)namePlate;
+            nameRect.anchorMin = new Vector2(0f, 0f);
+            nameRect.anchorMax = new Vector2(1f, 0f);
+            nameRect.pivot = new Vector2(0.5f, 0f);
+            nameRect.sizeDelta = new Vector2(0f, 48f);
+            nameRect.anchoredPosition = Vector2.zero;
+            var nameText = CreateText(portrait.IsFocused ? $"LIVE  {portrait.PortraitId}" : portrait.PortraitId, namePlate, 14, FontStyle.Bold, TextAnchor.MiddleLeft);
+            nameText.rectTransform.offsetMin = new Vector2(14f, 0f);
+            nameText.rectTransform.offsetMax = new Vector2(-14f, 0f);
+            nameText.raycastTarget = false;
+        }
+
+        private void RenderMeetingOverflowTile(Transform panel, int overflowCount)
+        {
+            var border = CreatePanel("Overflow Feed Border", panel, new Color(0.16f, 0.20f, 0.18f, 1f));
+            Stretch((RectTransform)border);
+            var inset = CreatePanel("Overflow Feed", border, new Color(0.030f, 0.038f, 0.034f, 1f));
+            var insetRect = (RectTransform)inset;
+            insetRect.offsetMin = new Vector2(4f, 4f);
+            insetRect.offsetMax = new Vector2(-4f, -4f);
+
+            var text = CreateText($"+{Math.Max(1, overflowCount)}", inset, 48, FontStyle.Bold, TextAnchor.MiddleCenter);
+            text.color = CrtTextColor;
+            text.raycastTarget = false;
+
+            var footer = CreatePanel("Overflow Name Plate", inset, new Color(0f, 0f, 0f, 0.58f));
+            var footerRect = (RectTransform)footer;
+            footerRect.anchorMin = new Vector2(0f, 0f);
+            footerRect.anchorMax = new Vector2(1f, 0f);
+            footerRect.pivot = new Vector2(0.5f, 0f);
+            footerRect.sizeDelta = new Vector2(0f, 48f);
+            footerRect.anchoredPosition = Vector2.zero;
+            var footerText = CreateText("WAITING ROOM", footer, 14, FontStyle.Bold, TextAnchor.MiddleLeft);
+            footerText.rectTransform.offsetMin = new Vector2(14f, 0f);
+            footerText.rectTransform.offsetMax = new Vector2(-14f, 0f);
+            footerText.raycastTarget = false;
+        }
+
+        private void RenderMeetingEmptyTile(Transform panel)
+        {
+            var border = CreatePanel("Empty Feed Border", panel, new Color(0.12f, 0.15f, 0.14f, 1f));
+            Stretch((RectTransform)border);
+            var inset = CreatePanel("Empty Feed", border, new Color(0.024f, 0.029f, 0.027f, 1f));
+            var insetRect = (RectTransform)inset;
+            insetRect.offsetMin = new Vector2(4f, 4f);
+            insetRect.offsetMax = new Vector2(-4f, -4f);
+
+            var avatar = CreatePanel("Default Avatar", inset, new Color(0.10f, 0.13f, 0.12f, 1f));
+            var avatarRect = (RectTransform)avatar;
+            avatarRect.anchorMin = new Vector2(0.5f, 0.5f);
+            avatarRect.anchorMax = new Vector2(0.5f, 0.5f);
+            avatarRect.pivot = new Vector2(0.5f, 0.5f);
+            avatarRect.sizeDelta = new Vector2(120f, 120f);
+            avatarRect.anchoredPosition = new Vector2(0f, 28f);
+            var avatarText = CreateText("?", avatar, 42, FontStyle.Bold, TextAnchor.MiddleCenter);
+            avatarText.color = new Color(0.42f, 0.55f, 0.49f, 1f);
+            avatarText.raycastTarget = false;
+
+            var statusText = CreateText("DEFAULT AVATAR\nNO SIGNAL", inset, 18, FontStyle.Bold, TextAnchor.MiddleCenter);
+            statusText.color = new Color(0.44f, 0.58f, 0.50f, 1f);
+            statusText.rectTransform.offsetMin = new Vector2(18f, 18f);
+            statusText.rectTransform.offsetMax = new Vector2(-18f, -130f);
+            statusText.raycastTarget = false;
+
+            var footer = CreatePanel("Empty Name Plate", inset, new Color(0f, 0f, 0f, 0.52f));
+            var footerRect = (RectTransform)footer;
+            footerRect.anchorMin = new Vector2(0f, 0f);
+            footerRect.anchorMax = new Vector2(1f, 0f);
+            footerRect.pivot = new Vector2(0.5f, 0f);
+            footerRect.sizeDelta = new Vector2(0f, 48f);
+            footerRect.anchoredPosition = Vector2.zero;
+            var footerText = CreateText("EMPTY SLOT", footer, 14, FontStyle.Bold, TextAnchor.MiddleLeft);
+            footerText.rectTransform.offsetMin = new Vector2(14f, 0f);
+            footerText.rectTransform.offsetMax = new Vector2(-14f, 0f);
+            footerText.raycastTarget = false;
+        }
+
+        private void UpdateScenarioMeetingMotion()
+        {
+            if (scenarioMeetingContentRoot is null)
+            {
+                return;
+            }
+
+            var rect = (RectTransform)scenarioMeetingContentRoot;
+            rect.anchoredPosition = CalculateScenarioShakeOffset(scenarioSession?.CurrentLine.Source?.StageCommands);
+        }
+
+        private static List<ScenarioPortraitState> OrderMeetingParticipants(IReadOnlyList<ScenarioPortraitState> portraits)
+        {
+            var ordered = portraits?.ToList() ?? new List<ScenarioPortraitState>();
+            var focused = ordered.FirstOrDefault(portrait => portrait.IsFocused);
+            if (focused is not null)
+            {
+                ordered.Remove(focused);
+                ordered.Insert(0, focused);
+                return ordered;
+            }
+
+            var newlyJoined = ordered.Where(portrait => portrait.IsNewlyJoined).ToList();
+            if (newlyJoined.Count == 0)
+            {
+                return ordered;
+            }
+
+            ordered.RemoveAll(portrait => portrait.IsNewlyJoined);
+            newlyJoined.AddRange(ordered);
+            return newlyJoined;
+        }
+
+        private string BuildMeetingLayoutSignature(string lineId, IReadOnlyList<ScenarioPortraitState> portraits)
+        {
+            var ids = portraits is null
+                ? ""
+                : string.Join(",", portraits.Select(portrait => $"{portrait.PortraitId}:{portrait.IsFocused}:{portrait.IsDimmed}:{portrait.IsNewlyJoined}"));
+            var overflow = portraits is null || portraits.Count <= 4 ? 0 : portraits.Count - 4;
+            return $"{lineId ?? ""}|{ids}|overflow:{overflow}|aspect:{MeetingStageAspect():0.000}";
+        }
+
+        private float MeetingStageAspect()
+        {
+            if (scenarioPortraitRoot is RectTransform rect && rect.rect.height > 0.01f)
+            {
+                return rect.rect.width / rect.rect.height;
+            }
+
+            return 16f / 9f;
+        }
+
+        private static MeetingTileRect CalculateMeetingTileRect(int index, int participantCount, float stageAspect)
+        {
+            const float gutter = 0.012f;
+            const float targetAspect = 4f / 3f;
+            if (participantCount <= 1)
+            {
+                return ApplyTileAspect(gutter, gutter, 1f - gutter, 1f - gutter, stageAspect, targetAspect);
+            }
+
+            var safeIndex = Mathf.Clamp(index, 0, 3);
+            var row = safeIndex / 2;
+            var column = safeIndex % 2;
+            var minX = column * 0.5f + gutter;
+            var maxX = (column + 1) * 0.5f - gutter;
+            var minY = 1f - (row + 1) * 0.5f + gutter;
+            var maxY = 1f - row * 0.5f - gutter;
+            return ApplyTileAspect(minX, minY, maxX, maxY, stageAspect, targetAspect);
+        }
+
+        private static MeetingTileRect ApplyTileAspect(float minX, float minY, float maxX, float maxY, float stageAspect, float targetAspect)
+        {
+            var width = maxX - minX;
+            var height = maxY - minY;
+            var safeStageAspect = Mathf.Max(0.01f, stageAspect);
+            var targetHeight = width * safeStageAspect / targetAspect;
+            if (targetHeight < height)
+            {
+                var centerY = (minY + maxY) * 0.5f;
+                height = targetHeight;
+                minY = centerY - height * 0.5f;
+                maxY = centerY + height * 0.5f;
+            }
+            else
+            {
+                var targetWidth = height * targetAspect / safeStageAspect;
+                var centerX = (minX + maxX) * 0.5f;
+                width = targetWidth;
+                minX = centerX - width * 0.5f;
+                maxX = centerX + width * 0.5f;
+            }
+
+            return new MeetingTileRect(
+                new Vector2(minX, minY),
+                new Vector2(maxX, maxY),
+                Vector2.zero,
+                Vector2.zero);
+        }
+
+        private static Vector2 CalculateScenarioShakeOffset(IReadOnlyList<ScenarioStageCommand> stageCommands)
+        {
+            if (stageCommands is null)
+            {
+                return Vector2.zero;
+            }
+
+            var shake = stageCommands
+                .Where(command => command.CommandType == ScenarioStageCommandType.Shake)
+                .Select(command => Mathf.Clamp(command.Intensity, 0f, 1f))
+                .DefaultIfEmpty(0f)
+                .Max();
+            if (shake <= 0f)
+            {
+                return Vector2.zero;
+            }
+
+            var phase = Time.unscaledTime * 34f;
+            return new Vector2(Mathf.Sin(phase) * 34f * shake, Mathf.Cos(phase * 0.7f) * 22f * shake);
+        }
+
+        private static string BuildScenarioEffectText(IReadOnlyList<ScenarioStageCommand> stageCommands)
+        {
+            if (stageCommands is null || stageCommands.Count == 0)
+            {
+                return "";
+            }
+
+            var labels = stageCommands
+                .Where(command => command.CommandType is ScenarioStageCommandType.Shake or ScenarioStageCommandType.ShowEffect or ScenarioStageCommandType.ShowSpeedLines or ScenarioStageCommandType.Collapse)
+                .Select(command => command.CommandType.ToString().ToUpperInvariant())
+                .Distinct()
+                .ToList();
+            return labels.Count == 0 ? "" : string.Join(" / ", labels);
         }
 
         private void BeginWorkPerformanceOverlay(List<WorkPerformanceEvent> events)
@@ -2111,11 +2434,17 @@ namespace ProjectW.IngameCore.CaseReview
             workSceneActorText.text = $"[WORKER ID CARD]\n{performance.PersonnelId}\n{performance.PersonnelName}\n\nSTAMP: USED";
             workSceneWorkText.text = $"[TARGET WORK FILE]\n{performance.EventId}\n{performance.WorkTitle}\n\n{performance.ResultSummary}";
             workSceneCardText.text = BuildHandRevealText(performance, progress);
+            var criticalLine = performance.CriticalTriggered
+                ? $"CRITICAL: DAESEONGGONG x{FormatMultiplier(performance.CriticalMultiplier)}  ROLL {performance.CriticalRoll:00}/{performance.CriticalChancePercent:00}\n"
+                : $"CRITICAL: no hit  ROLL {performance.CriticalRoll:00}/{performance.CriticalChancePercent:00}\n";
             workSceneImpactText.text =
                 $"RESULT REPORT\n" +
                 $"OUTCOME {performance.OutcomeBefore:000} -> {LerpInt(performance.OutcomeBefore, performance.OutcomeAfter, progress):000}  {Signed(performance.OutcomeModifier)}\n" +
                 $"RISK    {performance.RiskBefore:000} -> {LerpInt(performance.RiskBefore, performance.RiskAfter, progress):000}  {Signed(performance.RiskModifier)}\n\n" +
-                $"SELECTED CARD: {performance.CardTitle}\n{performance.CardSummary}\n\nREPORT STATUS: STAMPED / RECORDED";
+                $"SELECTED CARD: {performance.CardTitle}\n" +
+                $"LOW OUT {Signed(performance.BaseOutcomeModifier)} RISK {Signed(performance.BaseRiskModifier)} | CRIT {performance.CriticalChancePercent}% x{FormatMultiplier(performance.CriticalMultiplier)}\n" +
+                criticalLine +
+                $"{performance.CardSummary}\n\nREPORT STATUS: STAMPED / RECORDED";
             workSceneProgressText.text =
                 $"OUT {Bar(LerpInt(0, Mathf.Abs(performance.OutcomeModifier), progress), 12)} {Signed(performance.OutcomeModifier)}\n" +
                 $"RISK {Bar(LerpInt(0, Mathf.Abs(performance.RiskModifier), progress), 12)} {Signed(performance.RiskModifier)}";
@@ -2150,13 +2479,18 @@ namespace ProjectW.IngameCore.CaseReview
                 var marker = card.IsUsed
                     ? revealSelection ? "USED" : "????"
                     : "    ";
-                lines.Add($"{marker} {card.Title} | OUT {Signed(card.OutcomeModifier)} RISK {Signed(card.RiskModifier)}");
+                lines.Add($"{marker} {card.Title} | OUT {Signed(card.OutcomeModifier)} RISK {Signed(card.RiskModifier)} | CRIT {card.CriticalChancePercent}% x{FormatMultiplier(card.CriticalMultiplier)}");
             }
 
             if (!revealSelection)
             {
                 lines.Add("");
                 lines.Add("CHOOSING...");
+            }
+            else if (performance.CriticalTriggered)
+            {
+                lines.Add("");
+                lines.Add($"DAESEONGGONG x{FormatMultiplier(performance.CriticalMultiplier)}  ROLL {performance.CriticalRoll:00}/{performance.CriticalChancePercent:00}");
             }
 
             return string.Join("\n", lines);
@@ -2420,7 +2754,7 @@ namespace ProjectW.IngameCore.CaseReview
         {
             var panel = CreatePanel("Desk Card " + card.Id, parent, used ? new Color(0.46f, 0.43f, 0.36f, 1f) : PaperColor);
             panel.gameObject.AddComponent<LayoutElement>().minHeight = 140;
-            var text = CreateText($"{card.Title}\n{string.Join(", ", card.Tags)} | OUT {Signed(card.OutcomeModifier)} RISK {Signed(card.RiskModifier)}\n{(used ? "STAMP: USED" : card.Summary)}", panel, 16, used ? FontStyle.Italic : FontStyle.Normal, TextAnchor.MiddleLeft);
+            var text = CreateText($"{card.Title}\n{string.Join(", ", card.Tags)} | LOW OUT {Signed(card.OutcomeModifier)} RISK {Signed(card.RiskModifier)} | CRIT {card.CriticalChancePercent}% x{FormatMultiplier(card.CriticalMultiplier)}\n{(used ? "STAMP: USED" : card.Summary)}", panel, 16, used ? FontStyle.Italic : FontStyle.Normal, TextAnchor.MiddleLeft);
             text.rectTransform.offsetMin = new Vector2(8, 4);
             text.rectTransform.offsetMax = new Vector2(-8, -4);
             text.color = used ? WarningStampColor : PaperTextColor;
@@ -2546,8 +2880,9 @@ namespace ProjectW.IngameCore.CaseReview
                     }
 
                     var used = available[random.Next(available.Count)];
+                    var resolved = ResolveCardUse(used, personId, entry.EventId);
                     deck.UsedToday.Add(used.Id);
-                    activeCards.Add(ToRuntimeCard(used, personId, entry.EventId));
+                    activeCards.Add(ToRuntimeCard(used, personId, entry.EventId, resolved));
                     var person = CurrentState.Staff.FirstOrDefault(candidate => candidate.Id.Equals(personId, StringComparison.OrdinalIgnoreCase));
                     performances.Add(new WorkPerformanceEvent
                     {
@@ -2563,14 +2898,22 @@ namespace ProjectW.IngameCore.CaseReview
                             Title = card.Title,
                             OutcomeModifier = card.OutcomeModifier,
                             RiskModifier = card.RiskModifier,
+                            CriticalChancePercent = card.CriticalChancePercent,
+                            CriticalMultiplier = card.CriticalMultiplier,
                             IsUsed = card.Id.Equals(used.Id, StringComparison.OrdinalIgnoreCase)
                         }).ToList(),
                         OutcomeBefore = item?.OutcomeScore ?? 0,
                         RiskBefore = item?.LatentRisk ?? 0,
-                        OutcomeModifier = used.OutcomeModifier,
-                        RiskModifier = used.RiskModifier
+                        OutcomeModifier = resolved.OutcomeModifier,
+                        RiskModifier = resolved.RiskModifier,
+                        BaseOutcomeModifier = used.OutcomeModifier,
+                        BaseRiskModifier = used.RiskModifier,
+                        CriticalChancePercent = used.CriticalChancePercent,
+                        CriticalMultiplier = used.CriticalMultiplier,
+                        CriticalTriggered = resolved.CriticalTriggered,
+                        CriticalRoll = resolved.CriticalRoll
                     });
-                    AddLog($"{entry.EventId}: {personId} used card [{used.Title}]");
+                    AddLog($"{entry.EventId}: {personId} used card [{used.Title}] {(resolved.CriticalTriggered ? "DAESEONGGONG" : "normal")} OUT {Signed(resolved.OutcomeModifier)} RISK {Signed(resolved.RiskModifier)}");
                 }
             }
 
@@ -2646,7 +2989,9 @@ namespace ProjectW.IngameCore.CaseReview
                     Summary = template.Summary,
                     Tags = template.Tags.ToList(),
                     OutcomeModifier = template.OutcomeModifier,
-                    RiskModifier = template.RiskModifier
+                    RiskModifier = template.RiskModifier,
+                    CriticalChancePercent = template.CriticalChancePercent,
+                    CriticalMultiplier = template.CriticalMultiplier
                 });
             }
 
@@ -2661,15 +3006,40 @@ namespace ProjectW.IngameCore.CaseReview
         {
             return new List<DebugCard>
             {
-                new() { Title = "Fast Triage", Summary = "Cuts setup time.", Tags = new List<string> { "speed", "review" }, OutcomeModifier = 8, RiskModifier = 3 },
-                new() { Title = "Second Pair", Summary = "Adds cross-check discipline.", Tags = new List<string> { "audit", "team" }, OutcomeModifier = 5, RiskModifier = -7 },
-                new() { Title = "Shortcut Patch", Summary = "Skips a slow protocol.", Tags = new List<string> { "speed", "unsafe" }, OutcomeModifier = 12, RiskModifier = 10 },
-                new() { Title = "Quiet Notes", Summary = "Finds hidden context.", Tags = new List<string> { "intel", "memory" }, OutcomeModifier = 4, RiskModifier = -4 },
-                new() { Title = "Stress Buffer", Summary = "Protects morale under load.", Tags = new List<string> { "care", "fatigue" }, OutcomeModifier = 3, RiskModifier = -6 },
+                new() { Title = "Fast Triage", Summary = "Cuts setup time.", Tags = new List<string> { "speed", "review" }, OutcomeModifier = 8, RiskModifier = 3, CriticalChancePercent = 15, CriticalMultiplier = 1.5f },
+                new() { Title = "Second Pair", Summary = "Adds cross-check discipline.", Tags = new List<string> { "audit", "team" }, OutcomeModifier = 5, RiskModifier = -7, CriticalChancePercent = 18, CriticalMultiplier = 2f },
+                new() { Title = "Shortcut Patch", Summary = "Skips a slow protocol.", Tags = new List<string> { "speed", "unsafe" }, OutcomeModifier = 12, RiskModifier = 10, CriticalChancePercent = 12, CriticalMultiplier = 1.5f },
+                new() { Title = "Quiet Notes", Summary = "Finds hidden context.", Tags = new List<string> { "intel", "memory" }, OutcomeModifier = 4, RiskModifier = -4, CriticalChancePercent = 24, CriticalMultiplier = 2.25f },
+                new() { Title = "Stress Buffer", Summary = "Protects morale under load.", Tags = new List<string> { "care", "fatigue" }, OutcomeModifier = 3, RiskModifier = -6, CriticalChancePercent = 20, CriticalMultiplier = 2f },
             };
         }
 
-        private static ActionCard ToRuntimeCard(DebugCard card, string personnelId, string eventId)
+        private CardUseResult ResolveCardUse(DebugCard card, string personnelId, string eventId)
+        {
+            var chance = Mathf.Clamp(card.CriticalChancePercent, 0, 100);
+            var multiplier = Mathf.Max(1f, card.CriticalMultiplier);
+            var roll = StablePositiveHash($"{CurrentState.Seed}:{CurrentState.Day}:{eventId}:{personnelId}:{card.Id}:crit") % 100 + 1;
+            var critical = chance > 0 && multiplier > 1f && roll <= chance;
+            return new CardUseResult
+            {
+                OutcomeModifier = critical ? ApplyCriticalOutcomeBonus(card.OutcomeModifier, multiplier) : card.OutcomeModifier,
+                RiskModifier = critical ? ApplyCriticalRiskBonus(card.RiskModifier, multiplier) : card.RiskModifier,
+                CriticalTriggered = critical,
+                CriticalRoll = roll
+            };
+        }
+
+        private static int ApplyCriticalOutcomeBonus(int modifier, float multiplier)
+        {
+            return modifier > 0 ? Mathf.RoundToInt(modifier * multiplier) : modifier;
+        }
+
+        private static int ApplyCriticalRiskBonus(int modifier, float multiplier)
+        {
+            return modifier < 0 ? Mathf.RoundToInt(modifier * multiplier) : modifier;
+        }
+
+        private static ActionCard ToRuntimeCard(DebugCard card, string personnelId, string eventId, CardUseResult result)
         {
             return new ActionCard
             {
@@ -2679,8 +3049,12 @@ namespace ProjectW.IngameCore.CaseReview
                 Title = card.Title,
                 Summary = card.Summary,
                 Tags = card.Tags.ToList(),
-                OutcomeModifier = card.OutcomeModifier,
-                RiskModifier = card.RiskModifier
+                OutcomeModifier = result.OutcomeModifier,
+                RiskModifier = result.RiskModifier,
+                CriticalChancePercent = card.CriticalChancePercent,
+                CriticalMultiplier = card.CriticalMultiplier,
+                CriticalTriggered = result.CriticalTriggered,
+                CriticalRoll = result.CriticalRoll
             };
         }
 
@@ -2709,6 +3083,25 @@ namespace ProjectW.IngameCore.CaseReview
 
                 return Math.Abs(hash);
             }
+        }
+
+        private static int StablePositiveHash(string value)
+        {
+            unchecked
+            {
+                var hash = 23;
+                foreach (var character in value)
+                {
+                    hash = hash * 31 + character;
+                }
+
+                return hash == int.MinValue ? int.MaxValue : Math.Abs(hash);
+            }
+        }
+
+        private static string FormatMultiplier(float multiplier)
+        {
+            return Mathf.Max(1f, multiplier).ToString("0.##");
         }
 
         private void AddLog(string line)
@@ -2750,6 +3143,22 @@ namespace ProjectW.IngameCore.CaseReview
             var safeMax = Math.Max(1, max);
             var filled = Mathf.Clamp(Mathf.RoundToInt(width * Mathf.Clamp01(value / (float)safeMax)), 0, width);
             return "[" + new string('#', filled) + new string('.', width - filled) + "]";
+        }
+
+        private readonly struct MeetingTileRect
+        {
+            public MeetingTileRect(Vector2 anchorMin, Vector2 anchorMax, Vector2 offsetMin, Vector2 offsetMax)
+            {
+                AnchorMin = anchorMin;
+                AnchorMax = anchorMax;
+                OffsetMin = offsetMin;
+                OffsetMax = offsetMax;
+            }
+
+            public Vector2 AnchorMin { get; }
+            public Vector2 AnchorMax { get; }
+            public Vector2 OffsetMin { get; }
+            public Vector2 OffsetMax { get; }
         }
 
         private static int LerpInt(int from, int to, float progress)
@@ -3108,6 +3517,16 @@ namespace ProjectW.IngameCore.CaseReview
         public List<string> Tags { get; set; } = new();
         public int OutcomeModifier { get; set; }
         public int RiskModifier { get; set; }
+        public int CriticalChancePercent { get; set; }
+        public float CriticalMultiplier { get; set; } = 1f;
+    }
+
+    internal struct CardUseResult
+    {
+        public int OutcomeModifier { get; set; }
+        public int RiskModifier { get; set; }
+        public bool CriticalTriggered { get; set; }
+        public int CriticalRoll { get; set; }
     }
 
     internal sealed class WorkPerformanceEvent
@@ -3126,6 +3545,12 @@ namespace ProjectW.IngameCore.CaseReview
         public int RiskAfter { get; set; }
         public int OutcomeModifier { get; set; }
         public int RiskModifier { get; set; }
+        public int BaseOutcomeModifier { get; set; }
+        public int BaseRiskModifier { get; set; }
+        public int CriticalChancePercent { get; set; }
+        public float CriticalMultiplier { get; set; } = 1f;
+        public bool CriticalTriggered { get; set; }
+        public int CriticalRoll { get; set; }
         public string ResultSummary { get; set; } = "";
     }
 
@@ -3134,6 +3559,8 @@ namespace ProjectW.IngameCore.CaseReview
         public string Title { get; set; } = "";
         public int OutcomeModifier { get; set; }
         public int RiskModifier { get; set; }
+        public int CriticalChancePercent { get; set; }
+        public float CriticalMultiplier { get; set; } = 1f;
         public bool IsUsed { get; set; }
     }
 }

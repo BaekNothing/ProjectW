@@ -73,7 +73,9 @@ public sealed class DefaultCardDrawService : ICardDrawService
             OwnerPersonnelId = person.Id,
             Title = "Steady Work",
             Summary = "Handles assigned work without unusual upside or drama.",
-            Tags = new List<string> { "work", "baseline" }
+            Tags = new List<string> { "work", "baseline" },
+            CriticalChancePercent = 12,
+            CriticalMultiplier = 1.5f
         });
 
         person.Deck.Add(new ActionCard
@@ -84,7 +86,9 @@ public sealed class DefaultCardDrawService : ICardDrawService
             Summary = "Improves visible speed while raising hidden risk.",
             Tags = new List<string> { "speed", "risk" },
             OutcomeModifier = 4,
-            RiskModifier = 8
+            RiskModifier = 8,
+            CriticalChancePercent = 18,
+            CriticalMultiplier = 1.75f
         });
 
         person.Deck.Add(new ActionCard
@@ -95,7 +99,9 @@ public sealed class DefaultCardDrawService : ICardDrawService
             Summary = "Leaves better evidence but costs more review attention.",
             Tags = new List<string> { "paperwork", "review" },
             RiskModifier = -5,
-            ReviewCostModifier = 2
+            ReviewCostModifier = 2,
+            CriticalChancePercent = 16,
+            CriticalMultiplier = 2f
         });
     }
 
@@ -111,7 +117,11 @@ public sealed class DefaultCardDrawService : ICardDrawService
             Tags = new List<string>(source.Tags ?? new List<string>()),
             OutcomeModifier = source.OutcomeModifier,
             RiskModifier = source.RiskModifier,
-            ReviewCostModifier = source.ReviewCostModifier
+            ReviewCostModifier = source.ReviewCostModifier,
+            CriticalChancePercent = source.CriticalChancePercent,
+            CriticalMultiplier = source.CriticalMultiplier,
+            CriticalTriggered = source.CriticalTriggered,
+            CriticalRoll = source.CriticalRoll
         };
     }
 

@@ -16,6 +16,8 @@ public sealed class ActionCardDefinition : ScriptableObject, IActionCardDefiniti
     [SerializeField] private int outcomeModifier;
     [SerializeField] private int riskModifier;
     [SerializeField] private int reviewCostModifier;
+    [SerializeField] private int criticalChancePercent = 10;
+    [SerializeField] private float criticalMultiplier = 1.5f;
     [SerializeField] private List<string> memoryHooks = new();
     [SerializeField] private List<string> growthHooks = new();
     [SerializeField] private List<string> bossReactionTags = new();
@@ -42,7 +44,9 @@ public sealed class ActionCardDefinition : ScriptableObject, IActionCardDefiniti
             Tags = new List<string>(tags),
             OutcomeModifier = outcomeModifier,
             RiskModifier = riskModifier,
-            ReviewCostModifier = reviewCostModifier
+            ReviewCostModifier = reviewCostModifier,
+            CriticalChancePercent = Mathf.Clamp(criticalChancePercent, 0, 100),
+            CriticalMultiplier = Mathf.Max(1f, criticalMultiplier)
         };
     }
 }

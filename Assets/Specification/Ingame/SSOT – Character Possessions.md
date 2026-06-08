@@ -45,7 +45,15 @@
 - `OutcomeModifier`
 - `RiskModifier`
 - `ReviewCostModifier`
+- `CriticalChancePercent`
+- `CriticalMultiplier`
 - `MemoryHooks`
+
+Card use rule:
+
+- `OutcomeModifier` and `RiskModifier` are the visible low-point effect.
+- On critical success, `CriticalMultiplier` adds extra positive effect: progress-increasing `OutcomeModifier` is multiplied, and risk-reducing `RiskModifier` is multiplied.
+- Critical success does not amplify negative side effects such as risk-increasing `RiskModifier`.
 
 선택 필드:
 

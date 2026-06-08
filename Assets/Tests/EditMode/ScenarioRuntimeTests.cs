@@ -171,6 +171,8 @@ namespace ProjectW.Tests.EditMode
             Assert.IsTrue(a.IsMoving);
             Assert.IsTrue(b.IsMoving);
             Assert.IsFalse(c.IsMoving);
+            Assert.IsTrue(c.IsNewlyJoined);
+            Assert.IsFalse(a.IsNewlyJoined);
             AssertFloat(1f / 3f, a.PreviousNormalizedX);
             AssertFloat(0.25f, a.NormalizedX);
             AssertFloat(2f / 3f, b.PreviousNormalizedX);

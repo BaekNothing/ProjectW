@@ -57,6 +57,8 @@ namespace ProjectW.Tests.EditMode
             {
                 SetPrivateField(card, "cardId", "card.work");
                 SetPrivateField(card, "title", "Work Card");
+                SetPrivateField(card, "criticalChancePercent", 35);
+                SetPrivateField(card, "criticalMultiplier", 2f);
                 SetPrivateField(perk, "perkId", "perk.logic");
                 SetPrivateField(perk, "title", "Logic Perk");
                 SetPrivateField(character, "personnelId", "P-01");
@@ -71,6 +73,8 @@ namespace ProjectW.Tests.EditMode
                 Assert.AreEqual("CL-01", model.CloneLineageId);
                 Assert.AreEqual(1, model.Deck.Count);
                 Assert.AreEqual("card.work", model.Deck[0].Id);
+                Assert.AreEqual(35, model.Deck[0].CriticalChancePercent);
+                Assert.AreEqual(2f, model.Deck[0].CriticalMultiplier);
                 Assert.AreEqual(1, model.Perks.Count);
                 Assert.AreEqual("perk.logic", model.Perks[0].Id);
             }

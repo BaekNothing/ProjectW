@@ -966,7 +966,11 @@ public static class CaseReviewGame
             Tags = new List<string>(source.Tags ?? new List<string>()),
             OutcomeModifier = source.OutcomeModifier,
             RiskModifier = source.RiskModifier,
-            ReviewCostModifier = source.ReviewCostModifier
+            ReviewCostModifier = source.ReviewCostModifier,
+            CriticalChancePercent = source.CriticalChancePercent,
+            CriticalMultiplier = source.CriticalMultiplier,
+            CriticalTriggered = source.CriticalTriggered,
+            CriticalRoll = source.CriticalRoll
         };
     }
 

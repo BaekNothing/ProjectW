@@ -455,11 +455,19 @@ These commands are presentation commands. They must not directly mutate gameplay
 
 Minimal runtime layout rules:
 
-- Each `ScenarioScriptLine.PortraitIds` value becomes a visible portrait panel for that line.
-- Portrait panels use normalized horizontal positions: one portrait is centered at `0.5`; three portraits use `0.25`, `0.5`, `0.75`.
+- Each `ScenarioScriptLine.PortraitIds` value becomes a visible Zoom-style participant tile for that line.
 - The general formula is `(index + 1) / (count + 1)`.
 - If a portrait id existed on the previous line but its normalized position changed, the presentation view should move it from the previous position to the new position.
 - If `SpeakerId` exists in the current `PortraitIds`, non-speaker portraits are dimmed and the speaker portrait is focused.
+- Zoom meeting layout rule:
+  - 1 participant uses one centered 4:3 full-screen feed.
+  - 2 or more participants use a fixed 2x2 meeting grid.
+  - Each 2x2 grid tile should keep an approximate 4:3 feed aspect, with unused cell space letterboxed by the meeting background.
+  - Up to 4 participants fill the grid from top-left to bottom-right.
+  - Empty participant slots in the 2x2 grid remain visible as default avatar / no-signal feeds.
+  - When a participant newly joins and no speaker override exists, the new participant is placed in the top-left slot and existing participants shift in order.
+  - If more than 4 participants are present, the first 3 visible participants fill the first 3 slots and the fourth slot displays `+n` for the hidden overflow count.
+  - If the current speaker is visible, that speaker is placed in the top-left slot and the remaining participants shift in order.
 
 화자는 화면에 추가되거나 제거될 수 있으며, 인원 변화에 따라 위치가 재배치된다.
 
@@ -556,6 +564,8 @@ Scenario runtime implementation should be split into these responsibilities.
   - shows each assigned worker, the card used for the target work, and the visible outcome/risk influence
   - should reveal the worker's whole current hand first, then clearly mark which card was selected and used for dramatic payoff
   - the unused hand cards are presentation context only; only the selected card is converted into runtime card influence
+  - card presentation should show the visible low-point effect plus critical success chance and multiplier
+  - if critical success triggers, the performance scene should call it out and show the actual boosted outcome/risk delta
   - card effects must still flow through explicit runtime data such as `ActionCard.TargetEventId`; the presentation must not mutate core state directly
 - `ScenarioEffectApplier`
   - applies declared state effects through public core mutation interfaces only
