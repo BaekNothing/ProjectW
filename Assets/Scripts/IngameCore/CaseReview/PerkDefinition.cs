@@ -39,6 +39,7 @@ public sealed class PerkDefinition : ScriptableObject, IPerkDefinition, IRendera
             OutcomeModifier = outcomeModifier,
             PhysicalCostModifier = physicalCostModifier,
             MentalCostModifier = mentalCostModifier,
+            ClonePersistent = clonePersistent,
             Note = note
         };
     }

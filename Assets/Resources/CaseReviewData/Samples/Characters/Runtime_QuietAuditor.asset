@@ -22,19 +22,61 @@ MonoBehaviour:
     LoadAssigned: 0
     Fatigue: 0
     Stagnation: 0
-    TrustToManager: 0
-    RetentionRisk: 0
-    OptLow: 0
-    OptHigh: 0
-    MaxLoad: 0
+    TrustToManager: 52
+    RetentionRisk: 22
+    OptLow: 3
+    OptHigh: 5
+    MaxLoad: 6
     ConnectionLimit: 3
   deck:
   - {fileID: 11400000, guid: 20ea592657af7a846a84ff9e39563bf7, type: 2}
   - {fileID: 11400000, guid: 96e6e3c44ed997b4a82d267f9afea0c5, type: 2}
   perks:
   - {fileID: 11400000, guid: d6f8274416ee7e9478ec03a6b17cffcf, type: 2}
-  relationships: []
-  memories: []
-  traitSamples: []
+  relationships:
+  - TargetPersonnelId: P-S01
+    RenderResources: {fileID: 0}
+    Trust: 24
+    Affinity: 8
+    Debt: 0
+    Resentment: 0
+    Reliability: 42
+    Note: 계획이 느리지만 감사 대응에는 믿을 만하다고 본다.
+  - TargetPersonnelId: P-F02
+    RenderResources: {fileID: 0}
+    Trust: -6
+    Affinity: 18
+    Debt: 12
+    Resentment: 16
+    Reliability: -10
+    Note: Shortcut Operator의 감각은 흥미롭지만 로그 누락을 불편해한다.
+  memories:
+  - MemoryId: mem.a03.s01.audit-night
+    OwnerPersonnelId: P-A03
+    TargetId: P-S01
+    RenderResources: {fileID: 0}
+    MemoryType: 0
+    Valence: 1
+    Intensity: 48
+    Decay: 16
+    Tags:
+    - audit
+    - report
+    - trust
+    SourceEventId: sample.audit-night
+    DayCreated: 1
+    VisibleScope: 1
+    Note: Cautious Planner가 밤 감사 전에 빠진 승인 문구를 조용히 보완했다.
+  traitSamples:
+  - TraitSampleId: trait.a03.silence
+    SourceEventId: sample.audit-night
+    RenderResources: {fileID: 0}
+    Tags:
+    - audit
+    - quiet
+    - lineage-residue
+    Strength: 64
+    ClonePersistent: 1
+    Note: 재생성되어도 원본 로그와 요약 온도 차이에 오래 머문다.
   hasLeft: 0
   daysSinceJoined: 0

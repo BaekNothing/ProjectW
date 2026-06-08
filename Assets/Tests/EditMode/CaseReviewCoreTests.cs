@@ -741,6 +741,49 @@ namespace ProjectW.Tests.EditMode
             Assert.IsFalse(string.IsNullOrWhiteSpace(eventCase.ResultSummary));
         }
 
+        [Test]
+        public void ConfirmPlan_RecordsRelationshipMemoryForSharedWork()
+        {
+            var state = CaseReviewGame.Init(new GameConfig(), 1);
+            CaseReviewGame.Dispatch(state, "adjust E-108 B-04,C-22");
+            var before = state.Staff.Single(person => person.Id == "B-04")
+                .Relationships.Single(relation => relation.TargetId == "C-22")
+                .Trust;
+
+            var confirm = CaseReviewGame.Dispatch(state, "confirm plan");
+
+            var source = state.Staff.Single(person => person.Id == "B-04");
+            var relation = source.Relationships.Single(item => item.TargetId == "C-22");
+            Assert.IsTrue(confirm.Success);
+            Assert.AreNotEqual(before, relation.Trust);
+            Assert.IsTrue(source.Memories.Any(memory => memory.TargetId == "C-22" && memory.SourceEventId == "E-108"));
+        }
+
+        [Test]
+        public void Regenerate_ReplacesPersonnelAndArchivesActiveRelationships()
+        {
+            var state = CaseReviewGame.Init(new GameConfig(), 1);
+            var source = state.Staff.Single(person => person.Id == "A-17");
+            source.Memories.Add(new PersonnelMemory { Id = "mem.manual", TargetId = "B-04", Intensity = 70, Note = "old memory" });
+            source.Relationships.Add(new PersonnelRelationship { TargetId = "D-11", Trust = 40, Affinity = 12 });
+            var observer = state.Staff.Single(person => person.Id == "B-04");
+            Assert.IsTrue(observer.Relationships.Any(relation => relation.TargetId == "A-17"));
+
+            var result = CaseReviewGame.Dispatch(state, "regenerate A-17");
+
+            var regenerated = state.Staff.Single(person => person.RegeneratedFromId == "A-17");
+            Assert.IsTrue(result.Success);
+            Assert.AreNotEqual("A-17", regenerated.Id);
+            Assert.AreEqual(1, regenerated.RegenerationCount);
+            Assert.AreEqual(0, regenerated.Relationships.Count);
+            Assert.IsFalse(regenerated.Memories.Any(memory => memory.Id == "mem.manual"));
+            Assert.IsTrue(regenerated.Memories.All(memory => memory.Tags.Contains("lineage-residue")));
+            Assert.IsFalse(observer.Relationships.Any(relation => relation.TargetId == "A-17"));
+            Assert.IsTrue(observer.Relationships.Any(relation => relation.TargetId == regenerated.Id));
+            Assert.IsTrue(observer.Memories.Any(memory => memory.TargetId == regenerated.Id && memory.Type == "Clone"));
+            Assert.IsTrue(state.MorningPlan.Entries.All(entry => !entry.PlannedPersonnel.Contains("A-17")));
+        }
+
         private static void ForceNoon(GameState state)
         {
             state.MorningPlan.Confirmed = true;

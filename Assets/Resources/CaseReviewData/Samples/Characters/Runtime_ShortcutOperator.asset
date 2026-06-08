@@ -22,19 +22,61 @@ MonoBehaviour:
     LoadAssigned: 0
     Fatigue: 0
     Stagnation: 0
-    TrustToManager: 0
-    RetentionRisk: 0
-    OptLow: 0
-    OptHigh: 0
-    MaxLoad: 0
+    TrustToManager: 61
+    RetentionRisk: 24
+    OptLow: 4
+    OptHigh: 6
+    MaxLoad: 8
     ConnectionLimit: 3
   deck:
   - {fileID: 11400000, guid: ddecae28441274e4b9c065ab189dc2c0, type: 2}
   - {fileID: 11400000, guid: b627cb6bd061d384ebd303af21225985, type: 2}
   perks:
   - {fileID: 11400000, guid: 6ce1358483cc3cb428253ac51c442a53, type: 2}
-  relationships: []
-  memories: []
-  traitSamples: []
+  relationships:
+  - TargetPersonnelId: P-S01
+    RenderResources: {fileID: 0}
+    Trust: -12
+    Affinity: -4
+    Debt: 0
+    Resentment: 28
+    Reliability: -18
+    Note: 살린 결과보다 빠진 승인란을 먼저 지적한다고 느낀다.
+  - TargetPersonnelId: P-A03
+    RenderResources: {fileID: 0}
+    Trust: 8
+    Affinity: 26
+    Debt: 6
+    Resentment: 4
+    Reliability: 6
+    Note: 말은 없지만 현장 감각을 무시하지 않는다고 본다.
+  memories:
+  - MemoryId: mem.f02.s01.red-pen
+    OwnerPersonnelId: P-F02
+    TargetId: P-S01
+    RenderResources: {fileID: 0}
+    MemoryType: 1
+    Valence: 2
+    Intensity: 55
+    Decay: 10
+    Tags:
+    - procedure
+    - resentment
+    - shortcut
+    SourceEventId: sample.red-pen
+    DayCreated: 1
+    VisibleScope: 1
+    Note: 긴급 복구 후 Cautious Planner가 보고서에 붉은 승인 누락 표시를 남겼다.
+  traitSamples:
+  - TraitSampleId: trait.f02.bypass
+    SourceEventId: sample.o2-bypass
+    RenderResources: {fileID: 0}
+    Tags:
+    - shortcut
+    - repair
+    - lineage-residue
+    Strength: 72
+    ClonePersistent: 1
+    Note: 재생성되어도 막힌 절차를 보면 우회 경로부터 찾는 계보 습관.
   hasLeft: 0
   daysSinceJoined: 0

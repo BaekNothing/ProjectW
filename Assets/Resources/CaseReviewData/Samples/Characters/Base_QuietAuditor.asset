@@ -16,11 +16,13 @@ MonoBehaviour:
   displayName: Quiet Auditor
   cloneLineageId: LINE-AUDIT
   renderResources: {fileID: 11400000, guid: 81712e63a4109204d8fc693259c81467, type: 2}
-  background: Sample clone profile for the character data workshop.
-  interests: []
-  personality: Readable, replaceable, and just specific enough to make management
-    awkward.
-  workStyle: Designed as a sample data block.
+  background: 말수는 적지만 보고서 온도 차이를 잘 읽는 내부 감사형 클론.
+  interests:
+  - 원본 로그
+  - 침묵 관찰
+  - 불일치 표식
+  personality: 조용하고 집요하다. 납득하지 못한 결론을 오래 들고 있으며, 친해져도 쉽게 속마음을 공개하지 않는다.
+  workStyle: 숨은 리스크와 왜곡된 요약을 찾는 데 강하지만 공개 회의에서는 반응이 느리다.
   initialInformationScope: 1
   aptitudes:
     Observation: 9
@@ -34,11 +36,11 @@ MonoBehaviour:
     LoadAssigned: 0
     Fatigue: 0
     Stagnation: 0
-    TrustToManager: 0
-    RetentionRisk: 0
-    OptLow: 0
-    OptHigh: 0
-    MaxLoad: 0
+    TrustToManager: 52
+    RetentionRisk: 22
+    OptLow: 3
+    OptHigh: 5
+    MaxLoad: 6
     ConnectionLimit: 3
   startingDeck:
   - {fileID: 11400000, guid: 20ea592657af7a846a84ff9e39563bf7, type: 2}

@@ -230,11 +230,16 @@ public sealed class Personnel
     public int MaxLoad { get; set; }
     public int ConnectionLimit { get; set; } = 3;
     public string CloneLineageId { get; set; } = "";
+    public int CloneVersion { get; set; } = 1;
+    public int RegenerationCount { get; set; }
+    public string RegeneratedFromId { get; set; } = "";
     public AffinityScope InformationScope { get; set; } = AffinityScope.Surface;
     public Dictionary<string, int> Aptitudes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public List<ActionCard> Deck { get; set; } = new();
     public List<PersonnelPerk> Perks { get; set; } = new();
     public List<PersonnelRelationship> Relationships { get; set; } = new();
+    public List<PersonnelMemory> Memories { get; set; } = new();
+    public List<PersonnelTraitSample> TraitSamples { get; set; } = new();
 }
 
 [Serializable]
@@ -247,6 +252,7 @@ public sealed class PersonnelPerk
     public int OutcomeModifier { get; set; }
     public int PhysicalCostModifier { get; set; }
     public int MentalCostModifier { get; set; }
+    public bool ClonePersistent { get; set; }
     public string Note { get; set; } = "";
 }
 
@@ -256,6 +262,35 @@ public sealed class PersonnelRelationship
     public string TargetId { get; set; } = "";
     public int Trust { get; set; }
     public int Affinity { get; set; }
+    public int Debt { get; set; }
+    public int Resentment { get; set; }
+    public int Reliability { get; set; }
+    public string Note { get; set; } = "";
+}
+
+[Serializable]
+public sealed class PersonnelMemory
+{
+    public string Id { get; set; } = "";
+    public string TargetId { get; set; } = "";
+    public string Type { get; set; } = "";
+    public string Valence { get; set; } = "";
+    public int Intensity { get; set; }
+    public int Decay { get; set; }
+    public List<string> Tags { get; set; } = new();
+    public string SourceEventId { get; set; } = "";
+    public int DayCreated { get; set; }
+    public string Note { get; set; } = "";
+}
+
+[Serializable]
+public sealed class PersonnelTraitSample
+{
+    public string Id { get; set; } = "";
+    public string SourceEventId { get; set; } = "";
+    public List<string> Tags { get; set; } = new();
+    public int Strength { get; set; }
+    public bool ClonePersistent { get; set; }
     public string Note { get; set; } = "";
 }
 

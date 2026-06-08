@@ -367,6 +367,8 @@ public sealed class CharacterRuntimeData : ScriptableObject, ICharacterRuntimeDa
         deck ??= new List<ActionCardDefinition>();
         perks ??= new List<PerkDefinition>();
         relationships ??= new List<CharacterRelationshipRecord>();
+        memories ??= new List<CharacterMemoryRecord>();
+        traitSamples ??= new List<TraitSampleRecord>();
         var model = baseDefinition != null ? baseDefinition.CreateRuntimeModel() : new Personnel { Id = PersonnelId };
         model.Id = PersonnelId;
         model.InformationScope = informationScopeOverride;
@@ -386,6 +388,8 @@ public sealed class CharacterRuntimeData : ScriptableObject, ICharacterRuntimeDa
         model.Deck = deck.Where(card => card != null).Select(card => card.ToRuntimeCard(PersonnelId)).ToList();
         model.Perks = perks.Where(perk => perk != null).Select(perk => perk.ToRuntimePerk()).ToList();
         model.Relationships = relationships.Select(ToRuntimeRelationship).ToList();
+        model.Memories = memories.Where(memory => memory != null).Select(ToRuntimeMemory).ToList();
+        model.TraitSamples = traitSamples.Where(trait => trait != null).Select(ToRuntimeTraitSample).ToList();
         return model;
     }
 
@@ -421,6 +425,39 @@ public sealed class CharacterRuntimeData : ScriptableObject, ICharacterRuntimeDa
             TargetId = record.TargetPersonnelId,
             Trust = record.Trust,
             Affinity = record.Affinity,
+            Debt = record.Debt,
+            Resentment = record.Resentment,
+            Reliability = record.Reliability,
+            Note = record.Note
+        };
+    }
+
+    private static PersonnelMemory ToRuntimeMemory(CharacterMemoryRecord record)
+    {
+        return new PersonnelMemory
+        {
+            Id = record.MemoryId,
+            TargetId = record.TargetId,
+            Type = record.MemoryType.ToString(),
+            Valence = record.Valence.ToString(),
+            Intensity = record.Intensity,
+            Decay = record.Decay,
+            Tags = new List<string>(record.Tags ?? new List<string>()),
+            SourceEventId = record.SourceEventId,
+            DayCreated = record.DayCreated,
+            Note = record.Note
+        };
+    }
+
+    private static PersonnelTraitSample ToRuntimeTraitSample(TraitSampleRecord record)
+    {
+        return new PersonnelTraitSample
+        {
+            Id = record.TraitSampleId,
+            SourceEventId = record.SourceEventId,
+            Tags = new List<string>(record.Tags ?? new List<string>()),
+            Strength = record.Strength,
+            ClonePersistent = record.ClonePersistent,
             Note = record.Note
         };
     }

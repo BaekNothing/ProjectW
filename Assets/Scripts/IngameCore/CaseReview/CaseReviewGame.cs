@@ -84,6 +84,7 @@ public static class CaseReviewGame
             "ADVANCE" => AdvanceCommand(state, tokens, lines),
             "REPORT" => ReportCommand(state, tokens, lines),
             "REVIEW" => ReviewCommand(state, tokens, lines),
+            "REGENERATE" or "REGEN" => RegenerateCommand(state, tokens, lines),
             "NEXT" when tokens.Count > 1 && tokens[1].Equals("DAY", StringComparison.OrdinalIgnoreCase)
                 => NextDay(state, lines),
             _ => Error("ERR001", "알 수 없는 명령입니다. HELP를 입력하십시오.", lines)
@@ -645,6 +646,167 @@ public static class CaseReviewGame
         return Result(true, lines);
     }
 
+    private static DispatchResult RegenerateCommand(GameState state, List<string> tokens, List<string> lines)
+    {
+        if (state.Slot != Slot.Morning || state.MorningPlan?.Confirmed == true)
+        {
+            return Error("ERR112", "재생성은 아침 작업계획 확정 전 캐릭터 패널에서만 처리할 수 있습니다.", lines);
+        }
+
+        if (tokens.Count < 2)
+        {
+            return Error("ERR001", "REGENERATE <personnelId> 형식입니다.", lines);
+        }
+
+        var source = state.Staff.FirstOrDefault(person => person.Id.Equals(tokens[1], StringComparison.OrdinalIgnoreCase));
+        if (source is null || source.HasLeft)
+        {
+            return Error("ERR041", "재생성 대상 인력을 찾을 수 없습니다.", lines);
+        }
+
+        var sourceId = source.Id;
+        var lineageId = string.IsNullOrWhiteSpace(source.CloneLineageId) ? $"LINE-{sourceId}" : source.CloneLineageId;
+        var nextVersion = Math.Max(1, source.CloneVersion) + 1;
+        var regeneratedId = NextRegeneratedPersonnelId(state, sourceId, lineageId, nextVersion);
+        var archivedMemoryCount = source.Memories.Count;
+        var archivedRelationshipCount = source.Relationships.Count;
+        var persistentPerks = source.Perks.Where(perk => perk.ClonePersistent).Select(ClonePerk).ToList();
+        var persistentTraits = source.TraitSamples
+            .Where(trait => trait.ClonePersistent)
+            .Select(CloneTraitSample)
+            .ToList();
+
+        foreach (var observer in state.Staff.Where(person => !person.HasLeft && !person.Id.Equals(sourceId, StringComparison.OrdinalIgnoreCase)))
+        {
+            var previous = observer.Relationships.FirstOrDefault(rel => rel.TargetId.Equals(sourceId, StringComparison.OrdinalIgnoreCase));
+            observer.Relationships.RemoveAll(rel => rel.TargetId.Equals(sourceId, StringComparison.OrdinalIgnoreCase));
+            var inheritedTrust = previous is null ? -4 : Clamp((previous.Trust - 50) / 4, -18, 12);
+            var inheritedAffinity = previous is null ? -6 : Clamp((previous.Affinity - 50) / 5, -16, 10);
+            observer.Relationships.Add(new PersonnelRelationship
+            {
+                TargetId = regeneratedId,
+                Trust = inheritedTrust,
+                Affinity = inheritedAffinity,
+                Resentment = previous is null ? 6 : Clamp(previous.Resentment + Math.Max(0, 45 - previous.Trust) / 4, -100, 100),
+                Reliability = previous is null ? 0 : Clamp(previous.Reliability / 3, -100, 100),
+                Note = $"{sourceId} 재생성 이후 같은 계보에 남은 경계"
+            });
+            observer.Memories.Add(new PersonnelMemory
+            {
+                Id = $"mem.regen.{state.Day:00}.{sourceId}.{observer.Id}",
+                TargetId = regeneratedId,
+                Type = "Clone",
+                Valence = "Mixed",
+                Intensity = Clamp(28 + Math.Max(0, previous?.Affinity ?? 0) / 4, 0, 100),
+                Decay = 18,
+                Tags = new List<string> { "clone", "regeneration", lineageId },
+                SourceEventId = $"regen.{sourceId}",
+                DayCreated = state.Day,
+                Note = $"{source.Name} 계보가 재생성되었다는 운영 기억"
+            });
+        }
+
+        source.Id = regeneratedId;
+        source.CloneLineageId = lineageId;
+        source.CloneVersion = nextVersion;
+        source.RegenerationCount++;
+        source.RegeneratedFromId = sourceId;
+        source.Name = $"{source.Name} R{source.CloneVersion}";
+        source.PhysicalEnergy = 100;
+        source.MentalStress = Clamp(source.MentalStress / 3, 0, 100);
+        source.LoadAssigned = 0;
+        source.Fatigue = 0;
+        source.Stagnation = Clamp(source.Stagnation / 2, 0, 100);
+        source.TrustToManager = Clamp(source.TrustToManager - 8, -100, 100);
+        source.RetentionRisk = Clamp(source.RetentionRisk / 2, 0, 100);
+        source.DaysSinceJoined = 0;
+        source.Relationships.Clear();
+        source.Memories.Clear();
+        source.Perks = persistentPerks;
+        source.TraitSamples = persistentTraits;
+        if (persistentTraits.Count > 0)
+        {
+            source.Memories.Add(new PersonnelMemory
+            {
+                Id = $"mem.residue.{state.Day:00}.{regeneratedId}",
+                TargetId = regeneratedId,
+                Type = "Clone",
+                Valence = "Mixed",
+                Intensity = Clamp(persistentTraits.Max(trait => trait.Strength) / 2, 8, 45),
+                Decay = 30,
+                Tags = new List<string> { "lineage-residue", lineageId },
+                SourceEventId = $"regen.{sourceId}",
+                DayCreated = state.Day,
+                Note = "이전 개체의 전문 기억이 아니라 낮은 강도의 계보 잔향"
+            });
+        }
+
+        ReplacePersonnelIdInPlans(state, sourceId, regeneratedId);
+        foreach (var card in state.MorningCards.Where(card => card.OwnerPersonnelId.Equals(sourceId, StringComparison.OrdinalIgnoreCase)))
+        {
+            card.OwnerPersonnelId = regeneratedId;
+        }
+
+        state.ReplacementPressure = Clamp(state.ReplacementPressure + 6, 0, 100);
+        state.GlobalLatentRisk = Clamp(state.GlobalLatentRisk + 4, 0, 200);
+        AddTruth(state, $"regen.{sourceId}", "CLONE_BAY", "REGENERATE", $"{sourceId} -> {regeneratedId}. memories {archivedMemoryCount}, relationships {archivedRelationshipCount} archived.");
+        lines.Add($"OK. {sourceId} 계보를 {regeneratedId}로 재생성했습니다.");
+        lines.Add($"품의 시스템 도입 전 임시 직접 실행: 기억 {archivedMemoryCount}건, 관계 {archivedRelationshipCount}건을 활성 상태에서 제거/보관 처리했습니다.");
+        lines.Add($"조직 반응 기록 생성. AI 대체 압력 +6, 글로벌 리스크 +4.");
+        return Result(true, lines);
+    }
+
+    private static string NextRegeneratedPersonnelId(GameState state, string sourceId, string lineageId, int nextVersion)
+    {
+        var compactLineage = lineageId
+            .Replace("LINE-", "")
+            .Replace("line-", "")
+            .Replace("_", "")
+            .Replace("-", "");
+        if (string.IsNullOrWhiteSpace(compactLineage))
+        {
+            compactLineage = sourceId.Replace("-", "");
+        }
+
+        compactLineage = compactLineage.Length > 5 ? compactLineage[..5] : compactLineage;
+        var candidate = $"{compactLineage}-R{nextVersion:D2}".ToUpperInvariant();
+        var suffix = 2;
+        while (state.Staff.Any(person => person.Id.Equals(candidate, StringComparison.OrdinalIgnoreCase)))
+        {
+            candidate = $"{compactLineage}-R{nextVersion:D2}-{suffix}".ToUpperInvariant();
+            suffix++;
+        }
+
+        return candidate;
+    }
+
+    private static void ReplacePersonnelIdInPlans(GameState state, string sourceId, string regeneratedId)
+    {
+        foreach (var entry in state.MorningPlan?.Entries ?? Enumerable.Empty<WorkPlanEntry>())
+        {
+            for (var index = 0; index < entry.PlannedPersonnel.Count; index++)
+            {
+                if (entry.PlannedPersonnel[index].Equals(sourceId, StringComparison.OrdinalIgnoreCase))
+                {
+                    entry.PlannedPersonnel[index] = regeneratedId;
+                    entry.Adjusted = true;
+                    entry.Reason = "재생성으로 인한 계보 id 치환";
+                }
+            }
+        }
+
+        foreach (var item in state.Queue)
+        {
+            for (var index = 0; index < item.AssignedPersonnel.Count; index++)
+            {
+                if (item.AssignedPersonnel[index].Equals(sourceId, StringComparison.OrdinalIgnoreCase))
+                {
+                    item.AssignedPersonnel[index] = regeneratedId;
+                }
+            }
+        }
+    }
+
     private static EventCase FindCase(GameState state, List<string> tokens, List<string> lines)
     {
         var id = tokens.Count > 1 ? tokens[1] : state.OpenEventId;
@@ -946,11 +1108,16 @@ public static class CaseReviewGame
             MaxLoad = source.MaxLoad,
             ConnectionLimit = source.ConnectionLimit,
             CloneLineageId = source.CloneLineageId,
+            CloneVersion = source.CloneVersion,
+            RegenerationCount = source.RegenerationCount,
+            RegeneratedFromId = source.RegeneratedFromId,
             InformationScope = source.InformationScope,
             Aptitudes = new Dictionary<string, int>(source.Aptitudes ?? new Dictionary<string, int>(), StringComparer.OrdinalIgnoreCase),
             Deck = (source.Deck ?? new List<ActionCard>()).Select(card => CloneActionCard(card, source.Id)).ToList(),
             Perks = (source.Perks ?? new List<PersonnelPerk>()).Select(ClonePerk).ToList(),
-            Relationships = (source.Relationships ?? new List<PersonnelRelationship>()).Select(CloneRelationship).ToList()
+            Relationships = (source.Relationships ?? new List<PersonnelRelationship>()).Select(CloneRelationship).ToList(),
+            Memories = (source.Memories ?? new List<PersonnelMemory>()).Select(CloneMemory).ToList(),
+            TraitSamples = (source.TraitSamples ?? new List<PersonnelTraitSample>()).Select(CloneTraitSample).ToList()
         };
     }
 
@@ -985,6 +1152,7 @@ public static class CaseReviewGame
             OutcomeModifier = source.OutcomeModifier,
             PhysicalCostModifier = source.PhysicalCostModifier,
             MentalCostModifier = source.MentalCostModifier,
+            ClonePersistent = source.ClonePersistent,
             Note = source.Note
         };
     }
@@ -996,6 +1164,39 @@ public static class CaseReviewGame
             TargetId = source.TargetId,
             Trust = source.Trust,
             Affinity = source.Affinity,
+            Debt = source.Debt,
+            Resentment = source.Resentment,
+            Reliability = source.Reliability,
+            Note = source.Note
+        };
+    }
+
+    private static PersonnelMemory CloneMemory(PersonnelMemory source)
+    {
+        return new PersonnelMemory
+        {
+            Id = source.Id,
+            TargetId = source.TargetId,
+            Type = source.Type,
+            Valence = source.Valence,
+            Intensity = source.Intensity,
+            Decay = source.Decay,
+            Tags = new List<string>(source.Tags ?? new List<string>()),
+            SourceEventId = source.SourceEventId,
+            DayCreated = source.DayCreated,
+            Note = source.Note
+        };
+    }
+
+    private static PersonnelTraitSample CloneTraitSample(PersonnelTraitSample source)
+    {
+        return new PersonnelTraitSample
+        {
+            Id = source.Id,
+            SourceEventId = source.SourceEventId,
+            Tags = new List<string>(source.Tags ?? new List<string>()),
+            Strength = source.Strength,
+            ClonePersistent = source.ClonePersistent,
             Note = source.Note
         };
     }
@@ -1097,10 +1298,15 @@ public static class CaseReviewGame
             OptHigh = 6,
             MaxLoad = 8,
             ConnectionLimit = 2,
+            CloneLineageId = "LINE-FIELD",
             Aptitudes = Aptitudes(observation: 5, dexterity: 8, boldness: 7, intuition: 4, logic: 5),
             Perks = new List<PersonnelPerk>
             {
                 Perk("field_bypass", "현장 우회 경험", new[] { "o2", "emergency", "repair" }, outcome: 8, physicalCost: -2, note: "긴급 설비 복구에서 빠르지만 절차 공백을 남기기 쉽다.")
+            },
+            TraitSamples = new List<PersonnelTraitSample>
+            {
+                Trait("trait.field.shortcut", new[] { "repair", "shortcut", "lineage-residue" }, 54, true, "현장 복구 때 절차보다 우회로를 먼저 본다.")
             }
         });
         state.Staff.Add(new Personnel
@@ -1120,10 +1326,15 @@ public static class CaseReviewGame
             OptHigh = 5,
             MaxLoad = 7,
             ConnectionLimit = 3,
+            CloneLineageId = "LINE-PROCEDURE",
             Aptitudes = Aptitudes(observation: 6, dexterity: 4, boldness: 3, intuition: 5, logic: 8),
             Perks = new List<PersonnelPerk>
             {
                 Perk("procedure_anchor", "절차 앵커", new[] { "audit", "procedure", "o2" }, outcome: 10, mentalCost: 2, note: "불일치와 승인 공백을 줄인다.")
+            },
+            TraitSamples = new List<PersonnelTraitSample>
+            {
+                Trait("trait.procedure.watch", new[] { "audit", "procedure", "skeptic" }, 48, false, "타인의 현장 판단을 문서 공백으로 먼저 해석한다.")
             }
         });
         state.Staff.Add(new Personnel
@@ -1143,10 +1354,15 @@ public static class CaseReviewGame
             OptHigh = 6,
             MaxLoad = 7,
             ConnectionLimit = 4,
+            CloneLineageId = "LINE-SIGNAL",
             Aptitudes = Aptitudes(observation: 9, dexterity: 4, boldness: 4, intuition: 7, logic: 6),
             Perks = new List<PersonnelPerk>
             {
                 Perk("signal_reader", "신호 독해", new[] { "sensor", "o2", "mismatch" }, outcome: 9, mentalCost: -1, note: "센서 흔적과 요약 문장의 온도차를 빨리 잡는다.")
+            },
+            TraitSamples = new List<PersonnelTraitSample>
+            {
+                Trait("trait.signal.fixation", new[] { "sensor", "pattern", "lineage-residue" }, 62, true, "작은 센서 흔적에 오래 머무는 계보 습관.")
             }
         });
         state.Staff.Add(new Personnel
@@ -1166,10 +1382,15 @@ public static class CaseReviewGame
             OptHigh = 5,
             MaxLoad = 6,
             ConnectionLimit = 5,
+            CloneLineageId = "LINE-MEDIATION",
             Aptitudes = Aptitudes(observation: 6, dexterity: 3, boldness: 5, intuition: 7, logic: 6),
             Perks = new List<PersonnelPerk>
             {
                 Perk("complaint_weaver", "민원 엮기", new[] { "complaint", "hab", "relation" }, outcome: 8, mentalCost: -2, note: "여러 사람의 말을 하나의 처리 가능한 묶음으로 만든다.")
+            },
+            TraitSamples = new List<PersonnelTraitSample>
+            {
+                Trait("trait.mediation.echo", new[] { "relation", "complaint", "social" }, 45, false, "충돌을 줄이려다 책임 소재까지 흐리게 만든다.")
             }
         });
 
@@ -1207,6 +1428,18 @@ public static class CaseReviewGame
         };
     }
 
+    private static PersonnelTraitSample Trait(string id, string[] tags, int strength, bool clonePersistent, string note)
+    {
+        return new PersonnelTraitSample
+        {
+            Id = id,
+            Tags = tags.ToList(),
+            Strength = Clamp(strength, 0, 100),
+            ClonePersistent = clonePersistent,
+            Note = note
+        };
+    }
+
     private static void Link(GameState state, string sourceId, string targetId, int trust, int affinity, string note)
     {
         var source = state.Staff.First(s => s.Id.Equals(sourceId, StringComparison.OrdinalIgnoreCase));
@@ -1220,6 +1453,7 @@ public static class CaseReviewGame
             TargetId = targetId,
             Trust = trust,
             Affinity = affinity,
+            Reliability = Clamp((trust + affinity) / 2, -100, 100),
             Note = note
         });
     }
@@ -1448,6 +1682,7 @@ public static class CaseReviewGame
             AddTruth(state, item.Id, item.AssignedPersonnel.FirstOrDefault() ?? "SYS", "AUTO_RESULT", item.ResultSummary);
             AddLogFromTruth(state, item, "work", state.TotalElapsedSec);
             ApplyTaskCost(state, item, team, score);
+            ApplyRelationshipMemoryAfterWork(state, item, team, score);
             lines.Add($"{item.Id}: {item.ResultSummary}");
         }
 
@@ -1595,6 +1830,80 @@ public static class CaseReviewGame
                 person.Stagnation = Clamp(person.Stagnation - 3, 0, 100);
             }
         }
+    }
+
+    private static void ApplyRelationshipMemoryAfterWork(GameState state, EventCase item, List<Personnel> team, int score)
+    {
+        if (team.Count < 2)
+        {
+            return;
+        }
+
+        var success = score >= 70;
+        var failure = score < 55;
+        var highRisk = item.Severity >= 60 || item.LatentRisk >= 45 || item.Urgency >= 70;
+        foreach (var source in team)
+        {
+            foreach (var target in team.Where(person => !person.Id.Equals(source.Id, StringComparison.OrdinalIgnoreCase)))
+            {
+                var relation = GetOrCreateRuntimeRelationship(source, target.Id);
+                if (success)
+                {
+                    relation.Trust = Clamp(relation.Trust + (highRisk ? 6 : 3), -100, 100);
+                    relation.Affinity = Clamp(relation.Affinity + 2, -100, 100);
+                    relation.Reliability = Clamp(relation.Reliability + (highRisk ? 7 : 4), -100, 100);
+                    relation.Note = $"{item.Id} 공동 처리 성공으로 협업 안정감 증가";
+                }
+                else if (failure)
+                {
+                    relation.Trust = Clamp(relation.Trust - (highRisk ? 8 : 5), -100, 100);
+                    relation.Affinity = Clamp(relation.Affinity - 3, -100, 100);
+                    relation.Resentment = Clamp(relation.Resentment + (highRisk ? 8 : 5), -100, 100);
+                    relation.Note = $"{item.Id} 공동 처리 실패 원인을 서로 다르게 기억";
+                }
+                else
+                {
+                    relation.Trust = Clamp(relation.Trust + 1, -100, 100);
+                    relation.Reliability = Clamp(relation.Reliability + 1, -100, 100);
+                    relation.Debt = Clamp(relation.Debt + (highRisk ? 2 : 0), -100, 100);
+                    relation.Note = $"{item.Id} 불완전 처리 후 협업 흔적 누적";
+                }
+
+                var shouldRecordMemory = highRisk || success || failure || source.Memories.Count(memory => memory.TargetId.Equals(target.Id, StringComparison.OrdinalIgnoreCase)) < 2;
+                if (!shouldRecordMemory)
+                {
+                    continue;
+                }
+
+                source.Memories.Add(new PersonnelMemory
+                {
+                    Id = $"mem.work.{state.Day:00}.{item.Id}.{source.Id}.{target.Id}",
+                    TargetId = target.Id,
+                    Type = "Work",
+                    Valence = success ? "Positive" : failure ? "Negative" : "Mixed",
+                    Intensity = Clamp((highRisk ? 34 : 18) + Math.Abs(score - 60) / 2, 0, 100),
+                    Decay = success ? 12 : 8,
+                    Tags = item.MemoryHooks.Concat(item.Tags).Distinct(StringComparer.OrdinalIgnoreCase).Take(8).ToList(),
+                    SourceEventId = item.Id,
+                    DayCreated = state.Day,
+                    Note = $"{target.Name}와 함께 처리한 {item.Title}: {item.ResultSummary}"
+                });
+            }
+        }
+    }
+
+    private static PersonnelRelationship GetOrCreateRuntimeRelationship(Personnel source, string targetId)
+    {
+        source.Relationships ??= new List<PersonnelRelationship>();
+        var relationship = source.Relationships.FirstOrDefault(item => item.TargetId.Equals(targetId, StringComparison.OrdinalIgnoreCase));
+        if (relationship is not null)
+        {
+            return relationship;
+        }
+
+        relationship = new PersonnelRelationship { TargetId = targetId };
+        source.Relationships.Add(relationship);
+        return relationship;
     }
 
     private static string BuildResultSummary(EventCase item, int score, int previousRisk)

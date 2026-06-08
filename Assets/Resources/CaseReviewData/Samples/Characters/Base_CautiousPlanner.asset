@@ -16,11 +16,13 @@ MonoBehaviour:
   displayName: Cautious Planner
   cloneLineageId: LINE-SAFE
   renderResources: {fileID: 11400000, guid: 22ce7ae4b29dec04083e7a2a743366ac, type: 2}
-  background: Sample clone profile for the character data workshop.
-  interests: []
-  personality: Readable, replaceable, and just specific enough to make management
-    awkward.
-  workStyle: Designed as a sample data block.
+  background: 절차 감사실에서 빠져나온 계획형 클론. 위험을 먼저 줄이지만 결정이 늦다.
+  interests:
+  - 안전계수
+  - 재검토표
+  - 승인 로그
+  personality: 조심스럽고 방어적이다. 모호한 지시를 받으면 질문을 늘리고, 책임 경계가 흐리면 쉽게 굳는다.
+  workStyle: 저위험 계획과 감사 대응에 강하지만 긴급 현장 처리에서는 속도가 떨어진다.
   initialInformationScope: 1
   aptitudes:
     Observation: 7
@@ -34,11 +36,11 @@ MonoBehaviour:
     LoadAssigned: 0
     Fatigue: 0
     Stagnation: 0
-    TrustToManager: 0
-    RetentionRisk: 0
-    OptLow: 0
-    OptHigh: 0
-    MaxLoad: 0
+    TrustToManager: 56
+    RetentionRisk: 18
+    OptLow: 3
+    OptHigh: 5
+    MaxLoad: 7
     ConnectionLimit: 3
   startingDeck:
   - {fileID: 11400000, guid: 96e6e3c44ed997b4a82d267f9afea0c5, type: 2}

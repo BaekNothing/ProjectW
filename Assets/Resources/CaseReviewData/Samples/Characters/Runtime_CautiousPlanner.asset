@@ -22,19 +22,60 @@ MonoBehaviour:
     LoadAssigned: 0
     Fatigue: 0
     Stagnation: 0
-    TrustToManager: 0
-    RetentionRisk: 0
-    OptLow: 0
-    OptHigh: 0
-    MaxLoad: 0
+    TrustToManager: 56
+    RetentionRisk: 18
+    OptLow: 3
+    OptHigh: 5
+    MaxLoad: 7
     ConnectionLimit: 3
   deck:
   - {fileID: 11400000, guid: 96e6e3c44ed997b4a82d267f9afea0c5, type: 2}
   - {fileID: 11400000, guid: b627cb6bd061d384ebd303af21225985, type: 2}
   perks:
   - {fileID: 11400000, guid: 462d58e551bfba74482820193b1f4718, type: 2}
-  relationships: []
-  memories: []
-  traitSamples: []
+  relationships:
+  - TargetPersonnelId: P-F02
+    RenderResources: {fileID: 0}
+    Trust: -18
+    Affinity: -10
+    Debt: 0
+    Resentment: 34
+    Reliability: -22
+    Note: 빠른 처리는 인정하지만 승인 공백을 반복해서 경계한다.
+  - TargetPersonnelId: P-A03
+    RenderResources: {fileID: 0}
+    Trust: 28
+    Affinity: 12
+    Debt: 0
+    Resentment: 4
+    Reliability: 36
+    Note: 조용한 감사 메모가 자기 계획을 보강한다고 느낀다.
+  memories:
+  - MemoryId: mem.s01.f02.o2-bypass
+    OwnerPersonnelId: P-S01
+    TargetId: P-F02
+    RenderResources: {fileID: 0}
+    MemoryType: 0
+    Valence: 2
+    Intensity: 62
+    Decay: 12
+    Tags:
+    - o2
+    - shortcut
+    - approval-gap
+    SourceEventId: sample.o2-bypass
+    DayCreated: 1
+    VisibleScope: 1
+    Note: Shortcut Operator가 산소 밸브를 살렸지만 승인 로그를 비워 둔 사건.
+  traitSamples:
+  - TraitSampleId: trait.s01.overcheck
+    SourceEventId: sample.audit-loop
+    RenderResources: {fileID: 0}
+    Tags:
+    - procedure
+    - hesitation
+    Strength: 58
+    ClonePersistent: 0
+    Note: 관계 충돌이 보이면 결정보다 확인표를 먼저 늘린다.
   hasLeft: 0
   daysSinceJoined: 0

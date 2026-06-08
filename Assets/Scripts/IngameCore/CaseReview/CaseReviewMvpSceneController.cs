@@ -328,6 +328,34 @@ namespace ProjectW.IngameCore.CaseReview
             }
         }
 
+        public void ClickRegenerateSelected(string personnelId)
+        {
+            var person = CurrentState?.Staff.FirstOrDefault(item => item.Id.Equals(personnelId, StringComparison.OrdinalIgnoreCase));
+            if (person is null)
+            {
+                AddLog("No personnel selected for regeneration.");
+                Render();
+                return;
+            }
+
+            if (!CanRegenerateSelected(person))
+            {
+                AddLog("Regeneration request is available only before morning plan approval.");
+                Render();
+                return;
+            }
+
+            Dispatch($"regenerate {person.Id}");
+            selectedPersonnelId = CurrentState?.Staff.FirstOrDefault(item => item.RegeneratedFromId.Equals(personnelId, StringComparison.OrdinalIgnoreCase))?.Id
+                ?? CurrentState?.Staff.FirstOrDefault(item => item.CloneLineageId.Equals(person.CloneLineageId, StringComparison.OrdinalIgnoreCase))?.Id
+                ?? selectedPersonnelId;
+            SyncAssignmentsFromPlan();
+            cardStateDay = -1;
+            debugDecks.Clear();
+            EnsureCardStateForToday();
+            Render();
+        }
+
         public void ClickPlaySampleScenario()
         {
             sampleScenario ??= Resources.Load<ScenarioEventDefinition>(SampleScenarioResourcePath);
@@ -1043,11 +1071,24 @@ namespace ProjectW.IngameCore.CaseReview
                 statusLayout.childForceExpandHeight = true;
                 statusLayout.childForceExpandWidth = false;
                 CreateCharacterFaceBlock(selected, statusRow);
-                var detail = CreateText($"ID {selected.Id}  {selected.Name}\nLOAD {selected.LoadAssigned}/{Math.Max(1, selected.MaxLoad)} | FATIGUE {selected.Fatigue} | TRUST {selected.TrustToManager} | RETENTION {selected.RetentionRisk}", statusRow, 16, FontStyle.Bold, TextAnchor.MiddleLeft);
+                var detail = CreateText(CharacterProfileSummary(selected), statusRow, 15, FontStyle.Bold, TextAnchor.MiddleLeft);
                 detail.color = PaperTextColor;
                 var detailLayout = detail.gameObject.AddComponent<LayoutElement>();
                 detailLayout.flexibleWidth = 1;
                 detailLayout.minHeight = 124;
+                var actionColumn = CreateUiObject("Character Actions", statusRow).transform;
+                var actionLayoutElement = actionColumn.gameObject.AddComponent<LayoutElement>();
+                actionLayoutElement.minWidth = 176;
+                actionLayoutElement.preferredWidth = 176;
+                var actionLayout = actionColumn.gameObject.AddComponent<VerticalLayoutGroup>();
+                actionLayout.spacing = 8;
+                actionLayout.childForceExpandWidth = true;
+                actionLayout.childForceExpandHeight = false;
+                CreateWindowButton("REGEN\nREQUEST", actionColumn, CanRegenerateSelected(selected) ? WarningStampColor : new Color(0.36f, 0.32f, 0.28f, 1f), () => ClickRegenerateSelected(selected.Id), 68, PaperTextColor);
+                var regenNote = CreateText("품의 플로우 전 임시 직접 실행", actionColumn, 11, FontStyle.Bold, TextAnchor.UpperLeft);
+                regenNote.color = PaperTextColor;
+                regenNote.gameObject.AddComponent<LayoutElement>().minHeight = 44;
+                CreateRelationshipSummaryPanel(selected, panel);
                 cardHandRoot = CreatePanel("Today Cards", panel, new Color(0.30f, 0.25f, 0.18f, 1f));
                 cardHandRoot.gameObject.AddComponent<LayoutElement>().minHeight = 360;
                 var cardLayout = cardHandRoot.gameObject.AddComponent<VerticalLayoutGroup>();
@@ -1060,6 +1101,89 @@ namespace ProjectW.IngameCore.CaseReview
                     CreateCardFace(card, cardHandRoot, deck.UsedToday.Contains(card.Id));
                 }
             }
+        }
+
+        private string CharacterProfileSummary(Personnel person)
+        {
+            var interests = person.Interests is null || person.Interests.Count == 0
+                ? "none"
+                : string.Join(", ", person.Interests.Take(3));
+            var memoryCount = person.Memories?.Count ?? 0;
+            var traitCount = person.TraitSamples?.Count ?? 0;
+            return string.Join("\n", new[]
+            {
+                $"ID {person.Id}  {person.Name}",
+                $"LINE {Blank(person.CloneLineageId)} | VER {Math.Max(1, person.CloneVersion)} | REGEN {person.RegenerationCount}",
+                $"LOAD {person.LoadAssigned}/{Math.Max(1, person.MaxLoad)} | FAT {person.Fatigue} | TRUST {person.TrustToManager} | RET {person.RetentionRisk}",
+                $"PERSONALITY {Blank(person.Personality)}",
+                $"WORK {Blank(person.WorkStyle)} | INTERESTS {interests}",
+                $"MEM {memoryCount} | REL {person.Relationships?.Count ?? 0} | TRAIT {traitCount}"
+            });
+        }
+
+        private void CreateRelationshipSummaryPanel(Personnel selected, Transform parent)
+        {
+            var panel = CreatePanel("Relationship Memory Summary", parent, PaperColor);
+            panel.gameObject.AddComponent<LayoutElement>().minHeight = 176;
+            var lines = new List<string> { "RELATION / MEMORY" };
+            var relationships = (selected.Relationships ?? new List<PersonnelRelationship>())
+                .OrderByDescending(item => Math.Abs(item.Trust) + Math.Abs(item.Affinity) + Math.Abs(item.Resentment))
+                .Take(4)
+                .ToList();
+            if (relationships.Count == 0)
+            {
+                lines.Add("No active relationship records.");
+            }
+            else
+            {
+                foreach (var relation in relationships)
+                {
+                    var target = CurrentState.Staff.FirstOrDefault(person => person.Id.Equals(relation.TargetId, StringComparison.OrdinalIgnoreCase));
+                    var targetName = target is null ? relation.TargetId : $"{target.Name} {relation.TargetId}";
+                    lines.Add($"{targetName}: T {Signed(relation.Trust)} A {Signed(relation.Affinity)} R {Signed(relation.Resentment)} REL {Signed(relation.Reliability)}");
+                    if (!string.IsNullOrWhiteSpace(relation.Note))
+                    {
+                        lines.Add($"  {Trim(relation.Note, 74)}");
+                    }
+                }
+            }
+
+            var memories = (selected.Memories ?? new List<PersonnelMemory>())
+                .OrderByDescending(item => item.Intensity)
+                .Take(3)
+                .ToList();
+            foreach (var memory in memories)
+            {
+                lines.Add($"MEM {memory.Type}/{memory.Valence} I{memory.Intensity:00}: {Trim(memory.Note, 82)}");
+            }
+
+            var text = CreateText(string.Join("\n", lines), panel, 12, FontStyle.Bold, TextAnchor.UpperLeft);
+            text.color = PaperTextColor;
+            text.rectTransform.offsetMin = new Vector2(8, 6);
+            text.rectTransform.offsetMax = new Vector2(-8, -6);
+        }
+
+        private bool CanRegenerateSelected(Personnel person)
+        {
+            return CurrentState?.Slot == Slot.Morning
+                && CurrentState.MorningPlan?.Confirmed == false
+                && person is not null
+                && !person.HasLeft;
+        }
+
+        private static string Trim(string value, int max)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return "";
+            }
+
+            return value.Length <= max ? value : value.Substring(0, Math.Max(0, max - 1)) + ".";
+        }
+
+        private static string Blank(string value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? "none" : value;
         }
 
         private void CreateDevToolsWindow()

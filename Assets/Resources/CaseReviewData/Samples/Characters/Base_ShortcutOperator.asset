@@ -16,11 +16,13 @@ MonoBehaviour:
   displayName: Shortcut Operator
   cloneLineageId: LINE-FAST
   renderResources: {fileID: 11400000, guid: ccd79ffa88a67cd43a9c52784bada666, type: 2}
-  background: Sample clone profile for the character data workshop.
-  interests: []
-  personality: Readable, replaceable, and just specific enough to make management
-    awkward.
-  workStyle: Designed as a sample data block.
+  background: 설비 구역에서 자주 살아남은 우회 처리형 클론. 빠르지만 승인 공백을 남긴다.
+  interests:
+  - 현장 우회
+  - 고장음
+  - 임시 패치
+  personality: 낙관적이고 성급하다. 막힌 절차를 보면 먼저 손이 나가며, 나중에 설명하면 된다고 믿는다.
+  workStyle: 긴급 복구와 물리 대응에 강하지만 감사 태그 업무에서는 관계 충돌을 만든다.
   initialInformationScope: 1
   aptitudes:
     Observation: 4
@@ -34,11 +36,11 @@ MonoBehaviour:
     LoadAssigned: 0
     Fatigue: 0
     Stagnation: 0
-    TrustToManager: 0
-    RetentionRisk: 0
-    OptLow: 0
-    OptHigh: 0
-    MaxLoad: 0
+    TrustToManager: 61
+    RetentionRisk: 24
+    OptLow: 4
+    OptHigh: 6
+    MaxLoad: 8
     ConnectionLimit: 3
   startingDeck:
   - {fileID: 11400000, guid: ddecae28441274e4b9c065ab189dc2c0, type: 2}
