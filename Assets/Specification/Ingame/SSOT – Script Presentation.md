@@ -462,6 +462,7 @@ Minimal runtime layout rules:
 - Zoom meeting layout rule:
   - 1 participant uses one centered 4:3 full-screen feed.
   - 2 or more participants use a fixed 2x2 meeting grid.
+  - The Zoom meeting tile container itself should fit inside the masked stage as a 4:3 surface.
   - Each 2x2 grid tile should keep an approximate 4:3 feed aspect, with unused cell space letterboxed by the meeting background.
   - Up to 4 participants fill the grid from top-left to bottom-right.
   - Empty participant slots in the 2x2 grid remain visible as default avatar / no-signal feeds.

@@ -1817,6 +1817,9 @@ namespace ProjectW.IngameCore.CaseReview
 
             scenarioMeetingContentRoot = CreateUiObject("Zoom Meeting Tiles", scenarioPortraitRoot).transform;
             Stretch((RectTransform)scenarioMeetingContentRoot);
+            var meetingAspect = scenarioMeetingContentRoot.gameObject.AddComponent<AspectRatioFitter>();
+            meetingAspect.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+            meetingAspect.aspectRatio = 4f / 3f;
 
             var meetingChrome = CreatePanel("Zoom Meeting Chrome", scenarioPortraitRoot, new Color(0f, 0f, 0f, 0.28f));
             var chromeRect = (RectTransform)meetingChrome;
@@ -2150,6 +2153,7 @@ namespace ProjectW.IngameCore.CaseReview
             Stretch((RectTransform)border);
             var inset = CreatePanel("Camera Feed", border, MeetingFeedColor(portrait));
             var insetRect = (RectTransform)inset;
+            Stretch(insetRect);
             insetRect.offsetMin = new Vector2(4f, 4f);
             insetRect.offsetMax = new Vector2(-4f, -4f);
 
@@ -2199,6 +2203,7 @@ namespace ProjectW.IngameCore.CaseReview
             Stretch((RectTransform)border);
             var inset = CreatePanel("Overflow Feed", border, new Color(0.030f, 0.038f, 0.034f, 1f));
             var insetRect = (RectTransform)inset;
+            Stretch(insetRect);
             insetRect.offsetMin = new Vector2(4f, 4f);
             insetRect.offsetMax = new Vector2(-4f, -4f);
 
@@ -2225,6 +2230,7 @@ namespace ProjectW.IngameCore.CaseReview
             Stretch((RectTransform)border);
             var inset = CreatePanel("Empty Feed", border, new Color(0.024f, 0.029f, 0.027f, 1f));
             var insetRect = (RectTransform)inset;
+            Stretch(insetRect);
             insetRect.offsetMin = new Vector2(4f, 4f);
             insetRect.offsetMax = new Vector2(-4f, -4f);
 
@@ -2302,12 +2308,12 @@ namespace ProjectW.IngameCore.CaseReview
 
         private float MeetingStageAspect()
         {
-            if (scenarioPortraitRoot is RectTransform rect && rect.rect.height > 0.01f)
+            if (scenarioMeetingContentRoot is RectTransform contentRect && contentRect.rect.height > 0.01f)
             {
-                return rect.rect.width / rect.rect.height;
+                return contentRect.rect.width / contentRect.rect.height;
             }
 
-            return 16f / 9f;
+            return 4f / 3f;
         }
 
         private static MeetingTileRect CalculateMeetingTileRect(int index, int participantCount, float stageAspect)
