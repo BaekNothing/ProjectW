@@ -59,6 +59,8 @@ public sealed class GameState
     public List<DailyReportDocument> Reports { get; set; } = new();
     public List<ActionCard> MorningCards { get; set; } = new();
     public List<ReviewCostEntry> ReviewCosts { get; set; } = new();
+    public int MeritTokens { get; set; }
+    public List<ApprovalRequest> ApprovalRequests { get; set; } = new();
     public List<string> CommandTape { get; set; } = new();
 }
 
@@ -150,6 +152,45 @@ public sealed class ReviewCostEntry
     public int FocusCost { get; set; }
     public int TrustCost { get; set; }
     public string Reason { get; set; } = "";
+}
+
+[Serializable]
+public sealed class ApprovalRequest
+{
+    public string Id { get; set; } = "";
+    public int Day { get; set; }
+    public ApprovalRequestKind Kind { get; set; }
+    public string TargetId { get; set; } = "";
+    public int RequiredTokens { get; set; }
+    public int SubmittedTokens { get; set; }
+    public ApprovalStatus Status { get; set; } = ApprovalStatus.Draft;
+    public string Hint { get; set; } = "";
+}
+
+[Serializable]
+public enum ApprovalRequestKind
+{
+    Regeneration,
+    ReportCorrection,
+    AuditDefense,
+    SpecialExpense
+}
+
+[Serializable]
+public enum ApprovalStatus
+{
+    Draft,
+    Approved,
+    ConditionalApproved,
+    Rejected,
+    Executed
+}
+
+[Serializable]
+public sealed class ApprovalDecision
+{
+    public ApprovalStatus Status { get; set; }
+    public string Hint { get; set; } = "";
 }
 
 [Serializable]

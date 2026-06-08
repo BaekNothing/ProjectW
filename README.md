@@ -17,11 +17,12 @@ Update this section whenever an SSOT gains or loses an implementation.
 | Work data and dynamic generation | Initial `WorkDefinition` / `WorkGenerationSystem` implemented |
 | Character base/runtime data | Initial ScriptableObject pipeline implemented |
 | Character cards/perks/memory/relationships | Data and mutation interfaces partially implemented |
+| Merit token approval flow | Partially implemented in `CaseReviewGame`, `CaseReviewRules`, and MVP character profiling UI for regeneration requests |
 | Script Presentation scenario events | Data assets, localization interfaces, scenario data workshop, and CSV text import/export implemented; runtime playback UI not implemented |
 | Long loop: weekly audit, monthly/quarterly evaluation, yearly settlement | SSOT only; no runtime system yet |
 | Boss events and AI-baseline audit scoring | SSOT only; no runtime scoring system yet |
 | Outgame systems | SSOT only; no Unity runtime module yet |
-| Clone disposal/regeneration loop | SSOT only; no complete runtime loop yet |
+| Clone disposal/regeneration loop | Partially implemented through merit-token regeneration approval; no complete long-loop clone lifecycle yet |
 
 README update rule:
 

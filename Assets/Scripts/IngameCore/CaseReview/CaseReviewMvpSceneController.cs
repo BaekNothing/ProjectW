@@ -346,8 +346,19 @@ namespace ProjectW.IngameCore.CaseReview
             }
 
             Dispatch($"regenerate {person.Id}");
-            selectedPersonnelId = CurrentState?.Staff.FirstOrDefault(item => item.RegeneratedFromId.Equals(personnelId, StringComparison.OrdinalIgnoreCase))?.Id
-                ?? CurrentState?.Staff.FirstOrDefault(item => item.CloneLineageId.Equals(person.CloneLineageId, StringComparison.OrdinalIgnoreCase))?.Id
+            selectedPersonnelId = person.Id;
+            SyncAssignmentsFromPlan();
+            cardStateDay = -1;
+            debugDecks.Clear();
+            EnsureCardStateForToday();
+            Render();
+        }
+
+        public void ClickSubmitApproval(string requestId, int tokens)
+        {
+            var before = selectedPersonnelId;
+            Dispatch($"submit approval {requestId} {tokens}");
+            selectedPersonnelId = CurrentState?.Staff.FirstOrDefault(item => item.RegeneratedFromId.Equals(before, StringComparison.OrdinalIgnoreCase))?.Id
                 ?? selectedPersonnelId;
             SyncAssignmentsFromPlan();
             cardStateDay = -1;
@@ -579,7 +590,7 @@ namespace ProjectW.IngameCore.CaseReview
         private string BuildStatusLine()
         {
             var activeQueue = CurrentState.Queue.Count(item => item.Status != CaseStatus.Closed);
-            return $"[PROJECT_W INTERNAL TERMINAL]  DAY {CurrentState.Day:00}  |  {CurrentState.Slot.ToString().ToUpperInvariant()}  |  QUEUE {activeQueue}/{CurrentState.Config.QueueSoftCap}  |  OVR {CurrentState.Overload}  |  AI PRESSURE {CurrentState.ReplacementPressure}  |  REDIRECT {CurrentState.RedirectBudget}  |  AUDIT {CurrentState.AuditBudget}  |  INTERVIEW {CurrentState.InterviewBudget}";
+            return $"[PROJECT_W INTERNAL TERMINAL]  DAY {CurrentState.Day:00}  |  {CurrentState.Slot.ToString().ToUpperInvariant()}  |  QUEUE {activeQueue}/{CurrentState.Config.QueueSoftCap}  |  OVR {CurrentState.Overload}  |  TOKENS {CurrentState.MeritTokens}  |  AI PRESSURE {CurrentState.ReplacementPressure}  |  REDIRECT {CurrentState.RedirectBudget}  |  AUDIT {CurrentState.AuditBudget}  |  INTERVIEW {CurrentState.InterviewBudget}";
         }
 
         private void RenderDesktopObjects()
@@ -1085,9 +1096,10 @@ namespace ProjectW.IngameCore.CaseReview
                 actionLayout.childForceExpandWidth = true;
                 actionLayout.childForceExpandHeight = false;
                 CreateWindowButton("REGEN\nREQUEST", actionColumn, CanRegenerateSelected(selected) ? WarningStampColor : new Color(0.36f, 0.32f, 0.28f, 1f), () => ClickRegenerateSelected(selected.Id), 68, PaperTextColor);
-                var regenNote = CreateText("품의 플로우 전 임시 직접 실행", actionColumn, 11, FontStyle.Bold, TextAnchor.UpperLeft);
+                var regenNote = CreateText("품의서 파일 생성 후 성과 토큰을 투입해 승인", actionColumn, 11, FontStyle.Bold, TextAnchor.UpperLeft);
                 regenNote.color = PaperTextColor;
                 regenNote.gameObject.AddComponent<LayoutElement>().minHeight = 44;
+                CreateApprovalRequestPanel(selected, panel);
                 CreateRelationshipSummaryPanel(selected, panel);
                 cardHandRoot = CreatePanel("Today Cards", panel, new Color(0.30f, 0.25f, 0.18f, 1f));
                 cardHandRoot.gameObject.AddComponent<LayoutElement>().minHeight = 360;
@@ -1119,6 +1131,60 @@ namespace ProjectW.IngameCore.CaseReview
                 $"WORK {Blank(person.WorkStyle)} | INTERESTS {interests}",
                 $"MEM {memoryCount} | REL {person.Relationships?.Count ?? 0} | TRAIT {traitCount}"
             });
+        }
+
+        private void CreateApprovalRequestPanel(Personnel selected, Transform parent)
+        {
+            var pending = CurrentState.ApprovalRequests
+                .Where(request => request.Kind == ApprovalRequestKind.Regeneration
+                    && request.TargetId.Equals(selected.Id, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(request => request.Day)
+                .ThenByDescending(request => request.Id)
+                .FirstOrDefault();
+
+            var panel = CreatePanel("Approval Request Summary", parent, PaperColor);
+            panel.gameObject.AddComponent<LayoutElement>().minHeight = pending is null ? 96 : 188;
+            var layout = panel.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.padding = new RectOffset(10, 10, 8, 8);
+            layout.spacing = 7;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+
+            if (pending is null)
+            {
+                var empty = CreateText($"APPROVAL FILE\nMERIT TOKENS {CurrentState.MeritTokens}\nNo regeneration file is open for {selected.Id}.", panel, 13, FontStyle.Bold, TextAnchor.UpperLeft);
+                empty.color = PaperTextColor;
+                empty.gameObject.AddComponent<LayoutElement>().minHeight = 72;
+                return;
+            }
+
+            var summary = CreateText(
+                $"APPROVAL FILE {pending.Id}\n{pending.Kind} / {pending.TargetId} / {pending.Status}\nTOKENS {pending.SubmittedTokens}/{pending.RequiredTokens} | BANK {CurrentState.MeritTokens}\nHINT {pending.Hint}",
+                panel,
+                13,
+                FontStyle.Bold,
+                TextAnchor.UpperLeft);
+            summary.color = PaperTextColor;
+            summary.gameObject.AddComponent<LayoutElement>().minHeight = 94;
+
+            if (pending.Status != ApprovalStatus.Draft && pending.Status != ApprovalStatus.Rejected)
+            {
+                return;
+            }
+
+            var row = CreateUiObject("Approval Token Buttons", panel).transform;
+            row.gameObject.AddComponent<LayoutElement>().minHeight = 76;
+            var rowLayout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
+            rowLayout.spacing = 8;
+            rowLayout.childForceExpandWidth = true;
+            rowLayout.childForceExpandHeight = true;
+
+            for (var amount = 1; amount <= Math.Max(3, pending.RequiredTokens); amount++)
+            {
+                var submitAmount = amount;
+                var color = CurrentState.MeritTokens >= submitAmount ? TerminalButtonColor : new Color(0.36f, 0.32f, 0.28f, 1f);
+                CreateWindowButton($"{submitAmount}\nTOKENS", row, color, () => ClickSubmitApproval(pending.Id, submitAmount), 64, CurrentState.MeritTokens >= submitAmount ? CrtTextColor : PaperTextColor);
+            }
         }
 
         private void CreateRelationshipSummaryPanel(Personnel selected, Transform parent)
@@ -1210,7 +1276,7 @@ namespace ProjectW.IngameCore.CaseReview
         private void CreateDashboardStatusSection(Transform parent)
         {
             var activeQueue = CurrentState.Queue.Count(item => item.Status != CaseStatus.Closed);
-            var text = CreateText($"DAY {CurrentState.Day:00} | {CurrentState.Slot.ToString().ToUpperInvariant()} | QUEUE {activeQueue}/{CurrentState.Config.QueueSoftCap} | OVR {CurrentState.Overload} | AI {CurrentState.ReplacementPressure} | GLOBAL RISK {CurrentState.GlobalLatentRisk}", parent, 13, FontStyle.Bold, TextAnchor.MiddleLeft);
+            var text = CreateText($"DAY {CurrentState.Day:00} | {CurrentState.Slot.ToString().ToUpperInvariant()} | QUEUE {activeQueue}/{CurrentState.Config.QueueSoftCap} | OVR {CurrentState.Overload} | TOKENS {CurrentState.MeritTokens} | AI {CurrentState.ReplacementPressure} | GLOBAL RISK {CurrentState.GlobalLatentRisk}", parent, 13, FontStyle.Bold, TextAnchor.MiddleLeft);
             text.gameObject.AddComponent<LayoutElement>().minHeight = 58;
         }
 
@@ -1789,6 +1855,7 @@ namespace ProjectW.IngameCore.CaseReview
                 GaugeLine("Overload", CurrentState.Overload, 100),
                 GaugeLine("Global Risk", CurrentState.GlobalLatentRisk, 200),
                 GaugeLine("AI Pressure", CurrentState.ReplacementPressure, 100),
+                $"Merit Tokens {CurrentState.MeritTokens}",
                 GaugeLine("Talent Gap", CurrentState.TalentShortage, 10),
                 GaugeLine("Queue", activeQueue, CurrentState.Config.QueueHardCap),
                 GaugeLine("Redirect", CurrentState.RedirectBudget, CurrentState.Config.RedirectBudgetPerDay),

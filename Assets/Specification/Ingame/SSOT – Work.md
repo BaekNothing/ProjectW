@@ -400,3 +400,26 @@ FinalWeight =
 - 검토 비용 없이 모든 업무의 숨은 정보를 공개하는 것
 - 보스 이벤트를 업무 큐에 아무 영향 없는 배경 텍스트로만 처리하는 것
 - 감사 업무를 실패한 업무에만 생성하고 AI 대비 선택 차이를 무시하는 것
+------
+
+## Merit Token Rewards and Approval Spending
+
+Work resolution grants Merit Tokens. These tokens are deliberately simple: they are a single shared currency, not typed evidence.
+
+Token grant rules:
+
+- Normal successful work grants `+1`.
+- High-risk successful work can grant an additional `+1`.
+- Failed work, severe risk bursts, or audit-worthy outcomes can still grant `+1` as consolation funding so the player has a recovery foothold.
+- Reviewing a risky or suspicious report can grant `+1` filing credit.
+
+Token spending rules:
+
+- Report correction approval costs `1`.
+- Special expense approval costs `2`.
+- Regeneration approval costs `3`.
+- Audit defense approval costs `4`.
+
+Approval success is affected by company state. `ReplacementPressure`, `GlobalLatentRisk`, and `Overload` can increase hidden approval burden. The player should infer this from rejection hints and changing approval behavior, not from exact formula disclosure.
+
+This rule is part of the work loop economy. It must not become a natural-language parsing system.

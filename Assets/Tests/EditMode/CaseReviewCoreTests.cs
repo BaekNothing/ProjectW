@@ -640,6 +640,7 @@ namespace ProjectW.Tests.EditMode
             var baseline = CaseReviewGame.Init(new GameConfig(), 1);
             CaseReviewGame.Dispatch(baseline, "adjust E-108 B-04");
             CaseReviewGame.Dispatch(baseline, "adjust R-211 B-04");
+            baseline.MorningCards = new List<ActionCard>();
             CaseReviewGame.Dispatch(baseline, "confirm plan");
             var baselineTarget = baseline.Queue.Single(item => item.Id == "E-108");
             var baselineOther = baseline.Queue.Single(item => item.Id == "R-211");
@@ -763,16 +764,22 @@ namespace ProjectW.Tests.EditMode
         public void Regenerate_ReplacesPersonnelAndArchivesActiveRelationships()
         {
             var state = CaseReviewGame.Init(new GameConfig(), 1);
+            state.MeritTokens = 3;
             var source = state.Staff.Single(person => person.Id == "A-17");
             source.Memories.Add(new PersonnelMemory { Id = "mem.manual", TargetId = "B-04", Intensity = 70, Note = "old memory" });
             source.Relationships.Add(new PersonnelRelationship { TargetId = "D-11", Trust = 40, Affinity = 12 });
             var observer = state.Staff.Single(person => person.Id == "B-04");
             Assert.IsTrue(observer.Relationships.Any(relation => relation.TargetId == "A-17"));
 
-            var result = CaseReviewGame.Dispatch(state, "regenerate A-17");
+            var request = CaseReviewGame.Dispatch(state, "regenerate A-17");
+            var approval = state.ApprovalRequests.Single(item => item.Kind == ApprovalRequestKind.Regeneration && item.TargetId == "A-17");
+            var result = CaseReviewGame.Dispatch(state, $"submit approval {approval.Id} 3");
 
             var regenerated = state.Staff.Single(person => person.RegeneratedFromId == "A-17");
+            Assert.IsTrue(request.Success);
             Assert.IsTrue(result.Success);
+            Assert.AreEqual(ApprovalStatus.Executed, approval.Status);
+            Assert.AreEqual(0, state.MeritTokens);
             Assert.AreNotEqual("A-17", regenerated.Id);
             Assert.AreEqual(1, regenerated.RegenerationCount);
             Assert.AreEqual(0, regenerated.Relationships.Count);
@@ -782,6 +789,86 @@ namespace ProjectW.Tests.EditMode
             Assert.IsTrue(observer.Relationships.Any(relation => relation.TargetId == regenerated.Id));
             Assert.IsTrue(observer.Memories.Any(memory => memory.TargetId == regenerated.Id && memory.Type == "Clone"));
             Assert.IsTrue(state.MorningPlan.Entries.All(entry => !entry.PlannedPersonnel.Contains("A-17")));
+        }
+
+        [Test]
+        public void Regenerate_RequestCreatesApprovalWithoutImmediateExecution()
+        {
+            var state = CaseReviewGame.Init(new GameConfig(), 1);
+
+            var result = CaseReviewGame.Dispatch(state, "regenerate A-17");
+
+            Assert.IsTrue(result.Success);
+            Assert.AreEqual(1, state.ApprovalRequests.Count);
+            Assert.AreEqual(ApprovalRequestKind.Regeneration, state.ApprovalRequests[0].Kind);
+            Assert.AreEqual(3, state.ApprovalRequests[0].RequiredTokens);
+            Assert.IsTrue(state.Staff.Any(person => person.Id == "A-17" && person.RegeneratedFromId == ""));
+        }
+
+        [Test]
+        public void ConfirmPlan_AwardsMeritTokensForSuccessAndRisk()
+        {
+            var state = CaseReviewGame.Init(new GameConfig
+            {
+                InitialData = new CaseReviewSeedData
+                {
+                    Staff = new List<Personnel>
+                    {
+                        new Personnel
+                        {
+                            Id = "P-01",
+                            Name = "Planner",
+                            MaxLoad = 3,
+                            OptHigh = 3,
+                            Aptitudes = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+                            {
+                                ["repair"] = 10
+                            }
+                        }
+                    },
+                    Queue = new List<EventCase>
+                    {
+                        new EventCase
+                        {
+                            Id = "E-TOKEN",
+                            Kind = "incident",
+                            Title = "Token Work",
+                            Urgency = 80,
+                            Severity = 70,
+                            BaseSuccessChance = 85,
+                            RequiredAptitudes = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+                            {
+                                ["repair"] = 5
+                            },
+                            MaxPersonnelCount = 1
+                        }
+                    }
+                }
+            }, 12);
+
+            CaseReviewGame.Dispatch(state, "adjust E-TOKEN P-01");
+            var result = CaseReviewGame.Dispatch(state, "confirm plan");
+
+            Assert.IsTrue(result.Success);
+            Assert.GreaterOrEqual(state.MeritTokens, 1);
+        }
+
+        [Test]
+        public void Approval_RejectionHintsAtHiddenCompanyState()
+        {
+            var state = CaseReviewGame.Init(new GameConfig(), 1);
+            state.MeritTokens = 3;
+            state.ReplacementPressure = 80;
+            state.GlobalLatentRisk = 130;
+
+            CaseReviewGame.Dispatch(state, "regenerate A-17");
+            var approval = state.ApprovalRequests.Single();
+            var result = CaseReviewGame.Dispatch(state, $"submit approval {approval.Id} 3");
+
+            Assert.IsFalse(result.Success);
+            Assert.AreEqual(ApprovalStatus.Rejected, approval.Status);
+            Assert.AreEqual(3, state.MeritTokens);
+            Assert.IsFalse(string.IsNullOrWhiteSpace(approval.Hint));
         }
 
         private static void ForceNoon(GameState state)

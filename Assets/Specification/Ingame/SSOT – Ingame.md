@@ -456,3 +456,30 @@ MVP 판정은 재미 가설과 최소 KPI를 함께 본다.
 - 주간/월간/분기/연간 평가를 단순 텍스트 요약으로만 처리하고 상태 갱신을 막는 것
 - 스크립트 파트를 코어 상태와 무관한 별도 감상 모드로만 만드는 것
 - 스크립트 이벤트가 명시되지 않은 방식으로 자원, 평가, 관계, 업무 상태를 변경하는 것
+------
+
+## Merit Tokens and Approval Requests
+
+The MVP management loop uses a single visible resource called Merit Tokens.
+
+Merit Tokens are both:
+
+- a reward for successfully completing work, and
+- a consolation fund that gives the player a recovery foothold when risk bursts or a project fails.
+
+The player spends Merit Tokens on approval requests. Approval requests are not natural-language documents. They are simple filed forms with a target, a required token count, submitted tokens, status, and a short review hint.
+
+Approval request examples:
+
+- `Regeneration`: clone/personnel regeneration request.
+- `ReportCorrection`: report correction or filing cleanup.
+- `AuditDefense`: audit defense or failure containment.
+- `SpecialExpense`: special spending, equipment, outsourcing, or exceptional resource use.
+
+The approval desk may reject or conditionally approve a request even when the visible token count looks sufficient. Rejection hints must expose company state indirectly rather than dumping exact hidden formulas. Example hints include:
+
+- `AI review hold`: AI replacement pressure is becoming relevant.
+- `audit line transfer`: latent risk is becoming relevant.
+- `operation capacity shortage`: overload is becoming relevant.
+
+This system must preserve the MVP desktop loop. `Today Work Plan` remains assignment-only, while irreversible actions use desktop actions, approval windows, or document-like panels.

@@ -84,6 +84,9 @@ public static class CaseReviewGame
             "ADVANCE" => AdvanceCommand(state, tokens, lines),
             "REPORT" => ReportCommand(state, tokens, lines),
             "REVIEW" => ReviewCommand(state, tokens, lines),
+            "REQUEST" => RequestApprovalCommand(state, tokens, lines),
+            "SUBMIT" => SubmitApprovalCommand(state, tokens, lines),
+            "APPROVALS" => ApprovalListCommand(state, lines),
             "REGENERATE" or "REGEN" => RegenerateCommand(state, tokens, lines),
             "NEXT" when tokens.Count > 1 && tokens[1].Equals("DAY", StringComparison.OrdinalIgnoreCase)
                 => NextDay(state, lines),
@@ -603,9 +606,16 @@ public static class CaseReviewGame
         if (tokens[1].Equals("ALL", StringComparison.OrdinalIgnoreCase))
         {
             RecordReviewCost(state, ReviewActionType.Review, $"DAY-{state.Day:D2}", "all");
+            var awarded = 0;
             foreach (var item in state.Queue.Where(e => e.AutoResolved))
             {
                 item.ReportReviewed = true;
+                awarded += GrantMeritTokens(state, Rules(state).MeritTokenPolicy.AwardForReportReview(state, item));
+            }
+
+            if (awarded > 0)
+            {
+                lines.Add($"MERIT +{awarded}. Report review produced usable filing credit.");
             }
 
             lines.Add("OK. 모든 개별 작업 리포트를 검토 완료로 표시했습니다.");
@@ -625,6 +635,12 @@ public static class CaseReviewGame
 
         RecordReviewCost(state, ReviewActionType.Review, target.Id, "event-review");
         target.ReportReviewed = true;
+        var reviewAward = GrantMeritTokens(state, Rules(state).MeritTokenPolicy.AwardForReportReview(state, target));
+        if (reviewAward > 0)
+        {
+            lines.Add($"MERIT +{reviewAward}. Report review produced usable filing credit.");
+        }
+
         lines.Add($"OK. {target.Id} 리포트 검토 완료.");
         return Result(true, lines);
     }
@@ -646,19 +662,149 @@ public static class CaseReviewGame
         return Result(true, lines);
     }
 
+    private static DispatchResult RequestApprovalCommand(GameState state, List<string> tokens, List<string> lines)
+    {
+        if (tokens.Count < 3)
+        {
+            return Error("ERR001", "REQUEST <REGENERATION|REPORT|AUDIT|EXPENSE> <targetId> format required.", lines);
+        }
+
+        if (!TryParseApprovalKind(tokens[1], out var kind))
+        {
+            return Error("ERR001", "Unknown approval request kind.", lines);
+        }
+
+        if (kind == ApprovalRequestKind.Regeneration
+            && (state.Slot != Slot.Morning || state.MorningPlan?.Confirmed == true))
+        {
+            return Error("ERR112", "Regeneration approval is available only before morning plan approval.", lines);
+        }
+
+        if (kind == ApprovalRequestKind.Regeneration
+            && !state.Staff.Any(person => person.Id.Equals(tokens[2], StringComparison.OrdinalIgnoreCase) && !person.HasLeft))
+        {
+            return Error("ERR041", "Regeneration target personnel not found.", lines);
+        }
+
+        var existing = state.ApprovalRequests.FirstOrDefault(request =>
+            request.Kind == kind
+            && request.TargetId.Equals(tokens[2], StringComparison.OrdinalIgnoreCase)
+            && request.Status == ApprovalStatus.Draft);
+        if (existing is not null)
+        {
+            lines.Add($"APPROVAL {existing.Id} already pending. Required tokens {existing.RequiredTokens}. MERIT {state.MeritTokens}.");
+            return Result(true, lines);
+        }
+
+        var request = new ApprovalRequest
+        {
+            Id = NextApprovalId(state),
+            Day = state.Day,
+            Kind = kind,
+            TargetId = tokens[2],
+            RequiredTokens = Rules(state).ApprovalPolicy.RequiredTokens(kind),
+            Hint = "draft"
+        };
+        state.ApprovalRequests.Add(request);
+        lines.Add($"APPROVAL {request.Id} opened: {request.Kind} / {request.TargetId} / requires {request.RequiredTokens} merit tokens. MERIT {state.MeritTokens}.");
+        return Result(true, lines);
+    }
+
+    private static DispatchResult SubmitApprovalCommand(GameState state, List<string> tokens, List<string> lines)
+    {
+        if (tokens.Count < 4 || !tokens[1].Equals("APPROVAL", StringComparison.OrdinalIgnoreCase))
+        {
+            return Error("ERR001", "SUBMIT APPROVAL <requestId> <tokens> format required.", lines);
+        }
+
+        var request = state.ApprovalRequests.FirstOrDefault(item => item.Id.Equals(tokens[2], StringComparison.OrdinalIgnoreCase));
+        if (request is null)
+        {
+            return Error("ERR121", "Approval request not found.", lines);
+        }
+
+        if (request.Status is ApprovalStatus.Executed or ApprovalStatus.Approved or ApprovalStatus.ConditionalApproved)
+        {
+            return Error("ERR122", "Approval request is already resolved.", lines);
+        }
+
+        if (!int.TryParse(tokens[3], out var submittedTokens) || submittedTokens < 0)
+        {
+            return Error("ERR001", "Submitted token count must be a non-negative integer.", lines);
+        }
+
+        if (submittedTokens > state.MeritTokens)
+        {
+            return Error("ERR123", $"Not enough merit tokens. MERIT {state.MeritTokens}.", lines);
+        }
+
+        var decision = Rules(state).ApprovalPolicy.Evaluate(state, request, submittedTokens);
+        request.SubmittedTokens = submittedTokens;
+        request.Status = decision.Status;
+        request.Hint = decision.Hint;
+
+        if (decision.Status == ApprovalStatus.Rejected)
+        {
+            lines.Add($"REJECTED {request.Id}. Hint: {request.Hint}. MERIT {state.MeritTokens}.");
+            return Result(false, lines);
+        }
+
+        state.MeritTokens -= submittedTokens;
+        lines.Add($"{decision.Status.ToString().ToUpperInvariant()} {request.Id}. Spent {submittedTokens} merit tokens. Hint: {request.Hint}. MERIT {state.MeritTokens}.");
+
+        if (request.Kind == ApprovalRequestKind.Regeneration)
+        {
+            var result = ExecuteRegeneration(state, request.TargetId, lines);
+            if (result.Success)
+            {
+                request.Status = ApprovalStatus.Executed;
+                request.Hint = decision.Status == ApprovalStatus.ConditionalApproved
+                    ? "conditional regeneration executed; audit trail remains warm"
+                    : "regeneration executed";
+            }
+
+            return result;
+        }
+
+        request.Status = ApprovalStatus.Executed;
+        return Result(true, lines);
+    }
+
+    private static DispatchResult ApprovalListCommand(GameState state, List<string> lines)
+    {
+        lines.Add($"MERIT {state.MeritTokens}");
+        if (state.ApprovalRequests.Count == 0)
+        {
+            lines.Add("No approval requests.");
+            return Result(true, lines);
+        }
+
+        foreach (var request in state.ApprovalRequests.OrderByDescending(item => item.Day).ThenBy(item => item.Id))
+        {
+            lines.Add($"{request.Id} | {request.Status} | {request.Kind} {request.TargetId} | {request.SubmittedTokens}/{request.RequiredTokens} | {request.Hint}");
+        }
+
+        return Result(true, lines);
+    }
+
     private static DispatchResult RegenerateCommand(GameState state, List<string> tokens, List<string> lines)
+    {
+        if (tokens.Count < 2)
+        {
+            return Error("ERR001", "REGENERATE <personnelId> format required.", lines);
+        }
+
+        return RequestApprovalCommand(state, new List<string> { "REQUEST", "REGENERATION", tokens[1] }, lines);
+    }
+
+    private static DispatchResult ExecuteRegeneration(GameState state, string personnelId, List<string> lines)
     {
         if (state.Slot != Slot.Morning || state.MorningPlan?.Confirmed == true)
         {
             return Error("ERR112", "재생성은 아침 작업계획 확정 전 캐릭터 패널에서만 처리할 수 있습니다.", lines);
         }
 
-        if (tokens.Count < 2)
-        {
-            return Error("ERR001", "REGENERATE <personnelId> 형식입니다.", lines);
-        }
-
-        var source = state.Staff.FirstOrDefault(person => person.Id.Equals(tokens[1], StringComparison.OrdinalIgnoreCase));
+        var source = state.Staff.FirstOrDefault(person => person.Id.Equals(personnelId, StringComparison.OrdinalIgnoreCase));
         if (source is null || source.HasLeft)
         {
             return Error("ERR041", "재생성 대상 인력을 찾을 수 없습니다.", lines);
@@ -751,7 +897,7 @@ public static class CaseReviewGame
         state.GlobalLatentRisk = Clamp(state.GlobalLatentRisk + 4, 0, 200);
         AddTruth(state, $"regen.{sourceId}", "CLONE_BAY", "REGENERATE", $"{sourceId} -> {regeneratedId}. memories {archivedMemoryCount}, relationships {archivedRelationshipCount} archived.");
         lines.Add($"OK. {sourceId} 계보를 {regeneratedId}로 재생성했습니다.");
-        lines.Add($"품의 시스템 도입 전 임시 직접 실행: 기억 {archivedMemoryCount}건, 관계 {archivedRelationshipCount}건을 활성 상태에서 제거/보관 처리했습니다.");
+        lines.Add($"APPROVAL EXECUTED. 기억 {archivedMemoryCount}건, 관계 {archivedRelationshipCount}건을 활성 상태에서 제거/보관 처리했습니다.");
         lines.Add($"조직 반응 기록 생성. AI 대체 압력 +6, 글로벌 리스크 +4.");
         return Result(true, lines);
     }
@@ -1041,6 +1187,65 @@ public static class CaseReviewGame
         var cost = Rules(state).ReviewCostPolicy.Assess(state, actionType, subjectId, sourceType);
         state.ReviewCosts.Add(cost);
         state.ReplacementPressure = Rules(state).ReplacementPressurePolicy.AfterManualReview(state, cost, state.ReplacementPressure);
+    }
+
+    private static int GrantMeritTokens(GameState state, int amount)
+    {
+        var granted = Math.Max(0, amount);
+        if (granted == 0)
+        {
+            return 0;
+        }
+
+        state.MeritTokens = Math.Max(0, state.MeritTokens + granted);
+        return granted;
+    }
+
+    private static bool TryParseApprovalKind(string value, out ApprovalRequestKind kind)
+    {
+        if (value.Equals("REGENERATION", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("REGEN", StringComparison.OrdinalIgnoreCase))
+        {
+            kind = ApprovalRequestKind.Regeneration;
+            return true;
+        }
+
+        if (value.Equals("REPORT", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("REPORTCORRECTION", StringComparison.OrdinalIgnoreCase))
+        {
+            kind = ApprovalRequestKind.ReportCorrection;
+            return true;
+        }
+
+        if (value.Equals("AUDIT", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("AUDITDEFENSE", StringComparison.OrdinalIgnoreCase))
+        {
+            kind = ApprovalRequestKind.AuditDefense;
+            return true;
+        }
+
+        if (value.Equals("EXPENSE", StringComparison.OrdinalIgnoreCase)
+            || value.Equals("SPECIALEXPENSE", StringComparison.OrdinalIgnoreCase))
+        {
+            kind = ApprovalRequestKind.SpecialExpense;
+            return true;
+        }
+
+        kind = ApprovalRequestKind.ReportCorrection;
+        return false;
+    }
+
+    private static string NextApprovalId(GameState state)
+    {
+        var candidate = $"AR-{state.Day:00}-{state.ApprovalRequests.Count + 1:D2}";
+        var suffix = 2;
+        while (state.ApprovalRequests.Any(request => request.Id.Equals(candidate, StringComparison.OrdinalIgnoreCase)))
+        {
+            candidate = $"AR-{state.Day:00}-{state.ApprovalRequests.Count + 1:D2}-{suffix}";
+            suffix++;
+        }
+
+        return candidate;
     }
 
     private static void ApplyInitialData(GameState state, CaseReviewSeedData data)
@@ -1683,6 +1888,12 @@ public static class CaseReviewGame
             AddLogFromTruth(state, item, "work", state.TotalElapsedSec);
             ApplyTaskCost(state, item, team, score);
             ApplyRelationshipMemoryAfterWork(state, item, team, score);
+            var awarded = GrantMeritTokens(state, Rules(state).MeritTokenPolicy.AwardForResolvedWork(state, item));
+            if (awarded > 0)
+            {
+                lines.Add($"MERIT +{awarded}. {item.Id} produced approval tokens.");
+            }
+
             lines.Add($"{item.Id}: {item.ResultSummary}");
         }
 
@@ -2032,7 +2243,7 @@ public static class CaseReviewGame
     {
         var q = state.Queue.Count(e => e.Status != CaseStatus.Closed);
         var time = state.Config.UseTimePressure ? $" | {FormatClock(state.TimeRemainingSec)} LEFT" : "";
-        return $"DAY {state.Day:D2} | {state.Slot.ToString().ToUpperInvariant()}{time} | Q {q}/{state.Config.QueueSoftCap} | OVR {state.Overload} | REDIR {state.RedirectBudget} | AUDIT {state.AuditBudget} | KPI {state.KpiMode}";
+        return $"DAY {state.Day:D2} | {state.Slot.ToString().ToUpperInvariant()}{time} | Q {q}/{state.Config.QueueSoftCap} | OVR {state.Overload} | TOKENS {state.MeritTokens} | REDIR {state.RedirectBudget} | AUDIT {state.AuditBudget} | KPI {state.KpiMode}";
     }
 
     private static string LastVisibleSource(GameState state, string eventId)

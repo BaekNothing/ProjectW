@@ -15,6 +15,8 @@ public sealed class CaseReviewRules
     public IReplacementPressurePolicy ReplacementPressurePolicy { get; set; } = new DefaultReplacementPressurePolicy();
     public IBossPolicy BossPolicy { get; set; } = new DefaultBossPolicy();
     public IWorkGenerationService WorkGenerationService { get; set; } = new DefaultWorkGenerationService();
+    public IMeritTokenPolicy MeritTokenPolicy { get; set; } = new DefaultMeritTokenPolicy();
+    public IApprovalPolicy ApprovalPolicy { get; set; } = new DefaultApprovalPolicy();
 }
 
 public interface ICardDrawService
@@ -38,6 +40,18 @@ public interface IBossPolicy
 {
     int ReplacementPressureModifier(BossArchetype archetype);
     int ReviewCostModifier(BossArchetype archetype, ReviewActionType actionType);
+}
+
+public interface IMeritTokenPolicy
+{
+    int AwardForResolvedWork(GameState state, EventCase item);
+    int AwardForReportReview(GameState state, EventCase item);
+}
+
+public interface IApprovalPolicy
+{
+    int RequiredTokens(ApprovalRequestKind kind);
+    ApprovalDecision Evaluate(GameState state, ApprovalRequest request, int submittedTokens);
 }
 
 public sealed class DefaultCardDrawService : ICardDrawService
@@ -237,6 +251,113 @@ public sealed class DefaultBossPolicy : IBossPolicy
         }
 
         return 0;
+    }
+}
+
+public sealed class DefaultMeritTokenPolicy : IMeritTokenPolicy
+{
+    public int AwardForResolvedWork(GameState state, EventCase item)
+    {
+        if (item is null)
+        {
+            return 0;
+        }
+
+        var tokens = 0;
+        if (item.OutcomeScore >= 75)
+        {
+            tokens += 1;
+        }
+
+        if (item.OutcomeScore >= 75 && item.Urgency + item.Severity >= 135)
+        {
+            tokens += 1;
+        }
+
+        if (item.OutcomeScore < 55 || item.LatentRisk >= 70)
+        {
+            tokens += 1;
+        }
+
+        return Math.Max(0, tokens);
+    }
+
+    public int AwardForReportReview(GameState state, EventCase item)
+    {
+        if (item is null)
+        {
+            return 0;
+        }
+
+        return item.LatentRisk >= 45 || item.MismatchScore >= 2 || item.OutcomeScore < 60 ? 1 : 0;
+    }
+}
+
+public sealed class DefaultApprovalPolicy : IApprovalPolicy
+{
+    public int RequiredTokens(ApprovalRequestKind kind)
+    {
+        return kind switch
+        {
+            ApprovalRequestKind.ReportCorrection => 1,
+            ApprovalRequestKind.SpecialExpense => 2,
+            ApprovalRequestKind.Regeneration => 3,
+            ApprovalRequestKind.AuditDefense => 4,
+            _ => 1
+        };
+    }
+
+    public ApprovalDecision Evaluate(GameState state, ApprovalRequest request, int submittedTokens)
+    {
+        var required = request is not null && request.RequiredTokens > 0
+            ? request.RequiredTokens
+            : RequiredTokens(request?.Kind ?? ApprovalRequestKind.ReportCorrection);
+        var burden = HiddenBurden(state);
+        var status = submittedTokens >= required + burden
+            ? ApprovalStatus.Approved
+            : submittedTokens >= required && burden <= 1
+                ? ApprovalStatus.ConditionalApproved
+                : ApprovalStatus.Rejected;
+
+        return new ApprovalDecision
+        {
+            Status = status,
+            Hint = HintFor(state)
+        };
+    }
+
+    private static int HiddenBurden(GameState state)
+    {
+        if (state is null)
+        {
+            return 0;
+        }
+
+        var burden = 0;
+        if (state.ReplacementPressure >= 70) burden++;
+        if (state.GlobalLatentRisk >= 120) burden++;
+        if (state.Overload >= 70) burden++;
+        return burden;
+    }
+
+    private static string HintFor(GameState state)
+    {
+        if (state is null)
+        {
+            return "review desk unavailable";
+        }
+
+        if (state.ReplacementPressure >= state.GlobalLatentRisk / 2 && state.ReplacementPressure >= state.Overload)
+        {
+            return "AI review hold";
+        }
+
+        if (state.GlobalLatentRisk >= state.Overload)
+        {
+            return "audit line transfer";
+        }
+
+        return "operation capacity shortage";
     }
 }
 }
