@@ -126,6 +126,19 @@
 - 기억은 플레이어 판단에 영향을 줄 정도의 사건에만 생성한다.
 - 기억은 로그처럼 완전하지 않고, 감정적으로 왜곡될 수 있다.
 
+공동 업무 기억:
+
+- 같은 업무에 함께 배치된 캐릭터는 업무 결과와 별개로 관계 접점을 만든다.
+- 모든 공동 배치가 별도 `CharacterMemory`를 만들지는 않지만, 관계 수치는 작은 폭으로 변할 수 있다.
+- 다음 상황은 기억 생성 후보가 된다.
+  - 고위험 업무를 함께 성공 또는 실패함
+  - 한 캐릭터의 카드/퍽이 다른 캐릭터의 부담을 줄이거나 늘림
+  - 한 캐릭터가 보고 누락, 책임 회피, 과잉 개입으로 다른 캐릭터에게 피해를 줌
+  - 반복적으로 같은 조합이 배치되어 익숙함, 피로감, 의존, 불신이 누적됨
+- 공동 업무 기억은 최소한 업무 id, 함께 배치된 대상, 결과 방향, 감정 강도, 관련 태그를 남긴다.
+- 관계 변화는 양방향이 동일할 필요가 없다. A가 B를 신뢰하게 되었어도 B는 A에게 부담이나 원망을 느낄 수 있다.
+- 기억은 `PersonnelId` 기준으로 기록하되, 클론 계보 해석이 필요한 경우 `CloneLineageId` 태그를 함께 남길 수 있다.
+
 ------
 
 ## 6. Memory Effects
@@ -199,11 +212,33 @@
 관계는 단순 보너스가 아니다.
 좋은 관계도 과하면 판단 왜곡이나 편파를 만든다.
 
+공동 업무에 따른 관계 변화:
+
+- 성공한 공동 업무
+  - 서로의 기여가 명확하면 `Trust`와 `Reliability`가 오른다.
+  - 한쪽의 기여만 과하게 보이면 다른 쪽의 `Debt` 또는 `Resentment`가 오를 수 있다.
+- 실패한 공동 업무
+  - 실패 원인이 불명확하면 양쪽 모두 `Trust`가 내려가거나 보고서가 왜곡될 수 있다.
+  - 특정 캐릭터의 카드/퍽/상태가 원인으로 드러나면 대상에 대한 `Resentment`가 오른다.
+- 반복 공동 배치
+  - 안정적인 조합은 `Trust`와 `Reliability`를 만든다.
+  - 지나친 반복은 의존, 편들기, 지루함, 특정 조합 없이는 불안해하는 상태를 만들 수 있다.
+- 관계 변화는 업무 태그, 위험도, 검토 수준, 보고서 확인 여부, 정보 스코프에 의해 보정된다.
+- 플레이어가 보고서를 검토하지 않으면 실제 원인과 캐릭터가 기억하는 원인이 어긋날 수 있다.
+
 ------
 
 ## 9. Clone Memory
 
 재생성된 클론은 이전 개체의 기억을 완전히 보존하지 않는다.
+
+재생성 기준:
+
+- 재생성은 기존 `PersonnelId`의 연장이 아니라 같은 `CloneLineageId`에서 새 개체를 만드는 행위다.
+- 재생성된 개체는 새 `PersonnelId` 또는 새 `Version`을 가진다.
+- 이전 개체의 관계와 기억은 새 개체에게 그대로 복사하지 않는다.
+- 이전 개체가 가진 `Relationships`와 `Memories`는 활성 런타임 관계에서 제거되거나 보관 이력으로 이동한다.
+- 새 개체는 기본 캐릭터 데이터, 보존 허용 카드/퍽/특성 샘플, 계보 잔향만을 초기 상태로 받는다.
 
 허용되는 잔존:
 
@@ -212,6 +247,14 @@
 - 위험 습관
 - 일부 TraitSample
 - 특정 캐릭터에 대한 묘한 호감 또는 불편함
+
+다른 캐릭터가 기억하는 재생성:
+
+- 재생성 대상의 기억은 대부분 지워지지만, 주변 캐릭터의 기억은 자동으로 지워지지 않는다.
+- 주변 캐릭터는 "이전 개체가 폐기/재생성되었다"는 사건을 기억할 수 있다.
+- 주변 캐릭터의 기억은 새 개체를 완전히 같은 인물로 취급하지 않지만, 같은 `CloneLineageId`에 대한 경계, 불편함, 기대를 만들 수 있다.
+- 따라서 재생성은 대상 캐릭터에게는 관계 리셋에 가깝지만, 조직 전체에는 리셋이 아니다.
+- 플레이어가 재생성을 자주 사용하면 관리자 신뢰, 조직 분위기, AI 대체 압력, 사장 평가에 누적 흔적이 남는다.
 
 금지되는 잔존:
 
@@ -289,6 +332,12 @@
   - `SetRelationshipStat(targetPersonnelId, stat, value)`
   - `AdjustRelationshipStat(targetPersonnelId, stat, delta)`
   - `RemoveRelationship(targetPersonnelId)`
+- 재생성
+  - `ArchiveMemoriesForRegeneration(sourcePersonnelId, cloneLineageId)`
+  - `ArchiveRelationshipsForRegeneration(sourcePersonnelId, cloneLineageId)`
+  - `CreateRegeneratedClone(cloneLineageId, regenerationPolicy)`
+  - `ApplyLineageResidue(targetPersonnelId, cloneLineageId, residue)`
+  - `AddRegenerationMemory(observerPersonnelId, sourcePersonnelId, regeneratedPersonnelId)`
 
 수치 규칙:
 
@@ -296,6 +345,8 @@
 - 관계의 `Trust`, `Affinity`, `Debt`, `Resentment`, `Reliability`는 -100~100 범위로 보정한다.
 - `Adjust` 계열 함수는 “좋아짐/나빠짐”을 모두 표현할 수 있어야 한다.
 - 관계 수치 조정은 필요한 경우 대상 관계를 생성할 수 있다.
+- 재생성은 기본적으로 새 개체의 관계 수치를 0 또는 base 정의값에서 시작하게 한다.
+- 계보 잔향은 낮은 강도의 trait/memory hook으로만 주입하고, 원본 기억 전문을 복사하지 않는다.
 
 데이터 제작 가이드:
 
