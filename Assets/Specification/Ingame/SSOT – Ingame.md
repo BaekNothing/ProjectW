@@ -141,6 +141,7 @@ Rules:
 - `Today Work Plan` decides assignment only. `STAMP APPROVED / Start Work` and `NEXT MORNING / Advance Day` live as desktop lower-right action buttons. Report summary is opened from `Daily Report`, not from `Today Work Plan`.
 - Character selection state may be shared between `Character Profiling` and `Today Work Plan`, but core state changes still pass through `CaseReviewGame.Dispatch` or explicit assignment sync boundaries.
 - Desktop chrome may reorganize presentation, but it must not replace the daily loop: review, assignment, confirmation, execution feedback, night summary, next morning.
+- `My Intranet Page`: personal intranet page that consolidates player resources, merit tokens, approval history, relationship watch records, and mail/inbox style notices.
 
 ------
 

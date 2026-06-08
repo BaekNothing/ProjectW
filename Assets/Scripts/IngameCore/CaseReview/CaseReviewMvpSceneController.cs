@@ -696,6 +696,9 @@ namespace ProjectW.IngameCore.CaseReview
                 case MvpDesktopWindow.CharacterProfiling:
                     CreateCharacterProfilingWindow();
                     break;
+                case MvpDesktopWindow.PlayerIntranet:
+                    CreatePlayerIntranetWindow();
+                    break;
                 case MvpDesktopWindow.DevTools:
                     CreateDevToolsWindow();
                     break;
@@ -1261,6 +1264,130 @@ namespace ProjectW.IngameCore.CaseReview
             CreateWindowButton("> PLAY SCENARIO SAMPLE", panel, TerminalButtonColor, ClickPlaySampleScenario, 82, CrtTextColor);
         }
 
+        private void CreatePlayerIntranetWindow()
+        {
+            var panel = CreateDockWindow(MvpDesktopWindow.PlayerIntranet, "MY INTRANET PAGE", new Vector2(0.08f, 0.10f), new Vector2(0.86f, 0.88f), PaperColor);
+            CreateHeader("ACCOUNT / RESOURCE STATUS", panel);
+            CreateIntranetResourcesPanel(panel);
+            CreateHeader("APPROVAL HISTORY", panel);
+            CreateIntranetApprovalPanel(panel);
+            CreateHeader("RELATION WATCH", panel);
+            CreateIntranetRelationshipPanel(panel);
+            CreateHeader("MAIL / INBOX", panel);
+            CreateIntranetMailPanel(panel);
+        }
+
+        private void CreateIntranetResourcesPanel(Transform parent)
+        {
+            var activeQueue = CurrentState.Queue.Count(item => item.Status != CaseStatus.Closed);
+            var pendingApprovals = CurrentState.ApprovalRequests.Count(request => request.Status is ApprovalStatus.Draft or ApprovalStatus.Rejected);
+            var text = CreateText(
+                $"MERIT TOKENS {CurrentState.MeritTokens}\n" +
+                $"DAY {CurrentState.Day:00} / {CurrentState.Slot.ToString().ToUpperInvariant()} / QUEUE {activeQueue}/{CurrentState.Config.QueueSoftCap}\n" +
+                $"REDIRECT {CurrentState.RedirectBudget}/{CurrentState.Config.RedirectBudgetPerDay}  AUDIT {CurrentState.AuditBudget}/{CurrentState.Config.AuditBudgetPerDay}  INTERVIEW {CurrentState.InterviewBudget}/{CurrentState.Config.InterviewBudgetPerDay}\n" +
+                $"OVR {CurrentState.Overload}  GLOBAL RISK {CurrentState.GlobalLatentRisk}  AI PRESSURE {CurrentState.ReplacementPressure}  OPEN APPROVALS {pendingApprovals}",
+                parent,
+                14,
+                FontStyle.Bold,
+                TextAnchor.UpperLeft);
+            text.color = PaperTextColor;
+            text.gameObject.AddComponent<LayoutElement>().minHeight = 126;
+        }
+
+        private void CreateIntranetApprovalPanel(Transform parent)
+        {
+            var approvals = CurrentState.ApprovalRequests
+                .OrderByDescending(request => request.Day)
+                .ThenByDescending(request => request.Id)
+                .Take(8)
+                .ToList();
+            var lines = new List<string>();
+            if (approvals.Count == 0)
+            {
+                lines.Add("No approval files submitted yet.");
+            }
+            else
+            {
+                foreach (var request in approvals)
+                {
+                    lines.Add($"{request.Id} DAY {request.Day:00} | {request.Kind} {request.TargetId} | {request.Status} | TOKENS {request.SubmittedTokens}/{request.RequiredTokens}");
+                    if (!string.IsNullOrWhiteSpace(request.Hint))
+                    {
+                        lines.Add($"  REVIEW: {request.Hint}");
+                    }
+                }
+            }
+
+            var text = CreateText(string.Join("\n", lines), parent, 13, FontStyle.Bold, TextAnchor.UpperLeft);
+            text.color = PaperTextColor;
+            text.gameObject.AddComponent<LayoutElement>().minHeight = Math.Max(110, 34 * Math.Max(2, lines.Count));
+        }
+
+        private void CreateIntranetRelationshipPanel(Transform parent)
+        {
+            var relations = CurrentState.Staff
+                .Where(person => !person.HasLeft)
+                .SelectMany(person => (person.Relationships ?? new List<PersonnelRelationship>()).Select(relation => new { Person = person, Relation = relation }))
+                .OrderByDescending(item => Math.Abs(item.Relation.Trust) + Math.Abs(item.Relation.Affinity) + Math.Abs(item.Relation.Resentment))
+                .Take(8)
+                .ToList();
+            var lines = new List<string>();
+            if (relations.Count == 0)
+            {
+                lines.Add("No relationship records.");
+            }
+            else
+            {
+                foreach (var item in relations)
+                {
+                    var target = CurrentState.Staff.FirstOrDefault(person => person.Id.Equals(item.Relation.TargetId, StringComparison.OrdinalIgnoreCase));
+                    var targetLabel = target is null ? item.Relation.TargetId : $"{target.Name} {target.Id}";
+                    lines.Add($"{item.Person.Name} {item.Person.Id} -> {targetLabel} | T {Signed(item.Relation.Trust)} A {Signed(item.Relation.Affinity)} R {Signed(item.Relation.Resentment)}");
+                    if (!string.IsNullOrWhiteSpace(item.Relation.Note))
+                    {
+                        lines.Add($"  {Trim(item.Relation.Note, 88)}");
+                    }
+                }
+            }
+
+            var text = CreateText(string.Join("\n", lines), parent, 13, FontStyle.Bold, TextAnchor.UpperLeft);
+            text.color = PaperTextColor;
+            text.gameObject.AddComponent<LayoutElement>().minHeight = Math.Max(120, 34 * Math.Max(2, lines.Count));
+        }
+
+        private void CreateIntranetMailPanel(Transform parent)
+        {
+            var mails = BuildIntranetMailLines().Take(10).ToList();
+            var text = CreateText(string.Join("\n", mails), parent, 13, FontStyle.Bold, TextAnchor.UpperLeft);
+            text.color = PaperTextColor;
+            text.gameObject.AddComponent<LayoutElement>().minHeight = Math.Max(140, 36 * Math.Max(3, mails.Count));
+        }
+
+        private IEnumerable<string> BuildIntranetMailLines()
+        {
+            foreach (var request in CurrentState.ApprovalRequests
+                .OrderByDescending(item => item.Day)
+                .ThenByDescending(item => item.Id)
+                .Take(5))
+            {
+                yield return $"[APPROVAL DESK][{request.Id}] {request.Kind} {request.TargetId} / {request.Status} / {request.Hint}";
+            }
+
+            foreach (var log in CurrentState.Logs
+                .Where(item => item.VisibleAtSec <= CurrentState.TotalElapsedSec)
+                .OrderByDescending(item => item.VisibleAtSec)
+                .ThenByDescending(item => item.Id)
+                .Take(5))
+            {
+                yield return $"[{log.SourceType.ToUpperInvariant()}][{log.EventId}] {Trim(log.Text, 104)}";
+            }
+
+            if (visibleLogLines.Count == 0 && CurrentState.ApprovalRequests.Count == 0 && CurrentState.Logs.Count == 0)
+            {
+                yield return "Inbox empty.";
+            }
+        }
+
         private IReadOnlyList<DesktopShortcutDefinition> DesktopShortcuts()
         {
             return new List<DesktopShortcutDefinition>
@@ -1269,6 +1396,7 @@ namespace ProjectW.IngameCore.CaseReview
                 new("today-plan", "Today Plan", "Plan, approval, and commands", "PLAN", MvpDesktopWindow.TodayWorkPlan, TerminalButtonColor, CrtTextColor),
                 new("daily-report", "Daily Report", "Resolved work and night summary", "RPT", MvpDesktopWindow.DailyReport, PaperColor, PaperTextColor),
                 new("characters", "Characters", "Profiles and daily cards", "ID", MvpDesktopWindow.CharacterProfiling, IdCardColor, PaperTextColor),
+                new("intranet", "My Page", "Resources, approvals, mail, and relations", "ME", MvpDesktopWindow.PlayerIntranet, new Color(0.58f, 0.68f, 0.74f, 1f), PaperTextColor),
                 new("dev-tools", "Dev Tools", "Scenario lab and debug tools", "DEV", MvpDesktopWindow.DevTools, CrtPanelColor, CrtTextColor),
             };
         }
@@ -3383,6 +3511,7 @@ namespace ProjectW.IngameCore.CaseReview
         TodayWorkPlan,
         DailyReport,
         CharacterProfiling,
+        PlayerIntranet,
         DevTools
     }
 
