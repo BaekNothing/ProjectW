@@ -2897,6 +2897,16 @@ namespace ProjectW.IngameCore.CaseReview
                 return null;
             }
 
+            if (!UsesSlicedThemeSprite(panelName))
+            {
+                return null;
+            }
+
+            if (PanelNameContains(panelName, "Desktop Action"))
+            {
+                return terminalButtonSprite;
+            }
+
             if (SameColor(color, PaperColor) || SameColor(color, IdCardColor))
             {
                 return paperPanelSprite;
@@ -2912,12 +2922,14 @@ namespace ProjectW.IngameCore.CaseReview
                 return crtPanelSprite;
             }
 
-            if (PanelNameContains(panelName, "Desktop Action") || SameColor(color, TerminalButtonColor))
-            {
-                return terminalButtonSprite;
-            }
-
             return null;
+        }
+
+        private static bool UsesSlicedThemeSprite(string panelName)
+        {
+            return panelName.EndsWith(" Window", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(panelName, "Plan Approval Modal", StringComparison.OrdinalIgnoreCase)
+                || PanelNameContains(panelName, "Desktop Action");
         }
 
         private static Color TintForPanelSprite(Color color)
