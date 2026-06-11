@@ -8,11 +8,11 @@
 | 항목 | 값 |
 |------|-----|
 | **동기화 모드** | `index (pre-commit / manual)` |
-| **동기화 시각 (UTC)** | `2026-06-08T23:55:13Z` |
-| **기준 커밋 (전체 SHA)** | `6dfc11a499873af83890bae76c544d8572026091` |
-| **기준 커밋 (단축)** | `6dfc11a` |
+| **동기화 시각 (UTC)** | `2026-06-11T12:45:01Z` |
+| **기준 커밋 (전체 SHA)** | `4d25bf942b21013526b0ffa0448dacebff56c434` |
+| **기준 커밋 (단축)** | `4d25bf9` |
 | **브랜치** | `ai-integration` |
-| **추적 경로 지문** | `sha256:7805ff9b4143a6b2f90d4b6205dceed928c74a26f44d17fd5f5ff641da1dabd8` |
+| **추적 경로 지문** | `sha256:4f0b39e3a77924be77e697325020f574dd2bbc133bac2733e741a2ea734c1a43` |
 | **추적 경로** | `Assets/Specification/`<br>`Assets/Scripts/`<br>`Assets/Tests/`<br>`Assets/Editor/`<br>`Assets/Resources/CaseReviewData/` |
 
 > 지문은 Git 인덱스(`git ls-files -s`)에 등록된 추적 경로 파일 목록·blob 해시의 SHA-256이다.  
@@ -474,6 +474,7 @@ classDiagram
 | `CharacterDataWorkshop.cs` | 씬용 `MonoBehaviour` (출력 폴더만) |
 | `ScenarioDataWorkshop.cs` | 시나리오 제작 씬용 `MonoBehaviour` |
 | `LocalizedTextCsv.cs` | 로컬라이즈드 텍스트 CSV 변환 |
+| `RemoteSpreadsheetData.cs` | Google Sheets manifest/CSV 다운로드, 검증, 로컬 캐시, 런타임 텍스트 오버라이드 |
 | `LocalizedTextTableEditor.cs` | 텍스트 테이블 CSV import/export 인스펙터 |
 
 ### 6.2 확장점 (플러그 정책)
@@ -584,8 +585,30 @@ flowchart TB
 | 시나리오 제작 씬 | `Assets/Scenes/ScenarioDataWorkshop.unity` |
 | 메뉴 | `Tools/ProjectW/Case Review/Open Character Data Workshop Scene` |
 | 시나리오 텍스트 CSV | `Tools/ProjectW/Case Review/Export Scenario Text CSV` |
+| Google Sheets 동기화 | `Tools/ProjectW/Case Review/Sync Google Sheet Data` |
 | 샘플 일괄 생성 | `Tools/ProjectW/Case Review/Create or Refresh Sample Data` |
 | 강제 리프레시 | `Tools/ProjectW/Refresh/Force Refresh` (`Ctrl+Shift+R`) |
+
+### 7.5 원격 스프레드시트 데이터
+
+MVP Scene의 Dev Tools에는 `SYNC SHEET DATA` 버튼이 있다. 버튼은 Google Sheets의 `_manifest` 탭을 먼저 받고, 활성 데이터 탭을 CSV로 순차 다운로드한다.
+
+```mermaid
+flowchart LR
+  BTN["Dev Tools\nSYNC SHEET DATA"]
+  MAN["_manifest"]
+  CSV["localized_text / work / cards / characters / scenarios"]
+  VAL["Header and CSV validation"]
+  CACHE["persistentDataPath/remote-data"]
+  TEXT["LocalizedTextRuntimeOverrides"]
+  BTN --> MAN --> CSV --> VAL --> CACHE
+  CACHE --> TEXT
+```
+
+- 모든 필수 데이터 검증이 끝난 뒤 캐시를 갱신한다.
+- 다운로드 실패 시 APK 내장 데이터와 마지막 정상 캐시를 유지한다.
+- 현재 즉시 적용되는 데이터는 `localized_text`다.
+- 업무, 카드, 캐릭터, 시나리오 탭은 CSV 캐시까지 구현됐고 typed runtime model 변환은 후속 범위다.
 
 ---
 

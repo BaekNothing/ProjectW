@@ -31,6 +31,17 @@ public sealed class LocalizedTextTable : ScriptableObject, ILocalizedTextSource
             return false;
         }
 
+        if (LocalizedTextRuntimeOverrides.TryGetText(
+                key,
+                languageKey,
+                countryCode,
+                defaultLanguageKey,
+                defaultCountryCode,
+                out text))
+        {
+            return true;
+        }
+
         var entry = entries.FirstOrDefault(e => string.Equals(e.Key, key, StringComparison.OrdinalIgnoreCase));
         if (entry == null)
         {

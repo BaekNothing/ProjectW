@@ -19,10 +19,6 @@ namespace ProjectW.IngameCore.CaseReview
         private readonly Dictionary<MvpDesktopWindow, WindowLayoutState> windowLayouts = new();
 
         private const string SampleScenarioResourcePath = "CaseReviewData/Scenarios/Events/Scenario_TeaAudit";
-        private const string CrtPanelSpritePath = "CaseReviewData/UI/MvpTheme/crt_panel";
-        private const string PaperPanelSpritePath = "CaseReviewData/UI/MvpTheme/paper_panel";
-        private const string FolderPanelSpritePath = "CaseReviewData/UI/MvpTheme/folder_panel";
-        private const string TerminalButtonSpritePath = "CaseReviewData/UI/MvpTheme/terminal_button";
         private const float ScenarioTypewriterCharactersPerSecond = 42f;
         private const float WorkPerformanceAutoSeconds = 1.8f;
         private const int MinUiFontSize = 30;
@@ -72,10 +68,6 @@ namespace ProjectW.IngameCore.CaseReview
         private GameObject workSceneOverlay;
         private Text scenarioMeetingEffectText;
         private Font uiFont;
-        private Sprite crtPanelSprite;
-        private Sprite paperPanelSprite;
-        private Sprite folderPanelSprite;
-        private Sprite terminalButtonSprite;
         private ScenarioEventDefinition sampleScenario;
         private ScenarioPlaybackSession scenarioSession;
         private string scenarioMeetingLayoutSignature = "";
@@ -90,6 +82,8 @@ namespace ProjectW.IngameCore.CaseReview
         private int assignmentPickerSlotIndex = -1;
         private bool showPlanApprovalModal;
         private bool pendingDailyReportAfterWork;
+        private bool remoteDataSyncing;
+        private string remoteDataStatus = "NOT SYNCED";
         private MvpDesktopWindow focusedWindow = MvpDesktopWindow.None;
         private int cardStateDay = -1;
 
@@ -100,6 +94,15 @@ namespace ProjectW.IngameCore.CaseReview
         private void Awake()
         {
             EnsureEventSystem();
+            if (RemoteSpreadsheetData.TryLoadCachedLocalizedText(out var cachedEntryCount, out var cacheError))
+            {
+                remoteDataStatus = $"CACHE READY / {cachedEntryCount} TEXT ROWS";
+            }
+            else if (!string.IsNullOrWhiteSpace(cacheError))
+            {
+                remoteDataStatus = "CACHE ERROR";
+            }
+
             BuildUi();
             InitializeForTests();
         }
@@ -1270,6 +1273,46 @@ namespace ProjectW.IngameCore.CaseReview
             var note = CreateText("Sample scenario playback and future development-only tools live here.", panel, 13, FontStyle.Bold, TextAnchor.UpperLeft);
             note.gameObject.AddComponent<LayoutElement>().minHeight = 86;
             CreateWindowButton("> PLAY SCENARIO SAMPLE", panel, TerminalButtonColor, ClickPlaySampleScenario, 82, CrtTextColor);
+            CreateHeader("REMOTE SPREADSHEET DATA", panel);
+            var remoteNote = CreateText(
+                $"SOURCE: GOOGLE SHEETS\nSTATUS: {remoteDataStatus}",
+                panel,
+                13,
+                FontStyle.Bold,
+                TextAnchor.UpperLeft);
+            remoteNote.gameObject.AddComponent<LayoutElement>().minHeight = 72;
+            var syncButton = CreateWindowButton(
+                remoteDataSyncing ? "> DOWNLOADING..." : "> SYNC SHEET DATA",
+                panel,
+                TerminalButtonColor,
+                ClickSyncRemoteData,
+                82,
+                CrtTextColor);
+            syncButton.interactable = !remoteDataSyncing;
+        }
+
+        public void ClickSyncRemoteData()
+        {
+            if (remoteDataSyncing)
+            {
+                return;
+            }
+
+            remoteDataSyncing = true;
+            remoteDataStatus = "DOWNLOADING";
+            AddLog("Remote spreadsheet sync started.");
+            Render();
+            StartCoroutine(RemoteSpreadsheetData.Sync(result =>
+            {
+                remoteDataSyncing = false;
+                remoteDataStatus = result.Success
+                    ? $"READY / {result.DatasetCount} DATASETS / {result.CompletedAtUtc:HH:mm} UTC"
+                    : "SYNC FAILED";
+                AddLog(result.Success
+                    ? $"Remote spreadsheet sync complete. {result.Message}"
+                    : $"Remote spreadsheet sync failed. {result.Message}");
+                Render();
+            }));
         }
 
         private void CreatePlayerIntranetWindow()
@@ -2056,7 +2099,6 @@ namespace ProjectW.IngameCore.CaseReview
         private void BuildUi()
         {
             uiFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            LoadUiThemeSprites();
 
             var canvasObject = CreateUiObject("MVP Cycle Canvas", transform);
             var canvas = canvasObject.AddComponent<Canvas>();
@@ -2859,101 +2901,12 @@ namespace ProjectW.IngameCore.CaseReview
             return text;
         }
 
-        private void LoadUiThemeSprites()
-        {
-            crtPanelSprite = Resources.Load<Sprite>(CrtPanelSpritePath);
-            paperPanelSprite = Resources.Load<Sprite>(PaperPanelSpritePath);
-            folderPanelSprite = Resources.Load<Sprite>(FolderPanelSpritePath);
-            terminalButtonSprite = Resources.Load<Sprite>(TerminalButtonSpritePath);
-        }
-
         private Transform CreatePanel(string name, Transform parent, Color color)
         {
             var panel = CreateUiObject(name, parent).transform;
             var image = panel.gameObject.AddComponent<Image>();
-            ApplyUiThemeSprite(image, name, color);
+            image.color = color;
             return panel;
-        }
-
-        private void ApplyUiThemeSprite(Image image, string panelName, Color color)
-        {
-            var sprite = SpriteForPanel(panelName, color);
-            if (sprite is null)
-            {
-                image.color = color;
-                return;
-            }
-
-            image.sprite = sprite;
-            image.type = Image.Type.Sliced;
-            image.pixelsPerUnitMultiplier = 1f;
-            image.color = TintForPanelSprite(color);
-        }
-
-        private Sprite SpriteForPanel(string panelName, Color color)
-        {
-            if (color.a < 0.95f)
-            {
-                return null;
-            }
-
-            if (!UsesSlicedThemeSprite(panelName))
-            {
-                return null;
-            }
-
-            if (PanelNameContains(panelName, "Desktop Action"))
-            {
-                return terminalButtonSprite;
-            }
-
-            if (SameColor(color, PaperColor) || SameColor(color, IdCardColor))
-            {
-                return paperPanelSprite;
-            }
-
-            if (SameColor(color, FolderColor) || SameColor(color, FolderDarkColor))
-            {
-                return folderPanelSprite;
-            }
-
-            if (SameColor(color, CrtShellColor) || SameColor(color, CrtPanelColor))
-            {
-                return crtPanelSprite;
-            }
-
-            return null;
-        }
-
-        private static bool UsesSlicedThemeSprite(string panelName)
-        {
-            return panelName.EndsWith(" Window", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(panelName, "Plan Approval Modal", StringComparison.OrdinalIgnoreCase)
-                || PanelNameContains(panelName, "Desktop Action");
-        }
-
-        private static Color TintForPanelSprite(Color color)
-        {
-            if (SameColor(color, FolderDarkColor))
-            {
-                return new Color(0.70f, 0.58f, 0.42f, 1f);
-            }
-
-            return Color.white;
-        }
-
-        private static bool PanelNameContains(string panelName, string value)
-        {
-            return panelName.IndexOf(value, StringComparison.OrdinalIgnoreCase) >= 0;
-        }
-
-        private static bool SameColor(Color first, Color second)
-        {
-            const float tolerance = 0.002f;
-            return Mathf.Abs(first.r - second.r) <= tolerance
-                && Mathf.Abs(first.g - second.g) <= tolerance
-                && Mathf.Abs(first.b - second.b) <= tolerance
-                && Mathf.Abs(first.a - second.a) <= tolerance;
         }
 
         private Text CreateText(string value, Transform parent, int fontSize, FontStyle style, TextAnchor alignment)

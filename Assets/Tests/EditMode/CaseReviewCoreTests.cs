@@ -459,6 +459,62 @@ namespace ProjectW.Tests.EditMode
         }
 
         [Test]
+        public void RemoteSpreadsheetManifest_ParsesEnabledDatasets()
+        {
+            var csv =
+                "datasetId,sheetName,enabled,schemaVersion,required,notes\n" +
+                "localized_text,localized_text,TRUE,1,TRUE,text\n" +
+                "cards,cards,FALSE,2,FALSE,cards\n";
+
+            var manifest = RemoteSpreadsheetData.ParseManifest(csv);
+
+            Assert.AreEqual(2, manifest.Count);
+            Assert.AreEqual("localized_text", manifest[0].DatasetId);
+            Assert.IsTrue(manifest[0].Enabled);
+            Assert.IsTrue(manifest[0].Required);
+            Assert.AreEqual(2, manifest[1].SchemaVersion);
+            Assert.IsFalse(manifest[1].Enabled);
+        }
+
+        [Test]
+        public void LocalizedTextRuntimeOverrides_TakePriorityOverAssetText()
+        {
+            var table = ScriptableObject.CreateInstance<LocalizedTextTable>();
+            try
+            {
+                SetPrivateField(table, "entries", new List<LocalizedTextEntry>
+                {
+                    new LocalizedTextEntry
+                    {
+                        Key = "remote.test",
+                        Values = new List<LocalizedTextValue>
+                        {
+                            new LocalizedTextValue { LanguageKey = "ko", CountryCode = "KR", Text = "asset" }
+                        }
+                    }
+                });
+                LocalizedTextRuntimeOverrides.Replace(new[]
+                {
+                    new LocalizedTextEntry
+                    {
+                        Key = "remote.test",
+                        Values = new List<LocalizedTextValue>
+                        {
+                            new LocalizedTextValue { LanguageKey = "ko", CountryCode = "KR", Text = "remote" }
+                        }
+                    }
+                });
+
+                Assert.AreEqual("remote", table.GetText("remote.test", "ko", "KR"));
+            }
+            finally
+            {
+                LocalizedTextRuntimeOverrides.Clear();
+                UnityEngine.Object.DestroyImmediate(table);
+            }
+        }
+
+        [Test]
         public void ScenarioEventDefinition_StoresRowsAndResolvesLocalizedText()
         {
             var table = ScriptableObject.CreateInstance<LocalizedTextTable>();

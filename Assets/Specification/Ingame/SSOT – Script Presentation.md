@@ -247,6 +247,42 @@ Current implementation:
 - `ScenarioDataWorkshopEditor`
   - exposes selected-table CSV import/export and all-table CSV export from the scenario workshop scene.
 
+### 5.2 Runtime Google Sheets Sync
+
+The MVP build may refresh spreadsheet-authored data without rebuilding the APK.
+
+Canonical workbook tabs:
+
+- `_manifest`
+  - declares `datasetId`, `sheetName`, `enabled`, `schemaVersion`, and `required`.
+- `localized_text`
+  - keeps the existing `Key` plus language-column CSV format.
+- `work_definitions`, `cards`, `characters`, `scenarios`
+  - use stable first-row field names matching their ProjectW data definitions.
+  - list values use `|` separators.
+  - nested scenario structures use JSON columns.
+
+Runtime rules:
+
+- The client downloads `_manifest` first, then downloads enabled sheets over HTTPS.
+- Every downloaded CSV is validated before the cache is replaced.
+- Failed downloads keep the last valid cache and built-in APK data.
+- Cached files live under `Application.persistentDataPath/remote-data`.
+- `localized_text` is applied immediately as a runtime override.
+- Work, card, character, and scenario CSV files are cached for later typed runtime import; they do not replace ScriptableObject definitions yet.
+- The public spreadsheet must contain game content only. Secrets, credentials, personal information, and server authority data must never be stored in it.
+
+Current implementation:
+
+- `RemoteSpreadsheetData`
+  - downloads, validates, and caches the configured Google Sheets workbook.
+- `LocalizedTextRuntimeOverrides`
+  - overlays downloaded text by key while preserving built-in text as fallback.
+- `CaseReviewMvpSceneController`
+  - exposes `SYNC SHEET DATA` and status feedback in Dev Tools.
+- `RemoteSpreadsheetDataEditor`
+  - exposes `Tools/ProjectW/Case Review/Sync Google Sheet Data` for Edit Mode verification without entering Play Mode.
+
 ------
 
 ## 6. Ingame Data Interfaces
