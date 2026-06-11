@@ -18,6 +18,11 @@ public sealed class LocalizedTextTable : ScriptableObject, ILocalizedTextSource
     public string DefaultCountryCode => defaultCountryCode;
     public IReadOnlyList<LocalizedTextEntry> Entries => entries;
 
+    public void ReplaceEntries(IEnumerable<LocalizedTextEntry> replacement)
+    {
+        entries = (replacement ?? Enumerable.Empty<LocalizedTextEntry>()).ToList();
+    }
+
     public string GetText(string key, string languageKey, string countryCode = "")
     {
         return TryGetText(key, languageKey, countryCode, out var text) ? text : key ?? "";

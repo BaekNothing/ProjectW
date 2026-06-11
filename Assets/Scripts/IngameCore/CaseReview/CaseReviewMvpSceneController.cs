@@ -4,6 +4,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace ProjectW.IngameCore.CaseReview
@@ -68,7 +69,7 @@ namespace ProjectW.IngameCore.CaseReview
         private GameObject workSceneOverlay;
         private Text scenarioMeetingEffectText;
         private Font uiFont;
-        private ScenarioEventDefinition sampleScenario;
+        private IScenarioEventDefinition sampleScenario;
         private ScenarioPlaybackSession scenarioSession;
         private string scenarioMeetingLayoutSignature = "";
         private float scenarioTypewriterAccumulator;
@@ -94,9 +95,9 @@ namespace ProjectW.IngameCore.CaseReview
         private void Awake()
         {
             EnsureEventSystem();
-            if (RemoteSpreadsheetData.TryLoadCachedLocalizedText(out var cachedEntryCount, out var cacheError))
+            if (RemoteSpreadsheetData.TryLoadCachedSnapshot(out var cacheSummary, out var cacheError))
             {
-                remoteDataStatus = $"CACHE READY / {cachedEntryCount} TEXT ROWS";
+                remoteDataStatus = $"REPLACEMENT READY / {cacheSummary}";
             }
             else if (!string.IsNullOrWhiteSpace(cacheError))
             {
@@ -104,7 +105,7 @@ namespace ProjectW.IngameCore.CaseReview
             }
 
             BuildUi();
-            InitializeForTests();
+            InitializeFromActiveData();
         }
 
         private void Update()
@@ -190,9 +191,19 @@ namespace ProjectW.IngameCore.CaseReview
             RenderWorkPerformanceOverlay();
         }
 
+        private void InitializeFromActiveData(int seed = 1)
+        {
+            Initialize(seed, RemoteSpreadsheetData.ActiveSnapshot);
+        }
+
         public void InitializeForTests(int seed = 1)
         {
-            CurrentState = CaseReviewGame.Init(new GameConfig(), seed);
+            Initialize(seed, null);
+        }
+
+        private void Initialize(int seed, RemoteSpreadsheetSnapshot snapshot)
+        {
+            CurrentState = CaseReviewGame.Init(snapshot?.CreateGameConfig() ?? new GameConfig(), seed);
             visibleLogLines.Clear();
             selectedPersonnelId = CurrentState.Staff.FirstOrDefault(person => !person.HasLeft)?.Id ?? "";
             selectedWorkId = CurrentState.MorningPlan?.Entries?.FirstOrDefault()?.EventId ?? FirstActiveEventId();
@@ -380,7 +391,8 @@ namespace ProjectW.IngameCore.CaseReview
 
         public void ClickPlaySampleScenario()
         {
-            sampleScenario ??= Resources.Load<ScenarioEventDefinition>(SampleScenarioResourcePath);
+            sampleScenario ??= RemoteSpreadsheetData.ActiveSnapshot?.Scenarios.FirstOrDefault()
+                ?? Resources.Load<ScenarioEventDefinition>(SampleScenarioResourcePath);
             if (sampleScenario is null)
             {
                 AddLog($"Scenario sample not found: Resources/{SampleScenarioResourcePath}");
@@ -1306,13 +1318,32 @@ namespace ProjectW.IngameCore.CaseReview
             {
                 remoteDataSyncing = false;
                 remoteDataStatus = result.Success
-                    ? $"READY / {result.DatasetCount} DATASETS / {result.CompletedAtUtc:HH:mm} UTC"
+                    ? $"REPLACED / {result.CharacterCount} STAFF / {result.WorkCount} WORK"
                     : "SYNC FAILED";
                 AddLog(result.Success
                     ? $"Remote spreadsheet sync complete. {result.Message}"
                     : $"Remote spreadsheet sync failed. {result.Message}");
-                Render();
+                if (result.Success)
+                {
+                    RestartCurrentScene();
+                }
+                else
+                {
+                    Render();
+                }
             }));
+        }
+
+        private static void RestartCurrentScene()
+        {
+            var scene = SceneManager.GetActiveScene();
+            if (scene.buildIndex >= 0)
+            {
+                SceneManager.LoadScene(scene.buildIndex);
+                return;
+            }
+
+            SceneManager.LoadScene(scene.name);
         }
 
         private void CreatePlayerIntranetWindow()

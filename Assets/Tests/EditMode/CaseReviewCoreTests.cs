@@ -515,6 +515,51 @@ namespace ProjectW.Tests.EditMode
         }
 
         [Test]
+        public void SpreadsheetCsv_RoundTripsJsonCells()
+        {
+            var headers = new[] { "id", "json" };
+            var json = "{\"tags\":[\"audit\",\"records\"],\"note\":\"quoted \\\"text\\\"\"}";
+            var csv = SpreadsheetCsv.ToCsv(headers, new[] { new[] { "row.1", json } });
+
+            var table = CsvTable.Read(csv);
+
+            Assert.AreEqual(1, table.Rows.Count);
+            Assert.AreEqual("row.1", table.Rows[0].Value("id"));
+            Assert.AreEqual(json, table.Rows[0].Value("json"));
+        }
+
+        [Test]
+        public void RemoteSpreadsheetSnapshot_ReplacesInitialStaffAndWork()
+        {
+            var datasets = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["localized_text"] = "Key,ko-KR\nremote.line,원격 대사\n",
+                ["cards"] =
+                    "cardId,title,visibleSummary,tags,outcomeModifier,riskModifier,reviewCostModifier,criticalChancePercent,criticalMultiplier\n" +
+                    "card.remote,Remote Card,Remote summary,audit,3,-2,1,20,2\n",
+                ["characters"] =
+                    "personnelId,displayName,cloneLineageId,background,interests,personality,workStyle,initialInformationScope,aptitudesJson,physicalEnergy,mentalStress,loadAssigned,fatigue,stagnation,trustToManager,retentionRisk,hasLeft,daysSinceJoined,optLow,optHigh,maxLoad,connectionLimit,cloneVersion,regenerationCount,regeneratedFromId,startingDeckIds,perksJson,relationshipsJson,memoriesJson,traitSamplesJson\n" +
+                    "P-REMOTE,Remote Person,LINE-R,background,audit,calm,careful,Surface,\"{\"\"logic\"\":8}\",90,5,0,3,2,60,4,FALSE,0,2,5,7,3,1,0,,card.remote,[],[],[],[]\n",
+                ["work_definitions"] =
+                    "eventId,workId,title,kind,subsystem,importance,volume,urgency,severity,ttlSec,status,latentRisk,mismatchScore,assignedPersonnel,physicalCost,mentalCost,baseSuccessChance,requiredAptitudes,recommendedPersonnelCount,minPersonnelCount,maxPersonnelCount,concurrentLimit,concurrentSlotCost,splitPenalty,soloPenalty,tags,perkTags,cardHooks,bossReactionTags,memoryHooks,visibleSummary,hiddenFacts,perkInteractionInfo,truthFramesJson,logsJson\n" +
+                    "E-REMOTE,work.remote,Remote Work,incident,O2,50,10,70,65,120,Open,20,2,P-REMOTE,5,6,60,\"{\"\"logic\"\":5}\",1,1,2,1,1,0,0,audit,audit,,,,summary,,,[],[]\n",
+                ["scenarios"] =
+                    "eventId,timing,priority,playbackStateKey,triggerMode,allowedExplicitLocationsJson,triggerConditionsJson,textTableId,linesJson,oneShot,cooldownDays,allowReplayInDebug\n" +
+                    "scenario.remote,Morning,1,scenario.remote,LoopBoundary,[],\"[{\"\"Key\"\":0,\"\"SubjectId\"\":\"\"audit\"\",\"\"Value\"\":\"\"audit\"\",\"\"Threshold\"\":0,\"\"Comparison\"\":0}]\",localized,\"[{\"\"LineId\"\":\"\"L1\"\",\"\"Kind\"\":0,\"\"SpeakerId\"\":\"\"P-REMOTE\"\",\"\"PortraitIds\"\":[],\"\"TextKey\"\":\"\"remote.line\"\",\"\"StageCommands\"\":[],\"\"Choices\"\":[],\"\"Effects\"\":[]}]\",TRUE,0,FALSE\n"
+            };
+
+            var snapshot = RemoteSpreadsheetSnapshotParser.Parse(datasets);
+            var state = CaseReviewGame.Init(snapshot.CreateGameConfig(), 1);
+
+            Assert.AreEqual(1, state.Staff.Count);
+            Assert.AreEqual("P-REMOTE", state.Staff[0].Id);
+            Assert.AreEqual(1, state.Queue.Count);
+            Assert.AreEqual("E-REMOTE", state.Queue[0].Id);
+            Assert.AreEqual("card.remote", state.Staff[0].Deck[0].Id);
+            Assert.AreEqual(1, snapshot.Scenarios.Count);
+        }
+
+        [Test]
         public void ScenarioEventDefinition_StoresRowsAndResolvesLocalizedText()
         {
             var table = ScriptableObject.CreateInstance<LocalizedTextTable>();

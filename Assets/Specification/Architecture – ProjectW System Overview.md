@@ -586,6 +586,7 @@ flowchart TB
 | 메뉴 | `Tools/ProjectW/Case Review/Open Character Data Workshop Scene` |
 | 시나리오 텍스트 CSV | `Tools/ProjectW/Case Review/Export Scenario Text CSV` |
 | Google Sheets 동기화 | `Tools/ProjectW/Case Review/Sync Google Sheet Data` |
+| 현재 MVP 원격 데이터 CSV | `Tools/ProjectW/Case Review/Export Current MVP Spreadsheet CSV` |
 | 샘플 일괄 생성 | `Tools/ProjectW/Case Review/Create or Refresh Sample Data` |
 | 강제 리프레시 | `Tools/ProjectW/Refresh/Force Refresh` (`Ctrl+Shift+R`) |
 
@@ -598,17 +599,20 @@ flowchart LR
   BTN["Dev Tools\nSYNC SHEET DATA"]
   MAN["_manifest"]
   CSV["localized_text / work / cards / characters / scenarios"]
-  VAL["Header and CSV validation"]
+  VAL["Header / reference / typed model validation"]
   CACHE["persistentDataPath/remote-data"]
-  TEXT["LocalizedTextRuntimeOverrides"]
+  SNAP["RemoteSpreadsheetSnapshot"]
+  RELOAD["Reload current scene"]
   BTN --> MAN --> CSV --> VAL --> CACHE
-  CACHE --> TEXT
+  CACHE --> SNAP --> RELOAD
 ```
 
-- 모든 필수 데이터 검증이 끝난 뒤 캐시를 갱신한다.
+- 5개 데이터 탭은 하나의 필수 교체 스냅샷이다.
+- 모든 필수 데이터와 상호 참조 검증이 끝난 뒤에만 캐시와 활성 스냅샷을 갱신한다.
+- 교체 성공 후 현재 씬을 다시 로드하여 Day 1 초기 상태부터 새 데이터로 시작한다.
 - 다운로드 실패 시 APK 내장 데이터와 마지막 정상 캐시를 유지한다.
-- 현재 즉시 적용되는 데이터는 `localized_text`다.
-- 업무, 카드, 캐릭터, 시나리오 탭은 CSV 캐시까지 구현됐고 typed runtime model 변환은 후속 범위다.
+- 누락되거나 잘못된 탭이 있으면 일부 데이터만 적용하지 않는다.
+- 현재 APK 내장 MVP 데이터는 에디터 메뉴로 6개 CSV(`_manifest` 포함)에 일괄 내보낼 수 있다.
 
 ---
 

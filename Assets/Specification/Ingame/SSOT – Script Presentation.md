@@ -265,23 +265,28 @@ Canonical workbook tabs:
 Runtime rules:
 
 - The client downloads `_manifest` first, then downloads enabled sheets over HTTPS.
-- Every downloaded CSV is validated before the cache is replaced.
+- `localized_text`, `work_definitions`, `cards`, `characters`, and `scenarios` are one required replacement snapshot.
+- Every downloaded CSV and every cross-reference is validated before the cache is replaced.
+- A successful sync replaces the active runtime snapshot and reloads the current scene from its initial state.
 - Failed downloads keep the last valid cache and built-in APK data.
 - Cached files live under `Application.persistentDataPath/remote-data`.
-- `localized_text` is applied immediately as a runtime override.
-- Work, card, character, and scenario CSV files are cached for later typed runtime import; they do not replace ScriptableObject definitions yet.
+- Cached replacement data is loaded before the MVP scene initializes.
+- Missing or invalid required tabs never produce a partial replacement.
 - The public spreadsheet must contain game content only. Secrets, credentials, personal information, and server authority data must never be stored in it.
 
 Current implementation:
 
 - `RemoteSpreadsheetData`
-  - downloads, validates, and caches the configured Google Sheets workbook.
-- `LocalizedTextRuntimeOverrides`
-  - overlays downloaded text by key while preserving built-in text as fallback.
+  - downloads, validates, caches, and activates the configured Google Sheets workbook as one snapshot.
+- `RemoteSpreadsheetSnapshotParser`
+  - converts the five CSV datasets into typed initial staff, work, cards, localized text, and scenarios.
 - `CaseReviewMvpSceneController`
-  - exposes `SYNC SHEET DATA` and status feedback in Dev Tools.
+  - exposes `SYNC SHEET DATA`, then reloads the active scene after a successful replacement.
 - `RemoteSpreadsheetDataEditor`
   - exposes `Tools/ProjectW/Case Review/Sync Google Sheet Data` for Edit Mode verification without entering Play Mode.
+- `RemoteSpreadsheetMvpExporter`
+  - exposes `Tools/ProjectW/Case Review/Export Current MVP Spreadsheet CSV`.
+  - writes the current built-in MVP snapshot to `Library/RemoteSpreadsheetMvpExport`.
 
 ------
 

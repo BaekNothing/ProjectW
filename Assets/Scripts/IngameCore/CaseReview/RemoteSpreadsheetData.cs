@@ -14,6 +14,8 @@ public sealed class RemoteSpreadsheetSyncResult
     public bool Success;
     public string Message = "";
     public int DatasetCount;
+    public int CharacterCount;
+    public int WorkCount;
     public DateTime CompletedAtUtc;
 }
 
@@ -33,14 +35,15 @@ public static class RemoteSpreadsheetData
 
     private const int RequestTimeoutSeconds = 20;
     private const string CacheFolderName = "remote-data";
+    public static RemoteSpreadsheetSnapshot ActiveSnapshot { get; private set; }
 
     private static readonly Dictionary<string, string[]> RequiredHeaders = new(StringComparer.OrdinalIgnoreCase)
     {
         ["localized_text"] = new[] { "Key" },
-        ["work_definitions"] = new[] { "workId", "title", "kind", "subsystem" },
+        ["work_definitions"] = new[] { "eventId", "workId", "title", "kind", "subsystem", "truthFramesJson", "logsJson" },
         ["cards"] = new[] { "cardId", "title" },
-        ["characters"] = new[] { "personnelId", "displayName" },
-        ["scenarios"] = new[] { "eventId", "timing", "linesJson" }
+        ["characters"] = new[] { "personnelId", "displayName", "aptitudesJson", "startingDeckIds", "perksJson", "relationshipsJson", "traitSamplesJson" },
+        ["scenarios"] = new[] { "eventId", "timing", "linesJson", "triggerConditionsJson" }
     };
 
     public static string BuildCsvUrl(string sheetName)
@@ -87,21 +90,26 @@ public static class RemoteSpreadsheetData
         return entries;
     }
 
-    public static bool TryLoadCachedLocalizedText(out int entryCount, out string error)
+    public static bool TryLoadCachedSnapshot(out string summary, out string error)
     {
-        entryCount = 0;
+        summary = "";
         error = "";
-        var path = CachePath("localized_text");
-        if (!File.Exists(path))
+        var datasets = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var datasetId in RemoteSpreadsheetSnapshotParser.RequiredDatasetIds)
         {
-            return false;
+            var path = CachePath(datasetId);
+            if (!File.Exists(path))
+            {
+                return false;
+            }
+
+            datasets[datasetId] = File.ReadAllText(path, Encoding.UTF8);
         }
 
         try
         {
-            var entries = LocalizedTextCsv.FromCsv(File.ReadAllText(path, Encoding.UTF8));
-            LocalizedTextRuntimeOverrides.Replace(entries);
-            entryCount = entries.Count;
+            ActivateSnapshot(RemoteSpreadsheetSnapshotParser.Parse(datasets));
+            summary = $"{ActiveSnapshot.InitialData.Staff.Count} STAFF / {ActiveSnapshot.InitialData.Queue.Count} WORK";
             return true;
         }
         catch (Exception exception)
@@ -140,7 +148,19 @@ public static class RemoteSpreadsheetData
             yield break;
         }
 
-        foreach (var entry in manifest.Where(item => item.Enabled))
+        var enabledEntries = manifest
+            .Where(item => item.Enabled)
+            .ToDictionary(item => item.DatasetId, StringComparer.OrdinalIgnoreCase);
+        foreach (var datasetId in RemoteSpreadsheetSnapshotParser.RequiredDatasetIds)
+        {
+            if (!enabledEntries.ContainsKey(datasetId))
+            {
+                completed?.Invoke(Failure($"Replacement manifest must enable required dataset '{datasetId}'."));
+                yield break;
+            }
+        }
+
+        foreach (var entry in enabledEntries.Values)
         {
             string csv = null;
             requestError = null;
@@ -152,13 +172,8 @@ public static class RemoteSpreadsheetData
 
             if (!string.IsNullOrWhiteSpace(requestError))
             {
-                if (entry.Required)
-                {
-                    completed?.Invoke(Failure($"{entry.DatasetId} download failed: {requestError}"));
-                    yield break;
-                }
-
-                continue;
+                completed?.Invoke(Failure($"{entry.DatasetId} download failed: {requestError}"));
+                yield break;
             }
 
             try
@@ -168,17 +183,19 @@ public static class RemoteSpreadsheetData
             }
             catch (Exception exception)
             {
-                if (entry.Required)
-                {
-                    completed?.Invoke(Failure($"{entry.DatasetId} validation failed: {exception.Message}"));
-                    yield break;
-                }
+                completed?.Invoke(Failure($"{entry.DatasetId} validation failed: {exception.Message}"));
+                yield break;
             }
         }
 
-        if (!stagedCsv.TryGetValue("localized_text", out var localizedTextCsv))
+        RemoteSpreadsheetSnapshot snapshot;
+        try
         {
-            completed?.Invoke(Failure("The required localized_text dataset was not staged."));
+            snapshot = RemoteSpreadsheetSnapshotParser.Parse(stagedCsv);
+        }
+        catch (Exception exception)
+        {
+            completed?.Invoke(Failure($"Replacement snapshot validation failed: {exception.Message}"));
             yield break;
         }
 
@@ -191,20 +208,27 @@ public static class RemoteSpreadsheetData
             }
 
             File.WriteAllText(CachePath(ManifestSheetName), manifestCsv, new UTF8Encoding(false));
-            var localizedEntries = LocalizedTextCsv.FromCsv(localizedTextCsv);
-            LocalizedTextRuntimeOverrides.Replace(localizedEntries);
+            ActivateSnapshot(snapshot);
             completed?.Invoke(new RemoteSpreadsheetSyncResult
             {
                 Success = true,
                 DatasetCount = stagedCsv.Count,
+                CharacterCount = snapshot.InitialData.Staff.Count,
+                WorkCount = snapshot.InitialData.Queue.Count,
                 CompletedAtUtc = DateTime.UtcNow,
-                Message = $"Downloaded {stagedCsv.Count} datasets and applied {localizedEntries.Count} localized text entries."
+                Message = $"Replaced all data with {snapshot.InitialData.Staff.Count} staff, {snapshot.InitialData.Queue.Count} work items, and {snapshot.Scenarios.Count} scenarios."
             });
         }
         catch (Exception exception)
         {
             completed?.Invoke(Failure($"Cache write failed: {exception.Message}"));
         }
+    }
+
+    private static void ActivateSnapshot(RemoteSpreadsheetSnapshot snapshot)
+    {
+        ActiveSnapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
+        LocalizedTextRuntimeOverrides.Replace(snapshot.LocalizedTextEntries);
     }
 
     public static void ValidateDataset(string datasetId, string csv)
@@ -309,12 +333,21 @@ public static class SpreadsheetCsv
         var cell = new StringBuilder();
         var inQuotes = false;
 
-        foreach (var character in csv ?? "")
+        var source = csv ?? "";
+        for (var index = 0; index < source.Length; index++)
         {
+            var character = source[index];
             if (inQuotes)
             {
                 if (character == '"')
                 {
+                    if (index + 1 < source.Length && source[index + 1] == '"')
+                    {
+                        cell.Append('"');
+                        index++;
+                        continue;
+                    }
+
                     inQuotes = false;
                 }
                 else
@@ -357,6 +390,25 @@ public static class SpreadsheetCsv
         }
 
         return rows;
+    }
+
+    public static string ToCsv(IReadOnlyList<string> headers, IEnumerable<IReadOnlyList<string>> rows)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine(string.Join(",", headers.Select(Escape)));
+        foreach (var row in rows)
+        {
+            builder.AppendLine(string.Join(",", row.Select(Escape)));
+        }
+
+        return builder.ToString();
+    }
+
+    private static string Escape(string value)
+    {
+        value ??= "";
+        var escaped = value.Replace("\"", "\"\"");
+        return value.IndexOfAny(new[] { ',', '"', '\r', '\n' }) >= 0 ? $"\"{escaped}\"" : escaped;
     }
 
     private static string TrimCarriageReturn(string value)
