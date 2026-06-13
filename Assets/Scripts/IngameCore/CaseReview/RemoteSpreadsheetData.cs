@@ -40,10 +40,29 @@ public static class RemoteSpreadsheetData
     private static readonly Dictionary<string, string[]> RequiredHeaders = new(StringComparer.OrdinalIgnoreCase)
     {
         ["localized_text"] = new[] { "Key" },
-        ["work_definitions"] = new[] { "eventId", "workId", "title", "kind", "subsystem", "truthFramesJson", "logsJson" },
+        ["work_definitions"] = new[]
+        {
+            "eventId",
+            "workId",
+            "title",
+            "kind",
+            "subsystem",
+            "truthFramesJson",
+            "logsJson",
+            "projectId",
+            "tier"
+        },
         ["cards"] = new[] { "cardId", "title" },
         ["characters"] = new[] { "personnelId", "displayName", "aptitudesJson", "startingDeckIds", "perksJson", "relationshipsJson", "traitSamplesJson" },
-        ["scenarios"] = new[] { "eventId", "timing", "linesJson", "triggerConditionsJson" }
+        ["scenarios"] = new[]
+        {
+            "eventId",
+            "timing",
+            "linesJson",
+            "triggerConditionsJson",
+            "entryCostsJson",
+            "exitEffectsJson"
+        }
     };
 
     public static string BuildCsvUrl(string sheetName)

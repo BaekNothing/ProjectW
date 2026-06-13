@@ -125,6 +125,14 @@ public static class CaseReviewGame
         return new TickResult { Lines = lines, SlotChanged = slotChanged };
     }
 
+    public static void ApplyScenarioEffects(
+        GameState state,
+        IReadOnlyList<ScenarioStateEffect> effects,
+        string sourceEventId = "")
+    {
+        ScenarioEffectApplier.Apply(state, effects, sourceEventId);
+    }
+
     public static string Snapshot(GameState state)
     {
         var serializer = new DataContractSerializer(typeof(GameState));
@@ -1130,6 +1138,7 @@ public static class CaseReviewGame
 
                 ResolveAttrition(state, lines);
                 SeedNextDayCases(state, lines);
+                ScenarioEffectApplier.AdvanceDay(state);
                 BuildMorningPlan(state);
                 DrawMorningCards(state);
                 lines.Add($"== DAY {state.Day:D2} MORNING 지시 슬롯 시작 ==");
@@ -1251,6 +1260,9 @@ public static class CaseReviewGame
     private static void ApplyInitialData(GameState state, CaseReviewSeedData data)
     {
         state.Staff = BuildInitialStaff(data);
+        state.WorkDefinitions = (data.WorkDefinitions ?? new List<WorkDefinition>())
+            .Where(definition => definition != null)
+            .ToList();
         state.Queue = BuildInitialQueue(state, data);
         state.TruthFrames = (data.TruthFrames ?? new List<TruthFrame>()).Select(CloneTruthFrame).ToList();
         state.Logs = (data.Logs ?? new List<VisibleLog>()).Select(CloneVisibleLog).ToList();
@@ -1412,6 +1424,12 @@ public static class CaseReviewGame
         {
             Id = source.Id,
             DefinitionId = source.DefinitionId,
+            ProjectId = source.ProjectId,
+            Tier = source.Tier,
+            ParentEventId = source.ParentEventId,
+            RootEventId = source.RootEventId,
+            TriggerReason = source.TriggerReason,
+            OutcomeEventsProcessed = source.OutcomeEventsProcessed,
             Kind = source.Kind,
             Title = source.Title,
             Subsystem = source.Subsystem,
@@ -1760,14 +1778,28 @@ public static class CaseReviewGame
     {
         var added = new List<EventCase>();
         var previous = state.Queue
-            .Where(e => e.AutoResolved)
+            .Where(e => e.AutoResolved && !e.OutcomeEventsProcessed)
             .OrderByDescending(e => e.LatentRisk + Math.Max(0, 60 - e.OutcomeScore))
             .Take(2)
             .ToList();
 
         foreach (var item in previous)
         {
-            if (item.LatentRisk >= 30 || item.OutcomeScore < 60 || item.MismatchScore >= 2)
+            var linked = WorkOutcomeEventSystem.Generate(
+                item,
+                state.WorkDefinitions,
+                WorkGenerationContext.FromState(state, difficulty: 0, seedOffset: StableSeedOffset(item.Id)));
+            item.OutcomeEventsProcessed = true;
+
+            if (linked.Count > 0)
+            {
+                foreach (var linkedItem in linked)
+                {
+                    linkedItem.Id = UniqueEventId(state, added, linkedItem.Id);
+                    added.Add(linkedItem);
+                }
+            }
+            else if (item.LatentRisk >= 30 || item.OutcomeScore < 60 || item.MismatchScore >= 2)
             {
                 added.Add(CreateFollowUpCase(state, item));
             }
@@ -1812,11 +1844,40 @@ public static class CaseReviewGame
         state.Queue.AddRange(added);
         foreach (var item in added)
         {
+            ScenarioEffectApplier.ApplyActiveModifiersToWork(state, item);
             AddTruth(state, item.Id, "SYS", "NEXT_DAY_SEED", $"전일 결과 기반 후속 작업 생성: {item.Title}");
             AddLog(state, item, "summary", state.TotalElapsedSec, $"[SUMMARY][{item.Id}] {item.Title}. 전일 보고서 후속 조치 후보.", omitted: item.MismatchScore >= 2);
         }
 
         lines.Add($"익일 작업 후보 {added.Count}건이 생성되었습니다: {string.Join(", ", added.Select(e => e.Id))}");
+    }
+
+    private static int StableSeedOffset(string value)
+    {
+        unchecked
+        {
+            var hash = 17;
+            foreach (var character in value ?? "")
+            {
+                hash = hash * 31 + char.ToUpperInvariant(character);
+            }
+
+            return hash;
+        }
+    }
+
+    private static string UniqueEventId(GameState state, IReadOnlyCollection<EventCase> pending, string requestedId)
+    {
+        var baseId = string.IsNullOrWhiteSpace(requestedId) ? $"W-{state.Day:D2}01" : requestedId;
+        var candidate = baseId;
+        var suffix = 2;
+        while (state.Queue.Any(item => item.Id.Equals(candidate, StringComparison.OrdinalIgnoreCase))
+            || pending.Any(item => item.Id.Equals(candidate, StringComparison.OrdinalIgnoreCase)))
+        {
+            candidate = $"{baseId}-{suffix++}";
+        }
+
+        return candidate;
     }
 
     private static void ResolveAttrition(GameState state, List<string> lines)

@@ -53,6 +53,8 @@ public sealed class GameState
     public string OpenEventId { get; set; } = "";
     public WorkPlan MorningPlan { get; set; } = new();
     public List<EventCase> Queue { get; set; } = new();
+    [IgnoreDataMember] public List<WorkDefinition> WorkDefinitions { get; set; } = new();
+    public List<EnvironmentModifier> EnvironmentModifiers { get; set; } = new();
     public List<Personnel> Staff { get; set; } = new();
     public List<TruthFrame> TruthFrames { get; set; } = new();
     public List<VisibleLog> Logs { get; set; } = new();
@@ -62,6 +64,19 @@ public sealed class GameState
     public int MeritTokens { get; set; }
     public List<ApprovalRequest> ApprovalRequests { get; set; } = new();
     public List<string> CommandTape { get; set; } = new();
+}
+
+[Serializable]
+public sealed class EnvironmentModifier
+{
+    public string Id { get; set; } = "";
+    public string SourceEventId { get; set; } = "";
+    public ScenarioEffectKey EffectKey { get; set; }
+    public ScenarioEffectTargetScope TargetScope { get; set; }
+    public string TargetFilter { get; set; } = "";
+    public int Delta { get; set; }
+    public int RemainingDays { get; set; }
+    public bool ApplyToFutureWork { get; set; }
 }
 
 [Serializable]
@@ -198,6 +213,12 @@ public sealed class EventCase
 {
     public string Id { get; set; } = "";
     public string DefinitionId { get; set; } = "";
+    public string ProjectId { get; set; } = "";
+    public WorkTier Tier { get; set; } = WorkTier.Sub;
+    public string ParentEventId { get; set; } = "";
+    public string RootEventId { get; set; } = "";
+    public string TriggerReason { get; set; } = "";
+    public bool OutcomeEventsProcessed { get; set; }
     public string Kind { get; set; } = "";
     public string Title { get; set; } = "";
     public string Subsystem { get; set; } = "";
@@ -237,6 +258,13 @@ public sealed class EventCase
     public string PerkInteractionInfo { get; set; } = "";
     public string VisibleSummary { get; set; } = "";
     public List<string> HiddenFacts { get; set; } = new();
+}
+
+[Serializable]
+public enum WorkTier
+{
+    Main,
+    Sub
 }
 
 [Serializable]

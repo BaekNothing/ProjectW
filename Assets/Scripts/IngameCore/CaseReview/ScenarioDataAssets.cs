@@ -20,6 +20,8 @@ public interface IScenarioEventDefinition
     ScenarioTriggerMode TriggerMode { get; }
     IReadOnlyList<ScenarioExplicitLocation> AllowedExplicitLocations { get; }
     IReadOnlyList<ScenarioCondition> TriggerConditions { get; }
+    IReadOnlyList<ScenarioStateEffect> EntryCosts { get; }
+    IReadOnlyList<ScenarioStateEffect> ExitEffects { get; }
     ScenarioReplayPolicy ReplayPolicy { get; }
     LocalizedTextTable TextTable { get; }
     IReadOnlyList<ScenarioScriptLine> Lines { get; }
@@ -102,6 +104,10 @@ public sealed class ScenarioStateEffect
     public string SubjectId = "";
     public string Value = "";
     public int Delta;
+    public ScenarioEffectTargetScope TargetScope = ScenarioEffectTargetScope.GlobalState;
+    public string TargetFilter = "";
+    public int DurationDays;
+    public bool ApplyToFutureWork;
 }
 
 [Serializable]
@@ -218,6 +224,19 @@ public enum ScenarioEffectKey
     AddTag,
     AddMemory,
     AlertFlag,
-    AuditCandidate
+    AuditCandidate,
+    WorkLatentRiskDelta,
+    GlobalLatentRiskDelta,
+    AddEnvironmentModifier,
+    RemoveEnvironmentModifier
+}
+
+public enum ScenarioEffectTargetScope
+{
+    GlobalState,
+    SingleWork,
+    AllOpenWork,
+    MatchingOpenWork,
+    Environment
 }
 }

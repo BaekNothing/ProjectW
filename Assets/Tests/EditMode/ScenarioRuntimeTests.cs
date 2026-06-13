@@ -253,6 +253,8 @@ namespace ProjectW.Tests.EditMode
             public ScenarioTriggerMode TriggerModeValue;
             public List<ScenarioExplicitLocation> Locations = new();
             public List<ScenarioCondition> Conditions = new();
+            public List<ScenarioStateEffect> Entry = new();
+            public List<ScenarioStateEffect> Exit = new();
             public ScenarioReplayPolicy Replay = new();
             public List<ScenarioScriptLine> MutableLines = new();
 
@@ -263,6 +265,8 @@ namespace ProjectW.Tests.EditMode
             public ScenarioTriggerMode TriggerMode => TriggerModeValue;
             public IReadOnlyList<ScenarioExplicitLocation> AllowedExplicitLocations => Locations;
             public IReadOnlyList<ScenarioCondition> TriggerConditions => Conditions;
+            public IReadOnlyList<ScenarioStateEffect> EntryCosts => Entry;
+            public IReadOnlyList<ScenarioStateEffect> ExitEffects => Exit;
             public ScenarioReplayPolicy ReplayPolicy => Replay;
             public LocalizedTextTable TextTable => null;
             public IReadOnlyList<ScenarioScriptLine> Lines => MutableLines;

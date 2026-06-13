@@ -22,6 +22,8 @@
 - 캐릭터 카드/퍽과의 상호작용 기준
 - 난이도와 조건에 따른 동적 생성 규칙
 - 업무 생성 확률과 출현 조건
+- 프로젝트 안의 `MAIN` / `SUB` 업무 단위
+- 업무 결과에 따라 연쇄 생성되는 프로젝트 이벤트
 - AI 업무 배치 초안이 참고해야 하는 정보 범위
 
 ------
@@ -41,6 +43,8 @@
 
 업무 하나는 항상 결과와 후폭풍 가능성을 함께 가진다.
 업무가 무난히 끝나도 관계, 기억, 보고서, AI 대체 압력, 보스 평가에 흔적을 남길 수 있다.
+
+시나리오 환경 변화는 업무 하나가 아니라 업무 집합에 영향을 줄 수 있다. 범위 효과는 `AllOpenWork` 또는 `MatchingOpenWork`로 대상을 명시하며, 업무별 `LatentRisk`를 직접 변경한 뒤 전역 잠복 리스크를 다시 계산한다.
 
 ------
 
@@ -73,6 +77,72 @@
 
 - 같은 "산소 라인 수동 우회"라도 초반에는 낮은 리스크 사건일 수 있다.
 - 후반에는 같은 원형이 "인력 피로 누적 + 보스가 속도 압박 + AI 초안 생략" 조건으로 고위험 업무가 될 수 있다.
+
+### Project Units: MAIN and SUB
+
+프로젝트는 하나 이상의 업무 단위로 구성된다. 모든 업무는 `ProjectId`로 프로젝트에 속하며 `Tier`로 역할을 구분한다.
+
+`MAIN`은 프로젝트의 큰 사건이다.
+
+- 중요한 사건의 시작 조건, 전환점, 종결점이 된다.
+- 성공/부분 성공/실패 결과가 새로운 업무나 시나리오를 열 수 있다.
+- 프로젝트 평가, 보스 반응, 조직 상태 변화에서 우선적으로 참조한다.
+- 단순히 `Importance`가 높은 업무와 같지 않다. `Importance`는 평가 가중치이고 `MAIN`은 서사·진행 역할이다.
+
+`SUB`는 MAIN을 구성하거나 그 결과로 파생되는 세부 업무다.
+
+- 조사, 준비, 복구, 보고, 후속 확인처럼 MAIN보다 작은 단위를 담당한다.
+- SUB 결과는 MAIN의 난이도, 잠복 리스크, 선택 가능한 분기 또는 최종 평가를 바꿀 수 있다.
+- SUB도 결과 이벤트를 만들 수 있지만 기본적으로 프로젝트 전체 전환점보다 국소 후폭풍을 만든다.
+
+런타임 연결 필드:
+
+- `ProjectId`: 같은 프로젝트 체인을 묶는 ID
+- `Tier`: `Main` 또는 `Sub`
+- `ParentEventId`: 이 업무를 직접 발생시킨 런타임 업무
+- `RootEventId`: 연쇄의 최초 런타임 업무
+- `TriggerReason`: 어떤 결과와 규칙 때문에 생성되었는지 설명
+
+MAIN/SUB는 큐 표시용 라벨에 그쳐서는 안 된다. 보고서, 이벤트 조건, 평가 가중치, 프로젝트 진행도에서 실제로 참조해야 한다.
+
+### Result-Linked Project Events
+
+업무가 완료되면 결과 점수와 잔존 잠복 리스크를 평가하여 후속 프로젝트 이벤트를 생성할 수 있다.
+
+`WorkDefinition.OutcomeEvents`의 최소 조건:
+
+- `TargetWorkId`: 생성할 다음 `WorkDefinition`
+- `MinOutcomeScore`, `MaxOutcomeScore`: 결과 점수 범위
+- `MinLatentRisk`: 후속 사건이 필요한 최소 잔존 위험
+- `ChancePercent`: 같은 입력에서 같은 결과가 나오는 결정론적 발생 확률
+- `Relation`: `Trigger`, `Transition`, `Consequence`
+- `Reason`: UI와 보고서에 노출할 발생 사유
+
+관계 의미:
+
+- `Trigger`: 새 MAIN 또는 새 프로젝트 국면을 시작한다.
+- `Transition`: 현재 MAIN을 다음 MAIN으로 전환한다.
+- `Consequence`: 성공/실패의 후폭풍으로 SUB를 만든다.
+
+처리 규칙:
+
+1. 완료된 업무 하나의 결과 이벤트는 한 번만 평가한다.
+2. 조건을 만족한 정의 기반 이벤트가 있으면 해당 업무를 다음 날 큐에 넣는다.
+3. 정의 기반 이벤트가 없고 위험한 결과만 남은 경우 기존 일반 감사/재점검 후속 업무를 fallback으로 생성한다.
+4. 생성된 업무는 원본의 `ProjectId`를 이어받고 `ParentEventId`, `RootEventId`, `TriggerReason`을 기록한다.
+5. 이벤트 확률은 저장/재실행에서 결과가 바뀌지 않도록 결정론적이어야 한다.
+
+향후 `ScenarioEventDefinition` 연결은 같은 결과 조건을 사용하되, 업무 큐 생성과 대화/연출 큐잉을 별도 출력으로 유지한다.
+
+### Spreadsheet Authoring Source
+
+업무와 프로젝트 이벤트의 샘플 데이터 작성 기준은 다음 공개 Google Sheet다.
+
+- `https://docs.google.com/spreadsheets/d/1AbGMtaZzbHYyKj307znp5Jna7iIBUiG4bSEv9Q30A0s/edit`
+- `work_definitions`: 업무 인스턴스와 `ProjectId`, `Tier`, 부모/루트 연결, `outcomeEventsJson`
+- `work_outcome_events`: 소스/대상 업무와 결과 조건을 행 단위로 정리한 프로젝트 이벤트 규칙
+
+앞으로 추가하는 게임 데이터 샘플은 이 시트에 먼저 작성한다. 코드 테스트는 규칙 검증에 필요한 최소 fixture만 유지하고 별도의 샘플 카탈로그를 만들지 않는다.
 
 ------
 
@@ -352,6 +422,7 @@ FinalWeight =
 - Alert하면 보스 반응, 감사 가능성, 책임 소재 태그가 바뀔 수 있다.
 - 카드/퍽이 `Risk`, `Outcome`, `ReviewCost`, `MemoryHooks`를 바꿀 수 있다.
 - 실패 또는 과잉 성공은 후속 업무를 생성할 수 있다.
+- 시나리오 환경 보정은 현재 열린 업무를 일괄 변경하거나, 지속 기간 동안 새 업무 생성 시 보정을 적용할 수 있다.
 
 ------
 
@@ -373,18 +444,19 @@ FinalWeight =
   - 카드/퍽 상호작용 태그의 초기 구현이다.
 - `BaseSuccessChance`
   - 업무 원형의 기본 성공 난이도다.
+- `ProjectId`, `Tier`, `ParentEventId`, `RootEventId`
+  - MAIN/SUB 프로젝트 단위와 결과 연쇄의 런타임 연결 정보다.
+- `WorkOutcomeEventSystem`
+  - 완료 결과 조건을 평가하여 연결된 다음 업무를 생성한다.
+- `EnvironmentModifier`, `ScenarioEffectApplier`
+  - 시나리오의 범위 효과와 지속 환경 보정을 업무 큐에 적용한다.
 
 추후 구현 필요:
 
-- `WorkDefinition` ScriptableObject
-- `WorkInstance` 또는 `EventCase` 확장
-- 업무 생성 풀
-- 조건 기반 spawn weight
-- 난이도별 수치 변형
-- 동시작업 가능수와 슬롯 비용
 - 업무별 렌더링 리소스
 - 보스 이벤트 압력과 감사 평가 방향을 생성 컨텍스트에 반영
-- AI 기본안 대비 평가 결과에서 감사/후속 업무 생성
+- AI 기본안 대비 평가 결과를 정의 기반 결과 이벤트 조건에 반영
+- 결과 이벤트에서 `ScenarioEventDefinition` 큐를 생성하는 연결
 
 ------
 
@@ -400,6 +472,9 @@ FinalWeight =
 - 검토 비용 없이 모든 업무의 숨은 정보를 공개하는 것
 - 보스 이벤트를 업무 큐에 아무 영향 없는 배경 텍스트로만 처리하는 것
 - 감사 업무를 실패한 업무에만 생성하고 AI 대비 선택 차이를 무시하는 것
+- `MAIN`을 단순히 중요도 높은 `SUB`의 별칭으로 취급하는 것
+- 결과 이벤트를 비결정적 무작위로만 발생시키는 것
+- 부모/루트 연결 없이 후속 업무를 생성하여 프로젝트 경로를 추적할 수 없게 만드는 것
 ------
 
 ## Merit Token Rewards and Approval Spending

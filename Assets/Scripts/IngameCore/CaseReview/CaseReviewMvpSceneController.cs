@@ -175,7 +175,22 @@ namespace ProjectW.IngameCore.CaseReview
 
             if (scenarioAutoPlay && scenarioSession.IsLineComplete)
             {
+                var completedLine = scenarioSession.CurrentLine.Source;
                 scenarioSession.TickAutoPlay();
+                if (completedLine?.Effects != null)
+                {
+                    CaseReviewGame.ApplyScenarioEffects(CurrentState, completedLine.Effects, sampleScenario?.EventId);
+                }
+
+                if (scenarioSession.IsEventComplete)
+                {
+                    CaseReviewGame.ApplyScenarioEffects(CurrentState, sampleScenario?.ExitEffects, sampleScenario?.EventId);
+                    AddLog("Scenario sample completed by autoplay.");
+                    HideScenarioOverlay();
+                    Render();
+                    return;
+                }
+
                 RenderScenarioOverlay();
             }
         }
@@ -401,6 +416,7 @@ namespace ProjectW.IngameCore.CaseReview
             }
 
             scenarioSession = new ScenarioPlaybackSession(sampleScenario, "ko", "KR");
+            CaseReviewGame.ApplyScenarioEffects(CurrentState, sampleScenario.EntryCosts, sampleScenario.EventId);
             scenarioTypewriterAccumulator = 0f;
             scenarioAutoPlay = false;
             AddLog($"Scenario sample opened: {sampleScenario.EventId}");
@@ -414,10 +430,18 @@ namespace ProjectW.IngameCore.CaseReview
                 return;
             }
 
+            var completedLine = scenarioSession.IsLineComplete
+                ? scenarioSession.CurrentLine.Source
+                : null;
             scenarioSession.Click();
+            if (completedLine?.Effects != null)
+            {
+                CaseReviewGame.ApplyScenarioEffects(CurrentState, completedLine.Effects, sampleScenario?.EventId);
+            }
             scenarioTypewriterAccumulator = 0f;
             if (scenarioSession.IsEventComplete)
             {
+                CaseReviewGame.ApplyScenarioEffects(CurrentState, sampleScenario?.ExitEffects, sampleScenario?.EventId);
                 AddLog("Scenario sample completed.");
                 HideScenarioOverlay();
                 Render();
@@ -435,6 +459,7 @@ namespace ProjectW.IngameCore.CaseReview
             }
 
             scenarioSession.Skip();
+            CaseReviewGame.ApplyScenarioEffects(CurrentState, sampleScenario?.ExitEffects, sampleScenario?.EventId);
             AddLog("Scenario sample skipped.");
             HideScenarioOverlay();
             Render();
@@ -2501,6 +2526,8 @@ namespace ProjectW.IngameCore.CaseReview
                 button.onClick.AddListener(() =>
                 {
                     AddLog($"Scenario choice selected: {choice.ChoiceId}");
+                    CaseReviewGame.ApplyScenarioEffects(CurrentState, choice.Costs, sampleScenario?.EventId);
+                    CaseReviewGame.ApplyScenarioEffects(CurrentState, choice.Effects, sampleScenario?.EventId);
                     ClickScenarioNext();
                 });
                 var layout = buttonObject.AddComponent<LayoutElement>();

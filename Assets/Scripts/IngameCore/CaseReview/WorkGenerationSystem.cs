@@ -158,4 +158,98 @@ public static class WorkGenerationSystem
         }
     }
 }
+
+public static class WorkOutcomeEventSystem
+{
+    public static List<EventCase> Generate(
+        EventCase source,
+        IReadOnlyList<WorkDefinition> definitions,
+        WorkGenerationContext context)
+    {
+        var result = new List<EventCase>();
+        if (source == null || definitions == null || context == null)
+        {
+            return result;
+        }
+
+        var sourceDefinition = definitions.FirstOrDefault(definition =>
+            definition != null
+            && definition.WorkId.Equals(source.DefinitionId, StringComparison.OrdinalIgnoreCase));
+        if (sourceDefinition == null)
+        {
+            return result;
+        }
+
+        var targets = definitions
+            .Where(definition => definition != null)
+            .GroupBy(definition => definition.WorkId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+
+        var sequence = 1;
+        foreach (var link in sourceDefinition.OutcomeEvents.Where(link => link != null && link.Matches(source)))
+        {
+            if (!targets.TryGetValue(link.TargetWorkId, out var target))
+            {
+                continue;
+            }
+
+            if (!PassesChance(source, link, context))
+            {
+                continue;
+            }
+
+            var generated = target.CreateInstance(context, sequence++);
+            generated.ProjectId = string.IsNullOrWhiteSpace(source.ProjectId)
+                ? generated.ProjectId
+                : source.ProjectId;
+            generated.ParentEventId = source.Id;
+            generated.RootEventId = string.IsNullOrWhiteSpace(source.RootEventId)
+                ? source.Id
+                : source.RootEventId;
+            generated.TriggerReason = string.IsNullOrWhiteSpace(link.Reason)
+                ? $"{link.Relation}: {source.Id} outcome {source.OutcomeScore}"
+                : link.Reason;
+            result.Add(generated);
+        }
+
+        return result;
+    }
+
+    private static bool PassesChance(EventCase source, WorkOutcomeEventLink link, WorkGenerationContext context)
+    {
+        var chance = Math.Max(0, Math.Min(100, link.ChancePercent));
+        if (chance == 0)
+        {
+            return false;
+        }
+
+        if (chance == 100)
+        {
+            return true;
+        }
+
+        unchecked
+        {
+            var hash = context.Seed;
+            hash = hash * 397 ^ context.Day;
+            hash = hash * 397 ^ StableHash(source.Id);
+            hash = hash * 397 ^ StableHash(link.TargetWorkId);
+            return (uint)hash % 100 < chance;
+        }
+    }
+
+    private static int StableHash(string value)
+    {
+        unchecked
+        {
+            var hash = 17;
+            foreach (var character in value ?? "")
+            {
+                hash = hash * 31 + char.ToUpperInvariant(character);
+            }
+
+            return hash;
+        }
+    }
+}
 }

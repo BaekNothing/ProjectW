@@ -8,11 +8,11 @@
 | 항목 | 값 |
 |------|-----|
 | **동기화 모드** | `index (pre-commit / manual)` |
-| **동기화 시각 (UTC)** | `2026-06-11T12:45:01Z` |
-| **기준 커밋 (전체 SHA)** | `4d25bf942b21013526b0ffa0448dacebff56c434` |
-| **기준 커밋 (단축)** | `4d25bf9` |
+| **동기화 시각 (UTC)** | `2026-06-13T02:36:24Z` |
+| **기준 커밋 (전체 SHA)** | `b58ec45ad75ad8f4c1948f1aef6eb2f0e306246b` |
+| **기준 커밋 (단축)** | `b58ec45` |
 | **브랜치** | `ai-integration` |
-| **추적 경로 지문** | `sha256:4f0b39e3a77924be77e697325020f574dd2bbc133bac2733e741a2ea734c1a43` |
+| **추적 경로 지문** | `sha256:fce6b3ae7a26cb7cc9c8b2c2fda384a6f18d0b1fa1357a5771ebce82da40eb8a` |
 | **추적 경로** | `Assets/Specification/`<br>`Assets/Scripts/`<br>`Assets/Tests/`<br>`Assets/Editor/`<br>`Assets/Resources/CaseReviewData/` |
 
 > 지문은 Git 인덱스(`git ls-files -s`)에 등록된 추적 경로 파일 목록·blob 해시의 SHA-256이다.  
@@ -322,6 +322,8 @@ flowchart TB
 
 스크립트 파트는 대사, 화자, 표정, 중앙 이미지, 포커스, 선택지, 비용을 표현한다. 코어 상태를 읽을 수 있지만 상태 변경은 선택지 효과 또는 종료 효과에 명시된 비용·보상·플래그로만 적용한다. 현재 구현은 `ScenarioEventDefinition`, `ScenarioScriptLine`, `LocalizedTextTable` 데이터 에셋, 조회 인터페이스, `LocalizedTextCsv` CSV 변환, `LocalizedTextTableEditor` 텍스트 import/export, `ScenarioDataWorkshop` 제작 씬/에디터를 포함한다. `CaseReviewMvpSceneController`에는 Dev Tools에서 명시적으로 실행하는 샘플 시나리오 뷰어가 있으나, SSOT가 요구하는 조건 기반 큐잉/스케줄러 런타임은 아직 없다.
 
+`ScenarioEffectApplier`는 `TargetScope`, `TargetFilter`, `DurationDays`, `ApplyToFutureWork`를 해석하여 전체/필터 업무 위험 변경과 지속 환경 보정을 적용한다. 샘플 시나리오 재생은 진입 비용, 행 효과, 선택지 비용/효과, 종료 효과를 이 적용기로 전달한다.
+
 ### 5.6 업무 시스템 (SSOT – Work) vs `EventCase`
 
 2026-06-03 **Work Data Direction**(`SSOT – Ingame.md` §15)에 따라 업무 규칙이 `SSOT – Work.md`로 분리되었다.
@@ -332,11 +334,13 @@ flowchart TB
     WD["WorkDefinition\nScriptableObject 원형"]
     WI["WorkInstance\n런타임 인스턴스"]
     GEN["동적 생성·spawn weight\n난이도 스케일링"]
+    CHAIN["Project MAIN / SUB\n결과 연동 이벤트"]
   end
   subgraph Impl["CaseReview (현재)"]
     EC["EventCase\nGameState.Queue"]
     WDEF["WorkDefinition SO"]
     WGEN["WorkGenerationSystem"]
+    WOUT["WorkOutcomeEventSystem"]
     SEED["SeedDayOneCases\nfallback"]
   end
   WD --> WDEF
@@ -344,6 +348,8 @@ flowchart TB
   WI -.->|대응| EC
   GEN --> WGEN
   WGEN --> EC
+  CHAIN --> WOUT
+  WOUT -->|결과 조건 후속 생성| EC
   SEED -.->|InitialData 없을 때| EC
 ```
 
@@ -357,6 +363,9 @@ flowchart TB
 | 카드/퍽 태그 | `PerkTags`, `PerkInteractionInfo` | 초기 |
 | `WorkDefinition` SO | `WorkDefinition` | 초기 구현 |
 | 동적 생성 풀·가중치 | `WorkGenerationSystem`, `WorkSpawnProfile` | 초기 구현 |
+| 프로젝트 MAIN/SUB | `ProjectId`, `WorkTier`, 부모/루트 이벤트 ID | 초기 구현 |
+| 결과 연동 이벤트 | `WorkOutcomeEventLink`, `WorkOutcomeEventSystem` | 업무 후속 생성 구현 |
+| 시나리오 범위 효과 | `ScenarioEffectApplier`, `ScenarioEffectTargetScope` | 전체/필터 업무 및 지속 환경 보정 구현 |
 | 동시작업 가능수 | `ConcurrentLimit`, `ConcurrentSlotCost` | 데이터 필드 구현, 실행 규칙 부분 |
 
 상세 매핑·금지 규칙: `Ingame/SSOT – Work.md` §11–12.
@@ -594,11 +603,15 @@ flowchart TB
 
 MVP Scene의 Dev Tools에는 `SYNC SHEET DATA` 버튼이 있다. 버튼은 Google Sheets의 `_manifest` 탭을 먼저 받고, 활성 데이터 탭을 CSV로 순차 다운로드한다.
 
+공식 샘플 데이터 작성 위치는 `https://docs.google.com/spreadsheets/d/1AbGMtaZzbHYyKj307znp5Jna7iIBUiG4bSEv9Q30A0s/edit`다. 향후 CaseReview 샘플은 이 워크북에 먼저 작성하며, `work_outcome_events` 탭은 MAIN/SUB 프로젝트 결과 연동 규칙을 보관한다.
+
+`scenarios` 스키마 v3는 `entryCostsJson`, `exitEffectsJson`을 포함한다. 운석 충돌 샘플은 `AllOpenWork`, `WorkLatentRiskDelta +20`, 1일 지속 미래 업무 보정의 기준 예시다.
+
 ```mermaid
 flowchart LR
   BTN["Dev Tools\nSYNC SHEET DATA"]
   MAN["_manifest"]
-  CSV["localized_text / work / cards / characters / scenarios"]
+  CSV["localized_text / work / outcome events /\ncards / characters / scenarios"]
   VAL["Header / reference / typed model validation"]
   CACHE["persistentDataPath/remote-data"]
   SNAP["RemoteSpreadsheetSnapshot"]
@@ -613,6 +626,7 @@ flowchart LR
 - 다운로드 실패 시 APK 내장 데이터와 마지막 정상 캐시를 유지한다.
 - 누락되거나 잘못된 탭이 있으면 일부 데이터만 적용하지 않는다.
 - 현재 APK 내장 MVP 데이터는 에디터 메뉴로 6개 CSV(`_manifest` 포함)에 일괄 내보낼 수 있다.
+- `work_definitions` 스키마 v2는 프로젝트 ID, MAIN/SUB, 부모/루트 이벤트 연결을 포함한다.
 
 ---
 

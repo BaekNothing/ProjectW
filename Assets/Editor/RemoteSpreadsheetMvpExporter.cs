@@ -38,7 +38,7 @@ public static class RemoteSpreadsheetMvpExporter
             Row("work_definitions", "work_definitions", "TRUE", "2", "TRUE", "Replacement Day 1 work snapshot"),
             Row("cards", "cards", "TRUE", "2", "TRUE", "Replacement card snapshot"),
             Row("characters", "characters", "TRUE", "2", "TRUE", "Replacement personnel snapshot"),
-            Row("scenarios", "scenarios", "TRUE", "2", "TRUE", "Replacement scenario snapshot")
+            Row("scenarios", "scenarios", "TRUE", "3", "TRUE", "Scenario snapshot with scoped entry and exit effects")
         };
         return SpreadsheetCsv.ToCsv(headers, rows);
     }
@@ -142,7 +142,8 @@ public static class RemoteSpreadsheetMvpExporter
             "recommendedPersonnelCount", "minPersonnelCount", "maxPersonnelCount", "concurrentLimit",
             "concurrentSlotCost", "splitPenalty", "soloPenalty", "tags", "perkTags", "cardHooks",
             "bossReactionTags", "memoryHooks", "visibleSummary", "hiddenFacts", "perkInteractionInfo",
-            "truthFramesJson", "logsJson"
+            "truthFramesJson", "logsJson", "projectId", "tier", "parentEventId", "rootEventId",
+            "triggerReason", "outcomeEventsJson"
         };
         var rows = state.Queue
             .OrderBy(item => item.Id, StringComparer.OrdinalIgnoreCase)
@@ -181,7 +182,13 @@ public static class RemoteSpreadsheetMvpExporter
                 Pipe(item.HiddenFacts),
                 item.PerkInteractionInfo,
                 Json(state.TruthFrames.Where(frame => frame.EventId.Equals(item.Id, StringComparison.OrdinalIgnoreCase)).ToList()),
-                Json(state.Logs.Where(log => log.EventId.Equals(item.Id, StringComparison.OrdinalIgnoreCase)).ToList())));
+                Json(state.Logs.Where(log => log.EventId.Equals(item.Id, StringComparison.OrdinalIgnoreCase)).ToList()),
+                item.ProjectId,
+                item.Tier.ToString(),
+                item.ParentEventId,
+                item.RootEventId,
+                item.TriggerReason,
+                "[]"));
         return SpreadsheetCsv.ToCsv(headers, rows);
     }
 
@@ -190,7 +197,8 @@ public static class RemoteSpreadsheetMvpExporter
         var headers = new[]
         {
             "eventId", "timing", "priority", "playbackStateKey", "triggerMode",
-            "allowedExplicitLocationsJson", "triggerConditionsJson", "textTableId", "linesJson",
+            "allowedExplicitLocationsJson", "triggerConditionsJson", "entryCostsJson", "exitEffectsJson",
+            "textTableId", "linesJson",
             "oneShot", "cooldownDays", "allowReplayInDebug"
         };
         var rows = Resources.LoadAll<ScenarioEventDefinition>("CaseReviewData/Scenarios/Events")
@@ -204,6 +212,8 @@ public static class RemoteSpreadsheetMvpExporter
                 scenario.TriggerMode.ToString(),
                 Json(scenario.AllowedExplicitLocations),
                 Json(scenario.TriggerConditions),
+                Json(scenario.EntryCosts),
+                Json(scenario.ExitEffects),
                 scenario.TextTable != null ? scenario.TextTable.TableId : "",
                 Json(scenario.Lines.Select(SanitizeLine).ToList()),
                 Bool(scenario.ReplayPolicy?.OneShot ?? true),

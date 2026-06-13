@@ -297,6 +297,8 @@ namespace ProjectW.Tests.EditMode
             try
             {
                 SetPrivateField(work, "workId", "work.o2-bypass");
+                SetPrivateField(work, "projectId", "project.o2-crisis");
+                SetPrivateField(work, "tier", WorkTier.Main);
                 SetPrivateField(work, "title", "O2 Bypass");
                 SetPrivateField(work, "kind", "incident");
                 SetPrivateField(work, "subsystem", "O2");
@@ -314,6 +316,8 @@ namespace ProjectW.Tests.EditMode
                 var item = work.CreateInstance(new WorkGenerationContext { Seed = 1, Day = 2, Difficulty = 2 }, 1);
 
                 Assert.AreEqual("work.o2-bypass", item.DefinitionId);
+                Assert.AreEqual("project.o2-crisis", item.ProjectId);
+                Assert.AreEqual(WorkTier.Main, item.Tier);
                 Assert.AreEqual("E-0201", item.Id);
                 Assert.AreEqual("incident", item.Kind);
                 Assert.AreEqual(72, item.Importance);
@@ -326,6 +330,57 @@ namespace ProjectW.Tests.EditMode
             finally
             {
                 UnityEngine.Object.DestroyImmediate(work);
+            }
+        }
+
+        [Test]
+        public void WorkOutcomeEvent_GeneratesLinkedProjectUnitFromResult()
+        {
+            var main = ScriptableObject.CreateInstance<WorkDefinition>();
+            var followUp = ScriptableObject.CreateInstance<WorkDefinition>();
+            try
+            {
+                SetPrivateField(main, "workId", "work.main.audit");
+                SetPrivateField(main, "projectId", "project.audit-chain");
+                SetPrivateField(main, "tier", WorkTier.Main);
+                SetPrivateField(main, "outcomeEvents", new List<WorkOutcomeEventLink>
+                {
+                    OutcomeLink(
+                        "work.sub.containment",
+                        minOutcome: 0,
+                        maxOutcome: 54,
+                        minLatentRisk: 20,
+                        WorkOutcomeRelation.Consequence,
+                        "실패로 인해 긴급 봉쇄 업무가 열림")
+                });
+
+                SetPrivateField(followUp, "workId", "work.sub.containment");
+                SetPrivateField(followUp, "projectId", "project.audit-chain");
+                SetPrivateField(followUp, "tier", WorkTier.Sub);
+                SetPrivateField(followUp, "title", "Containment");
+                SetPrivateField(followUp, "kind", "incident");
+
+                var source = main.CreateInstance(new WorkGenerationContext { Seed = 4, Day = 1 }, 1);
+                source.OutcomeScore = 42;
+                source.LatentRisk = 35;
+
+                var generated = WorkOutcomeEventSystem.Generate(
+                    source,
+                    new List<WorkDefinition> { main, followUp },
+                    new WorkGenerationContext { Seed = 4, Day = 2 });
+
+                Assert.AreEqual(1, generated.Count);
+                Assert.AreEqual("work.sub.containment", generated[0].DefinitionId);
+                Assert.AreEqual("project.audit-chain", generated[0].ProjectId);
+                Assert.AreEqual(WorkTier.Sub, generated[0].Tier);
+                Assert.AreEqual(source.Id, generated[0].ParentEventId);
+                Assert.AreEqual(source.Id, generated[0].RootEventId);
+                Assert.AreEqual("실패로 인해 긴급 봉쇄 업무가 열림", generated[0].TriggerReason);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(main);
+                UnityEngine.Object.DestroyImmediate(followUp);
             }
         }
 
@@ -541,11 +596,11 @@ namespace ProjectW.Tests.EditMode
                     "personnelId,displayName,cloneLineageId,background,interests,personality,workStyle,initialInformationScope,aptitudesJson,physicalEnergy,mentalStress,loadAssigned,fatigue,stagnation,trustToManager,retentionRisk,hasLeft,daysSinceJoined,optLow,optHigh,maxLoad,connectionLimit,cloneVersion,regenerationCount,regeneratedFromId,startingDeckIds,perksJson,relationshipsJson,memoriesJson,traitSamplesJson\n" +
                     "P-REMOTE,Remote Person,LINE-R,background,audit,calm,careful,Surface,\"{\"\"logic\"\":8}\",90,5,0,3,2,60,4,FALSE,0,2,5,7,3,1,0,,card.remote,[],[],[],[]\n",
                 ["work_definitions"] =
-                    "eventId,workId,title,kind,subsystem,importance,volume,urgency,severity,ttlSec,status,latentRisk,mismatchScore,assignedPersonnel,physicalCost,mentalCost,baseSuccessChance,requiredAptitudes,recommendedPersonnelCount,minPersonnelCount,maxPersonnelCount,concurrentLimit,concurrentSlotCost,splitPenalty,soloPenalty,tags,perkTags,cardHooks,bossReactionTags,memoryHooks,visibleSummary,hiddenFacts,perkInteractionInfo,truthFramesJson,logsJson\n" +
-                    "E-REMOTE,work.remote,Remote Work,incident,O2,50,10,70,65,120,Open,20,2,P-REMOTE,5,6,60,\"{\"\"logic\"\":5}\",1,1,2,1,1,0,0,audit,audit,,,,summary,,,[],[]\n",
+                    "eventId,workId,title,kind,subsystem,importance,volume,urgency,severity,ttlSec,status,latentRisk,mismatchScore,assignedPersonnel,physicalCost,mentalCost,baseSuccessChance,requiredAptitudes,recommendedPersonnelCount,minPersonnelCount,maxPersonnelCount,concurrentLimit,concurrentSlotCost,splitPenalty,soloPenalty,tags,perkTags,cardHooks,bossReactionTags,memoryHooks,visibleSummary,hiddenFacts,perkInteractionInfo,truthFramesJson,logsJson,projectId,tier,parentEventId,rootEventId,triggerReason,outcomeEventsJson\n" +
+                    "E-REMOTE,work.remote,Remote Work,incident,O2,50,10,70,65,120,Open,20,2,P-REMOTE,5,6,60,\"{\"\"logic\"\":5}\",1,1,2,1,1,0,0,audit,audit,,,,summary,,,[],[],project.remote,Main,,,Remote trigger,[]\n",
                 ["scenarios"] =
-                    "eventId,timing,priority,playbackStateKey,triggerMode,allowedExplicitLocationsJson,triggerConditionsJson,textTableId,linesJson,oneShot,cooldownDays,allowReplayInDebug\n" +
-                    "scenario.remote,Morning,1,scenario.remote,LoopBoundary,[],\"[{\"\"Key\"\":0,\"\"SubjectId\"\":\"\"audit\"\",\"\"Value\"\":\"\"audit\"\",\"\"Threshold\"\":0,\"\"Comparison\"\":0}]\",localized,\"[{\"\"LineId\"\":\"\"L1\"\",\"\"Kind\"\":0,\"\"SpeakerId\"\":\"\"P-REMOTE\"\",\"\"PortraitIds\"\":[],\"\"TextKey\"\":\"\"remote.line\"\",\"\"StageCommands\"\":[],\"\"Choices\"\":[],\"\"Effects\"\":[]}]\",TRUE,0,FALSE\n"
+                    "eventId,timing,priority,playbackStateKey,triggerMode,allowedExplicitLocationsJson,triggerConditionsJson,entryCostsJson,exitEffectsJson,textTableId,linesJson,oneShot,cooldownDays,allowReplayInDebug\n" +
+                    "scenario.remote,Morning,1,scenario.remote,LoopBoundary,[],\"[{\"\"Key\"\":0,\"\"SubjectId\"\":\"\"audit\"\",\"\"Value\"\":\"\"audit\"\",\"\"Threshold\"\":0,\"\"Comparison\"\":0}]\",[],\"[{\"\"Key\"\":10,\"\"SubjectId\"\":\"\"\"\",\"\"Value\"\":\"\"\"\",\"\"Delta\"\":20,\"\"TargetScope\"\":2,\"\"TargetFilter\"\":\"\"\"\",\"\"DurationDays\"\":0,\"\"ApplyToFutureWork\"\":false}]\",localized,\"[{\"\"LineId\"\":\"\"L1\"\",\"\"Kind\"\":0,\"\"SpeakerId\"\":\"\"P-REMOTE\"\",\"\"PortraitIds\"\":[],\"\"TextKey\"\":\"\"remote.line\"\",\"\"StageCommands\"\":[],\"\"Choices\"\":[],\"\"Effects\"\":[]}]\",TRUE,0,FALSE\n"
             };
 
             var snapshot = RemoteSpreadsheetSnapshotParser.Parse(datasets);
@@ -555,8 +610,13 @@ namespace ProjectW.Tests.EditMode
             Assert.AreEqual("P-REMOTE", state.Staff[0].Id);
             Assert.AreEqual(1, state.Queue.Count);
             Assert.AreEqual("E-REMOTE", state.Queue[0].Id);
+            Assert.AreEqual("project.remote", state.Queue[0].ProjectId);
+            Assert.AreEqual(WorkTier.Main, state.Queue[0].Tier);
+            Assert.AreEqual("Remote trigger", state.Queue[0].TriggerReason);
             Assert.AreEqual("card.remote", state.Staff[0].Deck[0].Id);
             Assert.AreEqual(1, snapshot.Scenarios.Count);
+            Assert.AreEqual(ScenarioEffectKey.WorkLatentRiskDelta, snapshot.Scenarios[0].ExitEffects.Single().Key);
+            Assert.AreEqual(ScenarioEffectTargetScope.AllOpenWork, snapshot.Scenarios[0].ExitEffects.Single().TargetScope);
         }
 
         [Test]
@@ -648,6 +708,73 @@ namespace ProjectW.Tests.EditMode
                 UnityEngine.Object.DestroyImmediate(table);
                 UnityEngine.Object.DestroyImmediate(scenario);
             }
+        }
+
+        [Test]
+        public void ScenarioEffectApplier_MeteorImpactRaisesAllOpenWorkRisk()
+        {
+            var state = new GameState
+            {
+                Queue = new List<EventCase>
+                {
+                    new EventCase { Id = "E-1", Status = CaseStatus.Open, LatentRisk = 10, Tags = new List<string> { "o2" } },
+                    new EventCase { Id = "E-2", Status = CaseStatus.Held, LatentRisk = 25, Tags = new List<string> { "food" } },
+                    new EventCase { Id = "E-3", Status = CaseStatus.Closed, LatentRisk = 30, Tags = new List<string> { "o2" } }
+                }
+            };
+            var effect = new ScenarioStateEffect
+            {
+                Key = ScenarioEffectKey.WorkLatentRiskDelta,
+                TargetScope = ScenarioEffectTargetScope.AllOpenWork,
+                Delta = 20
+            };
+
+            ScenarioEffectApplier.Apply(state, new[] { effect }, "scenario.meteor-impact");
+
+            Assert.AreEqual(30, state.Queue[0].LatentRisk);
+            Assert.AreEqual(45, state.Queue[1].LatentRisk);
+            Assert.AreEqual(30, state.Queue[2].LatentRisk);
+            Assert.AreEqual(75, state.GlobalLatentRisk);
+        }
+
+        [Test]
+        public void ScenarioEffectApplier_PersistentEnvironmentModifierAffectsFutureMatchingWork()
+        {
+            var state = new GameState();
+            var effect = new ScenarioStateEffect
+            {
+                Key = ScenarioEffectKey.WorkLatentRiskDelta,
+                SubjectId = "environment.meteor-debris",
+                TargetScope = ScenarioEffectTargetScope.MatchingOpenWork,
+                TargetFilter = "O2|outdoor",
+                Delta = 20,
+                DurationDays = 2,
+                ApplyToFutureWork = true
+            };
+            ScenarioEffectApplier.Apply(state, new[] { effect }, "scenario.meteor-impact");
+
+            var affected = new EventCase
+            {
+                Id = "E-FUTURE",
+                Subsystem = "O2",
+                Status = CaseStatus.Open,
+                LatentRisk = 15
+            };
+            var unaffected = new EventCase
+            {
+                Id = "R-FUTURE",
+                Subsystem = "FOOD",
+                Status = CaseStatus.Open,
+                LatentRisk = 15
+            };
+
+            ScenarioEffectApplier.ApplyActiveModifiersToWork(state, affected);
+            ScenarioEffectApplier.ApplyActiveModifiersToWork(state, unaffected);
+            ScenarioEffectApplier.AdvanceDay(state);
+
+            Assert.AreEqual(35, affected.LatentRisk);
+            Assert.AreEqual(15, unaffected.LatentRisk);
+            Assert.AreEqual(1, state.EnvironmentModifiers.Single().RemainingDays);
         }
 
         [Test]
@@ -996,6 +1123,25 @@ namespace ProjectW.Tests.EditMode
             SetPrivateField(profile, "difficultyWeights", difficulty ?? new List<WorkDifficultyWeight>());
             SetPrivateField(profile, "conditionWeights", conditions ?? new List<WorkConditionWeight>());
             return profile;
+        }
+
+        private static WorkOutcomeEventLink OutcomeLink(
+            string targetWorkId,
+            int minOutcome,
+            int maxOutcome,
+            int minLatentRisk,
+            WorkOutcomeRelation relation,
+            string reason)
+        {
+            var link = new WorkOutcomeEventLink();
+            SetPrivateField(link, "targetWorkId", targetWorkId);
+            SetPrivateField(link, "minOutcomeScore", minOutcome);
+            SetPrivateField(link, "maxOutcomeScore", maxOutcome);
+            SetPrivateField(link, "minLatentRisk", minLatentRisk);
+            SetPrivateField(link, "chancePercent", 100);
+            SetPrivateField(link, "relation", relation);
+            SetPrivateField(link, "reason", reason);
+            return link;
         }
 
         private sealed class FixedCardDrawService : ICardDrawService

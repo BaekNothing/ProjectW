@@ -112,6 +112,45 @@ Unity 구현 기준 원형은 `ScenarioEventDefinition` ScriptableObject다.
 이벤트는 숨은 상태를 직접 바꿔서는 안 된다.
 모든 변경은 `ExitEffects` 또는 선택지 효과에 명시되어야 한다.
 
+### 3.2 Scoped State Effects and Environment Changes
+
+`ScenarioStateEffect`는 단일 대상뿐 아니라 범위 효과와 지속 환경 변화를 표현할 수 있어야 한다.
+
+범용 필드:
+
+- `Key`
+  - 변경할 상태 종류. 예: `WorkLatentRiskDelta`, `GlobalLatentRiskDelta`, `ReplacementPressureDelta`
+- `TargetScope`
+  - `GlobalState`, `SingleWork`, `AllOpenWork`, `MatchingOpenWork`, `Environment`
+- `TargetFilter`
+  - 단일 업무 ID, subsystem, 또는 `|`로 구분한 업무 태그 필터
+- `Delta`
+  - 적용할 증감량
+- `DurationDays`
+  - `0`이면 현재 대상에만 즉시 적용한다.
+  - `1` 이상이면 환경 보정으로 저장하고 해당 일수 동안 유지한다.
+- `ApplyToFutureWork`
+  - 지속 기간 중 새로 생성되는 업무에도 같은 보정을 적용할지 여부
+- `SubjectId`
+  - 환경 보정의 안정적인 ID 또는 단일 대상 식별자
+- `Value`
+  - 태그, 플래그, 보조 값
+
+예시: 운석 충돌
+
+```text
+Key = WorkLatentRiskDelta
+TargetScope = AllOpenWork
+Delta = +20
+DurationDays = 1
+ApplyToFutureWork = true
+SubjectId = environment.meteor-debris
+```
+
+이 효과는 발생 시점의 모든 미종결 업무 `LatentRisk`를 20 올리고, 지속 중 새로 생성된 업무에도 같은 환경 보정을 적용한다. 이미 적용된 위험은 환경 종료 시 자동으로 되돌리지 않는다.
+
+범위 효과도 숨은 직접 변경을 허용하지 않는다. 진입 비용, 행 효과, 선택지 비용/효과, 종료 효과 중 하나에 명시되어야 한다.
+
 ------
 
 ### 3.1 Trigger and Playback Fields
@@ -251,6 +290,12 @@ Current implementation:
 
 The MVP build may refresh spreadsheet-authored data without rebuilding the APK.
 
+Canonical workbook:
+
+- `https://docs.google.com/spreadsheets/d/1AbGMtaZzbHYyKj307znp5Jna7iIBUiG4bSEv9Q30A0s/edit`
+- New CaseReview content samples must be authored in this workbook first.
+- Repository assets and test fixtures may mirror or minimally exercise the sheet data, but they must not become a separate competing sample-data source.
+
 Canonical workbook tabs:
 
 - `_manifest`
@@ -261,6 +306,10 @@ Canonical workbook tabs:
   - use stable first-row field names matching their ProjectW data definitions.
   - list values use `|` separators.
   - nested scenario structures use JSON columns.
+- `work_outcome_events`
+  - stores project result-linked event rules and authoring samples.
+  - uses `sourceWorkId`, `targetWorkId`, result/risk thresholds, deterministic chance, relation, and reason.
+  - is downloaded as an optional dataset; runtime rule activation remains owned by the typed work-event pipeline.
 
 Runtime rules:
 
@@ -561,6 +610,9 @@ Minimal runtime layout rules:
   - 선택지와 비용/효과
 - `ScenarioCondition`
   - 진입 조건과 선택지 표시 조건
+- `ScenarioEffectApplier`
+  - 명시된 범위 효과를 `GameState`와 업무 큐에 적용
+  - 지속 환경 보정을 저장하고 신규 업무에 적용
 - `LocalizedTextTable`
   - key와 언어/국가별 텍스트 값
 - `ScenarioDataWorkshop`
@@ -576,12 +628,12 @@ Minimal runtime layout rules:
 워크샵은 기본 출력 폴더 `Assets/Resources/CaseReviewData/Scenarios` 아래에 `Events`, `Text`, `Render` 폴더를 만들 수 있다.
 워크샵에서 일괄 export한 CSV는 `Assets/Resources/CaseReviewData/Scenarios/TextCsv` 아래에 저장한다.
 
-아직 미구현인 범위:
+아직 미구현 또는 부분 구현인 범위:
 
-- 시나리오 이벤트 후보 큐잉
-- 시나리오 UI 재생
-- 선택지 선택 처리
-- `ScenarioStateEffect`를 실제 코어 상태에 적용하는 런타임
+- 시나리오 스케줄러를 일일 루프 경계에 자동 연결
+- 일반 플레이에서 조건 후보를 자동 큐잉
+- 선택지별 `NextLineId` 분기 이동
+- 모든 기존 `ScenarioEffectKey`의 코어 변경 구현
 
 스크립트 런타임은 코어 게임 로직과 분리하되, 코어 상태 변경은 공용 변경 인터페이스를 통해 적용한다.
 
@@ -611,9 +663,11 @@ Scenario runtime implementation should be split into these responsibilities.
   - card effects must still flow through explicit runtime data such as `ActionCard.TargetEventId`; the presentation must not mutate core state directly
 - `ScenarioEffectApplier`
   - applies declared state effects through public core mutation interfaces only
+  - current implementation supports scoped work latent-risk changes, global latent-risk changes, replacement pressure, environment modifier registration/removal, and tag registration
+  - scenario sample playback applies entry costs, line effects, choice costs/effects, and exit effects
 
-Current data assets already cover part of this shape.
-Runtime scheduling, playback state persistence, presentation UI, typewriter playback, skip, autoplay, explicit-location entry, and state-effect application remain implementation targets.
+Current data assets and MVP presentation cover part of this shape.
+Automatic loop scheduling, complete branch routing, and the remaining effect-key mutations remain implementation targets.
 
 ------
 

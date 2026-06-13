@@ -28,6 +28,8 @@ public sealed class RemoteScenarioEventDefinition : IScenarioEventDefinition
     public ScenarioTriggerMode TriggerMode { get; set; }
     public IReadOnlyList<ScenarioExplicitLocation> AllowedExplicitLocations { get; set; } = Array.Empty<ScenarioExplicitLocation>();
     public IReadOnlyList<ScenarioCondition> TriggerConditions { get; set; } = Array.Empty<ScenarioCondition>();
+    public IReadOnlyList<ScenarioStateEffect> EntryCosts { get; set; } = Array.Empty<ScenarioStateEffect>();
+    public IReadOnlyList<ScenarioStateEffect> ExitEffects { get; set; } = Array.Empty<ScenarioStateEffect>();
     public ScenarioReplayPolicy ReplayPolicy { get; set; } = new();
     public LocalizedTextTable TextTable { get; set; }
     public IReadOnlyList<ScenarioScriptLine> Lines { get; set; } = Array.Empty<ScenarioScriptLine>();
@@ -206,6 +208,11 @@ public static class RemoteSpreadsheetSnapshotParser
             {
                 Id = id,
                 DefinitionId = row.Value("workId"),
+                ProjectId = row.Value("projectId"),
+                Tier = row.Enum("tier", WorkTier.Sub),
+                ParentEventId = row.Value("parentEventId"),
+                RootEventId = row.Value("rootEventId"),
+                TriggerReason = row.Value("triggerReason"),
                 Kind = row.Required("kind"),
                 Title = row.Required("title"),
                 Subsystem = row.Required("subsystem"),
@@ -268,6 +275,8 @@ public static class RemoteSpreadsheetSnapshotParser
                 TriggerMode = row.Enum("triggerMode", ScenarioTriggerMode.LoopBoundary),
                 AllowedExplicitLocations = ParseJsonList<ScenarioExplicitLocation>(row.Value("allowedExplicitLocationsJson")),
                 TriggerConditions = ParseJsonList<ScenarioCondition>(row.Value("triggerConditionsJson")),
+                EntryCosts = ParseJsonList<ScenarioStateEffect>(row.Value("entryCostsJson")),
+                ExitEffects = ParseJsonList<ScenarioStateEffect>(row.Value("exitEffectsJson")),
                 TextTable = textTable,
                 Lines = ParseJsonList<ScenarioScriptLine>(row.Value("linesJson")),
                 ReplayPolicy = new ScenarioReplayPolicy

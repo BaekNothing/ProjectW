@@ -9,6 +9,8 @@ namespace ProjectW.IngameCore.CaseReview
 public sealed class WorkDefinition : ScriptableObject, IRenderableData
 {
     [SerializeField] private string workId = "";
+    [SerializeField] private string projectId = "";
+    [SerializeField] private WorkTier tier = WorkTier.Sub;
     [SerializeField] private string title = "";
     [SerializeField] private RenderResourceDefinition renderResources;
     [SerializeField] private string kind = "routine";
@@ -40,8 +42,11 @@ public sealed class WorkDefinition : ScriptableObject, IRenderableData
     [SerializeField] private List<string> hiddenFacts = new();
     [TextArea(2, 5)] [SerializeField] private string perkInteractionInfo = "";
     [SerializeField] private WorkSpawnProfile spawnProfile = new();
+    [SerializeField] private List<WorkOutcomeEventLink> outcomeEvents = new();
 
     public string WorkId => workId;
+    public string ProjectId => projectId;
+    public WorkTier Tier => tier;
     public string Title => title;
     public RenderResourceDefinition RenderResources => renderResources;
     public string Kind => kind;
@@ -54,6 +59,7 @@ public sealed class WorkDefinition : ScriptableObject, IRenderableData
     public int BaseSpawnWeight => spawnProfile.BaseSpawnWeight;
     public IReadOnlyList<string> Tags => tags;
     public WorkSpawnProfile SpawnProfile => spawnProfile;
+    public IReadOnlyList<WorkOutcomeEventLink> OutcomeEvents => outcomeEvents;
 
     public int EvaluateSpawnWeight(WorkGenerationContext context)
     {
@@ -72,6 +78,8 @@ public sealed class WorkDefinition : ScriptableObject, IRenderableData
         {
             Id = generatedId,
             DefinitionId = workId,
+            ProjectId = string.IsNullOrWhiteSpace(projectId) ? workId : projectId,
+            Tier = tier,
             Kind = kind,
             Title = title,
             Subsystem = subsystem,
@@ -105,6 +113,42 @@ public sealed class WorkDefinition : ScriptableObject, IRenderableData
     }
 
     private static int Clamp(int value, int min, int max) => Math.Min(max, Math.Max(min, value));
+}
+
+[Serializable]
+public sealed class WorkOutcomeEventLink
+{
+    [SerializeField] private string targetWorkId = "";
+    [SerializeField] private int minOutcomeScore;
+    [SerializeField] private int maxOutcomeScore = 100;
+    [SerializeField] private int minLatentRisk;
+    [Range(0, 100)] [SerializeField] private int chancePercent = 100;
+    [SerializeField] private WorkOutcomeRelation relation = WorkOutcomeRelation.Consequence;
+    [TextArea(1, 3)] [SerializeField] private string reason = "";
+
+    public string TargetWorkId => targetWorkId;
+    public int MinOutcomeScore => minOutcomeScore;
+    public int MaxOutcomeScore => maxOutcomeScore;
+    public int MinLatentRisk => minLatentRisk;
+    public int ChancePercent => chancePercent;
+    public WorkOutcomeRelation Relation => relation;
+    public string Reason => reason;
+
+    public bool Matches(EventCase source)
+    {
+        return source != null
+            && source.OutcomeScore >= minOutcomeScore
+            && source.OutcomeScore <= maxOutcomeScore
+            && source.LatentRisk >= minLatentRisk;
+    }
+}
+
+[Serializable]
+public enum WorkOutcomeRelation
+{
+    Trigger,
+    Transition,
+    Consequence
 }
 
 [Serializable]
