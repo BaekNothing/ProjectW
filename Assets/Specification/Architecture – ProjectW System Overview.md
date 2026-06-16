@@ -605,13 +605,13 @@ MVP Scene의 Dev Tools에는 `SYNC SHEET DATA` 버튼이 있다. 버튼은 Googl
 
 공식 샘플 데이터 작성 위치는 `https://docs.google.com/spreadsheets/d/1AbGMtaZzbHYyKj307znp5Jna7iIBUiG4bSEv9Q30A0s/edit`다. 향후 CaseReview 샘플은 이 워크북에 먼저 작성하며, `work_outcome_events` 탭은 MAIN/SUB 프로젝트 결과 연동 규칙을 보관한다.
 
-`scenarios` 스키마 v3는 `entryCostsJson`, `exitEffectsJson`을 포함한다. 운석 충돌 샘플은 `AllOpenWork`, `WorkLatentRiskDelta +20`, 1일 지속 미래 업무 보정의 기준 예시다.
+`scenarios` 스키마 v5는 시나리오 메타데이터만 보관한다. `scenario_details`는 `SCENARIO`, `LINE`, `CHOICE` 키 하나를 한 행으로 표현하며, 선택지는 `jumpToLineId`로 다른 라인에 점프할 수 있다. `character_details`는 `personnelId` 하나를 한 행으로, `work_details`는 `eventId` 하나를 한 행으로 표현하고 aptitude처럼 고정된 필드는 전용 열로 압축한다.
 
 ```mermaid
 flowchart LR
   BTN["Dev Tools\nSYNC SHEET DATA"]
   MAN["_manifest"]
-  CSV["localized_text / work / outcome events /\ncards / characters / scenarios"]
+  CSV["localized_text / work + details / outcome events /\ncards / characters + details / scenarios + details"]
   VAL["Header / reference / typed model validation"]
   CACHE["persistentDataPath/remote-data"]
   SNAP["RemoteSpreadsheetSnapshot"]
@@ -620,12 +620,12 @@ flowchart LR
   CACHE --> SNAP --> RELOAD
 ```
 
-- 5개 데이터 탭은 하나의 필수 교체 스냅샷이다.
+- 8개 데이터 탭은 하나의 필수 교체 스냅샷이다.
 - 모든 필수 데이터와 상호 참조 검증이 끝난 뒤에만 캐시와 활성 스냅샷을 갱신한다.
 - 교체 성공 후 현재 씬을 다시 로드하여 Day 1 초기 상태부터 새 데이터로 시작한다.
 - 다운로드 실패 시 APK 내장 데이터와 마지막 정상 캐시를 유지한다.
 - 누락되거나 잘못된 탭이 있으면 일부 데이터만 적용하지 않는다.
-- 현재 APK 내장 MVP 데이터는 에디터 메뉴로 6개 CSV(`_manifest` 포함)에 일괄 내보낼 수 있다.
+- 현재 APK 내장 MVP 데이터는 에디터 메뉴로 10개 CSV(`_manifest`, `info` 포함)에 일괄 내보낼 수 있다.
 - `work_definitions` 스키마 v2는 프로젝트 ID, MAIN/SUB, 부모/루트 이벤트 연결을 포함한다.
 
 ---

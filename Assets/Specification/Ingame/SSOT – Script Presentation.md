@@ -305,21 +305,34 @@ Canonical workbook tabs:
 - `work_definitions`, `cards`, `characters`, `scenarios`
   - use stable first-row field names matching their ProjectW data definitions.
   - list values use `|` separators.
-  - nested scenario structures use JSON columns.
+- `work_details`, `character_details`
+  - move nested maps and lists out of the primary rows.
+  - use one row per owning key: one `eventId` row for work details and one `personnelId` row for character details.
+  - expand fixed maps such as aptitude into dedicated columns on that row.
+  - `character_details` stores immutable authored aptitudes only; relationship, memory, trait sample, current card/perk, regeneration, and current operational values are gameplay progress and stay in local save data.
+- `scenario_details`
+  - stores scenario playback rows from top to bottom.
+  - `LINE` rows define dialogue/presentation lines; following `CHOICE` rows attach to `parentLineId`.
+  - blank `jumpToLineId` continues to the next `LINE`; a value jumps to that line's `rowId`.
+  - `scenarioId` groups rows belonging to the same scenario.
+  - each `SCENARIO`, `LINE`, and `CHOICE` key occupies one complete row.
+- `info`
+  - documents each workbook sheet and column with a short role description.
 - `work_outcome_events`
   - stores project result-linked event rules and authoring samples.
   - uses `sourceWorkId`, `targetWorkId`, result/risk thresholds, deterministic chance, relation, and reason.
-  - is downloaded as an optional dataset; runtime rule activation remains owned by the typed work-event pipeline.
+  - is downloaded as a required dataset and parsed into the typed work-event pipeline.
 
 Runtime rules:
 
 - The client downloads `_manifest` first, then downloads enabled sheets over HTTPS.
-- `localized_text`, `work_definitions`, `cards`, `characters`, and `scenarios` are one required replacement snapshot.
+- `localized_text`, `work_definitions`, `work_details`, `work_outcome_events`, `cards`, `characters`, `character_details`, `scenarios`, and `scenario_details` are one required replacement snapshot.
 - Every downloaded CSV and every cross-reference is validated before the cache is replaced.
 - A successful sync replaces the active runtime snapshot and reloads the current scene from its initial state.
 - Failed downloads keep the last valid cache and built-in APK data.
 - Cached files live under `Application.persistentDataPath/remote-data`.
 - Cached replacement data is loaded before the MVP scene initializes.
+- Character progress is stored separately in `Application.persistentDataPath/remote-data/character_progress.json` and is reapplied after a successful sheet replacement.
 - Missing or invalid required tabs never produce a partial replacement.
 - The public spreadsheet must contain game content only. Secrets, credentials, personal information, and server authority data must never be stored in it.
 
@@ -328,7 +341,7 @@ Current implementation:
 - `RemoteSpreadsheetData`
   - downloads, validates, caches, and activates the configured Google Sheets workbook as one snapshot.
 - `RemoteSpreadsheetSnapshotParser`
-  - converts the five CSV datasets into typed initial staff, work, cards, localized text, and scenarios.
+  - converts the required CSV datasets into typed initial staff, work definitions, result-linked work rules, cards, localized text, and scenarios.
 - `CaseReviewMvpSceneController`
   - exposes `SYNC SHEET DATA`, then reloads the active scene after a successful replacement.
 - `RemoteSpreadsheetDataEditor`

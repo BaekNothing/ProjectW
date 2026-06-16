@@ -180,11 +180,13 @@ namespace ProjectW.IngameCore.CaseReview
                 if (completedLine?.Effects != null)
                 {
                     CaseReviewGame.ApplyScenarioEffects(CurrentState, completedLine.Effects, sampleScenario?.EventId);
+                    SaveCharacterLocalProgress();
                 }
 
                 if (scenarioSession.IsEventComplete)
                 {
                     CaseReviewGame.ApplyScenarioEffects(CurrentState, sampleScenario?.ExitEffects, sampleScenario?.EventId);
+                    SaveCharacterLocalProgress();
                     AddLog("Scenario sample completed by autoplay.");
                     HideScenarioOverlay();
                     Render();
@@ -417,6 +419,7 @@ namespace ProjectW.IngameCore.CaseReview
 
             scenarioSession = new ScenarioPlaybackSession(sampleScenario, "ko", "KR");
             CaseReviewGame.ApplyScenarioEffects(CurrentState, sampleScenario.EntryCosts, sampleScenario.EventId);
+            SaveCharacterLocalProgress();
             scenarioTypewriterAccumulator = 0f;
             scenarioAutoPlay = false;
             AddLog($"Scenario sample opened: {sampleScenario.EventId}");
@@ -437,11 +440,13 @@ namespace ProjectW.IngameCore.CaseReview
             if (completedLine?.Effects != null)
             {
                 CaseReviewGame.ApplyScenarioEffects(CurrentState, completedLine.Effects, sampleScenario?.EventId);
+                SaveCharacterLocalProgress();
             }
             scenarioTypewriterAccumulator = 0f;
             if (scenarioSession.IsEventComplete)
             {
                 CaseReviewGame.ApplyScenarioEffects(CurrentState, sampleScenario?.ExitEffects, sampleScenario?.EventId);
+                SaveCharacterLocalProgress();
                 AddLog("Scenario sample completed.");
                 HideScenarioOverlay();
                 Render();
@@ -460,6 +465,7 @@ namespace ProjectW.IngameCore.CaseReview
 
             scenarioSession.Skip();
             CaseReviewGame.ApplyScenarioEffects(CurrentState, sampleScenario?.ExitEffects, sampleScenario?.EventId);
+            SaveCharacterLocalProgress();
             AddLog("Scenario sample skipped.");
             HideScenarioOverlay();
             Render();
@@ -608,7 +614,18 @@ namespace ProjectW.IngameCore.CaseReview
                 }
             }
 
+            SaveCharacterLocalProgress();
             Render();
+        }
+
+        private void SaveCharacterLocalProgress()
+        {
+            if (CurrentState?.Staff == null)
+            {
+                return;
+            }
+
+            CharacterLocalProgressStore.SaveFrom(CurrentState.Staff);
         }
 
         private void Render()
@@ -1337,6 +1354,7 @@ namespace ProjectW.IngameCore.CaseReview
 
             remoteDataSyncing = true;
             remoteDataStatus = "DOWNLOADING";
+            SaveCharacterLocalProgress();
             AddLog("Remote spreadsheet sync started.");
             Render();
             StartCoroutine(RemoteSpreadsheetData.Sync(result =>
@@ -2526,9 +2544,24 @@ namespace ProjectW.IngameCore.CaseReview
                 button.onClick.AddListener(() =>
                 {
                     AddLog($"Scenario choice selected: {choice.ChoiceId}");
+                    var completedLine = scenarioSession.CurrentLine.Source;
+                    CaseReviewGame.ApplyScenarioEffects(CurrentState, completedLine?.Effects, sampleScenario?.EventId);
                     CaseReviewGame.ApplyScenarioEffects(CurrentState, choice.Costs, sampleScenario?.EventId);
                     CaseReviewGame.ApplyScenarioEffects(CurrentState, choice.Effects, sampleScenario?.EventId);
-                    ClickScenarioNext();
+                    SaveCharacterLocalProgress();
+                    scenarioSession.SelectChoice(choice);
+                    scenarioTypewriterAccumulator = 0f;
+                    if (scenarioSession.IsEventComplete)
+                    {
+                        CaseReviewGame.ApplyScenarioEffects(CurrentState, sampleScenario?.ExitEffects, sampleScenario?.EventId);
+                        SaveCharacterLocalProgress();
+                        AddLog("Scenario sample completed.");
+                        HideScenarioOverlay();
+                        Render();
+                        return;
+                    }
+
+                    RenderScenarioOverlay();
                 });
                 var layout = buttonObject.AddComponent<LayoutElement>();
                 layout.minWidth = 220f;

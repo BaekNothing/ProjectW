@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Newtonsoft.Json;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -47,21 +48,36 @@ public static class RemoteSpreadsheetData
             "title",
             "kind",
             "subsystem",
-            "truthFramesJson",
-            "logsJson",
             "projectId",
             "tier"
         },
+        ["work_details"] = new[] { "eventId", "observation", "dexterity", "boldness", "intuition", "logic", "truthFramesJson", "logsJson" },
+        ["work_outcome_events"] = new[] { "sourceWorkId", "targetWorkId", "minOutcomeScore", "maxOutcomeScore", "minLatentRisk", "chancePercent", "relation" },
         ["cards"] = new[] { "cardId", "title" },
-        ["characters"] = new[] { "personnelId", "displayName", "aptitudesJson", "startingDeckIds", "perksJson", "relationshipsJson", "traitSamplesJson" },
+        ["characters"] = new[] { "personnelId", "displayName", "startingDeckIds" },
+        ["character_details"] = new[] { "personnelId", "observation", "dexterity", "boldness", "intuition", "logic" },
         ["scenarios"] = new[]
         {
             "eventId",
-            "timing",
-            "linesJson",
+            "timing"
+        },
+        ["scenario_details"] = new[]
+        {
+            "scenarioId",
+            "rowType",
+            "rowId",
+            "parentLineId",
+            "textKey",
+            "choiceLabelTextKey",
+            "jumpToLineId",
+            "allowedExplicitLocations",
             "triggerConditionsJson",
             "entryCostsJson",
-            "exitEffectsJson"
+            "exitEffectsJson",
+            "stageCommandsJson",
+            "effectsJson",
+            "visibleConditionsJson",
+            "costsJson"
         }
     };
 
@@ -247,6 +263,7 @@ public static class RemoteSpreadsheetData
     private static void ActivateSnapshot(RemoteSpreadsheetSnapshot snapshot)
     {
         ActiveSnapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
+        CharacterLocalProgressStore.ApplyTo(ActiveSnapshot.InitialData.Staff);
         LocalizedTextRuntimeOverrides.Replace(snapshot.LocalizedTextEntries);
     }
 
@@ -340,6 +357,143 @@ public static class RemoteSpreadsheetData
             Message = message ?? "Remote data sync failed.",
             CompletedAtUtc = DateTime.UtcNow
         };
+    }
+}
+
+public sealed class CharacterProgressSnapshot
+{
+    public List<CharacterProgressRecord> Characters { get; set; } = new();
+}
+
+public sealed class CharacterProgressRecord
+{
+    public string PersonnelId { get; set; } = "";
+    public int PhysicalEnergy { get; set; }
+    public int MentalStress { get; set; }
+    public int LoadAssigned { get; set; }
+    public int Fatigue { get; set; }
+    public int Stagnation { get; set; }
+    public int TrustToManager { get; set; }
+    public int RetentionRisk { get; set; }
+    public bool HasLeft { get; set; }
+    public int DaysSinceJoined { get; set; }
+    public int CloneVersion { get; set; }
+    public int RegenerationCount { get; set; }
+    public string RegeneratedFromId { get; set; } = "";
+    public AffinityScope InformationScope { get; set; } = AffinityScope.Surface;
+    public List<ActionCard> Deck { get; set; } = new();
+    public List<PersonnelPerk> Perks { get; set; } = new();
+    public List<PersonnelRelationship> Relationships { get; set; } = new();
+    public List<PersonnelMemory> Memories { get; set; } = new();
+    public List<PersonnelTraitSample> TraitSamples { get; set; } = new();
+}
+
+public static class CharacterLocalProgressStore
+{
+    private const string FileName = "character_progress.json";
+
+    public static void SaveFrom(IEnumerable<Personnel> staff)
+    {
+        Directory.CreateDirectory(RemoteDataFolderPath());
+        var snapshot = new CharacterProgressSnapshot
+        {
+            Characters = (staff ?? Enumerable.Empty<Personnel>())
+                .Where(person => !string.IsNullOrWhiteSpace(person.Id))
+                .Select(ToRecord)
+                .ToList()
+        };
+        File.WriteAllText(ProgressPath(), JsonConvert.SerializeObject(snapshot, Formatting.Indented), new UTF8Encoding(false));
+    }
+
+    public static void ApplyTo(IEnumerable<Personnel> staff)
+    {
+        if (!File.Exists(ProgressPath()))
+        {
+            return;
+        }
+
+        CharacterProgressSnapshot snapshot;
+        try
+        {
+            snapshot = JsonConvert.DeserializeObject<CharacterProgressSnapshot>(File.ReadAllText(ProgressPath(), Encoding.UTF8))
+                ?? new CharacterProgressSnapshot();
+        }
+        catch (Exception exception)
+        {
+            Debug.LogWarning($"Character local progress ignored: {exception.Message}");
+            return;
+        }
+
+        var progressById = snapshot.Characters
+            .Where(record => !string.IsNullOrWhiteSpace(record.PersonnelId))
+            .ToDictionary(record => record.PersonnelId, StringComparer.OrdinalIgnoreCase);
+        foreach (var person in staff ?? Enumerable.Empty<Personnel>())
+        {
+            if (person == null || !progressById.TryGetValue(person.Id, out var progress))
+            {
+                continue;
+            }
+
+            ApplyRecord(person, progress);
+        }
+    }
+
+    public static string ProgressPath()
+    {
+        return Path.Combine(RemoteDataFolderPath(), FileName);
+    }
+
+    private static string RemoteDataFolderPath()
+    {
+        return Path.Combine(Application.persistentDataPath, "remote-data");
+    }
+
+    private static CharacterProgressRecord ToRecord(Personnel person)
+    {
+        return new CharacterProgressRecord
+        {
+            PersonnelId = person.Id,
+            PhysicalEnergy = person.PhysicalEnergy,
+            MentalStress = person.MentalStress,
+            LoadAssigned = person.LoadAssigned,
+            Fatigue = person.Fatigue,
+            Stagnation = person.Stagnation,
+            TrustToManager = person.TrustToManager,
+            RetentionRisk = person.RetentionRisk,
+            HasLeft = person.HasLeft,
+            DaysSinceJoined = person.DaysSinceJoined,
+            CloneVersion = person.CloneVersion,
+            RegenerationCount = person.RegenerationCount,
+            RegeneratedFromId = person.RegeneratedFromId,
+            InformationScope = person.InformationScope,
+            Deck = person.Deck ?? new List<ActionCard>(),
+            Perks = person.Perks ?? new List<PersonnelPerk>(),
+            Relationships = person.Relationships ?? new List<PersonnelRelationship>(),
+            Memories = person.Memories ?? new List<PersonnelMemory>(),
+            TraitSamples = person.TraitSamples ?? new List<PersonnelTraitSample>()
+        };
+    }
+
+    private static void ApplyRecord(Personnel person, CharacterProgressRecord progress)
+    {
+        person.PhysicalEnergy = progress.PhysicalEnergy;
+        person.MentalStress = progress.MentalStress;
+        person.LoadAssigned = progress.LoadAssigned;
+        person.Fatigue = progress.Fatigue;
+        person.Stagnation = progress.Stagnation;
+        person.TrustToManager = progress.TrustToManager;
+        person.RetentionRisk = progress.RetentionRisk;
+        person.HasLeft = progress.HasLeft;
+        person.DaysSinceJoined = progress.DaysSinceJoined;
+        person.CloneVersion = Math.Max(1, progress.CloneVersion);
+        person.RegenerationCount = progress.RegenerationCount;
+        person.RegeneratedFromId = progress.RegeneratedFromId ?? "";
+        person.InformationScope = progress.InformationScope;
+        person.Deck = progress.Deck ?? new List<ActionCard>();
+        person.Perks = progress.Perks ?? new List<PersonnelPerk>();
+        person.Relationships = progress.Relationships ?? new List<PersonnelRelationship>();
+        person.Memories = progress.Memories ?? new List<PersonnelMemory>();
+        person.TraitSamples = progress.TraitSamples ?? new List<PersonnelTraitSample>();
     }
 }
 

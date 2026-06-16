@@ -61,6 +61,52 @@ public sealed class WorkDefinition : ScriptableObject, IRenderableData
     public WorkSpawnProfile SpawnProfile => spawnProfile;
     public IReadOnlyList<WorkOutcomeEventLink> OutcomeEvents => outcomeEvents;
 
+    public static WorkDefinition CreateRuntime(EventCase source, IEnumerable<WorkOutcomeEventLink> links = null)
+    {
+        if (source == null)
+        {
+            throw new ArgumentNullException(nameof(source));
+        }
+
+        var definition = CreateInstance<WorkDefinition>();
+        definition.workId = string.IsNullOrWhiteSpace(source.DefinitionId) ? source.Id : source.DefinitionId;
+        definition.projectId = source.ProjectId;
+        definition.tier = source.Tier;
+        definition.title = source.Title;
+        definition.kind = source.Kind;
+        definition.subsystem = source.Subsystem;
+        definition.importance = source.Importance;
+        definition.volume = source.Volume;
+        definition.risk = Math.Max(0, (source.Severity - source.Importance) * 2);
+        definition.latentRisk = source.LatentRisk;
+        definition.urgency = source.Urgency;
+        definition.ttlSec = source.TtlSec;
+        definition.baseSuccessChance = source.BaseSuccessChance;
+        definition.mismatchScore = source.MismatchScore;
+        definition.physicalCost = source.PhysicalCost;
+        definition.mentalCost = source.MentalCost;
+        definition.requiredAptitudes = source.RequiredAptitudes
+            .Select(pair => new WorkAptitudeRequirement { Key = pair.Key, Value = pair.Value })
+            .ToList();
+        definition.recommendedPersonnelCount = source.RecommendedPersonnelCount;
+        definition.minPersonnelCount = source.MinPersonnelCount;
+        definition.maxPersonnelCount = source.MaxPersonnelCount;
+        definition.concurrentLimit = source.ConcurrentLimit;
+        definition.concurrentSlotCost = source.ConcurrentSlotCost;
+        definition.splitPenalty = source.SplitPenalty;
+        definition.soloPenalty = source.SoloPenalty;
+        definition.tags = new List<string>(source.Tags ?? new List<string>());
+        definition.perkTags = new List<string>(source.PerkTags ?? new List<string>());
+        definition.cardHooks = new List<string>(source.CardHooks ?? new List<string>());
+        definition.bossReactionTags = new List<string>(source.BossReactionTags ?? new List<string>());
+        definition.memoryHooks = new List<string>(source.MemoryHooks ?? new List<string>());
+        definition.visibleSummary = source.VisibleSummary;
+        definition.hiddenFacts = new List<string>(source.HiddenFacts ?? new List<string>());
+        definition.perkInteractionInfo = source.PerkInteractionInfo;
+        definition.outcomeEvents = (links ?? Array.Empty<WorkOutcomeEventLink>()).ToList();
+        return definition;
+    }
+
     public int EvaluateSpawnWeight(WorkGenerationContext context)
     {
         return spawnProfile.Evaluate(context);
@@ -133,6 +179,27 @@ public sealed class WorkOutcomeEventLink
     public int ChancePercent => chancePercent;
     public WorkOutcomeRelation Relation => relation;
     public string Reason => reason;
+
+    public static WorkOutcomeEventLink CreateRuntime(
+        string targetWorkId,
+        int minOutcomeScore,
+        int maxOutcomeScore,
+        int minLatentRisk,
+        int chancePercent,
+        WorkOutcomeRelation relation,
+        string reason)
+    {
+        return new WorkOutcomeEventLink
+        {
+            targetWorkId = targetWorkId ?? "",
+            minOutcomeScore = minOutcomeScore,
+            maxOutcomeScore = maxOutcomeScore,
+            minLatentRisk = minLatentRisk,
+            chancePercent = Math.Max(0, Math.Min(100, chancePercent)),
+            relation = relation,
+            reason = reason ?? ""
+        };
+    }
 
     public bool Matches(EventCase source)
     {

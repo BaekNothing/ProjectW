@@ -297,6 +297,42 @@ public sealed class ScenarioPlaybackSession
         MoveNextLine();
     }
 
+    public void SelectChoice(ScenarioChoice choice)
+    {
+        if (IsEventComplete || !IsLineComplete || choice is null)
+        {
+            return;
+        }
+
+        var availableChoice = CurrentLine.Source?.Choices?
+            .FirstOrDefault(candidate => candidate.ChoiceId.Equals(choice.ChoiceId, StringComparison.OrdinalIgnoreCase));
+        if (availableChoice is null)
+        {
+            throw new InvalidOperationException($"Choice '{choice.ChoiceId}' is not available on the current line.");
+        }
+
+        if (string.IsNullOrWhiteSpace(availableChoice.NextLineId))
+        {
+            MoveNextLine();
+            return;
+        }
+
+        var targetIndex = definition.Lines
+            .Select((line, index) => new { line, index })
+            .Where(item => item.line.LineId.Equals(availableChoice.NextLineId, StringComparison.OrdinalIgnoreCase))
+            .Select(item => item.index)
+            .DefaultIfEmpty(-1)
+            .First();
+        if (targetIndex < 0)
+        {
+            throw new InvalidOperationException(
+                $"Choice '{availableChoice.ChoiceId}' targets missing line '{availableChoice.NextLineId}'.");
+        }
+
+        lineIndex = targetIndex;
+        LoadCurrentLine();
+    }
+
     public void Skip()
     {
         if (IsEventComplete)

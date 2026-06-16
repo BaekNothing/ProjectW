@@ -126,6 +126,28 @@ namespace ProjectW.Tests.EditMode
         }
 
         [Test]
+        public void PlaybackSession_ChoiceCanJumpToNamedLine()
+        {
+            var scenario = Scenario("scenario.branch");
+            var choice = new ScenarioChoice { ChoiceId = "skip", NextLineId = "L3" };
+            scenario.MutableLines.Add(new ScenarioScriptLine
+            {
+                LineId = "L1",
+                TextKey = "Choose",
+                Choices = new List<ScenarioChoice> { choice }
+            });
+            scenario.MutableLines.Add(new ScenarioScriptLine { LineId = "L2", TextKey = "Skipped" });
+            scenario.MutableLines.Add(new ScenarioScriptLine { LineId = "L3", TextKey = "Target" });
+            var session = new ScenarioPlaybackSession(scenario, "ko", "KR");
+
+            session.Click();
+            session.SelectChoice(choice);
+
+            Assert.AreEqual("L3", session.CurrentLine.Source.LineId);
+            Assert.AreEqual("Target", session.CurrentLine.Text);
+        }
+
+        [Test]
         public void PlaybackSession_LaysOutPortraitsByEqualBands()
         {
             var scenario = Scenario("scenario.portraits");
