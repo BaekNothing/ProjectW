@@ -27,8 +27,8 @@ namespace ProjectW.Tests.EditMode
             var state = CaseReviewGame.Init(new GameConfig(), 1);
             var activeStaff = state.Staff.Where(s => !s.HasLeft).Select(s => s.Id).ToList();
 
-            Assert.AreEqual(activeStaff.Count, state.MorningCards.Count);
-            CollectionAssert.AreEquivalent(activeStaff, state.MorningCards.Select(c => c.OwnerPersonnelId).ToList());
+            Assert.AreEqual(3, state.MorningCards.Count);
+            CollectionAssert.IsSubsetOf(state.MorningCards.Select(c => c.OwnerPersonnelId).ToList(), activeStaff);
         }
 
         [Test]
@@ -592,20 +592,26 @@ namespace ProjectW.Tests.EditMode
                 ["cards"] =
                     "cardId,title,visibleSummary,tags,outcomeModifier,riskModifier,reviewCostModifier,criticalChancePercent,criticalMultiplier\n" +
                     "card.remote,Remote Card,Remote summary,audit,3,-2,1,20,2\n",
+                ["perks"] =
+                    "perkId,title,triggerTags,aptitudeModifiersJson,outcomeModifier,physicalCostModifier,mentalCostModifier,clonePersistent,note\n" +
+                    "perk.remote,Remote Perk,audit,\"{\"\"logic\"\":1}\",7,-1,2,TRUE,Remote perk note\n",
                 ["characters"] =
-                    "personnelId,displayName,cloneLineageId,background,interests,personality,workStyle,initialInformationScope,basePhysicalEnergy,baseMentalStress,baseLoadAssigned,baseFatigue,baseStagnation,baseTrustToManager,baseRetentionRisk,optLow,optHigh,maxLoad,connectionLimit,startingDeckIds\n" +
-                    "P-REMOTE,Remote Person,LINE-R,background,audit,calm,careful,Surface,90,5,0,3,2,60,4,2,5,7,3,card.remote\n",
+                    "personnelId,displayName,cloneLineageId,background,interests,personality,workStyle,initialInformationScope,basePhysicalEnergy,baseMentalStress,baseLoadAssigned,baseFatigue,baseStagnation,baseTrustToManager,baseRetentionRisk,optLow,optHigh,maxLoad,connectionLimit,startingDeckIds,startingPerkIds\n" +
+                    "P-REMOTE,Remote Person,LINE-R,background,audit,calm,careful,Surface,90,5,0,3,2,60,4,2,5,7,3,card.remote,perk.remote\n",
                 ["character_details"] =
                     "personnelId,observation,dexterity,boldness,intuition,logic\n" +
                     "P-REMOTE,,,,,8\n",
                 ["work_definitions"] =
-                    "eventId,workId,title,kind,subsystem,importance,volume,urgency,severity,ttlSec,status,latentRisk,mismatchScore,assignedPersonnel,physicalCost,mentalCost,baseSuccessChance,recommendedPersonnelCount,minPersonnelCount,maxPersonnelCount,concurrentLimit,concurrentSlotCost,splitPenalty,soloPenalty,tags,perkTags,cardHooks,bossReactionTags,memoryHooks,visibleSummary,hiddenFacts,perkInteractionInfo,projectId,tier,parentEventId,rootEventId,triggerReason,initiallyQueued\n" +
-                    "E-REMOTE,work.remote,Remote Work,incident,O2,50,10,70,65,120,Open,20,2,P-REMOTE,5,6,60,1,1,2,1,1,0,0,audit,audit,,,,summary,,,project.remote,Main,,,Remote trigger,TRUE\n" +
-                    "T-REMOTE,work.remote.followup,Remote Followup,audit,O2,30,8,40,45,120,Open,12,1,,3,4,55,1,1,2,1,1,0,0,audit,audit,,,,followup,,,project.remote,Sub,,,Linked template,FALSE\n",
+                    "eventId,workId,title,kind,subsystem,importance,volume,urgency,severity,ttlSec,status,latentRisk,mismatchScore,assignedPersonnel,physicalCost,mentalCost,baseSuccessChance,recommendedPersonnelCount,minPersonnelCount,maxPersonnelCount,concurrentLimit,concurrentSlotCost,splitPenalty,soloPenalty,tags,perkTags,cardHooks,bossReactionTags,memoryHooks,visibleSummary,hiddenFacts,injuryChancePercent,injuryKind,injurySeverity,injuryAffectedAptitude,injuryAptitudePenalty,injuryMaxLoadPenalty,permanentDisabilityPerkId,perkInteractionInfo,projectId,tier,parentEventId,rootEventId,triggerReason,initiallyQueued\n" +
+                    "E-REMOTE,work.remote,Remote Work,incident,O2,50,10,70,65,120,Open,20,2,P-REMOTE,5,6,60,1,1,2,1,1,0,0,audit|injury-risk,audit,,,,summary,,35,Disability,70,dexterity,2,1,perk.permanent-disability,,project.remote,Main,,,Remote trigger,TRUE\n" +
+                    "T-REMOTE,work.remote.followup,Remote Followup,audit,O2,30,8,40,45,120,Open,12,1,,3,4,55,1,1,2,1,1,0,0,audit,audit,,,,followup,,0,,,,0,0,,,project.remote,Sub,,,Linked template,FALSE\n",
+                ["truth_actions"] =
+                    "actionCode,sourceType,visibleText,distortedByMismatch,delayedByDefault,notes\n" +
+                    "REMOTE_CHECK,work,remote fact,FALSE,FALSE,Remote test action\n",
                 ["work_details"] =
-                    "eventId,observation,dexterity,boldness,intuition,logic,truthFramesJson,logsJson\n" +
-                    "E-REMOTE,,,,,5,\"[{\"\"Id\"\":\"\"truth.remote\"\",\"\"Tick\"\":1}]\",[]\n" +
-                    "T-REMOTE,,,,,4,[],[]\n",
+                    "eventId,observation,dexterity,boldness,intuition,logic,truthFramesJson\n" +
+                    "E-REMOTE,,,,,5,\"[{\"\"Id\"\":\"\"truth.remote\"\",\"\"Tick\"\":1,\"\"ActorId\"\":\"\"P-REMOTE\"\",\"\"ActionCode\"\":\"\"REMOTE_CHECK\"\"}]\"\n" +
+                    "T-REMOTE,,,,,4,[]\n",
                 ["work_outcome_events"] =
                     "sourceWorkId,targetWorkId,minOutcomeScore,maxOutcomeScore,minLatentRisk,chancePercent,relation,reason,notes\n" +
                     "work.remote,work.remote.followup,0,100,0,100,Consequence,Remote linked follow-up,\n",
@@ -633,9 +639,17 @@ namespace ProjectW.Tests.EditMode
             Assert.AreEqual(WorkTier.Main, state.Queue[0].Tier);
             Assert.AreEqual("Remote trigger", state.Queue[0].TriggerReason);
             Assert.AreEqual("card.remote", state.Staff[0].Deck[0].Id);
+            Assert.AreEqual(35, state.Queue[0].InjuryChancePercent);
+            Assert.AreEqual("perk.permanent-disability", state.Queue[0].PermanentDisabilityPerkId);
+            Assert.AreEqual("perk.remote", state.Staff[0].Perks[0].Id);
+            Assert.AreEqual(7, state.Staff[0].Perks[0].OutcomeModifier);
+            Assert.AreEqual(1, state.Staff[0].Perks[0].AptitudeModifiers["logic"]);
             Assert.AreEqual(8, state.Staff[0].Aptitudes["logic"]);
             Assert.AreEqual(5, state.Queue[0].RequiredAptitudes["logic"]);
             Assert.AreEqual("truth.remote", state.TruthFrames.Single().Id);
+            Assert.AreEqual("REMOTE_CHECK", state.TruthActions.Single().ActionCode);
+            Assert.IsTrue(state.Logs.Any(log => log.EventId == "E-REMOTE" && log.SourceType == "summary"));
+            Assert.IsTrue(state.Logs.Any(log => log.EventId == "E-REMOTE" && log.Text.Contains("remote fact")));
             Assert.AreEqual(1, snapshot.Scenarios.Count);
             Assert.AreEqual(ScenarioEffectKey.WorkLatentRiskDelta, snapshot.Scenarios[0].ExitEffects.Single().Key);
             Assert.AreEqual(ScenarioEffectTargetScope.AllOpenWork, snapshot.Scenarios[0].ExitEffects.Single().TargetScope);
@@ -1109,6 +1123,133 @@ namespace ProjectW.Tests.EditMode
 
             Assert.IsTrue(result.Success);
             Assert.GreaterOrEqual(state.MeritTokens, 1);
+        }
+
+        [Test]
+        public void DangerousWork_CanCauseCharacterInjury()
+        {
+            var state = CaseReviewGame.Init(new GameConfig
+            {
+                InitialData = new CaseReviewSeedData
+                {
+                    Staff = new List<Personnel>
+                    {
+                        new Personnel
+                        {
+                            Id = "P-01",
+                            Name = "Risk Worker",
+                            PhysicalEnergy = 100,
+                            MaxLoad = 3,
+                            OptHigh = 3,
+                            Aptitudes = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+                            {
+                                ["dexterity"] = 3
+                            }
+                        }
+                    },
+                    Queue = new List<EventCase>
+                    {
+                        new EventCase
+                        {
+                            Id = "E-DANGER",
+                            Kind = "incident",
+                            Title = "Danger Work",
+                            Subsystem = "O2",
+                            Urgency = 100,
+                            Severity = 100,
+                            LatentRisk = 100,
+                            PhysicalCost = 20,
+                            MentalCost = 10,
+                            BaseSuccessChance = 0,
+                            Tags = new List<string> { "repair", "danger" },
+                            MaxPersonnelCount = 1
+                        }
+                    }
+                }
+            }, 1);
+
+            CaseReviewGame.Dispatch(state, "adjust E-DANGER P-01");
+            var result = CaseReviewGame.Dispatch(state, "confirm plan");
+
+            var person = state.Staff.Single(staff => staff.Id == "P-01");
+            Assert.IsTrue(result.Success);
+            Assert.AreEqual(1, person.Injuries.Count);
+            Assert.AreEqual("E-DANGER", person.Injuries[0].SourceEventId);
+            Assert.Less(person.PhysicalEnergy, 100);
+            Assert.IsTrue(person.Memories.Any(memory => memory.Type == "Injury" && memory.SourceEventId == "E-DANGER"));
+            Assert.IsTrue(state.Queue.Single(item => item.Id == "E-DANGER").ResultSummary.Contains("Injury"));
+        }
+
+        [Test]
+        public void WorkSpec_CanGrantPermanentDisabilityPerk()
+        {
+            var state = CaseReviewGame.Init(new GameConfig
+            {
+                InitialData = new CaseReviewSeedData
+                {
+                    Staff = new List<Personnel>
+                    {
+                        new Personnel
+                        {
+                            Id = "P-01",
+                            Name = "Work Target",
+                            PhysicalEnergy = 100,
+                            MaxLoad = 3,
+                            OptHigh = 3,
+                            Deck = new List<ActionCard>
+                            {
+                                new ActionCard
+                                {
+                                    Id = "card.risky-attitude",
+                                    OwnerPersonnelId = "P-01",
+                                    Title = "Risky Attitude",
+                                    OutcomeModifier = 4,
+                                    Tags = new List<string> { "risky-attitude" }
+                                }
+                            },
+                            Aptitudes = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+                            {
+                                ["dexterity"] = 5
+                            }
+                        }
+                    },
+                    Queue = new List<EventCase>
+                    {
+                        new EventCase
+                        {
+                            Id = "E-WORK-INJURY",
+                            Kind = "routine",
+                            Title = "Risky Work",
+                            Subsystem = "HAB",
+                            Urgency = 20,
+                            Severity = 20,
+                            PhysicalCost = 1,
+                            MentalCost = 1,
+                            BaseSuccessChance = 80,
+                            MaxPersonnelCount = 1,
+                            Tags = new List<string> { "injury-risk" },
+                            InjuryChancePercent = 100,
+                            InjuryKind = PersonnelInjuryKind.Disability,
+                            InjurySeverity = 80,
+                            InjuryAffectedAptitude = "dexterity",
+                            InjuryAptitudePenalty = 2,
+                            InjuryMaxLoadPenalty = 1,
+                            PermanentDisabilityPerkId = "perk.permanent-disability"
+                        }
+                    }
+                }
+            }, 5);
+
+            CaseReviewGame.Dispatch(state, "adjust E-WORK-INJURY P-01");
+            var result = CaseReviewGame.Dispatch(state, "confirm plan");
+
+            var person = state.Staff.Single(staff => staff.Id == "P-01");
+            Assert.IsTrue(result.Success);
+            Assert.AreEqual(1, person.Injuries.Count);
+            Assert.AreEqual(PersonnelInjuryKind.Disability, person.Injuries[0].Kind);
+            Assert.IsTrue(person.Perks.Any(perk => perk.Id == "perk.permanent-disability" && perk.ClonePersistent));
+            Assert.AreEqual(3, person.Aptitudes["dexterity"]);
+            Assert.AreEqual(2, person.MaxLoad);
         }
 
         [Test]

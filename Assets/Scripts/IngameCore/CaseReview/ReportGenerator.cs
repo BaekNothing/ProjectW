@@ -149,6 +149,11 @@ public sealed class TemplateReportGenerator : IReportGenerator
 
     private static string StaffMemo(Personnel staff)
     {
+        if ((staff.Injuries?.Count ?? 0) > 0)
+        {
+            var latest = staff.Injuries.OrderByDescending(injury => injury.DayAcquired).First();
+            return $"INJURY {latest.Kind} severity {latest.Severity}. Work assignment risk must be reviewed.";
+        }
         if (staff.HasLeft) return "이미 이탈하여 다음 계획서에 배정할 수 없습니다.";
         if (staff.RetentionRisk >= 70) return "이탈 위험이 높습니다. 부하 경감 또는 신뢰 회복 조치가 필요합니다.";
         if (staff.LoadAssigned > staff.OptHigh) return "부하가 적정 상한을 넘었습니다.";

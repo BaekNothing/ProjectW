@@ -40,6 +40,13 @@ public sealed class WorkDefinition : ScriptableObject, IRenderableData
     [SerializeField] private List<string> memoryHooks = new();
     [TextArea(2, 5)] [SerializeField] private string visibleSummary = "";
     [SerializeField] private List<string> hiddenFacts = new();
+    [SerializeField] private int injuryChancePercent;
+    [SerializeField] private PersonnelInjuryKind injuryKind = PersonnelInjuryKind.CriticalInjury;
+    [SerializeField] private int injurySeverity = 50;
+    [SerializeField] private string injuryAffectedAptitude = "";
+    [SerializeField] private int injuryAptitudePenalty = 1;
+    [SerializeField] private int injuryMaxLoadPenalty;
+    [SerializeField] private string permanentDisabilityPerkId = "";
     [TextArea(2, 5)] [SerializeField] private string perkInteractionInfo = "";
     [SerializeField] private WorkSpawnProfile spawnProfile = new();
     [SerializeField] private List<WorkOutcomeEventLink> outcomeEvents = new();
@@ -102,6 +109,13 @@ public sealed class WorkDefinition : ScriptableObject, IRenderableData
         definition.memoryHooks = new List<string>(source.MemoryHooks ?? new List<string>());
         definition.visibleSummary = source.VisibleSummary;
         definition.hiddenFacts = new List<string>(source.HiddenFacts ?? new List<string>());
+        definition.injuryChancePercent = source.InjuryChancePercent;
+        definition.injuryKind = source.InjuryKind;
+        definition.injurySeverity = source.InjurySeverity;
+        definition.injuryAffectedAptitude = source.InjuryAffectedAptitude;
+        definition.injuryAptitudePenalty = source.InjuryAptitudePenalty;
+        definition.injuryMaxLoadPenalty = source.InjuryMaxLoadPenalty;
+        definition.permanentDisabilityPerkId = source.PermanentDisabilityPerkId;
         definition.perkInteractionInfo = source.PerkInteractionInfo;
         definition.outcomeEvents = (links ?? Array.Empty<WorkOutcomeEventLink>()).ToList();
         return definition;
@@ -154,6 +168,13 @@ public sealed class WorkDefinition : ScriptableObject, IRenderableData
             MemoryHooks = new List<string>(memoryHooks),
             VisibleSummary = visibleSummary,
             HiddenFacts = new List<string>(hiddenFacts),
+            InjuryChancePercent = injuryChancePercent,
+            InjuryKind = injuryKind,
+            InjurySeverity = injurySeverity,
+            InjuryAffectedAptitude = injuryAffectedAptitude,
+            InjuryAptitudePenalty = injuryAptitudePenalty,
+            InjuryMaxLoadPenalty = injuryMaxLoadPenalty,
+            PermanentDisabilityPerkId = permanentDisabilityPerkId,
             PerkInteractionInfo = perkInteractionInfo
         };
     }

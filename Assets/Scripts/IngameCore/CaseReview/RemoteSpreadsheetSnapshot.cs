@@ -53,9 +53,11 @@ public static class RemoteSpreadsheetSnapshotParser
     {
         "localized_text",
         "work_definitions",
+        "truth_actions",
         "work_details",
         "work_outcome_events",
         "cards",
+        "perks",
         "characters",
         "character_details",
         "scenarios",
@@ -76,12 +78,15 @@ public static class RemoteSpreadsheetSnapshotParser
         var textTable = ScriptableObject.CreateInstance<LocalizedTextTable>();
         textTable.ReplaceEntries(localizedEntries);
         var cards = ParseCards(datasets["cards"]);
+        var perks = ParsePerks(datasets["perks"]);
         var characterDetails = ParseCharacterDetails(datasets["character_details"]);
-        var staff = ParseCharacters(datasets["characters"], characterDetails, cards);
+        var staff = ParseCharacters(datasets["characters"], characterDetails, cards, perks);
+        var truthActions = ParseTruthActions(datasets["truth_actions"]);
         var workDetails = ParseWorkDetails(datasets["work_details"]);
         var outcomeEvents = ParseWorkOutcomeEvents(datasets["work_outcome_events"]);
         var initialData = ParseWorkData(datasets["work_definitions"], workDetails, outcomeEvents);
         initialData.Staff = staff;
+        initialData.TruthActions = truthActions;
         var scenarioDetails = ParseScenarioDetails(datasets["scenario_details"]);
         var scenarios = ParseScenarios(datasets["scenarios"], textTable, scenarioDetails);
         var knownScenarioIds = new HashSet<string>(
@@ -145,10 +150,40 @@ public static class RemoteSpreadsheetSnapshotParser
         return cards;
     }
 
+    private static Dictionary<string, PersonnelPerk> ParsePerks(string csv)
+    {
+        var table = CsvTable.Read(csv);
+        var perks = new Dictionary<string, PersonnelPerk>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in table.Rows)
+        {
+            var id = row.Required("perkId");
+            if (perks.ContainsKey(id))
+            {
+                throw new FormatException($"Duplicate perkId '{id}'.");
+            }
+
+            perks[id] = new PersonnelPerk
+            {
+                Id = id,
+                Name = row.Required("title"),
+                TriggerTags = ParsePipeList(row.Value("triggerTags")),
+                AptitudeModifiers = ParseIntMap(row.Value("aptitudeModifiersJson")),
+                OutcomeModifier = row.Int("outcomeModifier"),
+                PhysicalCostModifier = row.Int("physicalCostModifier"),
+                MentalCostModifier = row.Int("mentalCostModifier"),
+                ClonePersistent = row.Bool("clonePersistent"),
+                Note = row.Value("note")
+            };
+        }
+
+        return perks;
+    }
+
     private static List<Personnel> ParseCharacters(
         string csv,
         IReadOnlyDictionary<string, CharacterDetailData> details,
-        IReadOnlyDictionary<string, ActionCard> cards)
+        IReadOnlyDictionary<string, ActionCard> cards,
+        IReadOnlyDictionary<string, PersonnelPerk> perks)
     {
         var table = CsvTable.Read(csv);
         var staff = new List<Personnel>();
@@ -194,6 +229,16 @@ public static class RemoteSpreadsheetSnapshotParser
                 }
 
                 person.Deck.Add(CloneCard(source, id));
+            }
+
+            foreach (var perkId in ParsePipeList(row.Value("startingPerkIds")))
+            {
+                if (!perks.TryGetValue(perkId, out var source))
+                {
+                    throw new FormatException($"Character '{id}' references missing perk '{perkId}'.");
+                }
+
+                person.Perks.Add(ClonePerk(source));
             }
 
             staff.Add(person);
@@ -267,14 +312,42 @@ public static class RemoteSpreadsheetSnapshotParser
                 frame.EventId = eventId;
             }
 
-            details.Logs = ParseJsonList<VisibleLog>(row.Value("logsJson"));
-            foreach (var log in details.Logs)
-            {
-                log.EventId = eventId;
-            }
         }
 
         return result;
+    }
+
+    private static List<TruthActionDefinition> ParseTruthActions(string csv)
+    {
+        var table = CsvTable.Read(csv);
+        var result = new List<TruthActionDefinition>();
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in table.Rows)
+        {
+            var actionCode = row.Required("actionCode");
+            if (!ids.Add(actionCode))
+            {
+                throw new FormatException($"Duplicate truth actionCode '{actionCode}'.");
+            }
+
+            result.Add(new TruthActionDefinition
+            {
+                ActionCode = actionCode,
+                SourceType = NormalizeSourceType(row.Value("sourceType")),
+                VisibleText = row.Required("visibleText"),
+                DistortedByMismatch = row.Bool("distortedByMismatch"),
+                DelayedByDefault = row.Bool("delayedByDefault"),
+                Notes = row.Value("notes")
+            });
+        }
+
+        return result;
+    }
+
+    private static string NormalizeSourceType(string value)
+    {
+        var sourceType = string.IsNullOrWhiteSpace(value) ? "work" : value.Trim().ToLowerInvariant();
+        return sourceType is "summary" or "work" or "equip" or "rel" ? sourceType : "work";
     }
 
     private static Dictionary<string, List<WorkOutcomeEventLink>> ParseWorkOutcomeEvents(string csv)
@@ -369,6 +442,13 @@ public static class RemoteSpreadsheetSnapshotParser
                 MemoryHooks = ParsePipeList(row.Value("memoryHooks")),
                 VisibleSummary = row.Value("visibleSummary"),
                 HiddenFacts = ParsePipeList(row.Value("hiddenFacts")),
+                InjuryChancePercent = row.Int("injuryChancePercent"),
+                InjuryKind = row.Enum("injuryKind", PersonnelInjuryKind.CriticalInjury),
+                InjurySeverity = row.Int("injurySeverity", 50),
+                InjuryAffectedAptitude = row.Value("injuryAffectedAptitude"),
+                InjuryAptitudePenalty = row.Int("injuryAptitudePenalty", 1),
+                InjuryMaxLoadPenalty = row.Int("injuryMaxLoadPenalty"),
+                PermanentDisabilityPerkId = row.Value("permanentDisabilityPerkId"),
                 PerkInteractionInfo = row.Value("perkInteractionInfo")
             };
 
@@ -390,9 +470,6 @@ public static class RemoteSpreadsheetSnapshotParser
             data.TruthFrames.AddRange(detail.TruthFrames.Count > 0
                 ? detail.TruthFrames
                 : ParseJsonList<TruthFrame>(row.Value("truthFramesJson")));
-            data.Logs.AddRange(detail.Logs.Count > 0
-                ? detail.Logs
-                : ParseJsonList<VisibleLog>(row.Value("logsJson")));
         }
 
         var missingSource = outcomeEvents.Keys.FirstOrDefault(key => !definitionIds.Contains(key));
@@ -600,6 +677,24 @@ public static class RemoteSpreadsheetSnapshotParser
         };
     }
 
+    private static PersonnelPerk ClonePerk(PersonnelPerk source)
+    {
+        return new PersonnelPerk
+        {
+            Id = source.Id,
+            Name = source.Name,
+            TriggerTags = new List<string>(source.TriggerTags ?? new List<string>()),
+            AptitudeModifiers = new Dictionary<string, int>(
+                source.AptitudeModifiers ?? new Dictionary<string, int>(),
+                StringComparer.OrdinalIgnoreCase),
+            OutcomeModifier = source.OutcomeModifier,
+            PhysicalCostModifier = source.PhysicalCostModifier,
+            MentalCostModifier = source.MentalCostModifier,
+            ClonePersistent = source.ClonePersistent,
+            Note = source.Note
+        };
+    }
+
     private static List<string> ParsePipeList(string value)
     {
         return (value ?? "")
@@ -667,7 +762,6 @@ public sealed class WorkDetailData
     public bool HasCompressedRow { get; set; }
     public Dictionary<string, int> RequiredAptitudes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public List<TruthFrame> TruthFrames { get; set; } = new();
-    public List<VisibleLog> Logs { get; set; } = new();
 }
 
 public sealed class CsvTable

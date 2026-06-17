@@ -51,10 +51,12 @@ public static class RemoteSpreadsheetData
             "projectId",
             "tier"
         },
-        ["work_details"] = new[] { "eventId", "observation", "dexterity", "boldness", "intuition", "logic", "truthFramesJson", "logsJson" },
+        ["truth_actions"] = new[] { "actionCode", "sourceType", "visibleText" },
+        ["work_details"] = new[] { "eventId", "observation", "dexterity", "boldness", "intuition", "logic", "truthFramesJson" },
         ["work_outcome_events"] = new[] { "sourceWorkId", "targetWorkId", "minOutcomeScore", "maxOutcomeScore", "minLatentRisk", "chancePercent", "relation" },
         ["cards"] = new[] { "cardId", "title" },
-        ["characters"] = new[] { "personnelId", "displayName", "startingDeckIds" },
+        ["perks"] = new[] { "perkId", "title", "triggerTags", "outcomeModifier", "physicalCostModifier", "mentalCostModifier", "clonePersistent" },
+        ["characters"] = new[] { "personnelId", "displayName", "startingDeckIds", "startingPerkIds" },
         ["character_details"] = new[] { "personnelId", "observation", "dexterity", "boldness", "intuition", "logic" },
         ["scenarios"] = new[]
         {
@@ -386,6 +388,7 @@ public sealed class CharacterProgressRecord
     public List<PersonnelRelationship> Relationships { get; set; } = new();
     public List<PersonnelMemory> Memories { get; set; } = new();
     public List<PersonnelTraitSample> TraitSamples { get; set; } = new();
+    public List<PersonnelInjury> Injuries { get; set; } = new();
 }
 
 public static class CharacterLocalProgressStore
@@ -470,7 +473,8 @@ public static class CharacterLocalProgressStore
             Perks = person.Perks ?? new List<PersonnelPerk>(),
             Relationships = person.Relationships ?? new List<PersonnelRelationship>(),
             Memories = person.Memories ?? new List<PersonnelMemory>(),
-            TraitSamples = person.TraitSamples ?? new List<PersonnelTraitSample>()
+            TraitSamples = person.TraitSamples ?? new List<PersonnelTraitSample>(),
+            Injuries = person.Injuries ?? new List<PersonnelInjury>()
         };
     }
 
@@ -494,6 +498,7 @@ public static class CharacterLocalProgressStore
         person.Relationships = progress.Relationships ?? new List<PersonnelRelationship>();
         person.Memories = progress.Memories ?? new List<PersonnelMemory>();
         person.TraitSamples = progress.TraitSamples ?? new List<PersonnelTraitSample>();
+        person.Injuries = progress.Injuries ?? new List<PersonnelInjury>();
     }
 }
 

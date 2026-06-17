@@ -10,6 +10,7 @@ public sealed class GameConfig
     public int MorningSeconds { get; set; } = 90;
     public int NoonSeconds { get; set; } = 210;
     public int EveningSeconds { get; set; } = 120;
+    public int MorningCardLimit { get; set; } = 3;
     public bool UseTimePressure { get; set; }
     public int QueueSoftCap { get; set; } = 6;
     public int QueueHardCap { get; set; } = 10;
@@ -26,6 +27,7 @@ public sealed class CaseReviewSeedData
     public List<Personnel> Staff { get; set; } = new();
     [IgnoreDataMember] public List<CharacterRuntimeData> CharacterData { get; set; } = new();
     [IgnoreDataMember] public List<WorkDefinition> WorkDefinitions { get; set; } = new();
+    public List<TruthActionDefinition> TruthActions { get; set; } = new();
     public List<EventCase> Queue { get; set; } = new();
     public List<TruthFrame> TruthFrames { get; set; } = new();
     public List<VisibleLog> Logs { get; set; } = new();
@@ -54,6 +56,7 @@ public sealed class GameState
     public WorkPlan MorningPlan { get; set; } = new();
     public List<EventCase> Queue { get; set; } = new();
     [IgnoreDataMember] public List<WorkDefinition> WorkDefinitions { get; set; } = new();
+    public List<TruthActionDefinition> TruthActions { get; set; } = new();
     public List<EnvironmentModifier> EnvironmentModifiers { get; set; } = new();
     public List<Personnel> Staff { get; set; } = new();
     public List<TruthFrame> TruthFrames { get; set; } = new();
@@ -258,6 +261,13 @@ public sealed class EventCase
     public string PerkInteractionInfo { get; set; } = "";
     public string VisibleSummary { get; set; } = "";
     public List<string> HiddenFacts { get; set; } = new();
+    public int InjuryChancePercent { get; set; }
+    public PersonnelInjuryKind InjuryKind { get; set; } = PersonnelInjuryKind.CriticalInjury;
+    public int InjurySeverity { get; set; } = 50;
+    public string InjuryAffectedAptitude { get; set; } = "";
+    public int InjuryAptitudePenalty { get; set; } = 1;
+    public int InjuryMaxLoadPenalty { get; set; }
+    public string PermanentDisabilityPerkId { get; set; } = "";
 }
 
 [Serializable]
@@ -309,6 +319,31 @@ public sealed class Personnel
     public List<PersonnelRelationship> Relationships { get; set; } = new();
     public List<PersonnelMemory> Memories { get; set; } = new();
     public List<PersonnelTraitSample> TraitSamples { get; set; } = new();
+    public List<PersonnelInjury> Injuries { get; set; } = new();
+}
+
+[Serializable]
+public sealed class PersonnelInjury
+{
+    public string Id { get; set; } = "";
+    public string PersonnelId { get; set; } = "";
+    public string SourceEventId { get; set; } = "";
+    public int DayAcquired { get; set; }
+    public PersonnelInjuryKind Kind { get; set; }
+    public string Label { get; set; } = "";
+    public int Severity { get; set; }
+    public bool Permanent { get; set; }
+    public string AffectedAptitude { get; set; } = "";
+    public int AptitudePenalty { get; set; }
+    public int MaxLoadPenalty { get; set; }
+    public string Note { get; set; } = "";
+}
+
+[Serializable]
+public enum PersonnelInjuryKind
+{
+    CriticalInjury,
+    Disability
 }
 
 [Serializable]
@@ -372,6 +407,17 @@ public sealed class TruthFrame
     public string ActorId { get; set; } = "";
     public string ActionCode { get; set; } = "";
     public string FactBlob { get; set; } = "";
+}
+
+[Serializable]
+public sealed class TruthActionDefinition
+{
+    public string ActionCode { get; set; } = "";
+    public string SourceType { get; set; } = "work";
+    public string VisibleText { get; set; } = "";
+    public bool DistortedByMismatch { get; set; }
+    public bool DelayedByDefault { get; set; }
+    public string Notes { get; set; } = "";
 }
 
 [Serializable]

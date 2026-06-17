@@ -17,6 +17,7 @@ public sealed class CaseReviewRules
     public IWorkGenerationService WorkGenerationService { get; set; } = new DefaultWorkGenerationService();
     public IMeritTokenPolicy MeritTokenPolicy { get; set; } = new DefaultMeritTokenPolicy();
     public IApprovalPolicy ApprovalPolicy { get; set; } = new DefaultApprovalPolicy();
+    public ICharacterInjuryPolicy CharacterInjuryPolicy { get; set; } = new DefaultCharacterInjuryPolicy();
 }
 
 public interface ICardDrawService
@@ -54,12 +55,22 @@ public interface IApprovalPolicy
     ApprovalDecision Evaluate(GameState state, ApprovalRequest request, int submittedTokens);
 }
 
+public interface ICharacterInjuryPolicy
+{
+    List<PersonnelInjury> RollAfterWork(GameState state, EventCase item, IReadOnlyList<Personnel> team, int outcomeScore);
+}
+
 public sealed class DefaultCardDrawService : ICardDrawService
 {
     public List<ActionCard> DrawMorningCards(GameState state)
     {
         var cards = new List<ActionCard>();
-        foreach (var person in state.Staff.Where(s => !s.HasLeft).OrderBy(s => s.Id))
+        var cardLimit = Math.Max(0, state.Config?.MorningCardLimit ?? 3);
+        foreach (var person in state.Staff
+            .Where(s => !s.HasLeft)
+            .OrderBy(s => StableHash($"{state.Seed}:{state.Day}:{s.Id}:morning-card"))
+            .ThenBy(s => s.Id)
+            .Take(cardLimit))
         {
             EnsureDefaultDeck(person);
             if (person.Deck.Count == 0)
@@ -145,6 +156,155 @@ public sealed class DefaultCardDrawService : ICardDrawService
         {
             var hash = 17;
             foreach (var ch in value)
+            {
+                hash = hash * 31 + ch;
+            }
+
+            return hash;
+        }
+    }
+}
+
+public sealed class DefaultCharacterInjuryPolicy : ICharacterInjuryPolicy
+{
+    public List<PersonnelInjury> RollAfterWork(GameState state, EventCase item, IReadOnlyList<Personnel> team, int outcomeScore)
+    {
+        var injuries = new List<PersonnelInjury>();
+        if (state is null || item is null || team is null || team.Count == 0)
+        {
+            return injuries;
+        }
+
+        var chance = item.InjuryChancePercent > 0
+            ? Math.Min(100, item.InjuryChancePercent)
+            : IsDangerousWork(item)
+                ? InjuryChancePercent(item, outcomeScore)
+                : 0;
+        if (chance <= 0)
+        {
+            return injuries;
+        }
+
+        foreach (var person in team.Where(member => member != null && !member.HasLeft))
+        {
+            var roll = RollPercent($"{state.Seed}:{state.Day}:{item.Id}:{person.Id}:injury");
+            if (roll > chance)
+            {
+                continue;
+            }
+
+            var disabilityThreshold = Math.Max(8, chance / 3);
+            var kind = item.InjuryChancePercent > 0
+                ? item.InjuryKind
+                : roll <= disabilityThreshold
+                    ? PersonnelInjuryKind.Disability
+                    : PersonnelInjuryKind.CriticalInjury;
+            injuries.Add(CreateInjury(state, item, person, kind, chance, roll));
+        }
+
+        return injuries;
+    }
+
+    private static bool IsDangerousWork(EventCase item)
+    {
+        return item.Severity >= 70
+            || item.LatentRisk >= 60
+            || item.PhysicalCost >= 12
+            || ContainsAny(item.Tags, "injury", "injury-risk", "disability-risk", "danger", "hazard", "radiation", "outdoor", "repair", "critical")
+            || ContainsAny(item.CardHooks, "risk", "danger", "hazard");
+    }
+
+    private static int InjuryChancePercent(EventCase item, int outcomeScore)
+    {
+        var chance =
+            Math.Max(0, item.Severity - 60) / 2
+            + Math.Max(0, item.LatentRisk - 45) / 2
+            + Math.Max(0, item.Urgency - 70) / 4
+            + Math.Max(0, item.PhysicalCost - 8);
+
+        if (outcomeScore < 55)
+        {
+            chance += 12;
+        }
+
+        if (outcomeScore < 40)
+        {
+            chance += 12;
+        }
+
+        return Math.Min(70, chance);
+    }
+
+    private static PersonnelInjury CreateInjury(
+        GameState state,
+        EventCase item,
+        Personnel person,
+        PersonnelInjuryKind kind,
+        int chance,
+        int roll)
+    {
+        var severity = item.InjurySeverity > 0
+            ? Math.Min(100, item.InjurySeverity)
+            : kind == PersonnelInjuryKind.Disability
+                ? Math.Min(100, 55 + chance)
+                : Math.Min(100, 40 + chance);
+        var affectedAptitude = string.IsNullOrWhiteSpace(item.InjuryAffectedAptitude)
+            ? SelectAffectedAptitude(item)
+            : item.InjuryAffectedAptitude;
+        return new PersonnelInjury
+        {
+            Id = $"inj.{state.Day:00}.{item.Id}.{person.Id}.{(person.Injuries?.Count ?? 0) + 1}",
+            PersonnelId = person.Id,
+            SourceEventId = item.Id,
+            DayAcquired = state.Day,
+            Kind = kind,
+            Label = kind == PersonnelInjuryKind.Disability ? "Disability" : "Critical injury",
+            Severity = severity,
+            Permanent = kind == PersonnelInjuryKind.Disability,
+            AffectedAptitude = affectedAptitude,
+            AptitudePenalty = item.InjuryAptitudePenalty > 0
+                ? item.InjuryAptitudePenalty
+                : kind == PersonnelInjuryKind.Disability ? 2 : 1,
+            MaxLoadPenalty = item.InjuryMaxLoadPenalty > 0
+                ? item.InjuryMaxLoadPenalty
+                : kind == PersonnelInjuryKind.Disability ? 1 : 0,
+            Note = $"Rolled {roll} against {chance}% after {item.Id}."
+        };
+    }
+
+    private static string SelectAffectedAptitude(EventCase item)
+    {
+        if (item.RequiredAptitudes != null && item.RequiredAptitudes.Count > 0)
+        {
+            return item.RequiredAptitudes.OrderByDescending(pair => pair.Value).First().Key;
+        }
+
+        return item.Subsystem switch
+        {
+            "O2" => "dexterity",
+            "HAB" => "intuition",
+            "FOOD" => "logic",
+            _ => "observation"
+        };
+    }
+
+    private static bool ContainsAny(IEnumerable<string> values, params string[] needles)
+    {
+        return (values ?? Enumerable.Empty<string>()).Any(value =>
+            needles.Any(needle => (value ?? "").IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0));
+    }
+
+    private static int RollPercent(string value)
+    {
+        return Math.Abs(StableHash(value)) % 100 + 1;
+    }
+
+    private static int StableHash(string value)
+    {
+        unchecked
+        {
+            var hash = 17;
+            foreach (var ch in value ?? "")
             {
                 hash = hash * 31 + ch;
             }

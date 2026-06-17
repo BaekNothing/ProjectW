@@ -22,9 +22,11 @@ public static class RemoteSpreadsheetMvpExporter
         Write("_manifest", BuildManifest());
         Write("localized_text", BuildLocalizedText());
         Write("cards", BuildCards(state));
+        Write("perks", BuildPerks(state));
         Write("characters", BuildCharacters(state));
         Write("character_details", BuildCharacterDetails(state));
         Write("work_definitions", BuildWork(state));
+        Write("truth_actions", BuildTruthActions(state));
         Write("work_details", BuildWorkDetails(state));
         Write("work_outcome_events", BuildWorkOutcomeEvents(state));
         Write("scenarios", BuildScenarios());
@@ -40,11 +42,13 @@ public static class RemoteSpreadsheetMvpExporter
         var rows = new[]
         {
             Row("localized_text", "localized_text", "TRUE", "2", "TRUE", "Replacement localized text snapshot"),
-            Row("work_definitions", "work_definitions", "TRUE", "3", "TRUE", "Replacement Day 1 work snapshot"),
-            Row("work_details", "work_details", "TRUE", "3", "TRUE", "One work event detail row per eventId"),
+            Row("work_definitions", "work_definitions", "TRUE", "4", "TRUE", "Replacement Day 1 work snapshot with optional injury specs"),
+            Row("truth_actions", "truth_actions", "TRUE", "1", "TRUE", "Truth action code dictionary for generated visible logs"),
+            Row("work_details", "work_details", "TRUE", "4", "TRUE", "One work event detail row with source truth frames per eventId"),
             Row("work_outcome_events", "work_outcome_events", "TRUE", "1", "TRUE", "Result-linked work generation rules"),
-            Row("cards", "cards", "TRUE", "2", "TRUE", "Replacement card snapshot"),
-            Row("characters", "characters", "TRUE", "4", "TRUE", "Immutable personnel authoring snapshot"),
+            Row("cards", "cards", "TRUE", "2", "TRUE", "Replacement card attitude snapshot"),
+            Row("perks", "perks", "TRUE", "1", "TRUE", "Replacement perk authoring snapshot"),
+            Row("characters", "characters", "TRUE", "5", "TRUE", "Immutable personnel authoring snapshot"),
             Row("character_details", "character_details", "TRUE", "4", "TRUE", "Immutable character aptitude detail row per personnelId"),
             Row("scenarios", "scenarios", "TRUE", "5", "TRUE", "Scenario metadata without nested JSON"),
             Row("scenario_details", "scenario_details", "TRUE", "4", "TRUE", "One scenario, line, or choice key per row")
@@ -101,7 +105,7 @@ public static class RemoteSpreadsheetMvpExporter
             "personnelId", "displayName", "cloneLineageId", "background", "interests", "personality",
             "workStyle", "initialInformationScope", "basePhysicalEnergy", "baseMentalStress",
             "baseLoadAssigned", "baseFatigue", "baseStagnation", "baseTrustToManager", "baseRetentionRisk",
-            "optLow", "optHigh", "maxLoad", "connectionLimit", "startingDeckIds"
+            "optLow", "optHigh", "maxLoad", "connectionLimit", "startingDeckIds", "startingPerkIds"
         };
         var rows = state.Staff
             .OrderBy(person => person.Id, StringComparer.OrdinalIgnoreCase)
@@ -125,8 +129,53 @@ public static class RemoteSpreadsheetMvpExporter
                 Number(person.OptHigh),
                 Number(person.MaxLoad),
                 Number(person.ConnectionLimit),
-                Pipe(person.Deck.Select(card => card.Id))));
+                Pipe(person.Deck.Select(card => card.Id)),
+                Pipe(person.Perks.Select(perk => perk.Id))));
         return SpreadsheetCsv.ToCsv(headers, rows);
+    }
+
+    private static string BuildPerks(GameState state)
+    {
+        var headers = new[]
+        {
+            "perkId", "title", "triggerTags", "aptitudeModifiersJson", "outcomeModifier",
+            "physicalCostModifier", "mentalCostModifier", "clonePersistent", "note"
+        };
+        var rows = state.Staff
+            .SelectMany(person => person.Perks)
+            .Concat(DefaultDisabilityPerks())
+            .GroupBy(perk => perk.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .OrderBy(perk => perk.Id, StringComparer.OrdinalIgnoreCase)
+            .Select(perk => Row(
+                perk.Id,
+                perk.Name,
+                Pipe(perk.TriggerTags),
+                Json(perk.AptitudeModifiers),
+                Number(perk.OutcomeModifier),
+                Number(perk.PhysicalCostModifier),
+                Number(perk.MentalCostModifier),
+                Bool(perk.ClonePersistent),
+                perk.Note));
+        return SpreadsheetCsv.ToCsv(headers, rows);
+    }
+
+    private static IEnumerable<PersonnelPerk> DefaultDisabilityPerks()
+    {
+        yield return new PersonnelPerk
+        {
+            Id = "perk.permanent-disability",
+            Name = "Permanent Disability",
+            TriggerTags = new List<string> { "injury", "disability" },
+            AptitudeModifiers = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["dexterity"] = -2
+            },
+            PhysicalCostModifier = 2,
+            MentalCostModifier = 1,
+            ClonePersistent = true,
+            Note = "Permanent disability perk granted by work injury specs."
+        };
     }
 
     private static string BuildCharacterDetails(GameState state)
@@ -156,7 +205,10 @@ public static class RemoteSpreadsheetMvpExporter
             "physicalCost", "mentalCost", "baseSuccessChance",
             "recommendedPersonnelCount", "minPersonnelCount", "maxPersonnelCount", "concurrentLimit",
             "concurrentSlotCost", "splitPenalty", "soloPenalty", "tags", "perkTags", "cardHooks",
-            "bossReactionTags", "memoryHooks", "visibleSummary", "hiddenFacts", "perkInteractionInfo",
+            "bossReactionTags", "memoryHooks", "visibleSummary", "hiddenFacts",
+            "injuryChancePercent", "injuryKind", "injurySeverity", "injuryAffectedAptitude",
+            "injuryAptitudePenalty", "injuryMaxLoadPenalty", "permanentDisabilityPerkId",
+            "perkInteractionInfo",
             "projectId", "tier", "parentEventId", "rootEventId", "triggerReason", "initiallyQueued"
         };
         var rows = state.Queue
@@ -193,6 +245,13 @@ public static class RemoteSpreadsheetMvpExporter
                 Pipe(item.MemoryHooks),
                 item.VisibleSummary,
                 Pipe(item.HiddenFacts),
+                Number(item.InjuryChancePercent),
+                item.InjuryChancePercent > 0 ? item.InjuryKind.ToString() : "",
+                Number(item.InjurySeverity),
+                item.InjuryAffectedAptitude,
+                Number(item.InjuryAptitudePenalty),
+                Number(item.InjuryMaxLoadPenalty),
+                item.PermanentDisabilityPerkId,
                 item.PerkInteractionInfo,
                 item.ProjectId,
                 item.Tier.ToString(),
@@ -208,7 +267,7 @@ public static class RemoteSpreadsheetMvpExporter
         var headers = new[]
         {
             "eventId", "observation", "dexterity", "boldness", "intuition", "logic",
-            "truthFramesJson", "logsJson"
+            "truthFramesJson"
         };
         var rows = state.Queue
             .OrderBy(work => work.Id, StringComparer.OrdinalIgnoreCase)
@@ -219,8 +278,37 @@ public static class RemoteSpreadsheetMvpExporter
                 Aptitude(work.RequiredAptitudes, "boldness"),
                 Aptitude(work.RequiredAptitudes, "intuition"),
                 Aptitude(work.RequiredAptitudes, "logic"),
-                Json(state.TruthFrames.Where(frame => frame.EventId.Equals(work.Id, StringComparison.OrdinalIgnoreCase)).ToList()),
-                Json(state.Logs.Where(log => log.EventId.Equals(work.Id, StringComparison.OrdinalIgnoreCase)).ToList())));
+                Json(state.TruthFrames
+                    .Where(frame => frame.EventId.Equals(work.Id, StringComparison.OrdinalIgnoreCase))
+                    .Select(frame => new TruthFrame
+                    {
+                        Id = frame.Id,
+                        EventId = frame.EventId,
+                        Tick = frame.Tick,
+                        ActorId = frame.ActorId,
+                        ActionCode = frame.ActionCode
+                    })
+                    .ToList())));
+        return SpreadsheetCsv.ToCsv(headers, rows);
+    }
+
+    private static string BuildTruthActions(GameState state)
+    {
+        var headers = new[]
+        {
+            "actionCode", "sourceType", "visibleText", "distortedByMismatch", "delayedByDefault", "notes"
+        };
+        var rows = state.TruthActions
+            .GroupBy(action => action.ActionCode, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .OrderBy(action => action.ActionCode, StringComparer.OrdinalIgnoreCase)
+            .Select(action => Row(
+                action.ActionCode,
+                action.SourceType,
+                action.VisibleText,
+                Bool(action.DistortedByMismatch),
+                Bool(action.DelayedByDefault),
+                action.Notes));
         return SpreadsheetCsv.ToCsv(headers, rows);
     }
 
@@ -424,6 +512,17 @@ public static class RemoteSpreadsheetMvpExporter
             ("memoryHooks", "Pipe-separated memory hooks."), ("growthHooks", "Pipe-separated growth hooks."),
             ("bossReactionTags", "Pipe-separated boss reaction tags.")
         });
+        AddInfo(rows, "perks", new[]
+        {
+            ("perkId", "Stable perk identifier."), ("title", "Player-facing perk title."),
+            ("triggerTags", "Pipe-separated tags that activate this perk."),
+            ("aptitudeModifiersJson", "Static aptitude modifiers keyed by aptitude name."),
+            ("outcomeModifier", "Outcome modifier when matching work perkTags."),
+            ("physicalCostModifier", "Physical cost modifier when matching work perkTags."),
+            ("mentalCostModifier", "Mental cost modifier when matching work perkTags."),
+            ("clonePersistent", "Whether the perk survives regeneration."),
+            ("note", "Readable authoring note.")
+        });
         AddInfo(rows, "characters", new[]
         {
             ("personnelId", "Stable personnel identifier."), ("displayName", "Player-facing name."),
@@ -437,7 +536,8 @@ public static class RemoteSpreadsheetMvpExporter
             ("baseRetentionRisk", "Immutable starting departure risk."), ("optLow", "Low preferred workload."),
             ("optHigh", "High preferred workload."), ("maxLoad", "Maximum workload."),
             ("connectionLimit", "Maximum active relationships."),
-            ("startingDeckIds", "Pipe-separated starting card IDs.")
+            ("startingDeckIds", "Pipe-separated starting card IDs."),
+            ("startingPerkIds", "Pipe-separated starting perk IDs.")
         });
         AddInfo(rows, "character_details", new[]
         {
@@ -459,22 +559,37 @@ public static class RemoteSpreadsheetMvpExporter
             ("recommendedPersonnelCount", "Recommended team size."), ("minPersonnelCount", "Minimum team size."),
             ("maxPersonnelCount", "Maximum team size."), ("concurrentLimit", "Concurrent execution limit."),
             ("concurrentSlotCost", "Concurrent slot consumption."), ("splitPenalty", "Penalty for splitting work."),
-            ("soloPenalty", "Penalty for solo work."), ("tags", "Pipe-separated work tags."),
+            ("soloPenalty", "Penalty for solo work."), ("tags", "Pipe-separated work tags; use injury-risk or disability-risk for injury-prone work."),
             ("perkTags", "Pipe-separated perk interaction tags."), ("cardHooks", "Pipe-separated card hooks."),
             ("bossReactionTags", "Pipe-separated boss reaction tags."), ("memoryHooks", "Pipe-separated memory hooks."),
             ("visibleSummary", "Player-facing summary."), ("hiddenFacts", "Pipe-separated hidden facts."),
+            ("injuryChancePercent", "Optional chance from 0 to 100 that this work causes an injury."),
+            ("injuryKind", "CriticalInjury or Disability."),
+            ("injurySeverity", "Injury severity from 0 to 100."),
+            ("injuryAffectedAptitude", "Aptitude reduced by this work injury."),
+            ("injuryAptitudePenalty", "Aptitude penalty applied when this work injury occurs."),
+            ("injuryMaxLoadPenalty", "Max-load penalty applied when this work injury occurs."),
+            ("permanentDisabilityPerkId", "Optional persistent perk ID granted when this work causes injury."),
             ("perkInteractionInfo", "Readable perk interaction note."), ("projectId", "Owning project ID."),
             ("tier", "Main or Sub project role."), ("parentEventId", "Parent work event ID."),
             ("rootEventId", "Root work event ID."), ("triggerReason", "Reason this work was generated."),
             ("initiallyQueued", "TRUE if this row starts in Day 1 queue; FALSE if it is a generation template only.")
+        });
+        AddInfo(rows, "truth_actions", new[]
+        {
+            ("actionCode", "Stable code referenced by truthFramesJson."),
+            ("sourceType", "Generated log source type: summary, work, equip, or rel."),
+            ("visibleText", "Visible log text generated for this action code."),
+            ("distortedByMismatch", "TRUE if mismatch can distort this log."),
+            ("delayedByDefault", "TRUE if this log should be delayed by default."),
+            ("notes", "Authoring note.")
         });
         AddInfo(rows, "work_details", new[]
         {
             ("eventId", "Work event owning this single detail row."),
             ("observation", "Required observation aptitude."), ("dexterity", "Required dexterity aptitude."),
             ("boldness", "Required boldness aptitude."), ("intuition", "Required intuition aptitude."),
-            ("logic", "Required logic aptitude."), ("truthFramesJson", "All truth frames for this work."),
-            ("logsJson", "All visible logs for this work.")
+            ("logic", "Required logic aptitude."), ("truthFramesJson", "Source truth frames used to generate visible logs at runtime.")
         });
         AddInfo(rows, "work_outcome_events", new[]
         {

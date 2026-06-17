@@ -878,6 +878,7 @@ public static class CaseReviewGame
         source.Memories.Clear();
         source.Perks = persistentPerks;
         source.TraitSamples = persistentTraits;
+        source.Injuries.Clear();
         if (persistentTraits.Count > 0)
         {
             source.Memories.Add(new PersonnelMemory
@@ -1263,9 +1264,98 @@ public static class CaseReviewGame
         state.WorkDefinitions = (data.WorkDefinitions ?? new List<WorkDefinition>())
             .Where(definition => definition != null)
             .ToList();
+        state.TruthActions = (data.TruthActions ?? new List<TruthActionDefinition>()).Select(CloneTruthAction).ToList();
         state.Queue = BuildInitialQueue(state, data);
         state.TruthFrames = (data.TruthFrames ?? new List<TruthFrame>()).Select(CloneTruthFrame).ToList();
-        state.Logs = (data.Logs ?? new List<VisibleLog>()).Select(CloneVisibleLog).ToList();
+        state.Logs = new List<VisibleLog>();
+        GenerateInitialVisibleLogs(state);
+    }
+
+    private static void GenerateInitialVisibleLogs(GameState state)
+    {
+        foreach (var item in state.Queue.OrderBy(item => item.Id, StringComparer.OrdinalIgnoreCase))
+        {
+            AddLog(
+                state,
+                item,
+                "summary",
+                0,
+                BuildStateSummaryLog(item),
+                omitted: item.MismatchScore > 0,
+                distorted: item.MismatchScore >= 3);
+        }
+
+        foreach (var truth in state.TruthFrames.OrderBy(frame => frame.Tick).ThenBy(frame => frame.Id, StringComparer.OrdinalIgnoreCase))
+        {
+            var item = state.Queue.FirstOrDefault(candidate => candidate.Id.Equals(truth.EventId, StringComparison.OrdinalIgnoreCase));
+            if (item == null)
+            {
+                continue;
+            }
+
+            var action = FindTruthAction(state, truth.ActionCode);
+            var sourceType = SourceTypeForTruth(action, truth);
+            AddLog(
+                state,
+                item,
+                sourceType,
+                Math.Max(0, truth.Tick),
+                BuildTruthLog(item, truth, action, sourceType),
+                distorted: (action?.DistortedByMismatch ?? sourceType.Equals("rel", StringComparison.OrdinalIgnoreCase)) && item.MismatchScore >= 2,
+                delayed: action?.DelayedByDefault == true || truth.Tick > state.TotalElapsedSec + 12);
+        }
+    }
+
+    private static string BuildStateSummaryLog(EventCase item)
+    {
+        var assigned = item.AssignedPersonnel.Count == 0 ? "none" : string.Join("|", item.AssignedPersonnel);
+        return $"[SUMMARY][{item.Id}] {item.Title} | status={item.Status} subsystem={item.Subsystem} urgency={item.Urgency} severity={item.Severity} latentRisk={item.LatentRisk} mismatch={item.MismatchScore} assigned={assigned}";
+    }
+
+    private static string BuildTruthLog(EventCase item, TruthFrame truth, TruthActionDefinition action, string sourceType)
+    {
+        var text = action?.VisibleText;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            text = string.IsNullOrWhiteSpace(truth.FactBlob) ? truth.ActionCode : truth.FactBlob;
+        }
+
+        return $"[{sourceType.ToUpperInvariant()}][{item.Id}][{truth.ActorId}] action={truth.ActionCode} tick={truth.Tick} {text}";
+    }
+
+    private static TruthActionDefinition FindTruthAction(GameState state, string actionCode)
+    {
+        return state.TruthActions.FirstOrDefault(action =>
+            action.ActionCode.Equals(actionCode ?? "", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string SourceTypeForTruth(TruthActionDefinition action, TruthFrame truth)
+    {
+        if (!string.IsNullOrWhiteSpace(action?.SourceType))
+        {
+            return action.SourceType;
+        }
+
+        var actionCode = truth?.ActionCode ?? "";
+        var fact = truth?.FactBlob ?? "";
+        if (ContainsAny(actionCode, fact, "ORDER", "REL", "OBJECTION", "TRUST"))
+        {
+            return "rel";
+        }
+
+        if (ContainsAny(actionCode, fact, "EQUIP", "SENSOR", "SIGNAL", "PRESS", "O2"))
+        {
+            return "equip";
+        }
+
+        return "work";
+    }
+
+    private static bool ContainsAny(string first, string second, params string[] needles)
+    {
+        return needles.Any(needle =>
+            first.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0
+            || second.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0);
     }
 
     private static List<EventCase> BuildInitialQueue(GameState state, CaseReviewSeedData data)
@@ -1334,7 +1424,8 @@ public static class CaseReviewGame
             Perks = (source.Perks ?? new List<PersonnelPerk>()).Select(ClonePerk).ToList(),
             Relationships = (source.Relationships ?? new List<PersonnelRelationship>()).Select(CloneRelationship).ToList(),
             Memories = (source.Memories ?? new List<PersonnelMemory>()).Select(CloneMemory).ToList(),
-            TraitSamples = (source.TraitSamples ?? new List<PersonnelTraitSample>()).Select(CloneTraitSample).ToList()
+            TraitSamples = (source.TraitSamples ?? new List<PersonnelTraitSample>()).Select(CloneTraitSample).ToList(),
+            Injuries = (source.Injuries ?? new List<PersonnelInjury>()).Select(CloneInjury).ToList()
         };
     }
 
@@ -1371,6 +1462,28 @@ public static class CaseReviewGame
             MentalCostModifier = source.MentalCostModifier,
             ClonePersistent = source.ClonePersistent,
             Note = source.Note
+        };
+    }
+
+    private static PersonnelPerk DisabilityPerk(string perkId, PersonnelInjury injury)
+    {
+        return new PersonnelPerk
+        {
+            Id = string.IsNullOrWhiteSpace(perkId) ? $"perk.disability.{injury.PersonnelId}.{injury.SourceEventId}" : perkId,
+            Name = injury.Kind == PersonnelInjuryKind.Disability ? "Permanent Disability" : "Critical Injury Aftereffect",
+            TriggerTags = new List<string> { "injury", "disability", injury.AffectedAptitude ?? "" }
+                .Where(tag => !string.IsNullOrWhiteSpace(tag))
+                .ToList(),
+            AptitudeModifiers = string.IsNullOrWhiteSpace(injury.AffectedAptitude)
+                ? new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+                {
+                    [injury.AffectedAptitude] = -Math.Max(0, injury.AptitudePenalty)
+                },
+            PhysicalCostModifier = injury.Kind == PersonnelInjuryKind.Disability ? 2 : 1,
+            MentalCostModifier = injury.Kind == PersonnelInjuryKind.Disability ? 1 : 0,
+            ClonePersistent = injury.Permanent,
+            Note = $"{injury.Label} from {injury.SourceEventId}."
         };
     }
 
@@ -1414,6 +1527,25 @@ public static class CaseReviewGame
             Tags = new List<string>(source.Tags ?? new List<string>()),
             Strength = source.Strength,
             ClonePersistent = source.ClonePersistent,
+            Note = source.Note
+        };
+    }
+
+    private static PersonnelInjury CloneInjury(PersonnelInjury source)
+    {
+        return new PersonnelInjury
+        {
+            Id = source.Id,
+            PersonnelId = source.PersonnelId,
+            SourceEventId = source.SourceEventId,
+            DayAcquired = source.DayAcquired,
+            Kind = source.Kind,
+            Label = source.Label,
+            Severity = source.Severity,
+            Permanent = source.Permanent,
+            AffectedAptitude = source.AffectedAptitude,
+            AptitudePenalty = source.AptitudePenalty,
+            MaxLoadPenalty = source.MaxLoadPenalty,
             Note = source.Note
         };
     }
@@ -1468,7 +1600,14 @@ public static class CaseReviewGame
             MemoryHooks = new List<string>(source.MemoryHooks ?? new List<string>()),
             PerkInteractionInfo = source.PerkInteractionInfo,
             VisibleSummary = source.VisibleSummary,
-            HiddenFacts = new List<string>(source.HiddenFacts ?? new List<string>())
+            HiddenFacts = new List<string>(source.HiddenFacts ?? new List<string>()),
+            InjuryChancePercent = source.InjuryChancePercent,
+            InjuryKind = source.InjuryKind,
+            InjurySeverity = source.InjurySeverity,
+            InjuryAffectedAptitude = source.InjuryAffectedAptitude,
+            InjuryAptitudePenalty = source.InjuryAptitudePenalty,
+            InjuryMaxLoadPenalty = source.InjuryMaxLoadPenalty,
+            PermanentDisabilityPerkId = source.PermanentDisabilityPerkId
         };
     }
 
@@ -1482,6 +1621,19 @@ public static class CaseReviewGame
             ActorId = source.ActorId,
             ActionCode = source.ActionCode,
             FactBlob = source.FactBlob
+        };
+    }
+
+    private static TruthActionDefinition CloneTruthAction(TruthActionDefinition source)
+    {
+        return new TruthActionDefinition
+        {
+            ActionCode = source.ActionCode,
+            SourceType = source.SourceType,
+            VisibleText = source.VisibleText,
+            DistortedByMismatch = source.DistortedByMismatch,
+            DelayedByDefault = source.DelayedByDefault,
+            Notes = source.Notes
         };
     }
 
@@ -1699,6 +1851,14 @@ public static class CaseReviewGame
             MentalCost = 14,
             BaseSuccessChance = 42,
             RequiredAptitudes = Aptitudes(observation: 7, dexterity: 7, boldness: 6, intuition: 5, logic: 6),
+            Tags = new List<string> { "repair", "danger", "injury-risk", "disability-risk" },
+            InjuryChancePercent = 35,
+            InjuryKind = PersonnelInjuryKind.Disability,
+            InjurySeverity = 70,
+            InjuryAffectedAptitude = "dexterity",
+            InjuryAptitudePenalty = 2,
+            InjuryMaxLoadPenalty = 1,
+            PermanentDisabilityPerkId = "perk.permanent-disability",
             PerkTags = new List<string> { "o2", "sensor", "mismatch", "emergency", "repair", "procedure" },
             PerkInteractionInfo = "현장 우회 perk는 복구 속도를 올리지만, 절차/관찰 보강이 없으면 불일치가 남는다."
         };
@@ -1740,6 +1900,19 @@ public static class CaseReviewGame
         };
 
         state.Queue.AddRange(new[] { e108, r211, r311 });
+        state.TruthActions.AddRange(new[]
+        {
+            TruthAction("BYPASS_APPLIED", "equip", "수동 우회 적용. 승인 메모 없음. 센서 신호 손실 3.2초", distortedByMismatch: true),
+            TruthAction("ORDER_OBJECTION", "rel", "순서 확인 없이 우회 적용했다고 관찰", distortedByMismatch: true),
+            TruthAction("GROUPED_COMPLAINT", "work", "민원 4건이 중복으로 묶임"),
+            TruthAction("PLAN_CONFIRMED", "work", "작업계획서 확정"),
+            TruthAction("REDIRECT", "work", "재배정 후 원인 계통부터 재확인"),
+            TruthAction("ASSIGN", "work", "초기 배정 접수"),
+            TruthAction("HOLD", "work", "추가 확인 요청 수신. 이전 요약에 빠진 작업 공백 재검토 중.", delayedByDefault: true),
+            TruthAction("REGENERATE", "work", "재생성 처리 및 이전 기억/관계 보관"),
+            TruthAction("NEXT_DAY_SEED", "work", "전일 결과 기반 후속 작업 생성"),
+            TruthAction("AUTO_RESULT", "work", "작업 처리 결과 기록 생성.")
+        });
         AddTruth(state, "E-108", "A-17", "BYPASS_APPLIED", "수동 우회 적용. 승인 메모 없음. 센서 신호 손실 3.2초");
         AddTruth(state, "E-108", "B-04", "ORDER_OBJECTION", "순서 확인 없이 우회 적용했다고 관찰");
         AddTruth(state, "R-211", "D-11", "GROUPED_COMPLAINT", "민원 4건이 중복으로 묶임");
@@ -1748,6 +1921,25 @@ public static class CaseReviewGame
         AddLog(state, e108, "rel", 118, "[REL][E-108][B-04->A-17] 순서 확인 없이 우회 적용. 중간 보고 없음.", distorted: true);
         AddLog(state, r211, "summary", 0, "[SUMMARY][R-211] 하층 거주구역 민원 4건 묶음 종결 후보. 중복 내용으로 분류.", omitted: true);
         AddLog(state, r311, "summary", 0, "[SUMMARY][R-311] 식량 합성기 보고서 3건 대기. 서류 정리 권장.");
+    }
+
+    private static TruthActionDefinition TruthAction(
+        string actionCode,
+        string sourceType,
+        string visibleText,
+        bool distortedByMismatch = false,
+        bool delayedByDefault = false,
+        string notes = "")
+    {
+        return new TruthActionDefinition
+        {
+            ActionCode = actionCode,
+            SourceType = sourceType,
+            VisibleText = visibleText,
+            DistortedByMismatch = distortedByMismatch,
+            DelayedByDefault = delayedByDefault,
+            Notes = notes
+        };
     }
 
     private static void BuildMorningPlan(GameState state)
@@ -1944,10 +2136,15 @@ public static class CaseReviewGame
                 item.LatentRisk = Math.Max(0, item.LatentRisk - 18);
             }
 
-            item.ResultSummary = BuildResultSummary(item, score, previousRisk);
+            ApplyTaskCost(state, item, team, score);
+            var injuries = ApplyCharacterInjuries(state, item, team, score);
+            item.ResultSummary = BuildResultSummary(item, score, previousRisk, injuries);
+            if (injuries.Count > 0)
+            {
+                item.ResultSummary = $"{item.ResultSummary} Injury {string.Join(",", injuries.Select(injury => $"{InjuryOwnerId(injury)}:{injury.Kind}"))}.";
+            }
             AddTruth(state, item.Id, item.AssignedPersonnel.FirstOrDefault() ?? "SYS", "AUTO_RESULT", item.ResultSummary);
             AddLogFromTruth(state, item, "work", state.TotalElapsedSec);
-            ApplyTaskCost(state, item, team, score);
             ApplyRelationshipMemoryAfterWork(state, item, team, score);
             var awarded = GrantMeritTokens(state, Rules(state).MeritTokenPolicy.AwardForResolvedWork(state, item));
             if (awarded > 0)
@@ -2104,6 +2301,80 @@ public static class CaseReviewGame
         }
     }
 
+    private static List<PersonnelInjury> ApplyCharacterInjuries(GameState state, EventCase item, List<Personnel> team, int score)
+    {
+        var injuries = Rules(state).CharacterInjuryPolicy.RollAfterWork(state, item, team, score);
+        foreach (var injury in injuries)
+        {
+            var person = FindInjuryOwner(team, injury);
+            if (person is null)
+            {
+                continue;
+            }
+
+            ApplyInjuryToPerson(state, item, person, injury);
+            if (!string.IsNullOrWhiteSpace(item.PermanentDisabilityPerkId)
+                && !person.Perks.Any(perk => perk.Id.Equals(item.PermanentDisabilityPerkId, StringComparison.OrdinalIgnoreCase)))
+            {
+                person.Perks.Add(DisabilityPerk(item.PermanentDisabilityPerkId, injury));
+            }
+        }
+
+        return injuries;
+    }
+
+    private static void ApplyInjuryToPerson(GameState state, EventCase item, Personnel person, PersonnelInjury injury)
+    {
+        person.Injuries ??= new List<PersonnelInjury>();
+        person.Memories ??= new List<PersonnelMemory>();
+        person.Perks ??= new List<PersonnelPerk>();
+        person.Injuries.Add(injury);
+        person.PhysicalEnergy = Clamp(person.PhysicalEnergy - (injury.Kind == PersonnelInjuryKind.Disability ? 15 : 25), 0, 100);
+        person.MentalStress = Clamp(person.MentalStress + (injury.Kind == PersonnelInjuryKind.Disability ? 12 : 8), 0, 100);
+        person.Fatigue = Clamp(person.Fatigue + (injury.Kind == PersonnelInjuryKind.Disability ? 8 : 15), 0, 100);
+        person.RetentionRisk = Clamp(person.RetentionRisk + (injury.Kind == PersonnelInjuryKind.Disability ? 15 : 10), 0, 100);
+
+        if (injury.MaxLoadPenalty > 0)
+        {
+            person.MaxLoad = Math.Max(1, person.MaxLoad - injury.MaxLoadPenalty);
+            person.OptHigh = Math.Min(person.OptHigh, person.MaxLoad);
+        }
+
+        if (!string.IsNullOrWhiteSpace(injury.AffectedAptitude) && injury.AptitudePenalty > 0)
+        {
+            person.Aptitudes ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var current = person.Aptitudes.TryGetValue(injury.AffectedAptitude, out var value) ? value : 0;
+            person.Aptitudes[injury.AffectedAptitude] = Math.Max(0, current - injury.AptitudePenalty);
+        }
+
+        person.Memories.Add(new PersonnelMemory
+        {
+            Id = $"mem.injury.{state.Day:00}.{item.Id}.{person.Id}.{person.Injuries.Count}",
+            TargetId = person.Id,
+            Type = "Injury",
+            Valence = "Negative",
+            Intensity = injury.Severity,
+            Decay = injury.Permanent ? 0 : 20,
+            Tags = new List<string> { "injury", injury.Kind.ToString(), item.Subsystem ?? "" }
+                .Where(tag => !string.IsNullOrWhiteSpace(tag))
+                .ToList(),
+            SourceEventId = item.Id,
+            DayCreated = state.Day,
+            Note = $"{injury.Label}: {item.Title}"
+        });
+    }
+
+    private static Personnel FindInjuryOwner(IEnumerable<Personnel> team, PersonnelInjury injury)
+    {
+        return team.FirstOrDefault(member =>
+            member.Id.Equals(injury.PersonnelId ?? "", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string InjuryOwnerId(PersonnelInjury injury)
+    {
+        return injury.PersonnelId ?? "";
+    }
+
     private static void ApplyRelationshipMemoryAfterWork(GameState state, EventCase item, List<Personnel> team, int score)
     {
         if (team.Count < 2)
@@ -2178,7 +2449,7 @@ public static class CaseReviewGame
         return relationship;
     }
 
-    private static string BuildResultSummary(EventCase item, int score, int previousRisk)
+    private static string BuildResultSummary(EventCase item, int score, int previousRisk, IReadOnlyList<PersonnelInjury> injuries)
     {
         var band = score >= 75 ? "양호" : score >= 55 ? "불완전" : "위험";
         var riskMove = item.LatentRisk > previousRisk ? "잠복 리스크 상승" : item.LatentRisk < previousRisk ? "잠복 리스크 감소" : "잠복 리스크 유지";
@@ -2267,14 +2538,30 @@ public static class CaseReviewGame
     private static void AddLogFromTruth(GameState state, EventCase item, string sourceType, int visibleAtSec)
     {
         var truth = state.TruthFrames.LastOrDefault(t => t.EventId == item.Id);
-        var actor = truth?.ActorId ?? "SYS";
-        var text = sourceType switch
+        if (truth == null)
         {
-            "work" => $"[WORK][{item.Id}][{actor}] {WorkText(item, truth)}",
-            "rel" => $"[REL][{item.Id}][{actor}->관리] 재배정 후 근거 확인 빈도가 늘었습니다.",
-            _ => $"[{sourceType.ToUpperInvariant()}][{item.Id}] {truth?.FactBlob ?? "추가 기록 없음"}"
-        };
-        AddLog(state, item, sourceType, visibleAtSec, text, delayed: visibleAtSec > state.TotalElapsedSec + 12);
+            AddLog(state, item, sourceType, visibleAtSec, $"[{sourceType.ToUpperInvariant()}][{item.Id}] 추가 기록 없음");
+            return;
+        }
+
+        var action = FindTruthAction(state, truth.ActionCode);
+        var resolvedSourceType = action != null ? SourceTypeForTruth(action, truth) : sourceType;
+        var text = action != null
+            ? BuildTruthLog(item, truth, action, resolvedSourceType)
+            : sourceType switch
+            {
+                "work" => $"[WORK][{item.Id}][{truth.ActorId}] {WorkText(item, truth)}",
+                "rel" => $"[REL][{item.Id}][{truth.ActorId}->관리] 재배정 후 근거 확인 빈도가 늘었습니다.",
+                _ => $"[{sourceType.ToUpperInvariant()}][{item.Id}] {truth.FactBlob}"
+            };
+        AddLog(
+            state,
+            item,
+            resolvedSourceType,
+            visibleAtSec,
+            text,
+            distorted: action?.DistortedByMismatch == true && item.MismatchScore >= 2,
+            delayed: action?.DelayedByDefault == true || visibleAtSec > state.TotalElapsedSec + 12);
     }
 
     private static string WorkText(EventCase item, TruthFrame truth)
