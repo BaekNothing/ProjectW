@@ -146,6 +146,93 @@ Rules:
 
 ------
 
+### 3.3 Unity UI Design System
+
+All new Unity runtime UI must default to mobile-readable, data-growth-safe layout even when the current MVP is presented as a desktop-style UGUI surface.
+
+Priority:
+
+1. Readability over information density.
+2. Scrollable content over compressed content.
+3. Auto Layout over manually positioned children.
+4. Dynamic text and data growth over fixed mock data assumptions.
+
+Typography:
+
+- Title text should use 32-40 px.
+- Section text should use 24-28 px.
+- Body text should use 18-22 px.
+- Button text should use 20-24 px.
+- Caption text should be 16 px or larger.
+- Text below 16 px is forbidden unless a specific technical exception is documented near the implementation.
+- The current CaseReview MVP may keep its stricter minimum 30 px readability rule until a dedicated mobile UI pass replaces it.
+
+Text handling:
+
+- Text length must be treated as variable because of localization, dynamic data, and user input.
+- Text must not render outside its parent bounds.
+- Text should wrap where content reading matters.
+- Non-critical overflow should truncate or use ellipsis.
+- Auto Size should not be the primary solution; containers should grow or scroll instead.
+
+Scrollable layout:
+
+- Any UI area that can receive dynamic lists, logs, work entries, characters, cards, mail, reports, or localized text must be built as a Scroll View from the first implementation.
+- Preferred structure is `Canvas -> Scroll View -> Vertical Layout Group -> Content Size Fitter -> Item...`.
+- A list must be expected to grow from 3 items to 300 items without changing the scene structure.
+
+Layout:
+
+- Prefer `VerticalLayoutGroup`, `HorizontalLayoutGroup`, `GridLayoutGroup`, `LayoutElement`, and `ContentSizeFitter`.
+- Manual position should be reserved for top-level surfaces, overlays, drag/resize chrome, and intentionally anchored action areas.
+- Anchors and layout constraints must prevent overlap under long text, large numbers, translation expansion, resolution changes, and Safe Area changes.
+
+Spacing:
+
+- Outer margin should generally be 24-32 px.
+- Section spacing should generally be 24 px.
+- Component spacing should generally be 16 px.
+- Label-to-input spacing should generally be 8-12 px.
+- Button internal padding should be 16 px or larger.
+
+Color and decoration:
+
+- Default background is white-based.
+- Recommended palette: background `#FFFFFF`, surface `#F7F7F7`, border `#DDDDDD`, primary text `#222222`, secondary text `#666666`, disabled `#AAAAAA`.
+- Use only one low-saturation blue or green accent family by default.
+- Prefer thin borders, weak shadows, and small radius.
+- Avoid strong gradients, glow, neon, and heavy shadow.
+- The existing retro CaseReview MVP palette is a prototype exception; production-facing UI must move toward the white-based design system above.
+
+Controls and states:
+
+- Touch buttons must be at least 56 px high and should usually fill the parent width in mobile layouts.
+- Inputs must have explicit labels; placeholder-only instructions are not allowed.
+- Long text input must use multiline fields.
+- Icons must not be the only carrier of meaning; pair icons with text when the icon is not universally obvious.
+- State must not be represented by color alone; pair it with text or a symbol such as done, progress, or warning.
+
+Animation:
+
+- UI animation should support function and normally stay in the 150-250 ms range.
+- Bounce, shake, flash, and similar attention effects are not default UI language.
+
+Review checklist:
+
+- Mobile one-handed readability.
+- Large enough fonts.
+- No text outside the screen or parent.
+- Long text preserves layout.
+- Scroll View exists where dynamic content can grow.
+- Auto Layout is used for repeated and dynamic content.
+- No incoherent overlap.
+- Adequate spacing.
+- Safe Area considered.
+- White-based restrained palette unless a documented prototype exception applies.
+- Data can grow by 10x without scene restructuring.
+
+------
+
 ## 4. Cards and Decks
 
 Current implementation rule:

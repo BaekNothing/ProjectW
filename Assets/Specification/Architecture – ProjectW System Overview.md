@@ -7,12 +7,12 @@
 <!-- arch-sync:begin -->
 | 항목 | 값 |
 |------|-----|
-| **동기화 모드** | `finalize (post-commit)` |
-| **동기화 시각 (UTC)** | `2026-06-20T08:02:25Z` |
-| **기준 커밋 (전체 SHA)** | `e89d68f11aedc4287a866d508a6bde14c55e0599` |
-| **기준 커밋 (단축)** | `e89d68f` |
+| **동기화 모드** | `index (pre-commit / manual)` |
+| **동기화 시각 (UTC)** | `2026-06-20T08:46:11Z` |
+| **기준 커밋 (전체 SHA)** | `57bf37c864106fdcb587f149d929b94666aa1587` |
+| **기준 커밋 (단축)** | `57bf37c` |
 | **브랜치** | `ai-integration` |
-| **추적 경로 지문** | `sha256:4ea4b5921406c87d92868bb9299d7a1760f341d4828594ff848b0c30f236cdfb` |
+| **추적 경로 지문** | `sha256:ba6c18c7afa87a3eae6bf2171657c4460c936746bb9f0499b3b88f84b4916a86` |
 | **추적 경로** | `Assets/Specification/`<br>`Assets/Scripts/`<br>`Assets/Tests/`<br>`Assets/Editor/`<br>`Assets/Resources/CaseReviewData/` |
 
 > 지문은 Git 인덱스(`git ls-files -s`)에 등록된 추적 경로 파일 목록·blob 해시의 SHA-256이다.  
@@ -396,6 +396,8 @@ flowchart TB
 | Dev Tools | 샘플 시나리오 재생과 향후 개발 전용 도구 진입점 |
 | 창 조작 | 드래그 이동, 세션 내 위치 기억, 리사이즈, 최소 크기, 기본 세로 스크롤 |
 | 가독성 기준 | MVP UI 텍스트 최소 30 px, 이에 맞춘 버튼·슬롯·카드·로그 높이 확장 |
+| 전역 UI 기준 | `SSOT – Ingame` 3.3의 Unity UI Design System을 신규 UI 기본값으로 사용 |
+| 모바일/데이터 증가 검토 | ScrollRect와 LayoutGroup 중심 구조는 방향이 맞지만, 현재 MVP는 레트로 데스크탑 프로토타입이라 생산 UI 전환 시 white-based palette, 24-32 px 외부 margin, 16 px component spacing, Safe Area, 300-item list 대응을 재점검해야 함 |
 | Phase 처리 | desktop shortcut은 phase에 따라 사라지지 않으며, 부적합 phase에서는 최신 정보를 read-only로 표시 |
 | Desktop Actions | 우하단 고정 액션 버튼: Morning에는 `STAMP APPROVED / Start Work`, Evening에는 `NEXT MORNING / Advance Day` 활성화 |
 | 업무 배치 | `TodayWorkPlan`의 슬롯을 선택하면 창 내부가 아니라 별도 floating panel이 오른쪽에 열리고 캐릭터 선택 리스트 표시 |
@@ -405,6 +407,14 @@ flowchart TB
 | Character Profiling | 상단 ID/이름 탭 그리드, 1단 얼굴+캐릭터 상태, 2단 Today Card 목록의 세로 구조 |
 | 실행 피드백 | `CONFIRM PLAN` 후 worker hand reveal, 카드별 `USE %`, used-card highlight, 실제 outcome/risk delta를 보여주는 work performance overlay |
 | 상태 경계 | `CaseReviewGame.Dispatch`와 명시적 assignment sync 경계를 유지 |
+
+**UI 시스템 검토 결과 (2026-06-20):**
+
+- `CaseReviewMvpSceneController`는 모든 `Text`를 `MinUiFontSize = 30` 이상으로 올리고 `HorizontalWrapMode.Wrap`, `VerticalWrapMode.Truncate`를 적용하므로 최소 폰트 기준은 새 SSOT보다 엄격하다.
+- 목적 중심 창 본문은 `CreateWindowScrollContent`를 통해 `ScrollRect` + `VerticalLayoutGroup` + `ContentSizeFitter` 구조를 기본 사용한다.
+- 반복 항목은 대부분 `LayoutElement`와 LayoutGroup으로 구성되어 고정 좌표보다 자동 배치 비중이 높다.
+- 현재 갭은 색상과 밀도다. 레트로 CRT/서류 팔레트, 6-12 px 수준의 내부 spacing, 일부 수동 overlay/meeting 좌표는 새 모바일 UI 디자인 시스템의 production-facing 기준과 다르다.
+- 다음 대규모 UI 패스는 기능 추가보다 먼저 공통 UI 토큰(색상, spacing, min button height, section margin), Safe Area root, dynamic list stress test를 정리해야 한다.
 
 ---
 
