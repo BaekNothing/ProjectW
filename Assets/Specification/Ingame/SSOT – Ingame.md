@@ -200,7 +200,7 @@ Color and decoration:
 - Recommended palette: background `#FFFFFF`, surface `#F7F7F7`, border `#DDDDDD`, primary text `#222222`, secondary text `#666666`, disabled `#AAAAAA`.
 - Use only one low-saturation blue or green accent family by default.
 - Prefer thin borders, weak shadows, and small radius.
-- When a drawn panel frame resource is used, it must be imported as a Sprite with 9-slice borders and applied behind content through `Image.Type.Sliced`, not by hardcoding stretched raw images. The black outline should read as a thin hand-drawn frame, not as a thick decorative border.
+- When a drawn panel frame resource is used, it must be imported as a Sprite with 9-slice borders and applied behind content through `Image.Type.Sliced`, not by hardcoding stretched raw images. The black outline should read as a thin hand-drawn frame, not as a thick decorative border, and the area outside the black outline must be transparent.
 - Avoid strong gradients, glow, neon, and heavy shadow.
 
 Controls and states:

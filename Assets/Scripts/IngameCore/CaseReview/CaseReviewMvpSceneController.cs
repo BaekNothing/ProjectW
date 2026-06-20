@@ -34,6 +34,8 @@ namespace ProjectW.IngameCore.CaseReview
         private const int ComponentSpacing = 16;
         private const int CompactSpacing = 12;
         private const int ButtonMinHeight = 64;
+        private const int CompactButtonMinHeight = 56;
+        private const int CompactButtonFontSize = 18;
         private static readonly Color AppBackgroundColor = new(1f, 1f, 1f, 1f);
         private static readonly Color SurfaceColor = new(0.969f, 0.969f, 0.969f, 1f);
         private static readonly Color SurfaceRaisedColor = new(0.988f, 0.988f, 0.988f, 1f);
@@ -1024,7 +1026,7 @@ namespace ProjectW.IngameCore.CaseReview
                 }
 
                 var selected = item.Id.Equals(selectedWorkId, StringComparison.OrdinalIgnoreCase);
-                CreateWindowButton($"{item.Id}\n{item.Title}", list, selected ? AccentMutedColor : AppBackgroundColor, () => SelectWorkFile(item.Id), 104, selected ? PrimaryTextColor : PrimaryTextColor);
+                CreateWindowButton($"{item.Id}\n{item.Title}", list, selected ? AccentMutedColor : AppBackgroundColor, () => SelectWorkFile(item.Id), 72, PrimaryTextColor, CompactButtonFontSize, false);
             }
 
             var detailPanel = CreatePanel("Work Detail", body, SurfaceRaisedColor);
@@ -1576,8 +1578,8 @@ namespace ProjectW.IngameCore.CaseReview
             var entryLayout = entries.gameObject.AddComponent<HorizontalLayoutGroup>();
             entryLayout.spacing = ComponentSpacing;
             entryLayout.childForceExpandWidth = true;
-            entryLayout.childForceExpandHeight = true;
-            entries.gameObject.AddComponent<LayoutElement>().minHeight = 112;
+            entryLayout.childForceExpandHeight = false;
+            entries.gameObject.AddComponent<LayoutElement>().minHeight = 88;
             foreach (var entry in CurrentState.MorningPlan?.Entries ?? Enumerable.Empty<WorkPlanEntry>())
             {
                 var work = FindEvent(entry.EventId);
@@ -1594,7 +1596,7 @@ namespace ProjectW.IngameCore.CaseReview
                     assignmentPickerSlotIndex = -1;
                     OpenDesktopWindow(MvpDesktopWindow.TodayWorkPlan);
                     Render();
-                }, ButtonMinHeight, selected ? PrimaryTextColor : PrimaryTextColor);
+                }, CompactButtonMinHeight, PrimaryTextColor, CompactButtonFontSize, false);
             }
 
             var forecast = BuildCardForecastForWork(item, AssignmentFor(item.Id));
@@ -1965,14 +1967,15 @@ namespace ProjectW.IngameCore.CaseReview
             return item;
         }
 
-        private Button CreateWindowButton(string label, Transform parent, Color color, UnityEngine.Events.UnityAction onClick, float minHeight, Color textColor)
+        private Button CreateWindowButton(string label, Transform parent, Color color, UnityEngine.Events.UnityAction onClick, float minHeight, Color textColor, int fontSize = ButtonFontSize, bool enforceDefaultButtonHeight = true)
         {
             var buttonObject = CreatePanel("Button " + label, parent, color);
-            buttonObject.gameObject.AddComponent<LayoutElement>().minHeight = Mathf.Max(minHeight, ButtonMinHeight);
+            var minimumHeight = enforceDefaultButtonHeight ? ButtonMinHeight : CompactButtonMinHeight;
+            buttonObject.gameObject.AddComponent<LayoutElement>().minHeight = Mathf.Max(minHeight, minimumHeight);
             var button = buttonObject.gameObject.AddComponent<Button>();
             button.targetGraphic = buttonObject.GetComponent<Image>();
             button.onClick.AddListener(onClick);
-            var text = CreateText(label, buttonObject, ButtonFontSize, FontStyle.Bold, TextAnchor.MiddleLeft);
+            var text = CreateText(label, buttonObject, fontSize, FontStyle.Bold, TextAnchor.MiddleLeft);
             text.color = textColor;
             text.rectTransform.offsetMin = new Vector2(ComponentSpacing, CompactSpacing);
             text.rectTransform.offsetMax = new Vector2(-ComponentSpacing, -CompactSpacing);
