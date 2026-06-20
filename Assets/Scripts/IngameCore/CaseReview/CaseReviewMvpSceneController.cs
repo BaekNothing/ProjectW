@@ -1583,9 +1583,10 @@ namespace ProjectW.IngameCore.CaseReview
                 }, 58, selected ? CrtTextColor : PaperTextColor);
             }
 
-            var plan = CreateText($"SELECTED FILE {item.Id}  {item.Title}\nSelect personnel from each slot list, then approve the plan.", parent, 13, FontStyle.Bold, TextAnchor.UpperLeft);
+            var forecast = BuildCardForecastForWork(item, AssignmentFor(item.Id));
+            var plan = CreateText($"SELECTED FILE {item.Id}  {item.Title}\nSelect personnel from each slot list, then approve the plan.\n{forecast}", parent, 13, FontStyle.Bold, TextAnchor.UpperLeft);
             plan.color = PaperTextColor;
-            plan.gameObject.AddComponent<LayoutElement>().minHeight = 94;
+            plan.gameObject.AddComponent<LayoutElement>().minHeight = 132;
             var assignment = AssignmentFor(item.Id);
             var assignmentBody = CreateUiObject("Assignment Picker Body", parent).transform;
             assignmentBody.gameObject.AddComponent<LayoutElement>().minHeight = 390;
@@ -2002,7 +2003,7 @@ namespace ProjectW.IngameCore.CaseReview
                 var item = FindEvent(entry.EventId);
                 var assignment = AssignmentFor(entry.EventId);
                 var maxSlots = item is null ? Math.Max(1, assignment.Count) : Math.Max(1, item.MaxPersonnelCount);
-                var expected = EstimateExpectedAssignmentDelta(assignment);
+                var expected = EstimateExpectedAssignmentDelta(item, assignment);
                 lines.Add($"[{entry.EventId}] {(item is null ? entry.EventId : item.Title)}");
                 if (item is not null)
                 {
@@ -2027,7 +2028,11 @@ namespace ProjectW.IngameCore.CaseReview
                     }
                 }
 
-                lines.Add($"  Low card delta: OUT {Signed(expected.Outcome)} | RISK {Signed(expected.Risk)}");
+                lines.Add($"  Weighted card delta: OUT {Signed(expected.Outcome)} | RISK {Signed(expected.Risk)}");
+                if (item is not null)
+                {
+                    lines.Add("  " + BuildCardForecastForWork(item, assignment));
+                }
                 lines.Add($"  Basis: {entry.Reason}{(entry.Adjusted ? " | adjusted" : "")}");
                 lines.Add("");
             }
@@ -2035,7 +2040,7 @@ namespace ProjectW.IngameCore.CaseReview
             return string.Join("\n", lines);
         }
 
-        private (int Outcome, int Risk) EstimateExpectedAssignmentDelta(IReadOnlyCollection<string> personnelIds)
+        private (int Outcome, int Risk) EstimateExpectedAssignmentDelta(EventCase item, IReadOnlyCollection<string> personnelIds)
         {
             if (personnelIds is null || personnelIds.Count == 0)
             {
@@ -2054,8 +2059,9 @@ namespace ProjectW.IngameCore.CaseReview
                     continue;
                 }
 
-                outcome += available.Average(card => card.OutcomeModifier);
-                risk += available.Average(card => card.RiskModifier);
+                var weighted = EstimateWeightedCardDelta(item, PersonnelById(personnelId), available);
+                outcome += weighted.Outcome;
+                risk += weighted.Risk;
                 contributors++;
             }
 
@@ -2065,6 +2071,215 @@ namespace ProjectW.IngameCore.CaseReview
             }
 
             return ((int)Math.Round(outcome), (int)Math.Round(risk));
+        }
+
+        private string BuildCardForecastForWork(EventCase item, IReadOnlyCollection<string> personnelIds)
+        {
+            if (item is null || personnelIds is null || personnelIds.Count == 0)
+            {
+                return "Card forecast: no assigned personnel.";
+            }
+
+            var lines = new List<string>();
+            foreach (var personnelId in personnelIds.Where(id => !string.IsNullOrWhiteSpace(id)))
+            {
+                var person = PersonnelById(personnelId);
+                var deck = DeckFor(personnelId);
+                var available = deck.TodayHand.Where(card => !deck.UsedToday.Contains(card.Id)).ToList();
+                if (available.Count == 0)
+                {
+                    lines.Add($"{personnelId}: no unused attitude cards.");
+                    continue;
+                }
+
+                var best = available
+                    .Select(card => new CardUseForecast
+                    {
+                        Card = card,
+                        UseChancePercent = EstimateCardUseChancePercent(item, person, card, available)
+                    })
+                    .OrderByDescending(forecast => forecast.UseChancePercent)
+                    .ThenByDescending(forecast => forecast.Card.OutcomeModifier - forecast.Card.RiskModifier)
+                    .First();
+                var expected = ResolveCardUse(best.Card, personnelId, item.Id);
+                var afterOutcome = Mathf.Clamp((item.OutcomeScore <= 0 ? item.BaseSuccessChance : item.OutcomeScore) + expected.OutcomeModifier, 0, 100);
+                var afterRisk = Mathf.Clamp(item.LatentRisk + expected.RiskModifier, 0, 100);
+                var mood = CardMoodLabel(person);
+                lines.Add($"{person?.Name ?? personnelId}: MOST LIKELY [{best.Card.Title}] {best.UseChancePercent}% ({mood}) -> OUT {afterOutcome:000} ({Signed(expected.OutcomeModifier)}) / RISK {afterRisk:000} ({Signed(expected.RiskModifier)})");
+            }
+
+            return "Card forecast: " + string.Join(" | ", lines);
+        }
+
+        private (double Outcome, double Risk) EstimateWeightedCardDelta(EventCase item, Personnel person, IReadOnlyList<DebugCard> cards)
+        {
+            if (cards is null || cards.Count == 0)
+            {
+                return (0, 0);
+            }
+
+            var weightedOutcome = 0d;
+            var weightedRisk = 0d;
+            var total = 0d;
+            foreach (var card in cards)
+            {
+                var weight = EstimateCardUseWeight(item, person, card);
+                weightedOutcome += card.OutcomeModifier * weight;
+                weightedRisk += card.RiskModifier * weight;
+                total += weight;
+            }
+
+            return total <= 0 ? (0, 0) : (weightedOutcome / total, weightedRisk / total);
+        }
+
+        private int EstimateCardUseChancePercent(EventCase item, Personnel person, DebugCard card, IReadOnlyList<DebugCard> cards)
+        {
+            var weights = cards.Select(candidate => EstimateCardUseWeight(item, person, candidate)).ToList();
+            var total = weights.Sum();
+            if (total <= 0)
+            {
+                return 0;
+            }
+
+            var index = -1;
+            for (var i = 0; i < cards.Count; i++)
+            {
+                if (ReferenceEquals(cards[i], card) || cards[i].Id.Equals(card.Id, StringComparison.OrdinalIgnoreCase))
+                {
+                    index = i;
+                    break;
+                }
+            }
+
+            if (index < 0)
+            {
+                return 0;
+            }
+
+            return Mathf.RoundToInt((float)(weights[index] / total * 100d));
+        }
+
+        private DebugCard ChooseCardByUseWeight(EventCase item, Personnel person, IReadOnlyList<DebugCard> cards, System.Random random)
+        {
+            if (cards is null || cards.Count == 0)
+            {
+                return null;
+            }
+
+            var weights = cards.Select(card => EstimateCardUseWeight(item, person, card)).ToList();
+            var total = weights.Sum();
+            if (total <= 0)
+            {
+                return cards[random.Next(cards.Count)];
+            }
+
+            var roll = random.NextDouble() * total;
+            var cursor = 0d;
+            for (var i = 0; i < cards.Count; i++)
+            {
+                cursor += weights[i];
+                if (roll <= cursor)
+                {
+                    return cards[i];
+                }
+            }
+
+            return cards[^1];
+        }
+
+        private double EstimateCardUseWeight(EventCase item, Personnel person, DebugCard card)
+        {
+            var weight = 100d;
+            var tags = card.Tags ?? new List<string>();
+            var workTags = item?.Tags ?? new List<string>();
+            var hookTags = item?.CardHooks ?? new List<string>();
+            weight += tags.Count(tag => ContainsTag(workTags, tag) || ContainsTag(hookTags, tag)) * 35d;
+
+            if (person is not null)
+            {
+                var strain = Math.Max(0, person.Fatigue - 35) + Math.Max(0, person.MentalStress - 35);
+                var trustGap = Math.Max(0, 55 - person.TrustToManager);
+                if (ContainsTag(tags, "speed") || ContainsTag(tags, "unsafe"))
+                {
+                    weight += strain * 0.9d + trustGap * 0.45d;
+                }
+
+                if (ContainsTag(tags, "audit") || ContainsTag(tags, "review"))
+                {
+                    weight += Math.Max(0, 70 - person.Fatigue) * 0.35d + Math.Max(0, person.TrustToManager - 45) * 0.35d;
+                }
+
+                if (ContainsTag(tags, "care") || ContainsTag(tags, "fatigue"))
+                {
+                    weight += strain * 0.75d + Math.Max(0, person.RetentionRisk - 30) * 0.4d;
+                }
+
+                if (ContainsTag(tags, "intel") || ContainsTag(tags, "memory"))
+                {
+                    weight += Math.Max(0, 70 - strain) * 0.3d + Math.Max(0, person.Stagnation - 35) * 0.35d;
+                }
+            }
+
+            if (item is not null)
+            {
+                if ((ContainsTag(tags, "risk") || ContainsTag(tags, "unsafe")) && (item.Urgency >= 65 || item.Severity >= 65))
+                {
+                    weight += 22d;
+                }
+
+                if ((ContainsTag(tags, "audit") || ContainsTag(tags, "review")) && item.MismatchScore >= 2)
+                {
+                    weight += 28d;
+                }
+
+                if ((ContainsTag(tags, "care") || ContainsTag(tags, "fatigue")) && item.PhysicalCost + item.MentalCost >= 22)
+                {
+                    weight += 24d;
+                }
+            }
+
+            return Math.Max(10d, weight);
+        }
+
+        private static bool ContainsTag(IEnumerable<string> tags, string needle)
+        {
+            return tags != null && !string.IsNullOrWhiteSpace(needle)
+                && tags.Any(tag => tag.Equals(needle, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private Personnel PersonnelById(string personnelId)
+        {
+            return CurrentState?.Staff.FirstOrDefault(candidate => candidate.Id.Equals(personnelId ?? "", StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static string CardMoodLabel(Personnel person)
+        {
+            if (person is null)
+            {
+                return "unknown mood";
+            }
+
+            if ((person.Injuries?.Count ?? 0) > 0)
+            {
+                return "injured";
+            }
+
+            if (person.Fatigue >= 65 || person.MentalStress >= 65)
+            {
+                return "strained";
+            }
+
+            if (person.TrustToManager < 45)
+            {
+                return "defensive";
+            }
+
+            if (person.Stagnation >= 60)
+            {
+                return "restless";
+            }
+
+            return "steady";
         }
 
         private string BuildPrinterLogText()
@@ -2946,7 +3161,7 @@ namespace ProjectW.IngameCore.CaseReview
                 var marker = card.IsUsed
                     ? revealSelection ? "USED" : "????"
                     : "    ";
-                lines.Add($"{marker} {card.Title} | OUT {Signed(card.OutcomeModifier)} RISK {Signed(card.RiskModifier)} | CRIT {card.CriticalChancePercent}% x{FormatMultiplier(card.CriticalMultiplier)}");
+                lines.Add($"{marker} {card.Title} | USE {card.UseChancePercent}% | OUT {Signed(card.OutcomeModifier)} RISK {Signed(card.RiskModifier)} | CRIT {card.CriticalChancePercent}% x{FormatMultiplier(card.CriticalMultiplier)}");
             }
 
             if (!revealSelection)
@@ -3346,11 +3561,11 @@ namespace ProjectW.IngameCore.CaseReview
                         continue;
                     }
 
-                    var used = available[random.Next(available.Count)];
+                    var person = CurrentState.Staff.FirstOrDefault(candidate => candidate.Id.Equals(personId, StringComparison.OrdinalIgnoreCase));
+                    var used = ChooseCardByUseWeight(item, person, available, random);
                     var resolved = ResolveCardUse(used, personId, entry.EventId);
                     deck.UsedToday.Add(used.Id);
                     activeCards.Add(ToRuntimeCard(used, personId, entry.EventId, resolved));
-                    var person = CurrentState.Staff.FirstOrDefault(candidate => candidate.Id.Equals(personId, StringComparison.OrdinalIgnoreCase));
                     performances.Add(new WorkPerformanceEvent
                     {
                         EventId = entry.EventId,
@@ -3367,6 +3582,7 @@ namespace ProjectW.IngameCore.CaseReview
                             RiskModifier = card.RiskModifier,
                             CriticalChancePercent = card.CriticalChancePercent,
                             CriticalMultiplier = card.CriticalMultiplier,
+                            UseChancePercent = EstimateCardUseChancePercent(item, person, card, available),
                             IsUsed = card.Id.Equals(used.Id, StringComparison.OrdinalIgnoreCase)
                         }).ToList(),
                         OutcomeBefore = item?.OutcomeScore ?? 0,
@@ -3989,6 +4205,12 @@ namespace ProjectW.IngameCore.CaseReview
         public float CriticalMultiplier { get; set; } = 1f;
     }
 
+    internal sealed class CardUseForecast
+    {
+        public DebugCard Card { get; set; }
+        public int UseChancePercent { get; set; }
+    }
+
     internal struct CardUseResult
     {
         public int OutcomeModifier { get; set; }
@@ -4029,6 +4251,7 @@ namespace ProjectW.IngameCore.CaseReview
         public int RiskModifier { get; set; }
         public int CriticalChancePercent { get; set; }
         public float CriticalMultiplier { get; set; } = 1f;
+        public int UseChancePercent { get; set; }
         public bool IsUsed { get; set; }
     }
 }

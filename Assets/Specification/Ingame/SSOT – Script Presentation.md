@@ -680,8 +680,14 @@ Scenario runtime implementation should be split into these responsibilities.
   - should reveal the worker's whole current hand first, then clearly mark which card was selected and used for dramatic payoff
   - the unused hand cards are presentation context only; only the selected card is converted into runtime card influence
   - card presentation should show the visible low-point effect plus critical success chance and multiplier
+  - hand presentation may also show each card's estimated use chance when the chance is generated from the same mood/work/tag weighting used by runtime selection
   - if critical success triggers, the performance scene should call it out and show the actual boosted outcome/risk delta
   - card effects must still flow through explicit runtime data such as `ActionCard.TargetEventId`; the presentation must not mutate core state directly
+- `TodayWorkPlanCardForecast`
+  - may appear in the plan window and plan approval modal before work starts
+  - shows the most likely attitude card for each assigned worker, the estimated use chance, the current mood label, and the predicted `Outcome/Risk` value if that card applies
+  - must be advisory only; the forecast must not spend, mark, or apply a card
+  - must be computed from the same available hand, mood state, work tags/card hooks, and card tags that runtime card selection uses
 - `ScenarioEffectApplier`
   - applies declared state effects through public core mutation interfaces only
   - current implementation supports scoped work latent-risk changes, global latent-risk changes, replacement pressure, environment modifier registration/removal, and tag registration

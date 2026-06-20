@@ -139,6 +139,7 @@ Rules:
 - Characters that cannot be inserted into a picker row are dimmed in that picker. `Character Profiling` keeps a consistent layout regardless of assignment context.
 - Character tabs show only ID and name. For up to 12 characters, the tab area should wrap into roughly two or three rows when the window is narrow.
 - `Today Work Plan` decides assignment only. `STAMP APPROVED / Start Work` and `NEXT MORNING / Advance Day` live as desktop lower-right action buttons. Report summary is opened from `Daily Report`, not from `Today Work Plan`.
+- `Today Work Plan` may show advisory card forecasts for the current assignment. These forecasts are read-only: they show the most likely attitude card, estimated use chance, and predicted `Outcome/Risk` delta, but they do not apply a card or confirm work.
 - Character selection state may be shared between `Character Profiling` and `Today Work Plan`, but core state changes still pass through `CaseReviewGame.Dispatch` or explicit assignment sync boundaries.
 - Desktop chrome may reorganize presentation, but it must not replace the daily loop: review, assignment, confirmation, execution feedback, night summary, next morning.
 - `My Intranet Page`: personal intranet page that consolidates player resources, merit tokens, approval history, relationship watch records, and mail/inbox style notices.
@@ -147,9 +148,17 @@ Rules:
 
 ## 4. Cards and Decks
 
+Current implementation rule:
+
+- Daily card hand size is 3 cards in the MVP desktop loop.
+- A card is an attitude toward the assigned work, not a source of work injury. Injury and disability risk belongs to `Work/EventCase`.
+- Card use is probability-weighted, not uniform random. The weight is derived from the card tags, work tags/card hooks, and the assigned character's current mood state.
+- Mood state is inferred from runtime character state such as injury, fatigue, mental stress, trust to manager, and stagnation.
+- The UI may show the most likely card and expected `Outcome/Risk` result before confirmation. This is forecast text only; the actual selected card is still resolved when morning work starts.
+
 각 개체는 행동 덱을 가진다.
 
-- 하루 시작 시 개체마다 행동 카드 1장을 랜덤하게 들고 온다.
+- 하루 시작 시 개체마다 행동 카드 3장을 들고 온다.
 - 행동 카드는 그날 해당 개체가 업무에 반응하는 주요 경향이다.
 - 카드는 성공 보정만이 아니라 사고, 과잉 대응, 회피, 보고 왜곡, 협업, 성장 기회도 포함한다.
 - 경험이 쌓인 개체는 카드 또는 특성이 추가된다.

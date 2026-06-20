@@ -7,12 +7,12 @@
 <!-- arch-sync:begin -->
 | 항목 | 값 |
 |------|-----|
-| **동기화 모드** | `index (pre-commit / manual)` |
-| **동기화 시각 (UTC)** | `2026-06-13T02:36:24Z` |
-| **기준 커밋 (전체 SHA)** | `b58ec45ad75ad8f4c1948f1aef6eb2f0e306246b` |
-| **기준 커밋 (단축)** | `b58ec45` |
+| **동기화 모드** | `finalize (post-commit)` |
+| **동기화 시각 (UTC)** | `2026-06-20T08:02:25Z` |
+| **기준 커밋 (전체 SHA)** | `e89d68f11aedc4287a866d508a6bde14c55e0599` |
+| **기준 커밋 (단축)** | `e89d68f` |
 | **브랜치** | `ai-integration` |
-| **추적 경로 지문** | `sha256:fce6b3ae7a26cb7cc9c8b2c2fda384a6f18d0b1fa1357a5771ebce82da40eb8a` |
+| **추적 경로 지문** | `sha256:4ea4b5921406c87d92868bb9299d7a1760f341d4828594ff848b0c30f236cdfb` |
 | **추적 경로** | `Assets/Specification/`<br>`Assets/Scripts/`<br>`Assets/Tests/`<br>`Assets/Editor/`<br>`Assets/Resources/CaseReviewData/` |
 
 > 지문은 Git 인덱스(`git ls-files -s`)에 등록된 추적 경로 파일 목록·blob 해시의 SHA-256이다.  
@@ -399,10 +399,11 @@ flowchart TB
 | Phase 처리 | desktop shortcut은 phase에 따라 사라지지 않으며, 부적합 phase에서는 최신 정보를 read-only로 표시 |
 | Desktop Actions | 우하단 고정 액션 버튼: Morning에는 `STAMP APPROVED / Start Work`, Evening에는 `NEXT MORNING / Advance Day` 활성화 |
 | 업무 배치 | `TodayWorkPlan`의 슬롯을 선택하면 창 내부가 아니라 별도 floating panel이 오른쪽에 열리고 캐릭터 선택 리스트 표시 |
+| 카드 예측 | `TodayWorkPlan`과 승인 모달은 배정별 가장 높은 확률의 attitude card, mood label, 예상 `Outcome/Risk`를 read-only forecast로 표시 |
 | Floating Wing | owner 창 이동/리사이즈 시 `WindowLayoutState` 기준으로 다시 계산되어 따라붙음 |
 | 캐릭터 선택 행 | 얼굴 placeholder, 이름/id, load/fatigue/trust 상태를 표시하고 선택 불가 캐릭터는 floating picker 안에서 dim 처리 |
 | Character Profiling | 상단 ID/이름 탭 그리드, 1단 얼굴+캐릭터 상태, 2단 Today Card 목록의 세로 구조 |
-| 실행 피드백 | `CONFIRM PLAN` 후 worker hand reveal과 used-card highlight를 보여주는 work performance overlay |
+| 실행 피드백 | `CONFIRM PLAN` 후 worker hand reveal, 카드별 `USE %`, used-card highlight, 실제 outcome/risk delta를 보여주는 work performance overlay |
 | 상태 경계 | `CaseReviewGame.Dispatch`와 명시적 assignment sync 경계를 유지 |
 
 ---
@@ -491,13 +492,15 @@ classDiagram
 ```mermaid
 flowchart LR
   CFG["GameConfig.Rules\nCaseReviewRules"]
-  CFG --> CDS["ICardDrawService\n아침 카드 1장/인력"]
+  CFG --> CDS["ICardDrawService\n아침 카드 3장/일"]
   CFG --> RCP["IReviewCostPolicy\n검토 비용"]
   CFG --> RPP["IReplacementPressurePolicy\nAI 대체 압력"]
   CFG --> BP["IBossPolicy\nBossArchetype 수정자"]
 ```
 
 기본 구현은 `DefaultCardDrawService`, `DefaultReviewCostPolicy` 등이 `CoreRules.cs`에 동봉된다. 테스트에서 `ConfigRules_CanPlugCustomCardDrawService`로 교체 가능함을 검증한다.
+
+MVP Scene의 presentation card hand는 `CaseReviewMvpSceneController`가 worker별 hand를 만들고, 선택된 worker/work/card 조합에 대해 mood/work/tag 기반 가중치를 계산한다. Plan UI와 approval modal은 같은 가중치로 가장 높은 확률의 카드와 예상 `Outcome/Risk`를 보여주며, 실제 실행 시에도 같은 가중치 모델로 카드를 선택한 뒤 `ActionCard.TargetEventId`를 통해 core 결과에 연결한다.
 
 ---
 
