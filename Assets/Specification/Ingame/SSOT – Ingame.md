@@ -117,38 +117,38 @@ Rules:
 
 ------
 
-### 3.2 MVP Scene Desktop UI
+### 3.2 MVP Scene Workspace UI
 
-The current MVP Scene is a runtime-generated desktop-style UGUI surface for validating the daily management loop.
+The current MVP Scene is a runtime-generated UGUI workspace for validating the daily management loop. Its visual direction follows the Unity UI Design System in section 3.3; the old retro desktop concept is discarded.
 
 Rules:
 
-- The desktop uses square shortcuts with short labels, aligned from the upper-left like a simple Windows desktop.
-- Connected player functions are grouped into purpose-centered windows instead of many independent popups:
+- The workspace uses stable navigation buttons with clear text labels.
+- Connected player functions are grouped into purpose-centered panels instead of many independent popups:
   - `Current Work Dashboard`: current work status, queue, risks, selected work detail, progress, worker timeline, system diagnostics, people/work gauges, and recent logs.
   - `Today Work Plan`: daily plan entries and a floating right-side character selection panel for assignment slots.
   - `Daily Report`: resolved work and night summary popup.
   - `Character Profiling`: top ID/name character tabs, selected character face/status, today cards, and used-card state.
   - `Dev Tools`: sample scenario playback and future development-only tools.
 - Windows are draggable, resizable, remember their current layout for the session, and enforce a minimum size.
-- Window contents must support vertical scrolling by default because MVP readability uses large UI text.
-- Runtime text in this MVP UI should not render below 30 px.
-- Desktop shortcuts are stable and do not appear/disappear by phase. If a window is opened at a phase that does not allow editing, it shows the latest available information read-only, or an explicit empty state if no information exists.
+- Window contents must support vertical scrolling by default.
+- Runtime text follows section 3.3 typography: title 32-40 px, section 24-28 px, body 18-22 px, button 20-24 px, caption 16 px or larger.
+- Navigation entries are stable and do not appear/disappear by phase. If a panel is opened at a phase that does not allow editing, it shows the latest available information read-only, or an explicit empty state if no information exists.
 - Assignment slots in `Today Work Plan` open a separate right-side floating character picker panel. Each picker row shows a face placeholder, name/id, and compact status.
 - Floating picker panels follow their owner window when the owner window is dragged or resized.
 - Characters that cannot be inserted into a picker row are dimmed in that picker. `Character Profiling` keeps a consistent layout regardless of assignment context.
 - Character tabs show only ID and name. For up to 12 characters, the tab area should wrap into roughly two or three rows when the window is narrow.
-- `Today Work Plan` decides assignment only. `STAMP APPROVED / Start Work` and `NEXT MORNING / Advance Day` live as desktop lower-right action buttons. Report summary is opened from `Daily Report`, not from `Today Work Plan`.
+- `Today Work Plan` decides assignment only. `Start Work` and `Advance Day` live as fixed lower-right action buttons. Report summary is opened from `Daily Report`, not from `Today Work Plan`.
 - `Today Work Plan` may show advisory card forecasts for the current assignment. These forecasts are read-only: they show the most likely attitude card, estimated use chance, and predicted `Outcome/Risk` delta, but they do not apply a card or confirm work.
 - Character selection state may be shared between `Character Profiling` and `Today Work Plan`, but core state changes still pass through `CaseReviewGame.Dispatch` or explicit assignment sync boundaries.
-- Desktop chrome may reorganize presentation, but it must not replace the daily loop: review, assignment, confirmation, execution feedback, night summary, next morning.
+- Workspace presentation may reorganize panels, but it must not replace the daily loop: review, assignment, confirmation, execution feedback, night summary, next morning.
 - `My Intranet Page`: personal intranet page that consolidates player resources, merit tokens, approval history, relationship watch records, and mail/inbox style notices.
 
 ------
 
 ### 3.3 Unity UI Design System
 
-All new Unity runtime UI must default to mobile-readable, data-growth-safe layout even when the current MVP is presented as a desktop-style UGUI surface.
+All Unity runtime UI must default to mobile-readable, data-growth-safe layout.
 
 Priority:
 
@@ -165,7 +165,6 @@ Typography:
 - Button text should use 20-24 px.
 - Caption text should be 16 px or larger.
 - Text below 16 px is forbidden unless a specific technical exception is documented near the implementation.
-- The current CaseReview MVP may keep its stricter minimum 30 px readability rule until a dedicated mobile UI pass replaces it.
 
 Text handling:
 
@@ -202,7 +201,6 @@ Color and decoration:
 - Use only one low-saturation blue or green accent family by default.
 - Prefer thin borders, weak shadows, and small radius.
 - Avoid strong gradients, glow, neon, and heavy shadow.
-- The existing retro CaseReview MVP palette is a prototype exception; production-facing UI must move toward the white-based design system above.
 
 Controls and states:
 
@@ -228,7 +226,7 @@ Review checklist:
 - No incoherent overlap.
 - Adequate spacing.
 - Safe Area considered.
-- White-based restrained palette unless a documented prototype exception applies.
+- White-based restrained palette.
 - Data can grow by 10x without scene restructuring.
 
 ------

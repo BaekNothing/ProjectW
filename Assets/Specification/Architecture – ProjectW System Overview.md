@@ -8,11 +8,11 @@
 | 항목 | 값 |
 |------|-----|
 | **동기화 모드** | `index (pre-commit / manual)` |
-| **동기화 시각 (UTC)** | `2026-06-20T08:46:11Z` |
-| **기준 커밋 (전체 SHA)** | `57bf37c864106fdcb587f149d929b94666aa1587` |
-| **기준 커밋 (단축)** | `57bf37c` |
+| **동기화 시각 (UTC)** | `2026-06-20T09:15:50Z` |
+| **기준 커밋 (전체 SHA)** | `800b8bf0c4663dc7da7cd127c052b50cfbd1dead` |
+| **기준 커밋 (단축)** | `800b8bf` |
 | **브랜치** | `ai-integration` |
-| **추적 경로 지문** | `sha256:ba6c18c7afa87a3eae6bf2171657c4460c936746bb9f0499b3b88f84b4916a86` |
+| **추적 경로 지문** | `sha256:331ed807a1a8d7fdbee57f2f772ba9ef0482a0fbe98d41610f764ecf4bac9235` |
 | **추적 경로** | `Assets/Specification/`<br>`Assets/Scripts/`<br>`Assets/Tests/`<br>`Assets/Editor/`<br>`Assets/Resources/CaseReviewData/` |
 
 > 지문은 Git 인덱스(`git ls-files -s`)에 등록된 추적 경로 파일 목록·blob 해시의 SHA-256이다.  
@@ -61,7 +61,7 @@ mindmap
       Deprecated PM Log
     Unity 구현
       Case Review 코어
-      MVP Scene 데스크탑 UI
+      MVP Scene Workspace UI
       WorkDefinition 생성기
       ScriptableObject 데이터
       에디터 워크샵
@@ -385,21 +385,21 @@ flowchart TB
 
 ### 5.8 MVP Scene Runtime UI
 
-현재 MVP Scene의 플레이 가능 UI는 `CaseReviewMvpSceneController`가 런타임에 생성하는 UGUI 데스크탑이다.
+현재 MVP Scene의 플레이 가능 UI는 `CaseReviewMvpSceneController`가 런타임에 생성하는 UGUI workspace다. 레트로 데스크탑 컨셉은 폐기됐고, `SSOT – Ingame` 3.3의 모바일 가독성·흰색 기반·자동 레이아웃 기준을 따른다.
 
 | 영역 | 현재 구현 |
 |------|-----------|
-| 데스크탑 진입 | 좌상단 정렬 1:1 shortcut: `Current Work`, `Today Plan`, `Daily Report`, `Characters`, `Dev Tools` |
+| Workspace 진입 | 안정적인 navigation button: `Current Work`, `Today Plan`, `Daily Report`, `Characters`, `Dev Tools` |
 | 창 구조 | `CurrentWorkDashboard`, `TodayWorkPlan`, `DailyReport`, `CharacterProfiling`, `DevTools` 목적 중심 창 |
 | Current Work | 업무 현황과 SYS DIAG, 사람/업무 gauge, 최근 로그를 함께 표시 |
 | Daily Report | 최신 일일 리포트 summary 팝업, 리포트가 없으면 empty state 표시 |
 | Dev Tools | 샘플 시나리오 재생과 향후 개발 전용 도구 진입점 |
 | 창 조작 | 드래그 이동, 세션 내 위치 기억, 리사이즈, 최소 크기, 기본 세로 스크롤 |
-| 가독성 기준 | MVP UI 텍스트 최소 30 px, 이에 맞춘 버튼·슬롯·카드·로그 높이 확장 |
-| 전역 UI 기준 | `SSOT – Ingame` 3.3의 Unity UI Design System을 신규 UI 기본값으로 사용 |
-| 모바일/데이터 증가 검토 | ScrollRect와 LayoutGroup 중심 구조는 방향이 맞지만, 현재 MVP는 레트로 데스크탑 프로토타입이라 생산 UI 전환 시 white-based palette, 24-32 px 외부 margin, 16 px component spacing, Safe Area, 300-item list 대응을 재점검해야 함 |
-| Phase 처리 | desktop shortcut은 phase에 따라 사라지지 않으며, 부적합 phase에서는 최신 정보를 read-only로 표시 |
-| Desktop Actions | 우하단 고정 액션 버튼: Morning에는 `STAMP APPROVED / Start Work`, Evening에는 `NEXT MORNING / Advance Day` 활성화 |
+| 가독성 기준 | title 32-40 px, section 24-28 px, body 18-22 px, button 20-24 px, caption 16 px 이상 |
+| 전역 UI 기준 | `SSOT – Ingame` 3.3의 Unity UI Design System을 모든 런타임 UI 기본값으로 사용 |
+| 모바일/데이터 증가 검토 | white-based palette, 24-32 px outer margin, 16 px component spacing, ScrollRect와 LayoutGroup 중심 구조, dynamic list 증가 대응 |
+| Phase 처리 | navigation entry는 phase에 따라 사라지지 않으며, 부적합 phase에서는 최신 정보를 read-only로 표시 |
+| Fixed Actions | 우하단 고정 액션 버튼: Morning에는 `Start Work`, Evening에는 `Advance Day` 활성화 |
 | 업무 배치 | `TodayWorkPlan`의 슬롯을 선택하면 창 내부가 아니라 별도 floating panel이 오른쪽에 열리고 캐릭터 선택 리스트 표시 |
 | 카드 예측 | `TodayWorkPlan`과 승인 모달은 배정별 가장 높은 확률의 attitude card, mood label, 예상 `Outcome/Risk`를 read-only forecast로 표시 |
 | Floating Wing | owner 창 이동/리사이즈 시 `WindowLayoutState` 기준으로 다시 계산되어 따라붙음 |
@@ -408,13 +408,14 @@ flowchart TB
 | 실행 피드백 | `CONFIRM PLAN` 후 worker hand reveal, 카드별 `USE %`, used-card highlight, 실제 outcome/risk delta를 보여주는 work performance overlay |
 | 상태 경계 | `CaseReviewGame.Dispatch`와 명시적 assignment sync 경계를 유지 |
 
-**UI 시스템 검토 결과 (2026-06-20):**
+**UI 시스템 리팩터링 결과 (2026-06-20):**
 
-- `CaseReviewMvpSceneController`는 모든 `Text`를 `MinUiFontSize = 30` 이상으로 올리고 `HorizontalWrapMode.Wrap`, `VerticalWrapMode.Truncate`를 적용하므로 최소 폰트 기준은 새 SSOT보다 엄격하다.
+- `CaseReviewMvpSceneController`는 `AppBackgroundColor`, `SurfaceColor`, `BorderColor`, `PrimaryTextColor`, `SecondaryTextColor`, `AccentColor`, `WarningColor`와 spacing/font/button 토큰을 사용한다.
+- `MinUiFontSize = 18`, `ButtonFontSize = 22`, `SectionFontSize = 26`, `OuterMargin = 28`, `SectionSpacing = 24`, `ComponentSpacing = 16`, `ButtonMinHeight = 64`가 현재 공통 기준이다.
 - 목적 중심 창 본문은 `CreateWindowScrollContent`를 통해 `ScrollRect` + `VerticalLayoutGroup` + `ContentSizeFitter` 구조를 기본 사용한다.
 - 반복 항목은 대부분 `LayoutElement`와 LayoutGroup으로 구성되어 고정 좌표보다 자동 배치 비중이 높다.
-- 현재 갭은 색상과 밀도다. 레트로 CRT/서류 팔레트, 6-12 px 수준의 내부 spacing, 일부 수동 overlay/meeting 좌표는 새 모바일 UI 디자인 시스템의 production-facing 기준과 다르다.
-- 다음 대규모 UI 패스는 기능 추가보다 먼저 공통 UI 토큰(색상, spacing, min button height, section margin), Safe Area root, dynamic list stress test를 정리해야 한다.
+- 시나리오/업무 결과 overlay도 어두운 터미널 표현을 버리고 밝은 surface, primary/secondary text, accent button 기준으로 전환했다.
+- 일부 top-level window anchor, drag/resize chrome, scenario participant tile 배치는 의도적인 anchored overlay이며, 반복 콘텐츠와 텍스트 영역은 계속 ScrollRect/LayoutGroup 기준을 우선한다.
 
 ---
 
@@ -480,7 +481,7 @@ classDiagram
 | 파일 | 책임 |
 |------|------|
 | `CaseReviewGame.cs` | 유일한 게임 엔진 진입점, 명령·틱·일 진행 |
-| `CaseReviewMvpSceneController.cs` | MVP Scene 런타임 UGUI 데스크탑, 목적 중심 창, assignment picker, work performance overlay |
+| `CaseReviewMvpSceneController.cs` | MVP Scene 런타임 UGUI workspace, 목적 중심 창, assignment picker, work performance overlay |
 | `Models.cs` | `GameState`, `GameConfig`, `EventCase`, `Personnel`, DTO |
 | `CoreRules.cs` | `CaseReviewRules` + 기본 정책 구현 |
 | `ReportGenerator.cs` | 일일·개별 보고서 텍스트 생성 |
@@ -714,7 +715,7 @@ flowchart TB
 | 진입 유형 | 상태 |
 |-----------|------|
 | 게임 로직 | `CaseReviewGame` 정적 API |
-| MVP Scene 플레이 | `CaseReviewMvpSceneController`가 런타임 UGUI 데스크탑으로 `CaseReviewGame` 일일 루프를 구동 |
+| MVP Scene 플레이 | `CaseReviewMvpSceneController`가 런타임 UGUI workspace로 `CaseReviewGame` 일일 루프를 구동 |
 | 업무 생성 | `WorkDefinition` + `WorkGenerationSystem` 초기 구현 |
 | 플레이 가능 빌드 루프 | Morning plan → assignment → confirm → work performance overlay → Daily Report → next morning |
 | 데이터 제작 | 워크샵 씬 + 에디터 메뉴 |
@@ -779,7 +780,7 @@ flowchart LR
 
 ## 13. 한 줄 요약
 
-**ProjectW는 SSOT(Ingame·Work·Script Presentation·Characters)가 규칙의 중심이고, Unity 구현은 `CaseReview`의 `EventCase` 프로토타입·MVP Scene 런타임 데스크탑 UI·`WorkDefinition` 업무 생성기·캐릭터 SO 파이프라인·시나리오/로컬라이제이션 데이터 에셋·CSV 텍스트 편집 도구·워크샵·EditMode 테스트에 집중되어 있다. 장기 감사/평가 루프와 조건 기반 시나리오 큐잉은 SSOT에 정의됐으나 아직 확장 과제이며, Git 지문(`arch-sync`)으로 본 문서와 추적 경로의 동기화를 자동 검증한다.**
+**ProjectW는 SSOT(Ingame·Work·Script Presentation·Characters)가 규칙의 중심이고, Unity 구현은 `CaseReview`의 `EventCase` 프로토타입·MVP Scene 런타임 workspace UI·`WorkDefinition` 업무 생성기·캐릭터 SO 파이프라인·시나리오/로컬라이제이션 데이터 에셋·CSV 텍스트 편집 도구·워크샵·EditMode 테스트에 집중되어 있다. 장기 감사/평가 루프와 조건 기반 시나리오 큐잉은 SSOT에 정의됐으나 아직 확장 과제이며, Git 지문(`arch-sync`)으로 본 문서와 추적 경로의 동기화를 자동 검증한다.**
 
 ---
 
@@ -795,8 +796,8 @@ flowchart LR
 | 2026-06-03 | `SSOT – Work.md` 신설 | 업무 원형·인스턴스·동적 생성·태그 상호작용 규칙 분리 |
 | 2026-06-03 | Ingame §15 Decision Ledger | PM Log 판단 권한 폐기, 핵심 결정 SSOT 흡수 |
 | 2026-06-03 | System Index 판단 순서 정리 | PM Log → Deprecated, Git·구현 순서 명확화 |
-| 2026-06-06 | MVP Scene 데스크탑 UI 3창 재구성 | Current Work, Today Plan, Character Profiling, Dev Tools 목적 중심 창과 데스크탑 shortcut 구조 |
-| 2026-06-06 | MVP UI 접근성 기준 | 모든 런타임 UI 텍스트 최소 30 px, 창 기본 스크롤, drag/resize/위치 기억, assignment picker dim 처리 |
+| 2026-06-06 | MVP Scene 목적 중심 UI 3창 재구성 | Current Work, Today Plan, Character Profiling, Dev Tools 목적 중심 창 구조 |
+| 2026-06-20 | Unity UI 디자인 시스템 리팩터링 | 레트로 데스크탑 컨셉 폐기, white-based palette, typography/spacing tokens, 창 기본 스크롤, drag/resize/위치 기억, assignment picker dim 처리 |
 | 2026-06-03 | Character Data Workshop | SO 샘플·에디터 생성 파이프라인 |
 | (이전) | `CaseReviewRules` | 카드 뽑기·검토 비용·대체 압력·보스 정책 플러그 |
 

@@ -566,17 +566,17 @@ These commands are presentation commands. They must not directly mutate gameplay
 
 Minimal runtime layout rules:
 
-- Each `ScenarioScriptLine.PortraitIds` value becomes a visible Zoom-style participant tile for that line.
+- Each `ScenarioScriptLine.PortraitIds` value becomes a visible scenario-stage participant tile for that line.
 - The general formula is `(index + 1) / (count + 1)`.
 - If a portrait id existed on the previous line but its normalized position changed, the presentation view should move it from the previous position to the new position.
 - If `SpeakerId` exists in the current `PortraitIds`, non-speaker portraits are dimmed and the speaker portrait is focused.
-- Zoom meeting layout rule:
+- Scenario stage layout rule:
   - 1 participant uses one centered 4:3 full-screen feed.
-  - 2 or more participants use a fixed 2x2 meeting grid.
-  - The Zoom meeting tile container itself should fit inside the masked stage as a 4:3 surface.
+  - 2 or more participants use a fixed 2x2 participant grid.
+  - The participant tile container itself should fit inside the masked stage as a 4:3 surface.
   - Each 2x2 grid tile should keep an approximate 4:3 feed aspect, with unused cell space letterboxed by the meeting background.
   - Up to 4 participants fill the grid from top-left to bottom-right.
-  - Empty participant slots in the 2x2 grid remain visible as default avatar / no-signal feeds.
+  - Empty participant slots in the 2x2 grid remain visible as neutral empty participant tiles.
   - When a participant newly joins and no speaker override exists, the new participant is placed in the top-left slot and existing participants shift in order.
   - If more than 4 participants are present, the first 3 visible participants fill the first 3 slots and the fourth slot displays `+n` for the hidden overflow count.
   - If the current speaker is visible, that speaker is placed in the top-left slot and the remaining participants shift in order.

@@ -22,20 +22,29 @@ namespace ProjectW.IngameCore.CaseReview
         private const string SampleScenarioResourcePath = "CaseReviewData/Scenarios/Events/Scenario_TeaAudit";
         private const float ScenarioTypewriterCharactersPerSecond = 42f;
         private const float WorkPerformanceAutoSeconds = 1.8f;
-        private const int MinUiFontSize = 30;
+        private const int MinUiFontSize = 18;
+        private const int ButtonFontSize = 22;
+        private const int SectionFontSize = 26;
         private const float WindowMinWidth = 520f;
         private const float WindowMinHeight = 360f;
-        private static readonly Color DeskColor = new(0.18f, 0.14f, 0.10f, 1f);
-        private static readonly Color CrtShellColor = new(0.075f, 0.095f, 0.085f, 1f);
-        private static readonly Color CrtPanelColor = new(0.045f, 0.075f, 0.065f, 1f);
-        private static readonly Color CrtTextColor = new(0.68f, 0.95f, 0.73f, 1f);
-        private static readonly Color FolderColor = new(0.72f, 0.58f, 0.34f, 1f);
-        private static readonly Color FolderDarkColor = new(0.50f, 0.38f, 0.22f, 1f);
-        private static readonly Color PaperColor = new(0.82f, 0.78f, 0.66f, 1f);
-        private static readonly Color PaperTextColor = new(0.17f, 0.15f, 0.12f, 1f);
-        private static readonly Color IdCardColor = new(0.76f, 0.82f, 0.80f, 1f);
-        private static readonly Color TerminalButtonColor = new(0.13f, 0.20f, 0.17f, 1f);
-        private static readonly Color WarningStampColor = new(0.58f, 0.12f, 0.10f, 1f);
+        private const int OuterMargin = 28;
+        private const int SectionSpacing = 24;
+        private const int ComponentSpacing = 16;
+        private const int CompactSpacing = 12;
+        private const int ButtonMinHeight = 64;
+        private static readonly Color AppBackgroundColor = new(1f, 1f, 1f, 1f);
+        private static readonly Color SurfaceColor = new(0.969f, 0.969f, 0.969f, 1f);
+        private static readonly Color SurfaceRaisedColor = new(0.988f, 0.988f, 0.988f, 1f);
+        private static readonly Color BorderColor = new(0.867f, 0.867f, 0.867f, 1f);
+        private static readonly Color PrimaryTextColor = new(0.133f, 0.133f, 0.133f, 1f);
+        private static readonly Color SecondaryTextColor = new(0.4f, 0.4f, 0.4f, 1f);
+        private static readonly Color DisabledColor = new(0.667f, 0.667f, 0.667f, 1f);
+        private static readonly Color AccentColor = new(0.176f, 0.408f, 0.545f, 1f);
+        private static readonly Color AccentMutedColor = new(0.82f, 0.91f, 0.94f, 1f);
+        private static readonly Color WarningColor = new(0.62f, 0.24f, 0.18f, 1f);
+        private static readonly Color SelectionColor = new(0.87f, 0.94f, 0.91f, 1f);
+        private static readonly Color OverlayScrimColor = new(0f, 0f, 0f, 0.42f);
+
 
         private Text statusText;
         private Text boardTitleText;
@@ -128,7 +137,7 @@ namespace ProjectW.IngameCore.CaseReview
                 return;
             }
 
-            var actions = CreateUiObject("Desktop Action Buttons", windowLayer).transform;
+            var actions = CreateUiObject("Fixed Action Buttons", windowLayer).transform;
             var rect = (RectTransform)actions;
             rect.anchorMin = new Vector2(1f, 0f);
             rect.anchorMax = new Vector2(1f, 0f);
@@ -136,24 +145,25 @@ namespace ProjectW.IngameCore.CaseReview
             rect.sizeDelta = new Vector2(330f, 184f);
             rect.anchoredPosition = new Vector2(-28f, 28f);
             var layout = actions.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.spacing = 10;
+            layout.padding = new RectOffset(0, 0, 0, 0);
+            layout.spacing = ComponentSpacing;
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
 
-            CreateDesktopActionButton("STAMP APPROVED\nStart Work", actions, ClickConfirmPlan, CurrentState?.Slot == Slot.Morning && CurrentState.MorningPlan?.Confirmed == false);
-            CreateDesktopActionButton("NEXT MORNING\nAdvance Day", actions, ClickNextDay, CurrentState?.Slot == Slot.Evening);
+            CreateDesktopActionButton("Start Work", actions, ClickConfirmPlan, CurrentState?.Slot == Slot.Morning && CurrentState.MorningPlan?.Confirmed == false);
+            CreateDesktopActionButton("Advance Day", actions, ClickNextDay, CurrentState?.Slot == Slot.Evening);
         }
 
         private void CreateDesktopActionButton(string label, Transform parent, UnityEngine.Events.UnityAction action, bool interactable)
         {
-            var buttonObject = CreatePanel("Desktop Action " + label, parent, interactable ? TerminalButtonColor : new Color(0.10f, 0.11f, 0.10f, 0.88f));
+            var buttonObject = CreatePanel("Primary Action " + label, parent, interactable ? AccentColor : SurfaceColor);
             var button = buttonObject.gameObject.AddComponent<Button>();
             button.interactable = interactable;
             button.targetGraphic = buttonObject.GetComponent<Image>();
             button.onClick.AddListener(action);
-            buttonObject.gameObject.AddComponent<LayoutElement>().minHeight = 86;
-            var text = CreateText(label, buttonObject, 16, FontStyle.Bold, TextAnchor.MiddleCenter);
-            text.color = interactable ? CrtTextColor : new Color(CrtTextColor.r, CrtTextColor.g, CrtTextColor.b, 0.42f);
+            buttonObject.gameObject.AddComponent<LayoutElement>().minHeight = 76;
+            var text = CreateText(label, buttonObject, ButtonFontSize, FontStyle.Bold, TextAnchor.MiddleCenter);
+            text.color = interactable ? AppBackgroundColor : DisabledColor;
             text.raycastTarget = false;
         }
 
@@ -710,7 +720,7 @@ namespace ProjectW.IngameCore.CaseReview
                 glyph.raycastTarget = false;
 
                 var label = CreateText(shortcut.Label, cell, 13, FontStyle.Bold, TextAnchor.UpperCenter);
-                label.color = CrtTextColor;
+                label.color = PrimaryTextColor;
                 label.raycastTarget = false;
                 label.rectTransform.anchorMin = new Vector2(0f, 0f);
                 label.rectTransform.anchorMax = new Vector2(1f, 0f);
@@ -824,8 +834,8 @@ namespace ProjectW.IngameCore.CaseReview
             }
 
             var layout = panel.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(12, 12, 10, 12);
-            layout.spacing = 8;
+            layout.padding = new RectOffset(OuterMargin, OuterMargin, ComponentSpacing, ComponentSpacing);
+            layout.spacing = ComponentSpacing;
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
 
@@ -834,8 +844,8 @@ namespace ProjectW.IngameCore.CaseReview
             var titleBarImage = titleBar.gameObject.AddComponent<Image>();
             titleBarImage.color = new Color(0f, 0f, 0f, 0.01f);
             titleBar.gameObject.AddComponent<DesktopWindowDragHandle>().Initialize(this, window, rect, windowLayer as RectTransform);
-            var titleText = CreateText(title, titleBar, 18, FontStyle.Bold, TextAnchor.MiddleLeft);
-            titleText.color = color == PaperColor || color == FolderColor || color == IdCardColor ? PaperTextColor : CrtTextColor;
+            var titleText = CreateText(title, titleBar, SectionFontSize, FontStyle.Bold, TextAnchor.MiddleLeft);
+            titleText.color = PrimaryTextColor;
             titleText.raycastTarget = false;
             titleText.rectTransform.offsetMax = new Vector2(-120f, 0f);
             var close = CreateSmallWindowButton("CLOSE", titleBar, () => CloseDesktopWindow(window));
@@ -845,7 +855,7 @@ namespace ProjectW.IngameCore.CaseReview
             closeRect.pivot = new Vector2(1f, 0.5f);
             closeRect.sizeDelta = new Vector2(110f, 0f);
             closeRect.anchoredPosition = Vector2.zero;
-            var resizeHandle = CreatePanel("Resize Handle", panel, new Color(0.04f, 0.05f, 0.04f, 0.55f));
+            var resizeHandle = CreatePanel("Resize Handle", panel, BorderColor);
             var resizeRect = (RectTransform)resizeHandle;
             resizeRect.anchorMin = new Vector2(1f, 0f);
             resizeRect.anchorMax = new Vector2(1f, 0f);
@@ -887,7 +897,8 @@ namespace ProjectW.IngameCore.CaseReview
             contentRect.anchoredPosition = Vector2.zero;
             contentRect.sizeDelta = Vector2.zero;
             var layout = content.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.spacing = 8;
+            layout.padding = new RectOffset(0, 0, CompactSpacing, 0);
+            layout.spacing = ComponentSpacing;
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
             var fitter = content.gameObject.AddComponent<ContentSizeFitter>();
@@ -981,7 +992,7 @@ namespace ProjectW.IngameCore.CaseReview
 
         private void CreateCurrentWorkDashboardWindow()
         {
-            var panel = CreateDockWindow(MvpDesktopWindow.CurrentWorkDashboard, "CURRENT WORK DASHBOARD", new Vector2(0.04f, 0.20f), new Vector2(0.70f, 0.92f), CrtPanelColor);
+            var panel = CreateDockWindow(MvpDesktopWindow.CurrentWorkDashboard, "CURRENT WORK DASHBOARD", new Vector2(0.04f, 0.20f), new Vector2(0.70f, 0.92f), SurfaceRaisedColor);
             CreateDashboardStatusSection(panel);
             if (CurrentState.Slot == Slot.Evening)
             {
@@ -992,14 +1003,14 @@ namespace ProjectW.IngameCore.CaseReview
             var body = CreateUiObject("Dashboard Body", panel).transform;
             body.gameObject.AddComponent<LayoutElement>().flexibleHeight = 1;
             var bodyLayout = body.gameObject.AddComponent<HorizontalLayoutGroup>();
-            bodyLayout.spacing = 10;
+            bodyLayout.spacing = ComponentSpacing;
             bodyLayout.childForceExpandHeight = true;
 
-            var list = CreatePanel("Work List", body, FolderDarkColor);
+            var list = CreatePanel("Work List", body, AccentMutedColor);
             list.gameObject.AddComponent<LayoutElement>().flexibleWidth = 0.36f;
             var listLayout = list.gameObject.AddComponent<VerticalLayoutGroup>();
-            listLayout.padding = new RectOffset(8, 8, 8, 8);
-            listLayout.spacing = 6;
+            listLayout.padding = new RectOffset(ComponentSpacing, ComponentSpacing, ComponentSpacing, ComponentSpacing);
+            listLayout.spacing = ComponentSpacing;
             listLayout.childForceExpandWidth = true;
             foreach (var entry in CurrentState.MorningPlan?.Entries ?? Enumerable.Empty<WorkPlanEntry>())
             {
@@ -1010,23 +1021,23 @@ namespace ProjectW.IngameCore.CaseReview
                 }
 
                 var selected = item.Id.Equals(selectedWorkId, StringComparison.OrdinalIgnoreCase);
-                CreateWindowButton($"{item.Id}\n{item.Title}", list, selected ? FolderColor : PaperColor, () => SelectWorkFile(item.Id), 104, selected ? WarningStampColor : PaperTextColor);
+                CreateWindowButton($"{item.Id}\n{item.Title}", list, selected ? AccentMutedColor : AppBackgroundColor, () => SelectWorkFile(item.Id), 104, selected ? PrimaryTextColor : PrimaryTextColor);
             }
 
-            var detailPanel = CreatePanel("Work Detail", body, FolderColor);
+            var detailPanel = CreatePanel("Work Detail", body, SurfaceRaisedColor);
             detailPanel.gameObject.AddComponent<LayoutElement>().flexibleWidth = 0.64f;
             var detailLayout = detailPanel.gameObject.AddComponent<VerticalLayoutGroup>();
-            detailLayout.padding = new RectOffset(10, 10, 10, 10);
-            detailLayout.spacing = 8;
+            detailLayout.padding = new RectOffset(ComponentSpacing, ComponentSpacing, ComponentSpacing, ComponentSpacing);
+            detailLayout.spacing = ComponentSpacing;
             detailLayout.childForceExpandWidth = true;
             var selectedWork = SelectedWorkOrFallback();
             if (selectedWork is not null)
             {
                 var detail = CreateText($"FILE {selectedWork.Id}  {selectedWork.Title}\nLabels: {WorkTags(selectedWork)}\nRemaining {Math.Max(1, selectedWork.Volume)} | URG {selectedWork.Urgency} | SEV {selectedWork.Severity} | RISK {selectedWork.LatentRisk} | TTL {Math.Max(0, selectedWork.TtlSec)}s", detailPanel, 14, FontStyle.Bold, TextAnchor.UpperLeft);
-                detail.color = PaperTextColor;
+                detail.color = PrimaryTextColor;
                 detail.gameObject.AddComponent<LayoutElement>().minHeight = 150;
-                CreateProgressRow("Outcome", selectedWork.OutcomeScore, 100, detailPanel, PaperTextColor);
-                CreateProgressRow("Risk", selectedWork.LatentRisk, 100, detailPanel, WarningStampColor);
+                CreateProgressRow("Outcome", selectedWork.OutcomeScore, 100, detailPanel, PrimaryTextColor);
+                CreateProgressRow("Risk", selectedWork.LatentRisk, 100, detailPanel, WarningColor);
                 CreateAssignmentTimeline(selectedWork, detailPanel);
             }
 
@@ -1035,7 +1046,7 @@ namespace ProjectW.IngameCore.CaseReview
 
         private void CreateTodayWorkPlanWindow()
         {
-            var panel = CreateDockWindow(MvpDesktopWindow.TodayWorkPlan, "TODAY WORK PLAN", new Vector2(0.12f, 0.12f), new Vector2(0.78f, 0.86f), FolderColor);
+            var panel = CreateDockWindow(MvpDesktopWindow.TodayWorkPlan, "TODAY WORK PLAN", new Vector2(0.12f, 0.12f), new Vector2(0.78f, 0.86f), SurfaceRaisedColor);
             if (CurrentState.Slot == Slot.Morning && CurrentState.MorningPlan?.Confirmed == false)
             {
                 CreatePlanAssignmentSection(panel);
@@ -1045,19 +1056,19 @@ namespace ProjectW.IngameCore.CaseReview
                 CreateReadOnlyPlanSection(panel);
             }
 
-            var note = CreateText("Plan decides assignment only. Use the desktop action buttons to start work or advance the day.", panel, 13, FontStyle.Bold, TextAnchor.MiddleLeft);
-            note.color = PaperTextColor;
+            var note = CreateText("Plan decides assignment only. Use the fixed action buttons to start work or advance the day.", panel, 18, FontStyle.Bold, TextAnchor.MiddleLeft);
+            note.color = PrimaryTextColor;
             note.gameObject.AddComponent<LayoutElement>().minHeight = 72;
         }
 
         private void CreateDailyReportWindow()
         {
-            var panel = CreateDockWindow(MvpDesktopWindow.DailyReport, "DAILY REPORT", new Vector2(0.18f, 0.16f), new Vector2(0.82f, 0.86f), PaperColor);
+            var panel = CreateDockWindow(MvpDesktopWindow.DailyReport, "DAILY REPORT", new Vector2(0.18f, 0.16f), new Vector2(0.82f, 0.86f), AppBackgroundColor);
             var resolved = CurrentState.Queue.Any(item => item.AutoResolved);
             if (!resolved)
             {
                 var text = CreateText("No daily report has been generated yet.", panel, 16, FontStyle.Bold, TextAnchor.MiddleLeft);
-                text.color = PaperTextColor;
+                text.color = PrimaryTextColor;
                 text.gameObject.AddComponent<LayoutElement>().minHeight = 120;
                 return;
             }
@@ -1065,7 +1076,7 @@ namespace ProjectW.IngameCore.CaseReview
             if (CurrentState.Slot != Slot.Evening)
             {
                 var note = CreateText("READ ONLY - latest available daily report.", panel, 16, FontStyle.Bold, TextAnchor.MiddleLeft);
-                note.color = WarningStampColor;
+                note.color = WarningColor;
                 note.gameObject.AddComponent<LayoutElement>().minHeight = 58;
             }
 
@@ -1079,11 +1090,11 @@ namespace ProjectW.IngameCore.CaseReview
                 return;
             }
 
-            var blocker = CreatePanel("Plan Approval Modal Blocker", windowLayer, new Color(0.02f, 0.025f, 0.02f, 0.72f));
+            var blocker = CreatePanel("Plan Approval Modal Blocker", windowLayer, OverlayScrimColor);
             Stretch((RectTransform)blocker);
             blocker.SetAsLastSibling();
 
-            var modal = CreatePanel("Plan Approval Modal", blocker, PaperColor);
+            var modal = CreatePanel("Plan Approval Modal", blocker, AppBackgroundColor);
             var modalRect = (RectTransform)modal;
             modalRect.anchorMin = new Vector2(0.25f, 0.18f);
             modalRect.anchorMax = new Vector2(0.75f, 0.86f);
@@ -1091,35 +1102,35 @@ namespace ProjectW.IngameCore.CaseReview
             modalRect.offsetMax = Vector2.zero;
 
             var layout = modal.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(18, 18, 16, 16);
-            layout.spacing = 10;
+            layout.padding = new RectOffset(OuterMargin, OuterMargin, ComponentSpacing, ComponentSpacing);
+            layout.spacing = ComponentSpacing;
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
 
-            var title = CreateText("STAMP APPROVED - FINAL CHECK", modal, 20, FontStyle.Bold, TextAnchor.MiddleLeft);
-            title.color = WarningStampColor;
+            var title = CreateText("FINAL PLAN CHECK", modal, SectionFontSize, FontStyle.Bold, TextAnchor.MiddleLeft);
+            title.color = WarningColor;
             title.gameObject.AddComponent<LayoutElement>().minHeight = 62;
 
             var body = CreateEmbeddedScrollContent("Plan Approval Scroll", modal, 460);
             var summary = CreateText(BuildPlanApprovalSummary(), body, 14, FontStyle.Bold, TextAnchor.UpperLeft);
-            summary.color = PaperTextColor;
+            summary.color = PrimaryTextColor;
             summary.gameObject.AddComponent<LayoutElement>().minHeight = 760;
 
             var actions = CreateUiObject("Plan Approval Actions", modal).transform;
             actions.gameObject.AddComponent<LayoutElement>().minHeight = 96;
             var actionLayout = actions.gameObject.AddComponent<HorizontalLayoutGroup>();
-            actionLayout.spacing = 12;
+            actionLayout.spacing = ComponentSpacing;
             actionLayout.childForceExpandWidth = true;
             actionLayout.childForceExpandHeight = true;
 
-            CreateWindowButton("CANCEL", actions, new Color(0.40f, 0.35f, 0.28f, 1f), ClickCancelPlanApproval, 86, PaperTextColor);
-            CreateWindowButton("CONFIRM\nSTART WORK", actions, TerminalButtonColor, ClickApprovePlanAndStartWork, 86, CrtTextColor);
+            CreateWindowButton("Cancel", actions, SurfaceColor, ClickCancelPlanApproval, 86, PrimaryTextColor);
+            CreateWindowButton("Confirm\nStart Work", actions, AccentColor, ClickApprovePlanAndStartWork, 86, AppBackgroundColor);
         }
 
         private void CreateCharacterProfilingWindow()
         {
-            var panel = CreateDockWindow(MvpDesktopWindow.CharacterProfiling, "CHARACTER PROFILING", new Vector2(0.48f, 0.16f), new Vector2(0.96f, 0.92f), IdCardColor);
-            rosterRoot = CreatePanel("Character Tabs", panel, new Color(0.64f, 0.70f, 0.68f, 1f));
+            var panel = CreateDockWindow(MvpDesktopWindow.CharacterProfiling, "CHARACTER PROFILING", new Vector2(0.48f, 0.16f), new Vector2(0.96f, 0.92f), SurfaceColor);
+            rosterRoot = CreatePanel("Character Tabs", panel, SurfaceColor);
             var staffCount = CurrentState.Staff.Count(person => !person.HasLeft);
             rosterRoot.gameObject.AddComponent<LayoutElement>().minHeight = CharacterTabGridHeight(MvpDesktopWindow.CharacterProfiling, staffCount);
             var rosterLayout = rosterRoot.gameObject.AddComponent<GridLayoutGroup>();
@@ -1134,7 +1145,7 @@ namespace ProjectW.IngameCore.CaseReview
                 CreateCharacterTab(person, rosterRoot, selectedPersonnelId.Equals(person.Id, StringComparison.OrdinalIgnoreCase));
             }
 
-            var profilePanel = CreatePanel("Profile Status", panel, PaperColor);
+            var profilePanel = CreatePanel("Profile Status", panel, AppBackgroundColor);
             profilePanel.gameObject.AddComponent<LayoutElement>().minHeight = 180;
             var profileLayout = profilePanel.gameObject.AddComponent<VerticalLayoutGroup>();
             profileLayout.padding = new RectOffset(10, 10, 10, 10);
@@ -1146,12 +1157,12 @@ namespace ProjectW.IngameCore.CaseReview
                 var statusRow = CreateUiObject("Profile Status Row", profilePanel).transform;
                 statusRow.gameObject.AddComponent<LayoutElement>().minHeight = 144;
                 var statusLayout = statusRow.gameObject.AddComponent<HorizontalLayoutGroup>();
-                statusLayout.spacing = 10;
+                statusLayout.spacing = ComponentSpacing;
                 statusLayout.childForceExpandHeight = true;
                 statusLayout.childForceExpandWidth = false;
                 CreateCharacterFaceBlock(selected, statusRow);
                 var detail = CreateText(CharacterProfileSummary(selected), statusRow, 15, FontStyle.Bold, TextAnchor.MiddleLeft);
-                detail.color = PaperTextColor;
+                detail.color = PrimaryTextColor;
                 var detailLayout = detail.gameObject.AddComponent<LayoutElement>();
                 detailLayout.flexibleWidth = 1;
                 detailLayout.minHeight = 124;
@@ -1160,20 +1171,20 @@ namespace ProjectW.IngameCore.CaseReview
                 actionLayoutElement.minWidth = 176;
                 actionLayoutElement.preferredWidth = 176;
                 var actionLayout = actionColumn.gameObject.AddComponent<VerticalLayoutGroup>();
-                actionLayout.spacing = 8;
+                actionLayout.spacing = ComponentSpacing;
                 actionLayout.childForceExpandWidth = true;
                 actionLayout.childForceExpandHeight = false;
-                CreateWindowButton("REGEN\nREQUEST", actionColumn, CanRegenerateSelected(selected) ? WarningStampColor : new Color(0.36f, 0.32f, 0.28f, 1f), () => ClickRegenerateSelected(selected.Id), 68, PaperTextColor);
-                var regenNote = CreateText("품의서 파일 생성 후 성과 토큰을 투입해 승인", actionColumn, 11, FontStyle.Bold, TextAnchor.UpperLeft);
-                regenNote.color = PaperTextColor;
+                CreateWindowButton("Regeneration\nRequest", actionColumn, CanRegenerateSelected(selected) ? WarningColor : SurfaceColor, () => ClickRegenerateSelected(selected.Id), 68, CanRegenerateSelected(selected) ? AppBackgroundColor : DisabledColor);
+                var regenNote = CreateText("?덉쓽???뚯씪 ?앹꽦 ???깃낵 ?좏겙???ъ엯???뱀씤", actionColumn, 11, FontStyle.Bold, TextAnchor.UpperLeft);
+                regenNote.color = PrimaryTextColor;
                 regenNote.gameObject.AddComponent<LayoutElement>().minHeight = 44;
                 CreateApprovalRequestPanel(selected, panel);
                 CreateRelationshipSummaryPanel(selected, panel);
-                cardHandRoot = CreatePanel("Today Cards", panel, new Color(0.30f, 0.25f, 0.18f, 1f));
+                cardHandRoot = CreatePanel("Today Cards", panel, SurfaceColor);
                 cardHandRoot.gameObject.AddComponent<LayoutElement>().minHeight = 360;
                 var cardLayout = cardHandRoot.gameObject.AddComponent<VerticalLayoutGroup>();
-                cardLayout.padding = new RectOffset(10, 10, 10, 10);
-                cardLayout.spacing = 8;
+                cardLayout.padding = new RectOffset(ComponentSpacing, ComponentSpacing, ComponentSpacing, ComponentSpacing);
+                cardLayout.spacing = ComponentSpacing;
                 cardLayout.childForceExpandWidth = true;
                 var deck = DeckFor(selected.Id);
                 foreach (var card in deck.TodayHand)
@@ -1210,18 +1221,18 @@ namespace ProjectW.IngameCore.CaseReview
                 .ThenByDescending(request => request.Id)
                 .FirstOrDefault();
 
-            var panel = CreatePanel("Approval Request Summary", parent, PaperColor);
+            var panel = CreatePanel("Approval Request Summary", parent, AppBackgroundColor);
             panel.gameObject.AddComponent<LayoutElement>().minHeight = pending is null ? 96 : 188;
             var layout = panel.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(10, 10, 8, 8);
-            layout.spacing = 7;
+            layout.padding = new RectOffset(ComponentSpacing, ComponentSpacing, ComponentSpacing, ComponentSpacing);
+            layout.spacing = ComponentSpacing;
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
 
             if (pending is null)
             {
                 var empty = CreateText($"APPROVAL FILE\nMERIT TOKENS {CurrentState.MeritTokens}\nNo regeneration file is open for {selected.Id}.", panel, 13, FontStyle.Bold, TextAnchor.UpperLeft);
-                empty.color = PaperTextColor;
+                empty.color = PrimaryTextColor;
                 empty.gameObject.AddComponent<LayoutElement>().minHeight = 72;
                 return;
             }
@@ -1232,7 +1243,7 @@ namespace ProjectW.IngameCore.CaseReview
                 13,
                 FontStyle.Bold,
                 TextAnchor.UpperLeft);
-            summary.color = PaperTextColor;
+            summary.color = PrimaryTextColor;
             summary.gameObject.AddComponent<LayoutElement>().minHeight = 94;
 
             if (pending.Status != ApprovalStatus.Draft && pending.Status != ApprovalStatus.Rejected)
@@ -1243,21 +1254,21 @@ namespace ProjectW.IngameCore.CaseReview
             var row = CreateUiObject("Approval Token Buttons", panel).transform;
             row.gameObject.AddComponent<LayoutElement>().minHeight = 76;
             var rowLayout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
-            rowLayout.spacing = 8;
+            rowLayout.spacing = ComponentSpacing;
             rowLayout.childForceExpandWidth = true;
             rowLayout.childForceExpandHeight = true;
 
             for (var amount = 1; amount <= Math.Max(3, pending.RequiredTokens); amount++)
             {
                 var submitAmount = amount;
-                var color = CurrentState.MeritTokens >= submitAmount ? TerminalButtonColor : new Color(0.36f, 0.32f, 0.28f, 1f);
-                CreateWindowButton($"{submitAmount}\nTOKENS", row, color, () => ClickSubmitApproval(pending.Id, submitAmount), 64, CurrentState.MeritTokens >= submitAmount ? CrtTextColor : PaperTextColor);
+                var color = CurrentState.MeritTokens >= submitAmount ? AccentColor : SurfaceColor;
+                CreateWindowButton($"{submitAmount}\nTokens", row, color, () => ClickSubmitApproval(pending.Id, submitAmount), 64, CurrentState.MeritTokens >= submitAmount ? AppBackgroundColor : DisabledColor);
             }
         }
 
         private void CreateRelationshipSummaryPanel(Personnel selected, Transform parent)
         {
-            var panel = CreatePanel("Relationship Memory Summary", parent, PaperColor);
+            var panel = CreatePanel("Relationship Memory Summary", parent, AppBackgroundColor);
             panel.gameObject.AddComponent<LayoutElement>().minHeight = 176;
             var lines = new List<string> { "RELATION / MEMORY" };
             var relationships = (selected.Relationships ?? new List<PersonnelRelationship>())
@@ -1292,7 +1303,7 @@ namespace ProjectW.IngameCore.CaseReview
             }
 
             var text = CreateText(string.Join("\n", lines), panel, 12, FontStyle.Bold, TextAnchor.UpperLeft);
-            text.color = PaperTextColor;
+            text.color = PrimaryTextColor;
             text.rectTransform.offsetMin = new Vector2(8, 6);
             text.rectTransform.offsetMax = new Vector2(-8, -6);
         }
@@ -1322,11 +1333,11 @@ namespace ProjectW.IngameCore.CaseReview
 
         private void CreateDevToolsWindow()
         {
-            var panel = CreateDockWindow(MvpDesktopWindow.DevTools, "DEV TOOLS", new Vector2(0.04f, 0.08f), new Vector2(0.44f, 0.62f), CrtPanelColor);
+            var panel = CreateDockWindow(MvpDesktopWindow.DevTools, "DEV TOOLS", new Vector2(0.04f, 0.08f), new Vector2(0.44f, 0.62f), SurfaceRaisedColor);
             CreateHeader("SCENARIO LAB", panel);
             var note = CreateText("Sample scenario playback and future development-only tools live here.", panel, 13, FontStyle.Bold, TextAnchor.UpperLeft);
             note.gameObject.AddComponent<LayoutElement>().minHeight = 86;
-            CreateWindowButton("> PLAY SCENARIO SAMPLE", panel, TerminalButtonColor, ClickPlaySampleScenario, 82, CrtTextColor);
+            CreateWindowButton("Play Scenario Sample", panel, AccentColor, ClickPlaySampleScenario, 82, AppBackgroundColor);
             CreateHeader("REMOTE SPREADSHEET DATA", panel);
             var remoteNote = CreateText(
                 $"SOURCE: GOOGLE SHEETS\nSTATUS: {remoteDataStatus}",
@@ -1338,10 +1349,10 @@ namespace ProjectW.IngameCore.CaseReview
             var syncButton = CreateWindowButton(
                 remoteDataSyncing ? "> DOWNLOADING..." : "> SYNC SHEET DATA",
                 panel,
-                TerminalButtonColor,
+                AccentColor,
                 ClickSyncRemoteData,
                 82,
-                CrtTextColor);
+                AppBackgroundColor);
             syncButton.interactable = !remoteDataSyncing;
         }
 
@@ -1391,7 +1402,7 @@ namespace ProjectW.IngameCore.CaseReview
 
         private void CreatePlayerIntranetWindow()
         {
-            var panel = CreateDockWindow(MvpDesktopWindow.PlayerIntranet, "MY INTRANET PAGE", new Vector2(0.08f, 0.10f), new Vector2(0.86f, 0.88f), PaperColor);
+            var panel = CreateDockWindow(MvpDesktopWindow.PlayerIntranet, "MY INTRANET PAGE", new Vector2(0.08f, 0.10f), new Vector2(0.86f, 0.88f), AppBackgroundColor);
             CreateHeader("ACCOUNT / RESOURCE STATUS", panel);
             CreateIntranetResourcesPanel(panel);
             CreateHeader("APPROVAL HISTORY", panel);
@@ -1415,7 +1426,7 @@ namespace ProjectW.IngameCore.CaseReview
                 14,
                 FontStyle.Bold,
                 TextAnchor.UpperLeft);
-            text.color = PaperTextColor;
+            text.color = PrimaryTextColor;
             text.gameObject.AddComponent<LayoutElement>().minHeight = 126;
         }
 
@@ -1444,7 +1455,7 @@ namespace ProjectW.IngameCore.CaseReview
             }
 
             var text = CreateText(string.Join("\n", lines), parent, 13, FontStyle.Bold, TextAnchor.UpperLeft);
-            text.color = PaperTextColor;
+            text.color = PrimaryTextColor;
             text.gameObject.AddComponent<LayoutElement>().minHeight = Math.Max(110, 34 * Math.Max(2, lines.Count));
         }
 
@@ -1476,7 +1487,7 @@ namespace ProjectW.IngameCore.CaseReview
             }
 
             var text = CreateText(string.Join("\n", lines), parent, 13, FontStyle.Bold, TextAnchor.UpperLeft);
-            text.color = PaperTextColor;
+            text.color = PrimaryTextColor;
             text.gameObject.AddComponent<LayoutElement>().minHeight = Math.Max(120, 34 * Math.Max(2, lines.Count));
         }
 
@@ -1484,7 +1495,7 @@ namespace ProjectW.IngameCore.CaseReview
         {
             var mails = BuildIntranetMailLines().Take(10).ToList();
             var text = CreateText(string.Join("\n", mails), parent, 13, FontStyle.Bold, TextAnchor.UpperLeft);
-            text.color = PaperTextColor;
+            text.color = PrimaryTextColor;
             text.gameObject.AddComponent<LayoutElement>().minHeight = Math.Max(140, 36 * Math.Max(3, mails.Count));
         }
 
@@ -1517,12 +1528,12 @@ namespace ProjectW.IngameCore.CaseReview
         {
             return new List<DesktopShortcutDefinition>
             {
-                new("current-work", "Current Work", "Status, risk, and progress", "WORK", MvpDesktopWindow.CurrentWorkDashboard, FolderColor, PaperTextColor),
-                new("today-plan", "Today Plan", "Plan, approval, and commands", "PLAN", MvpDesktopWindow.TodayWorkPlan, TerminalButtonColor, CrtTextColor),
-                new("daily-report", "Daily Report", "Resolved work and night summary", "RPT", MvpDesktopWindow.DailyReport, PaperColor, PaperTextColor),
-                new("characters", "Characters", "Profiles and daily cards", "ID", MvpDesktopWindow.CharacterProfiling, IdCardColor, PaperTextColor),
-                new("intranet", "My Page", "Resources, approvals, mail, and relations", "ME", MvpDesktopWindow.PlayerIntranet, new Color(0.58f, 0.68f, 0.74f, 1f), PaperTextColor),
-                new("dev-tools", "Dev Tools", "Scenario lab and debug tools", "DEV", MvpDesktopWindow.DevTools, CrtPanelColor, CrtTextColor),
+                new("current-work", "Current Work", "Status, risk, and progress", "WORK", MvpDesktopWindow.CurrentWorkDashboard, SurfaceRaisedColor, PrimaryTextColor),
+                new("today-plan", "Today Plan", "Plan, approval, and commands", "PLAN", MvpDesktopWindow.TodayWorkPlan, AccentColor, AppBackgroundColor),
+                new("daily-report", "Daily Report", "Resolved work and night summary", "RPT", MvpDesktopWindow.DailyReport, AppBackgroundColor, PrimaryTextColor),
+                new("characters", "Characters", "Profiles and daily cards", "ID", MvpDesktopWindow.CharacterProfiling, SurfaceColor, PrimaryTextColor),
+                new("intranet", "My Page", "Resources, approvals, mail, and relations", "ME", MvpDesktopWindow.PlayerIntranet, AccentMutedColor, PrimaryTextColor),
+                new("dev-tools", "Dev Tools", "Scenario lab and debug tools", "DEV", MvpDesktopWindow.DevTools, SurfaceRaisedColor, PrimaryTextColor),
             };
         }
 
@@ -1560,7 +1571,7 @@ namespace ProjectW.IngameCore.CaseReview
 
             var entries = CreateUiObject("Plan Entries", parent).transform;
             var entryLayout = entries.gameObject.AddComponent<HorizontalLayoutGroup>();
-            entryLayout.spacing = 8;
+            entryLayout.spacing = ComponentSpacing;
             entryLayout.childForceExpandWidth = true;
             entryLayout.childForceExpandHeight = true;
             entries.gameObject.AddComponent<LayoutElement>().minHeight = 112;
@@ -1573,19 +1584,19 @@ namespace ProjectW.IngameCore.CaseReview
                 }
 
                 var selected = work.Id.Equals(item.Id, StringComparison.OrdinalIgnoreCase);
-                CreateWindowButton($"{work.Id}\n{work.Title}", entries, selected ? FolderDarkColor : PaperColor, () =>
+                CreateWindowButton($"{work.Id}\n{work.Title}", entries, selected ? AccentMutedColor : AppBackgroundColor, () =>
                 {
                     selectedWorkId = work.Id;
                     assignmentPickerEventId = "";
                     assignmentPickerSlotIndex = -1;
                     OpenDesktopWindow(MvpDesktopWindow.TodayWorkPlan);
                     Render();
-                }, 58, selected ? CrtTextColor : PaperTextColor);
+                }, ButtonMinHeight, selected ? PrimaryTextColor : PrimaryTextColor);
             }
 
             var forecast = BuildCardForecastForWork(item, AssignmentFor(item.Id));
             var plan = CreateText($"SELECTED FILE {item.Id}  {item.Title}\nSelect personnel from each slot list, then approve the plan.\n{forecast}", parent, 13, FontStyle.Bold, TextAnchor.UpperLeft);
-            plan.color = PaperTextColor;
+            plan.color = PrimaryTextColor;
             plan.gameObject.AddComponent<LayoutElement>().minHeight = 132;
             var assignment = AssignmentFor(item.Id);
             var assignmentBody = CreateUiObject("Assignment Picker Body", parent).transform;
@@ -1593,7 +1604,7 @@ namespace ProjectW.IngameCore.CaseReview
             var slots = CreateUiObject("Assignment Slots", assignmentBody).transform;
             Stretch((RectTransform)slots);
             var slotLayout = slots.gameObject.AddComponent<VerticalLayoutGroup>();
-            slotLayout.spacing = 8;
+            slotLayout.spacing = ComponentSpacing;
             slotLayout.childForceExpandWidth = true;
             slotLayout.childForceExpandHeight = false;
             var maxSlots = Math.Max(1, item.MaxPersonnelCount);
@@ -1609,20 +1620,20 @@ namespace ProjectW.IngameCore.CaseReview
             if (entries is null || entries.Count == 0)
             {
                 var empty = CreateText("No plan information is available yet.", parent, 16, FontStyle.Bold, TextAnchor.MiddleLeft);
-                empty.color = PaperTextColor;
+                empty.color = PrimaryTextColor;
                 empty.gameObject.AddComponent<LayoutElement>().minHeight = 120;
                 return;
             }
 
             var note = CreateText("READ ONLY - latest available work plan.", parent, 16, FontStyle.Bold, TextAnchor.MiddleLeft);
-            note.color = WarningStampColor;
+            note.color = WarningColor;
             note.gameObject.AddComponent<LayoutElement>().minHeight = 58;
 
-            var list = CreatePanel("Read Only Plan", parent, PaperColor);
+            var list = CreatePanel("Read Only Plan", parent, AppBackgroundColor);
             list.gameObject.AddComponent<LayoutElement>().minHeight = 320;
             var layout = list.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(10, 10, 10, 10);
-            layout.spacing = 8;
+            layout.padding = new RectOffset(ComponentSpacing, ComponentSpacing, ComponentSpacing, ComponentSpacing);
+            layout.spacing = ComponentSpacing;
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
 
@@ -1634,7 +1645,7 @@ namespace ProjectW.IngameCore.CaseReview
                     ? $"{entry.EventId}\nAssigned: {ReadableAssignmentLine(assignment)}"
                     : $"{item.Id}  {item.Title}\nAssigned: {ReadableAssignmentLine(assignment)}\nURG {item.Urgency} | SEV {item.Severity} | RISK {item.LatentRisk} | STATUS {item.Status}";
                 var text = CreateText(line, list, 14, FontStyle.Bold, TextAnchor.MiddleLeft);
-                text.color = PaperTextColor;
+                text.color = PrimaryTextColor;
                 text.gameObject.AddComponent<LayoutElement>().minHeight = 108;
             }
         }
@@ -1647,22 +1658,22 @@ namespace ProjectW.IngameCore.CaseReview
                 : CurrentState.Staff.FirstOrDefault(person => person.Id.Equals(assignedId, StringComparison.OrdinalIgnoreCase));
             var pickerOpen = assignmentPickerSlotIndex == slotIndex
                 && assignmentPickerEventId.Equals(item.Id, StringComparison.OrdinalIgnoreCase);
-            var slot = CreatePanel($"Assignment Slot {slotIndex + 1}", parent, pickerOpen ? FolderDarkColor : new Color(0.24f, 0.19f, 0.13f, 1f));
+            var slot = CreatePanel($"Assignment Slot {slotIndex + 1}", parent, pickerOpen ? AccentMutedColor : SurfaceRaisedColor);
             var slotElement = slot.gameObject.AddComponent<LayoutElement>();
             slotElement.minHeight = 112;
             var slotLayout = slot.gameObject.AddComponent<VerticalLayoutGroup>();
-            slotLayout.padding = new RectOffset(8, 8, 8, 8);
-            slotLayout.spacing = 8;
+            slotLayout.padding = new RectOffset(ComponentSpacing, ComponentSpacing, ComponentSpacing, ComponentSpacing);
+            slotLayout.spacing = ComponentSpacing;
             slotLayout.childForceExpandWidth = true;
             slotLayout.childForceExpandHeight = false;
 
             var label = assigned is null
                 ? $"SLOT {slotIndex + 1}\nEMPTY - SELECT CHARACTER"
                 : $"SLOT {slotIndex + 1}\n{BuildPersonnelPickerLabel(assigned)}";
-            CreateWindowButton(label, slot, assigned is null ? TerminalButtonColor : IdCardColor, () =>
+            CreateWindowButton(label, slot, assigned is null ? AccentColor : SurfaceColor, () =>
             {
                 ToggleAssignmentPicker(item.Id, slotIndex);
-            }, 96, assigned is null ? CrtTextColor : PaperTextColor);
+            }, 96, assigned is null ? AppBackgroundColor : PrimaryTextColor);
 
             if (!pickerOpen)
             {
@@ -1670,20 +1681,20 @@ namespace ProjectW.IngameCore.CaseReview
             }
 
             var hint = CreateText("Picker opened on the right.", slot, 13, FontStyle.Bold, TextAnchor.MiddleLeft);
-            hint.color = CrtTextColor;
+            hint.color = SecondaryTextColor;
             hint.gameObject.AddComponent<LayoutElement>().minHeight = 48;
         }
 
         private void CreateAssignmentPickerWing(EventCase item, List<string> assignment, Transform parent)
         {
-            var wing = CreatePanel("Character Picker Wing", parent, FolderDarkColor);
+            var wing = CreatePanel("Character Picker Wing", parent, AccentMutedColor);
             var wingElement = wing.gameObject.AddComponent<LayoutElement>();
             wingElement.flexibleWidth = 0.55f;
             wingElement.flexibleHeight = 1;
             wingElement.minWidth = 430;
             var wingLayout = wing.gameObject.AddComponent<VerticalLayoutGroup>();
-            wingLayout.padding = new RectOffset(10, 10, 10, 10);
-            wingLayout.spacing = 8;
+            wingLayout.padding = new RectOffset(ComponentSpacing, ComponentSpacing, ComponentSpacing, ComponentSpacing);
+            wingLayout.spacing = ComponentSpacing;
             wingLayout.childForceExpandWidth = true;
             wingLayout.childForceExpandHeight = true;
 
@@ -1692,23 +1703,23 @@ namespace ProjectW.IngameCore.CaseReview
                 ? $"SLOT {assignmentPickerSlotIndex + 1} CHARACTER SELECT"
                 : "CHARACTER SELECT";
             var header = CreateText(headerText, wing, 16, FontStyle.Bold, TextAnchor.MiddleLeft);
-            header.color = CrtTextColor;
+            header.color = PrimaryTextColor;
             header.gameObject.AddComponent<LayoutElement>().minHeight = 54;
 
             if (!slotOpen)
             {
                 var empty = CreateText("Select a slot on the left.", wing, 13, FontStyle.Bold, TextAnchor.MiddleLeft);
-                empty.color = CrtTextColor;
+                empty.color = SecondaryTextColor;
                 empty.gameObject.AddComponent<LayoutElement>().minHeight = 90;
                 return;
             }
 
             var assignedId = assignmentPickerSlotIndex < assignment.Count ? assignment[assignmentPickerSlotIndex] : "";
             var listContent = CreateEmbeddedScrollContent("Character Wing Dropdown", wing, 300);
-            CreateWindowButton("NONE\nClear this slot", listContent, PaperColor, () =>
+            CreateWindowButton("NONE\nClear this slot", listContent, AppBackgroundColor, () =>
             {
                 SelectPersonnelForAssignmentSlot(item.Id, assignmentPickerSlotIndex, "");
-            }, 86, PaperTextColor);
+            }, 86, PrimaryTextColor);
 
             foreach (var person in CurrentState.Staff.Where(person => !person.HasLeft))
             {
@@ -1719,11 +1730,11 @@ namespace ProjectW.IngameCore.CaseReview
                     ? BuildPersonnelPickerStatus(person)
                     : $"{BuildPersonnelPickerStatus(person)} | MOVE FROM {assignedElsewhere}";
                 var rowLabel = $"FACE {person.Id}\n{person.Name} ({person.Id})\n{status}";
-                var rowColor = currentSlot ? new Color(0.90f, 0.88f, 0.72f, 1f) : selectable ? IdCardColor : new Color(0.34f, 0.36f, 0.34f, 0.72f);
+                var rowColor = currentSlot ? SelectionColor : selectable ? SurfaceColor : SurfaceColor;
                 var button = CreateWindowButton(rowLabel, listContent, rowColor, () =>
                 {
                     SelectPersonnelForAssignmentSlot(item.Id, assignmentPickerSlotIndex, person.Id);
-                }, 124, selectable ? PaperTextColor : new Color(PaperTextColor.r, PaperTextColor.g, PaperTextColor.b, 0.42f));
+                }, 124, selectable ? PrimaryTextColor : new Color(PrimaryTextColor.r, PrimaryTextColor.g, PrimaryTextColor.b, 0.42f));
                 button.interactable = selectable;
             }
         }
@@ -1747,14 +1758,14 @@ namespace ProjectW.IngameCore.CaseReview
             }
 
             var assignment = AssignmentFor(item.Id);
-            var panel = CreatePanel("Floating Character Picker", windowLayer, FolderDarkColor);
+            var panel = CreatePanel("Floating Character Picker", windowLayer, AccentMutedColor);
             assignmentPickerPanelRect = (RectTransform)panel;
             ApplyFloatingAssignmentPickerLayout();
             panel.SetAsLastSibling();
 
             var layout = panel.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(12, 12, 12, 12);
-            layout.spacing = 8;
+            layout.padding = new RectOffset(ComponentSpacing, ComponentSpacing, ComponentSpacing, ComponentSpacing);
+            layout.spacing = ComponentSpacing;
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = true;
 
@@ -1782,7 +1793,7 @@ namespace ProjectW.IngameCore.CaseReview
 
         private Transform CreateEmbeddedScrollContent(string name, Transform parent, float minHeight)
         {
-            var scrollRoot = CreatePanel(name, parent, new Color(0.08f, 0.09f, 0.08f, 0.72f));
+            var scrollRoot = CreatePanel(name, parent, SurfaceColor);
             var scrollElement = scrollRoot.gameObject.AddComponent<LayoutElement>();
             scrollElement.minHeight = minHeight;
             scrollElement.flexibleHeight = 1;
@@ -1808,8 +1819,8 @@ namespace ProjectW.IngameCore.CaseReview
             contentRect.anchoredPosition = Vector2.zero;
             contentRect.sizeDelta = Vector2.zero;
             var layout = content.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(8, 8, 8, 8);
-            layout.spacing = 8;
+            layout.padding = new RectOffset(ComponentSpacing, ComponentSpacing, ComponentSpacing, ComponentSpacing);
+            layout.spacing = ComponentSpacing;
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
             var fitter = content.gameObject.AddComponent<ContentSizeFitter>();
@@ -1934,7 +1945,7 @@ namespace ProjectW.IngameCore.CaseReview
             }
 
             var text = CreateText(string.Join("\n", lines), parent, 12, FontStyle.Bold, TextAnchor.UpperLeft);
-            text.color = PaperTextColor;
+            text.color = PrimaryTextColor;
             text.gameObject.AddComponent<LayoutElement>().flexibleHeight = 1;
         }
 
@@ -1954,25 +1965,26 @@ namespace ProjectW.IngameCore.CaseReview
         private Button CreateWindowButton(string label, Transform parent, Color color, UnityEngine.Events.UnityAction onClick, float minHeight, Color textColor)
         {
             var buttonObject = CreatePanel("Button " + label, parent, color);
-            buttonObject.gameObject.AddComponent<LayoutElement>().minHeight = Mathf.Max(minHeight, 86f);
+            buttonObject.gameObject.AddComponent<LayoutElement>().minHeight = Mathf.Max(minHeight, ButtonMinHeight);
             var button = buttonObject.gameObject.AddComponent<Button>();
             button.targetGraphic = buttonObject.GetComponent<Image>();
             button.onClick.AddListener(onClick);
-            var text = CreateText(label, buttonObject, 13, FontStyle.Bold, TextAnchor.MiddleLeft);
+            var text = CreateText(label, buttonObject, ButtonFontSize, FontStyle.Bold, TextAnchor.MiddleLeft);
             text.color = textColor;
-            text.rectTransform.offsetMin = new Vector2(10f, 4f);
-            text.rectTransform.offsetMax = new Vector2(-10f, -4f);
+            text.rectTransform.offsetMin = new Vector2(ComponentSpacing, CompactSpacing);
+            text.rectTransform.offsetMax = new Vector2(-ComponentSpacing, -CompactSpacing);
             text.raycastTarget = false;
             return button;
         }
 
         private Button CreateSmallWindowButton(string label, Transform parent, UnityEngine.Events.UnityAction onClick)
         {
-            var buttonObject = CreatePanel(label + " Button", parent, TerminalButtonColor);
+            var buttonObject = CreatePanel(label + " Button", parent, AccentColor);
             var button = buttonObject.gameObject.AddComponent<Button>();
             button.targetGraphic = buttonObject.GetComponent<Image>();
             button.onClick.AddListener(onClick);
-            var text = CreateText(label, buttonObject, 11, FontStyle.Bold, TextAnchor.MiddleCenter);
+            var text = CreateText(label, buttonObject, 18, FontStyle.Bold, TextAnchor.MiddleCenter);
+            text.color = AppBackgroundColor;
             text.raycastTarget = false;
             return button;
         }
@@ -2294,7 +2306,7 @@ namespace ProjectW.IngameCore.CaseReview
             ClearDynamicRoot(boardCardRoot);
             if (CurrentState.Slot == Slot.Morning)
             {
-                boardTitleText.text = CurrentState.MorningPlan.Confirmed ? "INBOX FILE TRAY - STAMPED" : "INBOX FILE TRAY";
+                boardTitleText.text = CurrentState.MorningPlan.Confirmed ? "WORK QUEUE - CONFIRMED" : "WORK QUEUE";
                 foreach (var entry in CurrentState.MorningPlan.Entries)
                 {
                     CreateWorkCard(entry);
@@ -2399,34 +2411,35 @@ namespace ProjectW.IngameCore.CaseReview
             scaler.matchWidthOrHeight = 0.5f;
             canvasObject.AddComponent<GraphicRaycaster>();
 
-            var root = CreatePanel("Root Desk Surface", canvasObject.transform, DeskColor);
+            var root = CreatePanel("Root App Surface", canvasObject.transform, AppBackgroundColor);
             Stretch((RectTransform)root);
             var rootLayout = root.gameObject.AddComponent<VerticalLayoutGroup>();
-            rootLayout.padding = new RectOffset(18, 18, 16, 16);
-            rootLayout.spacing = 12;
+            rootLayout.padding = new RectOffset(OuterMargin, OuterMargin, OuterMargin, OuterMargin);
+            rootLayout.spacing = SectionSpacing;
             rootLayout.childForceExpandWidth = true;
             rootLayout.childForceExpandHeight = false;
 
-            var statusPanel = CreatePanel("CRT System Bar", root, CrtShellColor);
+            var statusPanel = CreatePanel("System Status Bar", root, SurfaceColor);
             statusPanel.gameObject.AddComponent<LayoutElement>().minHeight = 86;
-            statusText = CreateText("", statusPanel, 18, FontStyle.Bold, TextAnchor.MiddleLeft);
-            statusText.rectTransform.offsetMin = new Vector2(16, 0);
-            statusText.rectTransform.offsetMax = new Vector2(-16, 0);
+            statusText = CreateText("", statusPanel, 20, FontStyle.Bold, TextAnchor.MiddleLeft);
+            statusText.color = PrimaryTextColor;
+            statusText.rectTransform.offsetMin = new Vector2(ComponentSpacing, 0);
+            statusText.rectTransform.offsetMax = new Vector2(-ComponentSpacing, 0);
 
-            var desktop = CreatePanel("Desktop Workspace", root, new Color(0.16f, 0.12f, 0.08f, 1f));
+            var desktop = CreatePanel("Workspace", root, SurfaceColor);
             var desktopLayout = desktop.gameObject.AddComponent<LayoutElement>();
             desktopLayout.flexibleHeight = 1;
             desktopLayout.minHeight = 600;
 
-            desktopObjectRoot = CreateUiObject("Desktop Object Layer", desktop).transform;
+            desktopObjectRoot = CreateUiObject("Workspace Navigation Layer", desktop).transform;
             Stretch((RectTransform)desktopObjectRoot);
 
-            var logPanel = CreatePanel("Dot Matrix Command Log", root, PaperColor);
+            var logPanel = CreatePanel("Activity Log", root, SurfaceRaisedColor);
             logPanel.gameObject.AddComponent<LayoutElement>().minHeight = 160;
-            logText = CreateText("", logPanel, 13, FontStyle.Normal, TextAnchor.UpperLeft);
-            logText.color = PaperTextColor;
-            logText.rectTransform.offsetMin = new Vector2(14, 12);
-            logText.rectTransform.offsetMax = new Vector2(-14, -12);
+            logText = CreateText("", logPanel, 18, FontStyle.Normal, TextAnchor.UpperLeft);
+            logText.color = SecondaryTextColor;
+            logText.rectTransform.offsetMin = new Vector2(ComponentSpacing, ComponentSpacing);
+            logText.rectTransform.offsetMax = new Vector2(-ComponentSpacing, -ComponentSpacing);
 
             windowLayer = CreateUiObject("Window Layer", canvasObject.transform).transform;
             Stretch((RectTransform)windowLayer);
@@ -2445,16 +2458,16 @@ namespace ProjectW.IngameCore.CaseReview
             scenarioOverlay = CreateUiObject("Scenario Sample Overlay", parent);
             Stretch((RectTransform)scenarioOverlay.transform);
             var blocker = scenarioOverlay.AddComponent<Image>();
-            blocker.color = new Color(0.025f, 0.035f, 0.030f, 0.96f);
+            blocker.color = AppBackgroundColor;
 
-            var topBar = CreatePanel("Internal Message Top Bar", scenarioOverlay.transform, CrtShellColor);
+            var topBar = CreatePanel("Scenario Top Bar", scenarioOverlay.transform, SurfaceColor);
             var topRect = (RectTransform)topBar;
             topRect.anchorMin = new Vector2(0f, 1f);
             topRect.anchorMax = new Vector2(1f, 1f);
             topRect.pivot = new Vector2(0.5f, 1f);
             topRect.sizeDelta = new Vector2(0f, 86f);
             topRect.anchoredPosition = Vector2.zero;
-            scenarioTitleText = CreateText("INTERNAL MESSAGE VIEWER", topBar, 20, FontStyle.Bold, TextAnchor.MiddleLeft);
+            scenarioTitleText = CreateText("SCENARIO VIEWER", topBar, 24, FontStyle.Bold, TextAnchor.MiddleLeft);
             scenarioTitleText.rectTransform.offsetMin = new Vector2(24f, 0f);
             scenarioTitleText.rectTransform.offsetMax = new Vector2(-360f, 0f);
 
@@ -2464,7 +2477,7 @@ namespace ProjectW.IngameCore.CaseReview
             ((RectTransform)autoButton.transform).sizeDelta = new Vector2(150f, 58f);
             scenarioAutoButtonText = autoButton.GetComponentInChildren<Text>();
 
-            var meetingMask = CreatePanel("Zoom Meeting Mask", scenarioOverlay.transform, new Color(0.018f, 0.025f, 0.023f, 1f));
+            var meetingMask = CreatePanel("Scenario Stage Mask", scenarioOverlay.transform, SurfaceColor);
             var mask = meetingMask.gameObject.AddComponent<Mask>();
             mask.showMaskGraphic = true;
             scenarioPortraitRoot = meetingMask;
@@ -2474,27 +2487,29 @@ namespace ProjectW.IngameCore.CaseReview
             stageRect.offsetMin = Vector2.zero;
             stageRect.offsetMax = Vector2.zero;
 
-            scenarioMeetingContentRoot = CreateUiObject("Zoom Meeting Tiles", scenarioPortraitRoot).transform;
+            scenarioMeetingContentRoot = CreateUiObject("Scenario Participant Tiles", scenarioPortraitRoot).transform;
             Stretch((RectTransform)scenarioMeetingContentRoot);
             var meetingAspect = scenarioMeetingContentRoot.gameObject.AddComponent<AspectRatioFitter>();
             meetingAspect.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
             meetingAspect.aspectRatio = 4f / 3f;
 
-            var meetingChrome = CreatePanel("Zoom Meeting Chrome", scenarioPortraitRoot, new Color(0f, 0f, 0f, 0.28f));
+            var meetingChrome = CreatePanel("Scenario Stage Header", scenarioPortraitRoot, SurfaceRaisedColor);
             var chromeRect = (RectTransform)meetingChrome;
             chromeRect.anchorMin = new Vector2(0f, 1f);
             chromeRect.anchorMax = new Vector2(1f, 1f);
             chromeRect.pivot = new Vector2(0.5f, 1f);
             chromeRect.sizeDelta = new Vector2(0f, 46f);
             chromeRect.anchoredPosition = Vector2.zero;
-            var chromeText = CreateText("SECURE MEETING ROOM", meetingChrome, 14, FontStyle.Bold, TextAnchor.MiddleLeft);
+            var chromeText = CreateText("SCENARIO STAGE", meetingChrome, 18, FontStyle.Bold, TextAnchor.MiddleLeft);
+            chromeText.color = SecondaryTextColor;
             chromeText.rectTransform.offsetMin = new Vector2(16f, 0f);
             chromeText.rectTransform.offsetMax = new Vector2(-260f, 0f);
-            scenarioMeetingEffectText = CreateText("", meetingChrome, 14, FontStyle.Bold, TextAnchor.MiddleRight);
+            scenarioMeetingEffectText = CreateText("", meetingChrome, 18, FontStyle.Bold, TextAnchor.MiddleRight);
+            scenarioMeetingEffectText.color = SecondaryTextColor;
             scenarioMeetingEffectText.rectTransform.offsetMin = new Vector2(260f, 0f);
             scenarioMeetingEffectText.rectTransform.offsetMax = new Vector2(-16f, 0f);
 
-            var textBox = CreatePanel("Internal Message Output", scenarioOverlay.transform, CrtPanelColor);
+            var textBox = CreatePanel("Scenario Text Output", scenarioOverlay.transform, SurfaceRaisedColor);
             var textBoxRect = (RectTransform)textBox;
             textBoxRect.anchorMin = new Vector2(0.08f, 0.04f);
             textBoxRect.anchorMax = new Vector2(0.92f, 0.24f);
@@ -2502,7 +2517,7 @@ namespace ProjectW.IngameCore.CaseReview
             textBoxRect.offsetMax = Vector2.zero;
 
             scenarioSpeakerText = CreateText("", textBox, 18, FontStyle.Bold, TextAnchor.UpperLeft);
-            scenarioSpeakerText.color = CrtTextColor;
+            scenarioSpeakerText.color = PrimaryTextColor;
             scenarioSpeakerText.rectTransform.anchorMin = new Vector2(0f, 1f);
             scenarioSpeakerText.rectTransform.anchorMax = new Vector2(1f, 1f);
             scenarioSpeakerText.rectTransform.pivot = new Vector2(0.5f, 1f);
@@ -2510,7 +2525,7 @@ namespace ProjectW.IngameCore.CaseReview
             scenarioSpeakerText.rectTransform.offsetMax = new Vector2(-160f, -12f);
 
             scenarioBodyText = CreateText("", textBox, 24, FontStyle.Normal, TextAnchor.UpperLeft);
-            scenarioBodyText.color = CrtTextColor;
+            scenarioBodyText.color = PrimaryTextColor;
             scenarioBodyText.rectTransform.offsetMin = new Vector2(22f, 24f);
             scenarioBodyText.rectTransform.offsetMax = new Vector2(-160f, -58f);
 
@@ -2525,7 +2540,7 @@ namespace ProjectW.IngameCore.CaseReview
             choiceRect.offsetMin = new Vector2(22f, 10f);
             choiceRect.offsetMax = new Vector2(-160f, 52f);
             var choicesLayout = scenarioChoiceRoot.gameObject.AddComponent<HorizontalLayoutGroup>();
-            choicesLayout.spacing = 8f;
+            choicesLayout.spacing = ComponentSpacing;
             choicesLayout.childForceExpandWidth = false;
             choicesLayout.childForceExpandHeight = true;
 
@@ -2537,16 +2552,16 @@ namespace ProjectW.IngameCore.CaseReview
             workSceneOverlay = CreateUiObject("Work Performance Overlay", parent);
             Stretch((RectTransform)workSceneOverlay.transform);
             var blocker = workSceneOverlay.AddComponent<Image>();
-            blocker.color = new Color(0.18f, 0.14f, 0.10f, 0.96f);
+            blocker.color = AppBackgroundColor;
 
-            var topBar = CreatePanel("Processing Report Top Bar", workSceneOverlay.transform, CrtShellColor);
+            var topBar = CreatePanel("Work Result Top Bar", workSceneOverlay.transform, SurfaceColor);
             var topRect = (RectTransform)topBar;
             topRect.anchorMin = new Vector2(0f, 1f);
             topRect.anchorMax = new Vector2(1f, 1f);
             topRect.pivot = new Vector2(0.5f, 1f);
             topRect.sizeDelta = new Vector2(0f, 90f);
             topRect.anchoredPosition = Vector2.zero;
-            workSceneTitleText = CreateText("PROCESSING REPORT", topBar, 22, FontStyle.Bold, TextAnchor.MiddleLeft);
+            workSceneTitleText = CreateText("WORK RESULT", topBar, 24, FontStyle.Bold, TextAnchor.MiddleLeft);
             workSceneTitleText.rectTransform.offsetMin = new Vector2(24f, 0f);
             workSceneTitleText.rectTransform.offsetMax = new Vector2(-360f, 0f);
 
@@ -2562,7 +2577,7 @@ namespace ProjectW.IngameCore.CaseReview
             stageRect.offsetMin = Vector2.zero;
             stageRect.offsetMax = Vector2.zero;
 
-            var actorPanel = CreatePanel("Worker ID Card", stage, IdCardColor);
+            var actorPanel = CreatePanel("Worker ID Card", stage, SurfaceColor);
             var actorRect = (RectTransform)actorPanel;
             actorRect.anchorMin = new Vector2(0f, 0.10f);
             actorRect.anchorMax = new Vector2(0.27f, 0.90f);
@@ -2571,22 +2586,22 @@ namespace ProjectW.IngameCore.CaseReview
             workSceneActorRoot = CreateUiObject("Worker Body", actorPanel).transform;
             Stretch((RectTransform)workSceneActorRoot);
             workSceneActorText = CreateText("", workSceneActorRoot, 24, FontStyle.Bold, TextAnchor.MiddleCenter);
-            workSceneActorText.color = PaperTextColor;
+            workSceneActorText.color = PrimaryTextColor;
             workSceneActorText.rectTransform.offsetMin = new Vector2(18f, 18f);
             workSceneActorText.rectTransform.offsetMax = new Vector2(-18f, -18f);
 
-            var workPanel = CreatePanel("Target Work File", stage, FolderColor);
+            var workPanel = CreatePanel("Target Work File", stage, SurfaceRaisedColor);
             var workRect = (RectTransform)workPanel;
             workRect.anchorMin = new Vector2(0.31f, 0.20f);
             workRect.anchorMax = new Vector2(0.66f, 0.80f);
             workRect.offsetMin = Vector2.zero;
             workRect.offsetMax = Vector2.zero;
             workSceneWorkText = CreateText("", workPanel, 20, FontStyle.Bold, TextAnchor.MiddleCenter);
-            workSceneWorkText.color = PaperTextColor;
+            workSceneWorkText.color = PrimaryTextColor;
             workSceneWorkText.rectTransform.offsetMin = new Vector2(22f, 18f);
             workSceneWorkText.rectTransform.offsetMax = new Vector2(-22f, -18f);
 
-            var impactPanel = CreatePanel("Result Report", stage, PaperColor);
+            var impactPanel = CreatePanel("Result Report", stage, AppBackgroundColor);
             var impactRect = (RectTransform)impactPanel;
             impactRect.anchorMin = new Vector2(0.70f, 0.10f);
             impactRect.anchorMax = new Vector2(1f, 0.90f);
@@ -2595,15 +2610,15 @@ namespace ProjectW.IngameCore.CaseReview
             workSceneImpactRoot = CreateUiObject("Impact Body", impactPanel).transform;
             Stretch((RectTransform)workSceneImpactRoot);
             workSceneCardText = CreateText("", workSceneImpactRoot, 17, FontStyle.Bold, TextAnchor.UpperLeft);
-            workSceneCardText.color = PaperTextColor;
+            workSceneCardText.color = PrimaryTextColor;
             workSceneCardText.rectTransform.offsetMin = new Vector2(20f, 230f);
             workSceneCardText.rectTransform.offsetMax = new Vector2(-20f, -20f);
             workSceneImpactText = CreateText("", workSceneImpactRoot, 16, FontStyle.Normal, TextAnchor.UpperLeft);
-            workSceneImpactText.color = PaperTextColor;
+            workSceneImpactText.color = PrimaryTextColor;
             workSceneImpactText.rectTransform.offsetMin = new Vector2(20f, 80f);
             workSceneImpactText.rectTransform.offsetMax = new Vector2(-20f, -220f);
             workSceneProgressText = CreateText("", workSceneImpactRoot, 16, FontStyle.Bold, TextAnchor.LowerLeft);
-            workSceneProgressText.color = WarningStampColor;
+            workSceneProgressText.color = WarningColor;
             workSceneProgressText.rectTransform.offsetMin = new Vector2(20f, 20f);
             workSceneProgressText.rectTransform.offsetMax = new Vector2(-20f, -340f);
 
@@ -2620,11 +2635,12 @@ namespace ProjectW.IngameCore.CaseReview
             rect.anchoredPosition = anchoredPosition;
             rect.sizeDelta = new Vector2(150f, 58f);
             var image = buttonObject.AddComponent<Image>();
-            image.color = TerminalButtonColor;
+            image.color = AccentColor;
             var button = buttonObject.AddComponent<Button>();
             button.targetGraphic = image;
             button.onClick.AddListener(action);
-            var text = CreateText(label, buttonObject.transform, 16, FontStyle.Bold, TextAnchor.MiddleCenter);
+            var text = CreateText(label, buttonObject.transform, ButtonFontSize, FontStyle.Bold, TextAnchor.MiddleCenter);
+            text.color = AppBackgroundColor;
             text.raycastTarget = false;
             return button;
         }
@@ -2637,7 +2653,7 @@ namespace ProjectW.IngameCore.CaseReview
             }
 
             scenarioOverlay.SetActive(true);
-            scenarioTitleText.text = $"INTERNAL MESSAGE VIEWER | EVENT: {sampleScenario?.EventId ?? "scenario"} | LINE: {scenarioSession.CurrentLine.Source?.LineId ?? "END"}";
+            scenarioTitleText.text = $"SCENARIO VIEWER | EVENT: {sampleScenario?.EventId ?? "scenario"} | LINE: {scenarioSession.CurrentLine.Source?.LineId ?? "END"}";
             scenarioSpeakerText.text = string.IsNullOrWhiteSpace(scenarioSession.CurrentLine.Source?.SpeakerId)
                 ? "SPEAKER: NARRATION"
                 : $"SPEAKER: {scenarioSession.CurrentLine.Source.SpeakerId}";
@@ -2715,7 +2731,7 @@ namespace ProjectW.IngameCore.CaseReview
             {
                 for (var index = visibleCount; index < slotCount; index++)
                 {
-                    var emptyPanel = CreatePanel("Meeting Tile Empty " + index, scenarioMeetingContentRoot, new Color(0.040f, 0.048f, 0.044f, 1f));
+                    var emptyPanel = CreatePanel("Scenario Tile Empty " + index, scenarioMeetingContentRoot, SurfaceColor);
                     var rect = (RectTransform)emptyPanel;
                     var tile = CalculateMeetingTileRect(index, portraits.Count, stageAspect);
                     rect.anchorMin = tile.AnchorMin;
@@ -2728,7 +2744,7 @@ namespace ProjectW.IngameCore.CaseReview
 
             if (portraits.Count > 4)
             {
-                var overflowPanel = CreatePanel("Meeting Tile Overflow", scenarioMeetingContentRoot, new Color(0.055f, 0.065f, 0.060f, 1f));
+                var overflowPanel = CreatePanel("Scenario Tile Overflow", scenarioMeetingContentRoot, SurfaceColor);
                 var rect = (RectTransform)overflowPanel;
                 var tile = CalculateMeetingTileRect(3, portraits.Count, stageAspect);
                 rect.anchorMin = tile.AnchorMin;
@@ -2753,7 +2769,7 @@ namespace ProjectW.IngameCore.CaseReview
                 var label = ResolveScenarioChoiceLabel(choice);
                 var buttonObject = CreateUiObject("Choice " + choice.ChoiceId, scenarioChoiceRoot);
                 var image = buttonObject.AddComponent<Image>();
-                image.color = TerminalButtonColor;
+                image.color = AccentColor;
                 var button = buttonObject.AddComponent<Button>();
                 button.targetGraphic = image;
                 button.onClick.AddListener(() =>
@@ -2781,8 +2797,8 @@ namespace ProjectW.IngameCore.CaseReview
                 var layout = buttonObject.AddComponent<LayoutElement>();
                 layout.minWidth = 220f;
                 layout.minHeight = 76f;
-                var text = CreateText("> " + label, buttonObject.transform, 14, FontStyle.Bold, TextAnchor.MiddleCenter);
-                text.color = CrtTextColor;
+                var text = CreateText(label, buttonObject.transform, ButtonFontSize, FontStyle.Bold, TextAnchor.MiddleCenter);
+                text.color = AppBackgroundColor;
                 text.raycastTarget = false;
             }
         }
@@ -2803,31 +2819,31 @@ namespace ProjectW.IngameCore.CaseReview
         {
             if (portrait.IsFocused)
             {
-                return new Color(0.30f, 0.48f, 0.38f, 1f);
+                return AccentMutedColor;
             }
 
             return portrait.IsDimmed
-                ? new Color(0.06f, 0.07f, 0.065f, 1f)
-                : new Color(0.10f, 0.13f, 0.12f, 1f);
+                ? SurfaceColor
+                : SurfaceRaisedColor;
         }
 
         private static Color MeetingFeedColor(ScenarioPortraitState portrait)
         {
             if (portrait.IsFocused)
             {
-                return new Color(0.075f, 0.12f, 0.095f, 1f);
+                return SelectionColor;
             }
 
             return portrait.IsDimmed
-                ? new Color(0.025f, 0.030f, 0.028f, 1f)
-                : new Color(0.045f, 0.060f, 0.055f, 1f);
+                ? SurfaceColor
+                : AppBackgroundColor;
         }
 
         private void RenderMeetingParticipantTile(Transform panel, ScenarioPortraitState portrait)
         {
-            var border = CreatePanel("Camera Feed Border", panel, portrait.IsFocused ? CrtTextColor : new Color(0.16f, 0.20f, 0.18f, 1f));
+            var border = CreatePanel("Participant Border", panel, portrait.IsFocused ? AccentColor : BorderColor);
             Stretch((RectTransform)border);
-            var inset = CreatePanel("Camera Feed", border, MeetingFeedColor(portrait));
+            var inset = CreatePanel("Participant Content", border, MeetingFeedColor(portrait));
             var insetRect = (RectTransform)inset;
             Stretch(insetRect);
             insetRect.offsetMin = new Vector2(4f, 4f);
@@ -2857,17 +2873,18 @@ namespace ProjectW.IngameCore.CaseReview
             }
 
             var text = CreateText(label, inset, portrait.IsFocused ? 28 : 24, FontStyle.Bold, TextAnchor.MiddleCenter);
-            text.color = portrait.IsDimmed ? new Color(0.54f, 0.60f, 0.56f, 1f) : CrtTextColor;
+            text.color = portrait.IsDimmed ? DisabledColor : PrimaryTextColor;
             text.raycastTarget = false;
 
-            var namePlate = CreatePanel("Participant Name Plate", inset, new Color(0f, 0f, 0f, portrait.IsFocused ? 0.72f : 0.56f));
+            var namePlate = CreatePanel("Participant Name Plate", inset, portrait.IsFocused ? AccentColor : SurfaceColor);
             var nameRect = (RectTransform)namePlate;
             nameRect.anchorMin = new Vector2(0f, 0f);
             nameRect.anchorMax = new Vector2(1f, 0f);
             nameRect.pivot = new Vector2(0.5f, 0f);
             nameRect.sizeDelta = new Vector2(0f, 48f);
             nameRect.anchoredPosition = Vector2.zero;
-            var nameText = CreateText(portrait.IsFocused ? $"LIVE  {portrait.PortraitId}" : portrait.PortraitId, namePlate, 14, FontStyle.Bold, TextAnchor.MiddleLeft);
+            var nameText = CreateText(portrait.IsFocused ? $"ACTIVE  {portrait.PortraitId}" : portrait.PortraitId, namePlate, 18, FontStyle.Bold, TextAnchor.MiddleLeft);
+            nameText.color = portrait.IsFocused ? AppBackgroundColor : SecondaryTextColor;
             nameText.rectTransform.offsetMin = new Vector2(14f, 0f);
             nameText.rectTransform.offsetMax = new Vector2(-14f, 0f);
             nameText.raycastTarget = false;
@@ -2875,26 +2892,27 @@ namespace ProjectW.IngameCore.CaseReview
 
         private void RenderMeetingOverflowTile(Transform panel, int overflowCount)
         {
-            var border = CreatePanel("Overflow Feed Border", panel, new Color(0.16f, 0.20f, 0.18f, 1f));
+            var border = CreatePanel("Overflow Border", panel, BorderColor);
             Stretch((RectTransform)border);
-            var inset = CreatePanel("Overflow Feed", border, new Color(0.030f, 0.038f, 0.034f, 1f));
+            var inset = CreatePanel("Overflow Content", border, AppBackgroundColor);
             var insetRect = (RectTransform)inset;
             Stretch(insetRect);
             insetRect.offsetMin = new Vector2(4f, 4f);
             insetRect.offsetMax = new Vector2(-4f, -4f);
 
             var text = CreateText($"+{Math.Max(1, overflowCount)}", inset, 48, FontStyle.Bold, TextAnchor.MiddleCenter);
-            text.color = CrtTextColor;
+            text.color = PrimaryTextColor;
             text.raycastTarget = false;
 
-            var footer = CreatePanel("Overflow Name Plate", inset, new Color(0f, 0f, 0f, 0.58f));
+            var footer = CreatePanel("Overflow Footer", inset, SurfaceColor);
             var footerRect = (RectTransform)footer;
             footerRect.anchorMin = new Vector2(0f, 0f);
             footerRect.anchorMax = new Vector2(1f, 0f);
             footerRect.pivot = new Vector2(0.5f, 0f);
             footerRect.sizeDelta = new Vector2(0f, 48f);
             footerRect.anchoredPosition = Vector2.zero;
-            var footerText = CreateText("WAITING ROOM", footer, 14, FontStyle.Bold, TextAnchor.MiddleLeft);
+            var footerText = CreateText("MORE PARTICIPANTS", footer, 18, FontStyle.Bold, TextAnchor.MiddleLeft);
+            footerText.color = SecondaryTextColor;
             footerText.rectTransform.offsetMin = new Vector2(14f, 0f);
             footerText.rectTransform.offsetMax = new Vector2(-14f, 0f);
             footerText.raycastTarget = false;
@@ -2902,15 +2920,15 @@ namespace ProjectW.IngameCore.CaseReview
 
         private void RenderMeetingEmptyTile(Transform panel)
         {
-            var border = CreatePanel("Empty Feed Border", panel, new Color(0.12f, 0.15f, 0.14f, 1f));
+            var border = CreatePanel("Empty Tile Border", panel, BorderColor);
             Stretch((RectTransform)border);
-            var inset = CreatePanel("Empty Feed", border, new Color(0.024f, 0.029f, 0.027f, 1f));
+            var inset = CreatePanel("Empty Tile Content", border, SurfaceRaisedColor);
             var insetRect = (RectTransform)inset;
             Stretch(insetRect);
             insetRect.offsetMin = new Vector2(4f, 4f);
             insetRect.offsetMax = new Vector2(-4f, -4f);
 
-            var avatar = CreatePanel("Default Avatar", inset, new Color(0.10f, 0.13f, 0.12f, 1f));
+            var avatar = CreatePanel("Default Avatar", inset, SurfaceColor);
             var avatarRect = (RectTransform)avatar;
             avatarRect.anchorMin = new Vector2(0.5f, 0.5f);
             avatarRect.anchorMax = new Vector2(0.5f, 0.5f);
@@ -2918,23 +2936,24 @@ namespace ProjectW.IngameCore.CaseReview
             avatarRect.sizeDelta = new Vector2(120f, 120f);
             avatarRect.anchoredPosition = new Vector2(0f, 28f);
             var avatarText = CreateText("?", avatar, 42, FontStyle.Bold, TextAnchor.MiddleCenter);
-            avatarText.color = new Color(0.42f, 0.55f, 0.49f, 1f);
+            avatarText.color = SecondaryTextColor;
             avatarText.raycastTarget = false;
 
-            var statusText = CreateText("DEFAULT AVATAR\nNO SIGNAL", inset, 18, FontStyle.Bold, TextAnchor.MiddleCenter);
-            statusText.color = new Color(0.44f, 0.58f, 0.50f, 1f);
+            var statusText = CreateText("EMPTY PARTICIPANT SLOT", inset, 18, FontStyle.Bold, TextAnchor.MiddleCenter);
+            statusText.color = SecondaryTextColor;
             statusText.rectTransform.offsetMin = new Vector2(18f, 18f);
             statusText.rectTransform.offsetMax = new Vector2(-18f, -130f);
             statusText.raycastTarget = false;
 
-            var footer = CreatePanel("Empty Name Plate", inset, new Color(0f, 0f, 0f, 0.52f));
+            var footer = CreatePanel("Empty Footer", inset, SurfaceColor);
             var footerRect = (RectTransform)footer;
             footerRect.anchorMin = new Vector2(0f, 0f);
             footerRect.anchorMax = new Vector2(1f, 0f);
             footerRect.pivot = new Vector2(0.5f, 0f);
             footerRect.sizeDelta = new Vector2(0f, 48f);
             footerRect.anchoredPosition = Vector2.zero;
-            var footerText = CreateText("EMPTY SLOT", footer, 14, FontStyle.Bold, TextAnchor.MiddleLeft);
+            var footerText = CreateText("EMPTY SLOT", footer, 18, FontStyle.Bold, TextAnchor.MiddleLeft);
+            footerText.color = SecondaryTextColor;
             footerText.rectTransform.offsetMin = new Vector2(14f, 0f);
             footerText.rectTransform.offsetMax = new Vector2(-14f, 0f);
             footerText.raycastTarget = false;
@@ -3113,7 +3132,7 @@ namespace ProjectW.IngameCore.CaseReview
             var progress = Mathf.Clamp01(workPerformanceTimer / WorkPerformanceAutoSeconds);
             workSceneOverlay.SetActive(true);
             workSceneTitleText.text = $"PROCESSING REPORT  {workPerformanceIndex + 1}/{workPerformanceEvents.Count}";
-            workSceneActorText.text = $"[WORKER ID CARD]\n{performance.PersonnelId}\n{performance.PersonnelName}\n\nSTAMP: USED";
+            workSceneActorText.text = $"WORKER\n{performance.PersonnelId}\n{performance.PersonnelName}\n\nCARD USED";
             workSceneWorkText.text = $"[TARGET WORK FILE]\n{performance.EventId}\n{performance.WorkTitle}\n\n{performance.ResultSummary}";
             workSceneCardText.text = BuildHandRevealText(performance, progress);
             var criticalLine = performance.CriticalTriggered
@@ -3126,7 +3145,7 @@ namespace ProjectW.IngameCore.CaseReview
                 $"SELECTED CARD: {performance.CardTitle}\n" +
                 $"LOW OUT {Signed(performance.BaseOutcomeModifier)} RISK {Signed(performance.BaseRiskModifier)} | CRIT {performance.CriticalChancePercent}% x{FormatMultiplier(performance.CriticalMultiplier)}\n" +
                 criticalLine +
-                $"{performance.CardSummary}\n\nREPORT STATUS: STAMPED / RECORDED";
+                $"{performance.CardSummary}\n\nREPORT STATUS: RECORDED";
             workSceneProgressText.text =
                 $"OUT {Bar(LerpInt(0, Mathf.Abs(performance.OutcomeModifier), progress), 12)} {Signed(performance.OutcomeModifier)}\n" +
                 $"RISK {Bar(LerpInt(0, Mathf.Abs(performance.RiskModifier), progress), 12)} {Signed(performance.RiskModifier)}";
@@ -3186,8 +3205,8 @@ namespace ProjectW.IngameCore.CaseReview
             layoutElement.minWidth = minWidth;
 
             var layout = panel.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(14, 14, 12, 12);
-            layout.spacing = 10;
+            layout.padding = new RectOffset(ComponentSpacing, ComponentSpacing, ComponentSpacing, ComponentSpacing);
+            layout.spacing = ComponentSpacing;
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
             return panel;
@@ -3195,14 +3214,14 @@ namespace ProjectW.IngameCore.CaseReview
 
         private Text CreateHeader(string value, Transform parent)
         {
-            var text = CreateText(value, parent, 20, FontStyle.Bold, TextAnchor.MiddleLeft);
-            text.gameObject.AddComponent<LayoutElement>().minHeight = 52;
+            var text = CreateText(value, parent, SectionFontSize, FontStyle.Bold, TextAnchor.MiddleLeft);
+            text.gameObject.AddComponent<LayoutElement>().minHeight = 60;
             return text;
         }
 
         private Text CreateBodyText(Transform parent)
         {
-            var text = CreateText("", parent, 14, FontStyle.Normal, TextAnchor.UpperLeft);
+            var text = CreateText("", parent, 20, FontStyle.Normal, TextAnchor.UpperLeft);
             text.gameObject.AddComponent<LayoutElement>().flexibleHeight = 1;
             return text;
         }
@@ -3224,7 +3243,7 @@ namespace ProjectW.IngameCore.CaseReview
             text.fontSize = Mathf.Max(MinUiFontSize, fontSize);
             text.fontStyle = style;
             text.alignment = alignment;
-            text.color = CrtTextColor;
+            text.color = PrimaryTextColor;
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
             text.verticalOverflow = VerticalWrapMode.Truncate;
             Stretch(text.rectTransform);
@@ -3250,7 +3269,7 @@ namespace ProjectW.IngameCore.CaseReview
         {
             var root = CreateUiObject(name, parent).transform;
             var layout = root.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.spacing = 8;
+            layout.spacing = ComponentSpacing;
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
             root.gameObject.AddComponent<LayoutElement>().flexibleHeight = 1;
@@ -3280,36 +3299,36 @@ namespace ProjectW.IngameCore.CaseReview
 
             var assignment = AssignmentFor(entry.EventId);
             var maxSlots = Math.Max(1, item.MaxPersonnelCount);
-            var panel = CreatePanel("Work File " + entry.EventId, boardCardRoot, FolderColor);
+            var panel = CreatePanel("Work File " + entry.EventId, boardCardRoot, SurfaceRaisedColor);
             panel.gameObject.AddComponent<LayoutElement>().minHeight = 196;
             var layout = panel.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(10, 10, 8, 8);
-            layout.spacing = 6;
+            layout.padding = new RectOffset(ComponentSpacing, ComponentSpacing, ComponentSpacing, ComponentSpacing);
+            layout.spacing = ComponentSpacing;
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
 
             var remaining = item.Status == CaseStatus.Closed ? 0 : Math.Max(1, item.Volume);
             var tags = WorkTags(item);
             var title = CreateText($"FILE {item.Id}  {item.Title}", panel, 16, FontStyle.Bold, TextAnchor.MiddleLeft);
-            title.color = PaperTextColor;
+            title.color = PrimaryTextColor;
             title.gameObject.AddComponent<LayoutElement>().minHeight = 46;
             var detail = CreateText($"Remaining sheets {remaining} | ID slots {assignment.Count}/{maxSlots} | Labels {tags}", panel, 13, FontStyle.Normal, TextAnchor.MiddleLeft);
-            detail.color = PaperTextColor;
+            detail.color = PrimaryTextColor;
             detail.gameObject.AddComponent<LayoutElement>().minHeight = 44;
-            var riskLine = CreateText($"STAMP URG {item.Urgency}  SEV {item.Severity}  RISK {item.LatentRisk}  DEADLINE {Math.Max(0, item.TtlSec)}s", panel, 12, FontStyle.Bold, TextAnchor.MiddleLeft);
-            riskLine.color = item.LatentRisk >= 60 || item.Urgency >= 70 ? WarningStampColor : PaperTextColor;
+            var riskLine = CreateText($"URG {item.Urgency}  SEV {item.Severity}  RISK {item.LatentRisk}  DEADLINE {Math.Max(0, item.TtlSec)}s", panel, 18, FontStyle.Bold, TextAnchor.MiddleLeft);
+            riskLine.color = item.LatentRisk >= 60 || item.Urgency >= 70 ? WarningColor : PrimaryTextColor;
             riskLine.gameObject.AddComponent<LayoutElement>().minHeight = 44;
 
             var slots = CreateUiObject("Slots", panel).transform;
             var slotLayout = slots.gameObject.AddComponent<HorizontalLayoutGroup>();
-            slotLayout.spacing = 6;
+            slotLayout.spacing = ComponentSpacing;
             slotLayout.childForceExpandWidth = true;
             slotLayout.childForceExpandHeight = false;
             slots.gameObject.AddComponent<LayoutElement>().minHeight = 86;
 
             for (var slotIndex = 0; slotIndex < maxSlots; slotIndex++)
             {
-                var slot = CreatePanel($"ID Slot {slotIndex + 1}", slots, new Color(0.24f, 0.19f, 0.13f, 1f));
+                var slot = CreatePanel($"ID Slot {slotIndex + 1}", slots, SurfaceColor);
                 slot.gameObject.AddComponent<LayoutElement>().minHeight = 82;
                 slot.gameObject.AddComponent<WorkSlotDropTarget>().Initialize(this, entry.EventId);
 
@@ -3324,21 +3343,21 @@ namespace ProjectW.IngameCore.CaseReview
                 else
                 {
                     var label = CreateText("EMPTY ID SLOT", slot, 13, FontStyle.Bold, TextAnchor.MiddleCenter);
-                    label.color = new Color(0.62f, 0.52f, 0.36f, 1f);
+                    label.color = DisabledColor;
                 }
             }
         }
 
         private void CreateReportCard(EventCase item)
         {
-            var panel = CreatePanel("Report " + item.Id, boardCardRoot, PaperColor);
+            var panel = CreatePanel("Report " + item.Id, boardCardRoot, AppBackgroundColor);
             panel.gameObject.AddComponent<LayoutElement>().minHeight = 150;
             var layout = panel.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(10, 10, 8, 8);
-            layout.spacing = 6;
+            layout.padding = new RectOffset(ComponentSpacing, ComponentSpacing, ComponentSpacing, ComponentSpacing);
+            layout.spacing = ComponentSpacing;
 
             var reportText = CreateText(FormatResolvedEvent(item), panel, 13, FontStyle.Normal, TextAnchor.UpperLeft);
-            reportText.color = PaperTextColor;
+            reportText.color = PrimaryTextColor;
             reportText.gameObject.AddComponent<LayoutElement>().minHeight = 128;
         }
 
@@ -3351,38 +3370,38 @@ namespace ProjectW.IngameCore.CaseReview
             var highestRisk = resolved.OrderByDescending(item => item.LatentRisk).FirstOrDefault();
             var pendingReviewCount = resolved.Count(item => !item.ReportReviewed);
 
-            var panel = CreatePanel("Night Summary Card", boardCardRoot, PaperColor);
+            var panel = CreatePanel("Night Summary Card", boardCardRoot, AppBackgroundColor);
             panel.gameObject.AddComponent<LayoutElement>().minHeight = 320;
             var layout = panel.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(14, 14, 12, 12);
-            layout.spacing = 8;
+            layout.padding = new RectOffset(ComponentSpacing, ComponentSpacing, ComponentSpacing, ComponentSpacing);
+            layout.spacing = ComponentSpacing;
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
 
-            var summaryTitle = CreateText($"DAY {CurrentState.Day:00} REPORT - STAMPED", panel, 20, FontStyle.Bold, TextAnchor.MiddleLeft);
-            summaryTitle.color = PaperTextColor;
+            var summaryTitle = CreateText($"DAY {CurrentState.Day:00} REPORT", panel, SectionFontSize, FontStyle.Bold, TextAnchor.MiddleLeft);
+            summaryTitle.color = PrimaryTextColor;
             summaryTitle.gameObject.AddComponent<LayoutElement>().minHeight = 52;
             var summaryLine = CreateText($"Resolved {resolved.Count} | Closed {closed} | Open {open} | Avg Outcome {averageOutcome} | OVR {CurrentState.Overload} | Global Risk {CurrentState.GlobalLatentRisk}", panel, 14, FontStyle.Normal, TextAnchor.MiddleLeft);
-            summaryLine.color = PaperTextColor;
+            summaryLine.color = PrimaryTextColor;
             summaryLine.gameObject.AddComponent<LayoutElement>().minHeight = 48;
             var highRiskLine = CreateText($"Highest risk: {(highestRisk is null ? "none" : $"{highestRisk.Id} {highestRisk.Title} / risk {highestRisk.LatentRisk}")}", panel, 14, FontStyle.Bold, TextAnchor.MiddleLeft);
-            highRiskLine.color = highestRisk is not null && highestRisk.LatentRisk >= 60 ? WarningStampColor : PaperTextColor;
+            highRiskLine.color = highestRisk is not null && highestRisk.LatentRisk >= 60 ? WarningColor : PrimaryTextColor;
             highRiskLine.gameObject.AddComponent<LayoutElement>().minHeight = 48;
             var pendingLine = CreateText($"MVP filing note: pending reports auto-clear on Next Morning: {pendingReviewCount}", panel, 13, FontStyle.Italic, TextAnchor.MiddleLeft);
-            pendingLine.color = PaperTextColor;
+            pendingLine.color = PrimaryTextColor;
             pendingLine.gameObject.AddComponent<LayoutElement>().minHeight = 48;
 
             foreach (var item in resolved.OrderByDescending(item => item.Severity + item.Urgency).Take(4))
             {
                 var itemText = CreateText($"{item.Id} | OUT {item.OutcomeScore} | RISK {item.LatentRisk} | {item.ResultSummary}", panel, 13, FontStyle.Normal, TextAnchor.UpperLeft);
-                itemText.color = PaperTextColor;
+                itemText.color = PrimaryTextColor;
                 itemText.gameObject.AddComponent<LayoutElement>().minHeight = 64;
             }
         }
 
         private void CreateCharacterToken(Personnel person, Transform parent, string sourceEventId, bool selected, bool dimmed = false, string statusSuffix = "")
         {
-            var baseColor = selected ? new Color(0.90f, 0.88f, 0.72f, 1f) : IdCardColor;
+            var baseColor = selected ? SelectionColor : SurfaceColor;
             var token = CreatePanel("Personnel ID " + person.Id, parent, dimmed ? new Color(baseColor.r * 0.55f, baseColor.g * 0.55f, baseColor.b * 0.55f, 0.72f) : baseColor);
             token.gameObject.AddComponent<LayoutElement>().minHeight = 110;
             if (parent.GetComponent<WorkSlotDropTarget>() is not null)
@@ -3395,13 +3414,13 @@ namespace ProjectW.IngameCore.CaseReview
 
             var suffix = string.IsNullOrWhiteSpace(statusSuffix) ? "" : $"\n{statusSuffix}";
             var text = CreateText($"ID {person.Id}  {person.Name}\nLOAD {person.LoadAssigned}/{Math.Max(1, person.MaxLoad)} | FAT {person.Fatigue} | TRUST {person.TrustToManager}{suffix}", token, 16, FontStyle.Bold, TextAnchor.MiddleCenter);
-            text.color = dimmed ? new Color(PaperTextColor.r, PaperTextColor.g, PaperTextColor.b, 0.45f) : PaperTextColor;
+            text.color = dimmed ? new Color(PrimaryTextColor.r, PrimaryTextColor.g, PrimaryTextColor.b, 0.45f) : PrimaryTextColor;
             text.raycastTarget = false;
         }
 
         private void CreateCharacterTab(Personnel person, Transform parent, bool selected)
         {
-            var tab = CreatePanel("Character Tab " + person.Id, parent, selected ? new Color(0.90f, 0.88f, 0.72f, 1f) : IdCardColor);
+            var tab = CreatePanel("Character Tab " + person.Id, parent, selected ? SelectionColor : SurfaceColor);
             var layout = tab.gameObject.AddComponent<LayoutElement>();
             layout.minWidth = 190;
             layout.minHeight = 66;
@@ -3416,30 +3435,30 @@ namespace ProjectW.IngameCore.CaseReview
             var text = CreateText($"{person.Id}\n{person.Name}", tab, 16, FontStyle.Bold, TextAnchor.MiddleCenter);
             text.rectTransform.offsetMin = new Vector2(6, 4);
             text.rectTransform.offsetMax = new Vector2(-6, -4);
-            text.color = PaperTextColor;
+            text.color = PrimaryTextColor;
             text.raycastTarget = false;
         }
 
         private void CreateCharacterFaceBlock(Personnel person, Transform parent)
         {
-            var face = CreatePanel("Character Face " + person.Id, parent, IdCardColor);
+            var face = CreatePanel("Character Face " + person.Id, parent, SurfaceColor);
             var layout = face.gameObject.AddComponent<LayoutElement>();
             layout.minWidth = 132;
             layout.preferredWidth = 132;
             layout.minHeight = 132;
             var text = CreateText($"FACE\n{person.Id}", face, 16, FontStyle.Bold, TextAnchor.MiddleCenter);
-            text.color = PaperTextColor;
+            text.color = PrimaryTextColor;
             text.raycastTarget = false;
         }
 
         private void CreateCardFace(DebugCard card, Transform parent, bool used)
         {
-            var panel = CreatePanel("Desk Card " + card.Id, parent, used ? new Color(0.46f, 0.43f, 0.36f, 1f) : PaperColor);
+            var panel = CreatePanel("Action Card " + card.Id, parent, used ? SurfaceColor : AppBackgroundColor);
             panel.gameObject.AddComponent<LayoutElement>().minHeight = 140;
-            var text = CreateText($"{card.Title}\n{string.Join(", ", card.Tags)} | LOW OUT {Signed(card.OutcomeModifier)} RISK {Signed(card.RiskModifier)} | CRIT {card.CriticalChancePercent}% x{FormatMultiplier(card.CriticalMultiplier)}\n{(used ? "STAMP: USED" : card.Summary)}", panel, 16, used ? FontStyle.Italic : FontStyle.Normal, TextAnchor.MiddleLeft);
+            var text = CreateText($"{card.Title}\n{string.Join(", ", card.Tags)} | LOW OUT {Signed(card.OutcomeModifier)} RISK {Signed(card.RiskModifier)} | CRIT {card.CriticalChancePercent}% x{FormatMultiplier(card.CriticalMultiplier)}\n{(used ? "CARD USED" : card.Summary)}", panel, 18, used ? FontStyle.Italic : FontStyle.Normal, TextAnchor.MiddleLeft);
             text.rectTransform.offsetMin = new Vector2(8, 4);
             text.rectTransform.offsetMax = new Vector2(-8, -4);
-            text.color = used ? WarningStampColor : PaperTextColor;
+            text.color = used ? WarningColor : PrimaryTextColor;
         }
 
         private void SyncAssignmentsFromPlan()
@@ -4107,7 +4126,7 @@ namespace ProjectW.IngameCore.CaseReview
             ghost.SetAsLastSibling();
             ghost.sizeDelta = new Vector2(180, 64);
             var image = ghostObject.AddComponent<Image>();
-            image.color = new Color(0.28f, 0.38f, 0.46f, 0.86f);
+            image.color = new Color(0.82f, 0.91f, 0.94f, 0.92f);
             image.raycastTarget = false;
             MoveGhost(eventData);
         }
