@@ -200,6 +200,7 @@ Color and decoration:
 - Recommended palette: background `#FFFFFF`, surface `#F7F7F7`, border `#DDDDDD`, primary text `#222222`, secondary text `#666666`, disabled `#AAAAAA`.
 - Use only one low-saturation blue or green accent family by default.
 - Prefer thin borders, weak shadows, and small radius.
+- When a drawn panel frame resource is used, it must be imported as a Sprite with 9-slice borders and applied behind content through `Image.Type.Sliced`, not by hardcoding stretched raw images. The black outline should read as a thin hand-drawn frame, not as a thick decorative border.
 - Avoid strong gradients, glow, neon, and heavy shadow.
 
 Controls and states:
@@ -235,7 +236,7 @@ Review checklist:
 
 Current implementation rule:
 
-- Daily card hand size is 3 cards in the MVP desktop loop.
+- Daily card hand size is 3 cards in the MVP workspace loop.
 - A card is an attitude toward the assigned work, not a source of work injury. Injury and disability risk belongs to `Work/EventCase`.
 - Card use is probability-weighted, not uniform random. The weight is derived from the card tags, work tags/card hooks, and the assigned character's current mood state.
 - Mood state is inferred from runtime character state such as injury, fatigue, mental stress, trust to manager, and stagnation.
@@ -577,4 +578,4 @@ The approval desk may reject or conditionally approve a request even when the vi
 - `audit line transfer`: latent risk is becoming relevant.
 - `operation capacity shortage`: overload is becoming relevant.
 
-This system must preserve the MVP desktop loop. `Today Work Plan` remains assignment-only, while irreversible actions use desktop actions, approval windows, or document-like panels.
+This system must preserve the MVP workspace loop. `Today Work Plan` remains assignment-only, while irreversible actions use fixed action buttons, approval windows, or document-like panels.

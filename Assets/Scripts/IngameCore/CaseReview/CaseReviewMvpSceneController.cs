@@ -20,6 +20,8 @@ namespace ProjectW.IngameCore.CaseReview
         private readonly Dictionary<MvpDesktopWindow, WindowLayoutState> windowLayouts = new();
 
         private const string SampleScenarioResourcePath = "CaseReviewData/Scenarios/Events/Scenario_TeaAudit";
+        private const string PanelFrameResourcePath = "CaseReviewData/UI/Panel_Background_Frame";
+        private const float PanelFramePixelsPerUnitMultiplier = 5f;
         private const float ScenarioTypewriterCharactersPerSecond = 42f;
         private const float WorkPerformanceAutoSeconds = 1.8f;
         private const int MinUiFontSize = 18;
@@ -78,6 +80,7 @@ namespace ProjectW.IngameCore.CaseReview
         private GameObject workSceneOverlay;
         private Text scenarioMeetingEffectText;
         private Font uiFont;
+        private Sprite panelFrameSprite;
         private IScenarioEventDefinition sampleScenario;
         private ScenarioPlaybackSession scenarioSession;
         private string scenarioMeetingLayoutSignature = "";
@@ -2400,6 +2403,7 @@ namespace ProjectW.IngameCore.CaseReview
         private void BuildUi()
         {
             uiFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            panelFrameSprite = Resources.Load<Sprite>(PanelFrameResourcePath);
 
             var canvasObject = CreateUiObject("MVP Cycle Canvas", transform);
             var canvas = canvasObject.AddComponent<Canvas>();
@@ -3231,7 +3235,63 @@ namespace ProjectW.IngameCore.CaseReview
             var panel = CreateUiObject(name, parent).transform;
             var image = panel.gameObject.AddComponent<Image>();
             image.color = color;
+            ApplyPanelFrame(image, name);
             return panel;
+        }
+
+        private void ApplyPanelFrame(Image image, string panelName)
+        {
+            if (image is null || panelFrameSprite is null || !ShouldUsePanelFrame(panelName))
+            {
+                return;
+            }
+
+            image.sprite = panelFrameSprite;
+            image.type = Image.Type.Sliced;
+            image.fillCenter = true;
+            image.pixelsPerUnitMultiplier = PanelFramePixelsPerUnitMultiplier;
+        }
+
+        private static bool ShouldUsePanelFrame(string panelName)
+        {
+            if (string.IsNullOrWhiteSpace(panelName))
+            {
+                return false;
+            }
+
+            return !PanelNameContainsAny(panelName, "Blocker", "Border", "Button", "Icon", "Handle", "Avatar", "Name Plate", "Footer")
+                && PanelNameContainsAny(
+                    panelName,
+                    "Window",
+                    "Workspace",
+                    "Status Bar",
+                    "Activity Log",
+                    "Panel",
+                    "List",
+                    "Detail",
+                    "Tabs",
+                    "Cards",
+                    "Summary",
+                    "Slot",
+                    "Picker",
+                    "Stage",
+                    "Output",
+                    "Result",
+                    "File",
+                    "Report");
+        }
+
+        private static bool PanelNameContainsAny(string panelName, params string[] tokens)
+        {
+            foreach (var token in tokens)
+            {
+                if (panelName.IndexOf(token, StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private Text CreateText(string value, Transform parent, int fontSize, FontStyle style, TextAnchor alignment)
