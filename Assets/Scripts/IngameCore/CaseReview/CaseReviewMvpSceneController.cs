@@ -2640,6 +2640,7 @@ namespace ProjectW.IngameCore.CaseReview
             rect.sizeDelta = new Vector2(150f, 58f);
             var image = buttonObject.AddComponent<Image>();
             image.color = AccentColor;
+            ApplyPanelFrame(image, label + " Button");
             var button = buttonObject.AddComponent<Button>();
             button.targetGraphic = image;
             button.onClick.AddListener(action);
@@ -3259,9 +3260,10 @@ namespace ProjectW.IngameCore.CaseReview
                 return false;
             }
 
-            return !PanelNameContainsAny(panelName, "Blocker", "Border", "Button", "Icon", "Handle", "Avatar", "Name Plate", "Footer")
+            return !PanelNameContainsAny(panelName, "Blocker", "Border", "Icon", "Handle", "Avatar", "Name Plate", "Footer")
                 && PanelNameContainsAny(
                     panelName,
+                    "Button",
                     "Window",
                     "Workspace",
                     "Status Bar",
