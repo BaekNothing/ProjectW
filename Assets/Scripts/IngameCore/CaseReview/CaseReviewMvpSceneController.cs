@@ -36,6 +36,7 @@ namespace ProjectW.IngameCore.CaseReview
         private const int ButtonMinHeight = 64;
         private const int CompactButtonMinHeight = 56;
         private const int CompactButtonFontSize = 18;
+        private const int WindowButtonPreferredHeight = 120;
         private static readonly Color AppBackgroundColor = new(1f, 1f, 1f, 1f);
         private static readonly Color SurfaceColor = new(0.969f, 0.969f, 0.969f, 1f);
         private static readonly Color SurfaceRaisedColor = new(0.988f, 0.988f, 0.988f, 1f);
@@ -166,7 +167,9 @@ namespace ProjectW.IngameCore.CaseReview
             button.interactable = interactable;
             button.targetGraphic = buttonObject.GetComponent<Image>();
             button.onClick.AddListener(action);
-            buttonObject.gameObject.AddComponent<LayoutElement>().minHeight = 76;
+            var layout = buttonObject.gameObject.AddComponent<LayoutElement>();
+            layout.minHeight = 76;
+            layout.preferredHeight = WindowButtonPreferredHeight;
             var text = CreateText(label, buttonObject, ButtonFontSize, FontStyle.Bold, TextAnchor.MiddleCenter);
             text.color = interactable ? AppBackgroundColor : DisabledColor;
             text.raycastTarget = false;
@@ -1180,7 +1183,7 @@ namespace ProjectW.IngameCore.CaseReview
                 actionLayout.childForceExpandWidth = true;
                 actionLayout.childForceExpandHeight = false;
                 CreateWindowButton("Regeneration\nRequest", actionColumn, CanRegenerateSelected(selected) ? WarningColor : SurfaceColor, () => ClickRegenerateSelected(selected.Id), 68, CanRegenerateSelected(selected) ? AppBackgroundColor : DisabledColor);
-                var regenNote = CreateText("?덉쓽???뚯씪 ?앹꽦 ???깃낵 ?좏겙???ъ엯???뱀씤", actionColumn, 11, FontStyle.Bold, TextAnchor.UpperLeft);
+                var regenNote = CreateText("Creates a replacement profile file after regeneration.", actionColumn, 11, FontStyle.Bold, TextAnchor.UpperLeft);
                 regenNote.color = PrimaryTextColor;
                 regenNote.gameObject.AddComponent<LayoutElement>().minHeight = 44;
                 CreateApprovalRequestPanel(selected, panel);
@@ -1701,7 +1704,7 @@ namespace ProjectW.IngameCore.CaseReview
             wingLayout.padding = new RectOffset(ComponentSpacing, ComponentSpacing, ComponentSpacing, ComponentSpacing);
             wingLayout.spacing = ComponentSpacing;
             wingLayout.childForceExpandWidth = true;
-            wingLayout.childForceExpandHeight = true;
+            wingLayout.childForceExpandHeight = false;
 
             var slotOpen = assignmentPickerSlotIndex >= 0 && assignmentPickerEventId.Equals(item.Id, StringComparison.OrdinalIgnoreCase);
             var headerText = slotOpen
@@ -1720,11 +1723,11 @@ namespace ProjectW.IngameCore.CaseReview
             }
 
             var assignedId = assignmentPickerSlotIndex < assignment.Count ? assignment[assignmentPickerSlotIndex] : "";
-            var listContent = CreateEmbeddedScrollContent("Character Wing Dropdown", wing, 300);
+            var listContent = CreateEmbeddedScrollContent("Character Wing Dropdown", wing, WindowButtonPreferredHeight);
             CreateWindowButton("NONE\nClear this slot", listContent, AppBackgroundColor, () =>
             {
                 SelectPersonnelForAssignmentSlot(item.Id, assignmentPickerSlotIndex, "");
-            }, 86, PrimaryTextColor);
+            }, WindowButtonPreferredHeight, PrimaryTextColor);
 
             foreach (var person in CurrentState.Staff.Where(person => !person.HasLeft))
             {
@@ -1739,7 +1742,7 @@ namespace ProjectW.IngameCore.CaseReview
                 var button = CreateWindowButton(rowLabel, listContent, rowColor, () =>
                 {
                     SelectPersonnelForAssignmentSlot(item.Id, assignmentPickerSlotIndex, person.Id);
-                }, 124, selectable ? PrimaryTextColor : new Color(PrimaryTextColor.r, PrimaryTextColor.g, PrimaryTextColor.b, 0.42f));
+                }, WindowButtonPreferredHeight, selectable ? PrimaryTextColor : new Color(PrimaryTextColor.r, PrimaryTextColor.g, PrimaryTextColor.b, 0.42f));
                 button.interactable = selectable;
             }
         }
@@ -1796,11 +1799,11 @@ namespace ProjectW.IngameCore.CaseReview
             assignmentPickerPanelRect.offsetMax = Vector2.zero;
         }
 
-        private Transform CreateEmbeddedScrollContent(string name, Transform parent, float minHeight)
+        private Transform CreateEmbeddedScrollContent(string name, Transform parent, float preferredHeight)
         {
             var scrollRoot = CreatePanel(name, parent, SurfaceColor);
             var scrollElement = scrollRoot.gameObject.AddComponent<LayoutElement>();
-            scrollElement.minHeight = minHeight;
+            scrollElement.preferredHeight = preferredHeight;
             scrollElement.flexibleHeight = 1;
             var scrollRect = scrollRoot.gameObject.AddComponent<ScrollRect>();
             scrollRect.horizontal = false;
@@ -1971,7 +1974,9 @@ namespace ProjectW.IngameCore.CaseReview
         {
             var buttonObject = CreatePanel("Button " + label, parent, color);
             var minimumHeight = enforceDefaultButtonHeight ? ButtonMinHeight : CompactButtonMinHeight;
-            buttonObject.gameObject.AddComponent<LayoutElement>().minHeight = Mathf.Max(minHeight, minimumHeight);
+            var layout = buttonObject.gameObject.AddComponent<LayoutElement>();
+            layout.minHeight = Mathf.Max(minHeight, minimumHeight);
+            layout.preferredHeight = WindowButtonPreferredHeight;
             var button = buttonObject.gameObject.AddComponent<Button>();
             button.targetGraphic = buttonObject.GetComponent<Image>();
             button.onClick.AddListener(onClick);
@@ -2805,6 +2810,7 @@ namespace ProjectW.IngameCore.CaseReview
                 var layout = buttonObject.AddComponent<LayoutElement>();
                 layout.minWidth = 220f;
                 layout.minHeight = 76f;
+                layout.preferredHeight = WindowButtonPreferredHeight;
                 var text = CreateText(label, buttonObject.transform, ButtonFontSize, FontStyle.Bold, TextAnchor.MiddleCenter);
                 text.color = AppBackgroundColor;
                 text.raycastTarget = false;
