@@ -21,7 +21,24 @@ namespace ProjectW.IngameCore.CaseReview
 
         private const string SampleScenarioResourcePath = "CaseReviewData/Scenarios/Events/Scenario_TeaAudit";
         private const string PanelFrameResourcePath = "CaseReviewData/UI/Panel_Background_Frame";
+        private const string ButtonFrameResourcePath = "CaseReviewData/UI/Mockup_Button_Frame";
+        private const string ButtonFrameHoverResourcePath = "CaseReviewData/UI/Mockup_Button_Frame_Hover";
+        private const string ButtonFramePressedResourcePath = "CaseReviewData/UI/Mockup_Button_Frame_Pressed";
+        private const string ButtonFrameDisabledResourcePath = "CaseReviewData/UI/Mockup_Button_Frame_Disabled";
+        private const string ItemSlotResourcePath = "CaseReviewData/UI/Mockup_Item_Slot";
+        private const string ItemSlotBeveledResourcePath = "CaseReviewData/UI/Mockup_Item_Slot_Beveled";
+        private const string PortraitFrameResourcePath = "CaseReviewData/UI/Mockup_Portrait_Frame";
+        private const string CardFrameResourcePath = "CaseReviewData/UI/Mockup_Card_Frame";
+        private const string NameplateResourcePath = "CaseReviewData/UI/Mockup_Nameplate";
+        private const string CloseButtonResourcePath = "CaseReviewData/UI/Mockup_Close_Button";
+        private const string IconStarResourcePath = "CaseReviewData/UI/Mockup_Icon_Star";
+        private const string IconBagResourcePath = "CaseReviewData/UI/Mockup_Icon_Bag";
+        private const string IconSwordResourcePath = "CaseReviewData/UI/Mockup_Icon_Sword";
+        private const string IconGearResourcePath = "CaseReviewData/UI/Mockup_Icon_Gear";
+        private const string IconProhibitionResourcePath = "CaseReviewData/UI/Mockup_Icon_Prohibition";
         private const float PanelFramePixelsPerUnitMultiplier = 5f;
+        private const float ButtonFramePixelsPerUnitMultiplier = 5f;
+        private const float MockupFramePixelsPerUnitMultiplier = 5f;
         private const float ScenarioTypewriterCharactersPerSecond = 42f;
         private const float WorkPerformanceAutoSeconds = 1.8f;
         private const int MinUiFontSize = 18;
@@ -84,6 +101,21 @@ namespace ProjectW.IngameCore.CaseReview
         private Text scenarioMeetingEffectText;
         private Font uiFont;
         private Sprite panelFrameSprite;
+        private Sprite buttonFrameSprite;
+        private Sprite buttonFrameHoverSprite;
+        private Sprite buttonFramePressedSprite;
+        private Sprite buttonFrameDisabledSprite;
+        private Sprite itemSlotSprite;
+        private Sprite itemSlotBeveledSprite;
+        private Sprite portraitFrameSprite;
+        private Sprite cardFrameSprite;
+        private Sprite nameplateSprite;
+        private Sprite closeButtonSprite;
+        private Sprite iconStarSprite;
+        private Sprite iconBagSprite;
+        private Sprite iconSwordSprite;
+        private Sprite iconGearSprite;
+        private Sprite iconProhibitionSprite;
         private IScenarioEventDefinition sampleScenario;
         private ScenarioPlaybackSession scenarioSession;
         private string scenarioMeetingLayoutSignature = "";
@@ -715,16 +747,33 @@ namespace ProjectW.IngameCore.CaseReview
                 iconRect.pivot = new Vector2(0f, 1f);
                 iconRect.sizeDelta = new Vector2(iconSize, iconSize);
                 iconRect.anchoredPosition = Vector2.zero;
+                ApplySlicedSprite(icon.GetComponent<Image>(), buttonFrameSprite, ButtonFramePixelsPerUnitMultiplier);
                 var button = icon.gameObject.AddComponent<Button>();
                 button.targetGraphic = icon.GetComponent<Image>();
+                ApplyButtonSprites(button);
                 button.onClick.AddListener(() =>
                 {
                     OpenDesktopWindow(shortcut.TargetWindow);
                     Render();
                 });
 
+                var shortcutSprite = SpriteForShortcut(shortcut.TargetWindow);
+                if (shortcutSprite is not null)
+                {
+                    CreateDecorativeSprite(
+                        "Shortcut Art " + shortcut.Id,
+                        icon,
+                        shortcutSprite,
+                        Vector2.zero,
+                        Vector2.one,
+                        new Vector2(24f, 24f),
+                        new Vector2(-24f, -24f),
+                        shortcut.TextColor);
+                }
+
                 var glyph = CreateText(shortcut.IconText, icon, 28, FontStyle.Bold, TextAnchor.MiddleCenter);
                 glyph.color = shortcut.TextColor;
+                glyph.enabled = shortcutSprite is null;
                 glyph.raycastTarget = false;
 
                 var label = CreateText(shortcut.Label, cell, 13, FontStyle.Bold, TextAnchor.UpperCenter);
@@ -1545,6 +1594,20 @@ namespace ProjectW.IngameCore.CaseReview
             };
         }
 
+        private Sprite SpriteForShortcut(MvpDesktopWindow window)
+        {
+            return window switch
+            {
+                MvpDesktopWindow.CurrentWorkDashboard => iconSwordSprite,
+                MvpDesktopWindow.TodayWorkPlan => iconStarSprite,
+                MvpDesktopWindow.DailyReport => iconBagSprite,
+                MvpDesktopWindow.CharacterProfiling => portraitFrameSprite,
+                MvpDesktopWindow.PlayerIntranet => iconGearSprite,
+                MvpDesktopWindow.DevTools => iconProhibitionSprite,
+                _ => null
+            };
+        }
+
         private void CreateDashboardStatusSection(Transform parent)
         {
             var activeQueue = CurrentState.Queue.Count(item => item.Status != CaseStatus.Closed);
@@ -1979,6 +2042,7 @@ namespace ProjectW.IngameCore.CaseReview
             layout.preferredHeight = WindowButtonPreferredHeight;
             var button = buttonObject.gameObject.AddComponent<Button>();
             button.targetGraphic = buttonObject.GetComponent<Image>();
+            ApplyButtonSprites(button);
             button.onClick.AddListener(onClick);
             var text = CreateText(label, buttonObject, fontSize, FontStyle.Bold, TextAnchor.MiddleLeft);
             text.color = textColor;
@@ -1991,10 +2055,24 @@ namespace ProjectW.IngameCore.CaseReview
         private Button CreateSmallWindowButton(string label, Transform parent, UnityEngine.Events.UnityAction onClick)
         {
             var buttonObject = CreatePanel(label + " Button", parent, AccentColor);
+            var image = buttonObject.GetComponent<Image>();
+            var usesCloseSprite = label.Equals("CLOSE", StringComparison.OrdinalIgnoreCase) && closeButtonSprite is not null;
+            if (usesCloseSprite)
+            {
+                ApplySlicedSprite(image, closeButtonSprite);
+                image.color = Color.white;
+            }
+
             var button = buttonObject.gameObject.AddComponent<Button>();
-            button.targetGraphic = buttonObject.GetComponent<Image>();
+            button.targetGraphic = image;
+            if (!usesCloseSprite)
+            {
+                ApplyButtonSprites(button);
+            }
+
             button.onClick.AddListener(onClick);
             var text = CreateText(label, buttonObject, 18, FontStyle.Bold, TextAnchor.MiddleCenter);
+            text.enabled = !usesCloseSprite;
             text.color = AppBackgroundColor;
             text.raycastTarget = false;
             return button;
@@ -2412,6 +2490,21 @@ namespace ProjectW.IngameCore.CaseReview
         {
             uiFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             panelFrameSprite = Resources.Load<Sprite>(PanelFrameResourcePath);
+            buttonFrameSprite = Resources.Load<Sprite>(ButtonFrameResourcePath);
+            buttonFrameHoverSprite = Resources.Load<Sprite>(ButtonFrameHoverResourcePath);
+            buttonFramePressedSprite = Resources.Load<Sprite>(ButtonFramePressedResourcePath);
+            buttonFrameDisabledSprite = Resources.Load<Sprite>(ButtonFrameDisabledResourcePath);
+            itemSlotSprite = Resources.Load<Sprite>(ItemSlotResourcePath);
+            itemSlotBeveledSprite = Resources.Load<Sprite>(ItemSlotBeveledResourcePath);
+            portraitFrameSprite = Resources.Load<Sprite>(PortraitFrameResourcePath);
+            cardFrameSprite = Resources.Load<Sprite>(CardFrameResourcePath);
+            nameplateSprite = Resources.Load<Sprite>(NameplateResourcePath);
+            closeButtonSprite = Resources.Load<Sprite>(CloseButtonResourcePath);
+            iconStarSprite = Resources.Load<Sprite>(IconStarResourcePath);
+            iconBagSprite = Resources.Load<Sprite>(IconBagResourcePath);
+            iconSwordSprite = Resources.Load<Sprite>(IconSwordResourcePath);
+            iconGearSprite = Resources.Load<Sprite>(IconGearResourcePath);
+            iconProhibitionSprite = Resources.Load<Sprite>(IconProhibitionResourcePath);
 
             var canvasObject = CreateUiObject("MVP Cycle Canvas", transform);
             var canvas = canvasObject.AddComponent<Canvas>();
@@ -3251,15 +3344,103 @@ namespace ProjectW.IngameCore.CaseReview
 
         private void ApplyPanelFrame(Image image, string panelName)
         {
-            if (image is null || panelFrameSprite is null || !ShouldUsePanelFrame(panelName))
+            if (image is null || !ShouldUsePanelFrame(panelName))
             {
                 return;
             }
 
-            image.sprite = panelFrameSprite;
+            var isButton = PanelNameContainsAny(panelName, "Button");
+            var sprite = SpriteForPanel(panelName, isButton);
+            if (sprite is null)
+            {
+                return;
+            }
+
+            image.sprite = sprite;
             image.type = Image.Type.Sliced;
             image.fillCenter = true;
-            image.pixelsPerUnitMultiplier = PanelFramePixelsPerUnitMultiplier;
+            image.pixelsPerUnitMultiplier = isButton ? ButtonFramePixelsPerUnitMultiplier : PanelFramePixelsPerUnitMultiplier;
+        }
+
+        private Sprite SpriteForPanel(string panelName, bool isButton)
+        {
+            if (isButton && buttonFrameSprite is not null)
+            {
+                return buttonFrameSprite;
+            }
+
+            if (PanelNameContainsAny(panelName, "Assignment Slot") && itemSlotBeveledSprite is not null)
+            {
+                return itemSlotBeveledSprite;
+            }
+
+            if (PanelNameContainsAny(panelName, "ID Slot") && itemSlotSprite is not null)
+            {
+                return itemSlotSprite;
+            }
+
+            if (PanelNameContainsAny(panelName, "Action Card", "Night Summary Card") && cardFrameSprite is not null)
+            {
+                return cardFrameSprite;
+            }
+
+            if (PanelNameContainsAny(panelName, "Personnel ID", "Character Face", "Worker ID Card", "Meeting Tile") && portraitFrameSprite is not null)
+            {
+                return portraitFrameSprite;
+            }
+
+            if (PanelNameContainsAny(panelName, "Character Tab") && nameplateSprite is not null)
+            {
+                return nameplateSprite;
+            }
+
+            return panelFrameSprite;
+        }
+
+        private void ApplySlicedSprite(Image image, Sprite sprite, float pixelsPerUnitMultiplier = MockupFramePixelsPerUnitMultiplier)
+        {
+            if (image is null || sprite is null)
+            {
+                return;
+            }
+
+            image.sprite = sprite;
+            image.type = Image.Type.Sliced;
+            image.fillCenter = true;
+            image.pixelsPerUnitMultiplier = pixelsPerUnitMultiplier;
+        }
+
+        private Image CreateDecorativeSprite(string name, Transform parent, Sprite sprite, Vector2 anchorMin, Vector2 anchorMax, Vector2 offsetMin, Vector2 offsetMax, Color color)
+        {
+            var instance = CreateUiObject(name, parent);
+            var rect = (RectTransform)instance.transform;
+            rect.anchorMin = anchorMin;
+            rect.anchorMax = anchorMax;
+            rect.offsetMin = offsetMin;
+            rect.offsetMax = offsetMax;
+            var image = instance.AddComponent<Image>();
+            image.sprite = sprite;
+            image.color = color;
+            image.preserveAspect = true;
+            image.raycastTarget = false;
+            return image;
+        }
+
+        private void ApplyButtonSprites(Button button)
+        {
+            if (button is null || buttonFrameSprite is null)
+            {
+                return;
+            }
+
+            button.transition = Selectable.Transition.SpriteSwap;
+            button.spriteState = new SpriteState
+            {
+                highlightedSprite = buttonFrameHoverSprite,
+                pressedSprite = buttonFramePressedSprite,
+                selectedSprite = buttonFrameHoverSprite,
+                disabledSprite = buttonFrameDisabledSprite
+            };
         }
 
         private static bool ShouldUsePanelFrame(string panelName)
@@ -3282,8 +3463,12 @@ namespace ProjectW.IngameCore.CaseReview
                     "Detail",
                     "Tabs",
                     "Cards",
+                    "Card",
                     "Summary",
                     "Slot",
+                    "Personnel ID",
+                    "Character Face",
+                    "Meeting Tile",
                     "Picker",
                     "Stage",
                     "Output",
@@ -3483,8 +3668,25 @@ namespace ProjectW.IngameCore.CaseReview
             var drag = token.gameObject.AddComponent<DraggableCharacterToken>();
             drag.Initialize(this, person.Id, sourceEventId, dragLayer);
 
+            if (portraitFrameSprite is not null)
+            {
+                var portraitBadge = CreateDecorativeSprite(
+                    "Portrait Badge",
+                    token,
+                    portraitFrameSprite,
+                    new Vector2(0f, 0.5f),
+                    new Vector2(0f, 0.5f),
+                    Vector2.zero,
+                    Vector2.zero,
+                    dimmed ? new Color(1f, 1f, 1f, 0.45f) : Color.white);
+                portraitBadge.rectTransform.sizeDelta = new Vector2(72f, 90f);
+                portraitBadge.rectTransform.anchoredPosition = new Vector2(42f, 0f);
+            }
+
             var suffix = string.IsNullOrWhiteSpace(statusSuffix) ? "" : $"\n{statusSuffix}";
             var text = CreateText($"ID {person.Id}  {person.Name}\nLOAD {person.LoadAssigned}/{Math.Max(1, person.MaxLoad)} | FAT {person.Fatigue} | TRUST {person.TrustToManager}{suffix}", token, 16, FontStyle.Bold, TextAnchor.MiddleCenter);
+            text.rectTransform.offsetMin = new Vector2(76f, 4f);
+            text.rectTransform.offsetMax = new Vector2(-8f, -4f);
             text.color = dimmed ? new Color(PrimaryTextColor.r, PrimaryTextColor.g, PrimaryTextColor.b, 0.45f) : PrimaryTextColor;
             text.raycastTarget = false;
         }
@@ -3517,6 +3719,12 @@ namespace ProjectW.IngameCore.CaseReview
             layout.minWidth = 132;
             layout.preferredWidth = 132;
             layout.minHeight = 132;
+            if (portraitFrameSprite is not null)
+            {
+                var image = face.GetComponent<Image>();
+                ApplySlicedSprite(image, portraitFrameSprite);
+            }
+
             var text = CreateText($"FACE\n{person.Id}", face, 16, FontStyle.Bold, TextAnchor.MiddleCenter);
             text.color = PrimaryTextColor;
             text.raycastTarget = false;
@@ -3526,8 +3734,24 @@ namespace ProjectW.IngameCore.CaseReview
         {
             var panel = CreatePanel("Action Card " + card.Id, parent, used ? SurfaceColor : AppBackgroundColor);
             panel.gameObject.AddComponent<LayoutElement>().minHeight = 140;
+            var icon = used ? iconProhibitionSprite : iconStarSprite;
+            if (icon is not null)
+            {
+                var statusIcon = CreateDecorativeSprite(
+                    "Card Status Icon",
+                    panel,
+                    icon,
+                    new Vector2(0f, 0.5f),
+                    new Vector2(0f, 0.5f),
+                    Vector2.zero,
+                    Vector2.zero,
+                    used ? WarningColor : PrimaryTextColor);
+                statusIcon.rectTransform.sizeDelta = new Vector2(76f, 76f);
+                statusIcon.rectTransform.anchoredPosition = new Vector2(48f, 0f);
+            }
+
             var text = CreateText($"{card.Title}\n{string.Join(", ", card.Tags)} | LOW OUT {Signed(card.OutcomeModifier)} RISK {Signed(card.RiskModifier)} | CRIT {card.CriticalChancePercent}% x{FormatMultiplier(card.CriticalMultiplier)}\n{(used ? "CARD USED" : card.Summary)}", panel, 18, used ? FontStyle.Italic : FontStyle.Normal, TextAnchor.MiddleLeft);
-            text.rectTransform.offsetMin = new Vector2(8, 4);
+            text.rectTransform.offsetMin = new Vector2(icon is null ? 8 : 88, 4);
             text.rectTransform.offsetMax = new Vector2(-8, -4);
             text.color = used ? WarningColor : PrimaryTextColor;
         }

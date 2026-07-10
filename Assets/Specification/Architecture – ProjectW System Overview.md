@@ -8,11 +8,11 @@
 | 항목 | 값 |
 |------|-----|
 | **동기화 모드** | `index (pre-commit / manual)` |
-| **동기화 시각 (UTC)** | `2026-06-20T15:51:51Z` |
-| **기준 커밋 (전체 SHA)** | `750692cf5dd290ba4abe4de8f8e1b8198caf2eea` |
-| **기준 커밋 (단축)** | `750692c` |
+| **동기화 시각 (UTC)** | `2026-07-10T21:36:51Z` |
+| **기준 커밋 (전체 SHA)** | `b7d90a1253e3a4ac2f5dae0903582d12561ba243` |
+| **기준 커밋 (단축)** | `b7d90a1` |
 | **브랜치** | `ai-integration` |
-| **추적 경로 지문** | `sha256:5e5af481963e0dea8e3b51841aac19dece39d3e7df3fd2fcd35a1f768b646d2f` |
+| **추적 경로 지문** | `sha256:fc08e0094d3839b659a7556bb3dc3443a1afd76fa99726c41bf4ba4befa0d938` |
 | **추적 경로** | `Assets/Specification/`<br>`Assets/Scripts/`<br>`Assets/Tests/`<br>`Assets/Editor/`<br>`Assets/Resources/CaseReviewData/` |
 
 > 지문은 Git 인덱스(`git ls-files -s`)에 등록된 추적 경로 파일 목록·blob 해시의 SHA-256이다.  
@@ -398,7 +398,7 @@ flowchart TB
 | 가독성 기준 | title 32-40 px, section 24-28 px, body 18-22 px, button 20-24 px, caption 16 px 이상 |
 | 전역 UI 기준 | `SSOT – Ingame` 3.3의 Unity UI Design System을 모든 런타임 UI 기본값으로 사용 |
 | 모바일/데이터 증가 검토 | white-based palette, 24-32 px outer margin, 16 px component spacing, ScrollRect와 LayoutGroup 중심 구조, dynamic list 증가 대응 |
-| Panel frame resource | `Assets/Resources/CaseReviewData/UI/Panel_Background_Frame.png`를 Sprite 9-slice(`spriteBorder` 140 px, outer alpha)로 import하고, `pixelsPerUnitMultiplier = 5`로 검정 테두리가 얇게 보이도록 surface panel과 button `Image.Type.Sliced` 배경에 적용 |
+| Panel/button frame resources | `Assets/Resources/CaseReviewData/UI/Panel_Background_Frame.png`를 Sprite 9-slice(`spriteBorder` 140 px, outer alpha)로 import하고, `pixelsPerUnitMultiplier = 5`로 검정 테두리가 얇게 보이도록 surface panel `Image.Type.Sliced` 배경에 적용한다. Button 계열은 같은 mockup sheet에서 분리한 `Mockup_Button_Frame*.png`를 9-slice로 사용하며 hover/pressed/disabled 상태 스프라이트를 `Button.spriteState`에 연결한다. Slot/card/portrait/nameplate/icon 계열 mockup sprite는 work slot, action card, personnel token, character tab, desktop shortcut, close button에 적용한다. |
 | Phase 처리 | navigation entry는 phase에 따라 사라지지 않으며, 부적합 phase에서는 최신 정보를 read-only로 표시 |
 | Fixed Actions | 우하단 고정 액션 버튼: Morning에는 `Start Work`, Evening에는 `Advance Day` 활성화 |
 | 업무 배치 | `TodayWorkPlan`의 슬롯을 선택하면 창 내부가 아니라 별도 floating panel이 오른쪽에 열리고 캐릭터 선택 리스트 표시 |
@@ -413,7 +413,7 @@ flowchart TB
 
 - `CaseReviewMvpSceneController`는 `AppBackgroundColor`, `SurfaceColor`, `BorderColor`, `PrimaryTextColor`, `SecondaryTextColor`, `AccentColor`, `WarningColor`와 spacing/font/button 토큰을 사용한다.
 - `MinUiFontSize = 18`, `ButtonFontSize = 22`, `CompactButtonFontSize = 18`, `SectionFontSize = 26`, `OuterMargin = 28`, `SectionSpacing = 24`, `ComponentSpacing = 16`, `ButtonMinHeight = 64`, `CompactButtonMinHeight = 56`가 현재 공통 기준이다.
-- `PanelFrameResourcePath = CaseReviewData/UI/Panel_Background_Frame`을 `Resources.Load<Sprite>`로 읽고, blocker/icon/handle을 제외한 surface panel과 button에는 `Image.Type.Sliced`와 `PanelFramePixelsPerUnitMultiplier = 5`로 얇은 hand-drawn frame 배경을 적용한다. PNG 바깥쪽 흰 배경은 투명화하여 검정 테두리 밖이 패널 배경을 가리지 않도록 유지한다.
+- `PanelFrameResourcePath = CaseReviewData/UI/Panel_Background_Frame`을 `Resources.Load<Sprite>`로 읽고, blocker/icon/handle을 제외한 surface panel에는 `Image.Type.Sliced`와 `PanelFramePixelsPerUnitMultiplier = 5`로 얇은 hand-drawn frame 배경을 적용한다. Button 계열은 `Mockup_Button_Frame`, `Mockup_Button_Frame_Hover`, `Mockup_Button_Frame_Pressed`, `Mockup_Button_Frame_Disabled`를 별도로 읽어 button normal/state 배경에 적용한다. `Mockup_Item_Slot`, `Mockup_Card_Frame`, `Mockup_Portrait_Frame`, `Mockup_Nameplate`, `Mockup_Close_Button`, `Mockup_Icon_*`는 `CaseReviewMvpSceneController`가 런타임 UI의 work slot, action card, personnel token, character tab, desktop shortcut, close button에 사용한다. PNG 바깥쪽 흰 배경은 투명화하여 검정 테두리 밖이 패널 배경을 가리지 않도록 유지한다.
 - 목적 중심 창 본문은 `CreateWindowScrollContent`를 통해 `ScrollRect` + `VerticalLayoutGroup` + `ContentSizeFitter` 구조를 기본 사용한다.
 - 반복 항목은 대부분 `LayoutElement`와 LayoutGroup으로 구성되어 고정 좌표보다 자동 배치 비중이 높다.
 - 시나리오/업무 결과 overlay도 어두운 터미널 표현을 버리고 밝은 surface, primary/secondary text, accent button 기준으로 전환했다.
