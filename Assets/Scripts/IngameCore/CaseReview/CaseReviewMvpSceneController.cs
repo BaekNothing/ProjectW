@@ -46,10 +46,12 @@ namespace ProjectW.IngameCore.CaseReview
         private const int SectionFontSize = 26;
         private const float WindowMinWidth = 520f;
         private const float WindowMinHeight = 360f;
-        private const int OuterMargin = 28;
+        private const int OuterMargin = 32;
         private const int SectionSpacing = 24;
-        private const int ComponentSpacing = 16;
-        private const int CompactSpacing = 12;
+        private const int ComponentSpacing = 22;
+        private const int CompactSpacing = 16;
+        private const int TextPaddingX = 22;
+        private const int TextPaddingY = 14;
         private const int ButtonMinHeight = 64;
         private const int CompactButtonMinHeight = 56;
         private const int CompactButtonFontSize = 18;
@@ -194,10 +196,11 @@ namespace ProjectW.IngameCore.CaseReview
 
         private void CreateDesktopActionButton(string label, Transform parent, UnityEngine.Events.UnityAction action, bool interactable)
         {
-            var buttonObject = CreatePanel("Primary Action " + label, parent, interactable ? AccentColor : SurfaceColor);
+            var buttonObject = CreatePanel("Primary Action Button " + label, parent, interactable ? AccentColor : SurfaceColor);
             var button = buttonObject.gameObject.AddComponent<Button>();
             button.interactable = interactable;
             button.targetGraphic = buttonObject.GetComponent<Image>();
+            ApplyButtonSprites(button);
             button.onClick.AddListener(action);
             var layout = buttonObject.gameObject.AddComponent<LayoutElement>();
             layout.minHeight = 76;
@@ -939,7 +942,7 @@ namespace ProjectW.IngameCore.CaseReview
             scrollRect.scrollSensitivity = 36f;
 
             var viewport = CreateUiObject("Viewport", scrollRoot).transform;
-            Stretch((RectTransform)viewport);
+            StretchWithPadding((RectTransform)viewport, ComponentSpacing);
             var viewportImage = viewport.gameObject.AddComponent<Image>();
             viewportImage.color = new Color(0f, 0f, 0f, 0.01f);
             viewportImage.raycastTarget = true;
@@ -954,7 +957,7 @@ namespace ProjectW.IngameCore.CaseReview
             contentRect.anchoredPosition = Vector2.zero;
             contentRect.sizeDelta = Vector2.zero;
             var layout = content.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(0, 0, CompactSpacing, 0);
+            layout.padding = new RectOffset(ComponentSpacing, ComponentSpacing, CompactSpacing, ComponentSpacing);
             layout.spacing = ComponentSpacing;
             layout.childForceExpandWidth = true;
             layout.childForceExpandHeight = false;
@@ -1191,7 +1194,7 @@ namespace ProjectW.IngameCore.CaseReview
             var staffCount = CurrentState.Staff.Count(person => !person.HasLeft);
             rosterRoot.gameObject.AddComponent<LayoutElement>().minHeight = CharacterTabGridHeight(MvpDesktopWindow.CharacterProfiling, staffCount);
             var rosterLayout = rosterRoot.gameObject.AddComponent<GridLayoutGroup>();
-            rosterLayout.padding = new RectOffset(8, 8, 8, 8);
+            rosterLayout.padding = new RectOffset(ComponentSpacing, ComponentSpacing, ComponentSpacing, ComponentSpacing);
             rosterLayout.spacing = new Vector2(8, 8);
             rosterLayout.cellSize = new Vector2(190, 66);
             rosterLayout.constraint = GridLayoutGroup.Constraint.Flexible;
@@ -1205,7 +1208,7 @@ namespace ProjectW.IngameCore.CaseReview
             var profilePanel = CreatePanel("Profile Status", panel, AppBackgroundColor);
             profilePanel.gameObject.AddComponent<LayoutElement>().minHeight = 180;
             var profileLayout = profilePanel.gameObject.AddComponent<VerticalLayoutGroup>();
-            profileLayout.padding = new RectOffset(10, 10, 10, 10);
+            profileLayout.padding = new RectOffset(ComponentSpacing, ComponentSpacing, ComponentSpacing, ComponentSpacing);
             profileLayout.spacing = 8;
             profileLayout.childForceExpandWidth = true;
             var selected = CurrentState.Staff.FirstOrDefault(person => person.Id.Equals(selectedPersonnelId, StringComparison.OrdinalIgnoreCase));
@@ -1361,8 +1364,8 @@ namespace ProjectW.IngameCore.CaseReview
 
             var text = CreateText(string.Join("\n", lines), panel, 12, FontStyle.Bold, TextAnchor.UpperLeft);
             text.color = PrimaryTextColor;
-            text.rectTransform.offsetMin = new Vector2(8, 6);
-            text.rectTransform.offsetMax = new Vector2(-8, -6);
+            text.rectTransform.offsetMin = new Vector2(TextPaddingX, TextPaddingY);
+            text.rectTransform.offsetMax = new Vector2(-TextPaddingX, -TextPaddingY);
         }
 
         private bool CanRegenerateSelected(Personnel person)
@@ -1875,7 +1878,7 @@ namespace ProjectW.IngameCore.CaseReview
             scrollRect.scrollSensitivity = 36f;
 
             var viewport = CreateUiObject("Viewport", scrollRoot).transform;
-            Stretch((RectTransform)viewport);
+            StretchWithPadding((RectTransform)viewport, ComponentSpacing);
             var viewportImage = viewport.gameObject.AddComponent<Image>();
             viewportImage.color = new Color(0f, 0f, 0f, 0.01f);
             viewportImage.raycastTarget = true;
@@ -2573,8 +2576,8 @@ namespace ProjectW.IngameCore.CaseReview
             topRect.sizeDelta = new Vector2(0f, 86f);
             topRect.anchoredPosition = Vector2.zero;
             scenarioTitleText = CreateText("SCENARIO VIEWER", topBar, 24, FontStyle.Bold, TextAnchor.MiddleLeft);
-            scenarioTitleText.rectTransform.offsetMin = new Vector2(24f, 0f);
-            scenarioTitleText.rectTransform.offsetMax = new Vector2(-360f, 0f);
+            scenarioTitleText.rectTransform.offsetMin = new Vector2(32f, 0f);
+            scenarioTitleText.rectTransform.offsetMax = new Vector2(-372f, 0f);
 
             var skipButton = CreateOverlayButton("Skip", topBar, new Vector2(-210f, -33f), ClickScenarioSkip);
             ((RectTransform)skipButton.transform).sizeDelta = new Vector2(150f, 58f);
@@ -2607,12 +2610,12 @@ namespace ProjectW.IngameCore.CaseReview
             chromeRect.anchoredPosition = Vector2.zero;
             var chromeText = CreateText("SCENARIO STAGE", meetingChrome, 18, FontStyle.Bold, TextAnchor.MiddleLeft);
             chromeText.color = SecondaryTextColor;
-            chromeText.rectTransform.offsetMin = new Vector2(16f, 0f);
-            chromeText.rectTransform.offsetMax = new Vector2(-260f, 0f);
+            chromeText.rectTransform.offsetMin = new Vector2(24f, 0f);
+            chromeText.rectTransform.offsetMax = new Vector2(-272f, 0f);
             scenarioMeetingEffectText = CreateText("", meetingChrome, 18, FontStyle.Bold, TextAnchor.MiddleRight);
             scenarioMeetingEffectText.color = SecondaryTextColor;
-            scenarioMeetingEffectText.rectTransform.offsetMin = new Vector2(260f, 0f);
-            scenarioMeetingEffectText.rectTransform.offsetMax = new Vector2(-16f, 0f);
+            scenarioMeetingEffectText.rectTransform.offsetMin = new Vector2(272f, 0f);
+            scenarioMeetingEffectText.rectTransform.offsetMax = new Vector2(-24f, 0f);
 
             var textBox = CreatePanel("Scenario Text Output", scenarioOverlay.transform, SurfaceRaisedColor);
             var textBoxRect = (RectTransform)textBox;
@@ -2626,13 +2629,13 @@ namespace ProjectW.IngameCore.CaseReview
             scenarioSpeakerText.rectTransform.anchorMin = new Vector2(0f, 1f);
             scenarioSpeakerText.rectTransform.anchorMax = new Vector2(1f, 1f);
             scenarioSpeakerText.rectTransform.pivot = new Vector2(0.5f, 1f);
-            scenarioSpeakerText.rectTransform.offsetMin = new Vector2(22f, -48f);
-            scenarioSpeakerText.rectTransform.offsetMax = new Vector2(-160f, -12f);
+            scenarioSpeakerText.rectTransform.offsetMin = new Vector2(32f, -48f);
+            scenarioSpeakerText.rectTransform.offsetMax = new Vector2(-172f, -14f);
 
             scenarioBodyText = CreateText("", textBox, 24, FontStyle.Normal, TextAnchor.UpperLeft);
             scenarioBodyText.color = PrimaryTextColor;
-            scenarioBodyText.rectTransform.offsetMin = new Vector2(22f, 24f);
-            scenarioBodyText.rectTransform.offsetMax = new Vector2(-160f, -58f);
+            scenarioBodyText.rectTransform.offsetMin = new Vector2(32f, 30f);
+            scenarioBodyText.rectTransform.offsetMax = new Vector2(-172f, -64f);
 
             var nextButton = CreateOverlayButton("Next", textBox, new Vector2(-76f, 46f), ClickScenarioNext);
             ((RectTransform)nextButton.transform).sizeDelta = new Vector2(150f, 66f);
@@ -2642,8 +2645,8 @@ namespace ProjectW.IngameCore.CaseReview
             choiceRect.anchorMin = new Vector2(0f, 0f);
             choiceRect.anchorMax = new Vector2(1f, 0f);
             choiceRect.pivot = new Vector2(0.5f, 0f);
-            choiceRect.offsetMin = new Vector2(22f, 10f);
-            choiceRect.offsetMax = new Vector2(-160f, 52f);
+            choiceRect.offsetMin = new Vector2(32f, 14f);
+            choiceRect.offsetMax = new Vector2(-172f, 58f);
             var choicesLayout = scenarioChoiceRoot.gameObject.AddComponent<HorizontalLayoutGroup>();
             choicesLayout.spacing = ComponentSpacing;
             choicesLayout.childForceExpandWidth = false;
@@ -2667,8 +2670,8 @@ namespace ProjectW.IngameCore.CaseReview
             topRect.sizeDelta = new Vector2(0f, 90f);
             topRect.anchoredPosition = Vector2.zero;
             workSceneTitleText = CreateText("WORK RESULT", topBar, 24, FontStyle.Bold, TextAnchor.MiddleLeft);
-            workSceneTitleText.rectTransform.offsetMin = new Vector2(24f, 0f);
-            workSceneTitleText.rectTransform.offsetMax = new Vector2(-360f, 0f);
+            workSceneTitleText.rectTransform.offsetMin = new Vector2(32f, 0f);
+            workSceneTitleText.rectTransform.offsetMax = new Vector2(-372f, 0f);
 
             var skipButton = CreateOverlayButton("Skip", topBar, new Vector2(-210f, -35f), ClickWorkSceneSkip);
             ((RectTransform)skipButton.transform).sizeDelta = new Vector2(150f, 58f);
@@ -2692,8 +2695,8 @@ namespace ProjectW.IngameCore.CaseReview
             Stretch((RectTransform)workSceneActorRoot);
             workSceneActorText = CreateText("", workSceneActorRoot, 24, FontStyle.Bold, TextAnchor.MiddleCenter);
             workSceneActorText.color = PrimaryTextColor;
-            workSceneActorText.rectTransform.offsetMin = new Vector2(18f, 18f);
-            workSceneActorText.rectTransform.offsetMax = new Vector2(-18f, -18f);
+            workSceneActorText.rectTransform.offsetMin = new Vector2(28f, 24f);
+            workSceneActorText.rectTransform.offsetMax = new Vector2(-28f, -24f);
 
             var workPanel = CreatePanel("Target Work File", stage, SurfaceRaisedColor);
             var workRect = (RectTransform)workPanel;
@@ -2703,8 +2706,8 @@ namespace ProjectW.IngameCore.CaseReview
             workRect.offsetMax = Vector2.zero;
             workSceneWorkText = CreateText("", workPanel, 20, FontStyle.Bold, TextAnchor.MiddleCenter);
             workSceneWorkText.color = PrimaryTextColor;
-            workSceneWorkText.rectTransform.offsetMin = new Vector2(22f, 18f);
-            workSceneWorkText.rectTransform.offsetMax = new Vector2(-22f, -18f);
+            workSceneWorkText.rectTransform.offsetMin = new Vector2(32f, 24f);
+            workSceneWorkText.rectTransform.offsetMax = new Vector2(-32f, -24f);
 
             var impactPanel = CreatePanel("Result Report", stage, AppBackgroundColor);
             var impactRect = (RectTransform)impactPanel;
@@ -2716,16 +2719,16 @@ namespace ProjectW.IngameCore.CaseReview
             Stretch((RectTransform)workSceneImpactRoot);
             workSceneCardText = CreateText("", workSceneImpactRoot, 17, FontStyle.Bold, TextAnchor.UpperLeft);
             workSceneCardText.color = PrimaryTextColor;
-            workSceneCardText.rectTransform.offsetMin = new Vector2(20f, 230f);
-            workSceneCardText.rectTransform.offsetMax = new Vector2(-20f, -20f);
+            workSceneCardText.rectTransform.offsetMin = new Vector2(32f, 238f);
+            workSceneCardText.rectTransform.offsetMax = new Vector2(-32f, -28f);
             workSceneImpactText = CreateText("", workSceneImpactRoot, 16, FontStyle.Normal, TextAnchor.UpperLeft);
             workSceneImpactText.color = PrimaryTextColor;
-            workSceneImpactText.rectTransform.offsetMin = new Vector2(20f, 80f);
-            workSceneImpactText.rectTransform.offsetMax = new Vector2(-20f, -220f);
+            workSceneImpactText.rectTransform.offsetMin = new Vector2(32f, 88f);
+            workSceneImpactText.rectTransform.offsetMax = new Vector2(-32f, -228f);
             workSceneProgressText = CreateText("", workSceneImpactRoot, 16, FontStyle.Bold, TextAnchor.LowerLeft);
             workSceneProgressText.color = WarningColor;
-            workSceneProgressText.rectTransform.offsetMin = new Vector2(20f, 20f);
-            workSceneProgressText.rectTransform.offsetMax = new Vector2(-20f, -340f);
+            workSceneProgressText.rectTransform.offsetMin = new Vector2(32f, 28f);
+            workSceneProgressText.rectTransform.offsetMax = new Vector2(-32f, -348f);
 
             workSceneOverlay.SetActive(false);
         }
@@ -2992,8 +2995,8 @@ namespace ProjectW.IngameCore.CaseReview
             nameRect.anchoredPosition = Vector2.zero;
             var nameText = CreateText(portrait.IsFocused ? $"ACTIVE  {portrait.PortraitId}" : portrait.PortraitId, namePlate, 18, FontStyle.Bold, TextAnchor.MiddleLeft);
             nameText.color = portrait.IsFocused ? AppBackgroundColor : SecondaryTextColor;
-            nameText.rectTransform.offsetMin = new Vector2(14f, 0f);
-            nameText.rectTransform.offsetMax = new Vector2(-14f, 0f);
+            nameText.rectTransform.offsetMin = new Vector2(24f, 0f);
+            nameText.rectTransform.offsetMax = new Vector2(-24f, 0f);
             nameText.raycastTarget = false;
         }
 
@@ -3020,8 +3023,8 @@ namespace ProjectW.IngameCore.CaseReview
             footerRect.anchoredPosition = Vector2.zero;
             var footerText = CreateText("MORE PARTICIPANTS", footer, 18, FontStyle.Bold, TextAnchor.MiddleLeft);
             footerText.color = SecondaryTextColor;
-            footerText.rectTransform.offsetMin = new Vector2(14f, 0f);
-            footerText.rectTransform.offsetMax = new Vector2(-14f, 0f);
+            footerText.rectTransform.offsetMin = new Vector2(24f, 0f);
+            footerText.rectTransform.offsetMax = new Vector2(-24f, 0f);
             footerText.raycastTarget = false;
         }
 
@@ -3048,8 +3051,8 @@ namespace ProjectW.IngameCore.CaseReview
 
             var statusText = CreateText("EMPTY PARTICIPANT SLOT", inset, 18, FontStyle.Bold, TextAnchor.MiddleCenter);
             statusText.color = SecondaryTextColor;
-            statusText.rectTransform.offsetMin = new Vector2(18f, 18f);
-            statusText.rectTransform.offsetMax = new Vector2(-18f, -130f);
+            statusText.rectTransform.offsetMin = new Vector2(28f, 24f);
+            statusText.rectTransform.offsetMax = new Vector2(-28f, -136f);
             statusText.raycastTarget = false;
 
             var footer = CreatePanel("Empty Footer", inset, SurfaceColor);
@@ -3061,8 +3064,8 @@ namespace ProjectW.IngameCore.CaseReview
             footerRect.anchoredPosition = Vector2.zero;
             var footerText = CreateText("EMPTY SLOT", footer, 18, FontStyle.Bold, TextAnchor.MiddleLeft);
             footerText.color = SecondaryTextColor;
-            footerText.rectTransform.offsetMin = new Vector2(14f, 0f);
-            footerText.rectTransform.offsetMax = new Vector2(-14f, 0f);
+            footerText.rectTransform.offsetMin = new Vector2(24f, 0f);
+            footerText.rectTransform.offsetMax = new Vector2(-24f, 0f);
             footerText.raycastTarget = false;
         }
 
@@ -3503,6 +3506,8 @@ namespace ProjectW.IngameCore.CaseReview
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
             text.verticalOverflow = VerticalWrapMode.Truncate;
             Stretch(text.rectTransform);
+            text.rectTransform.offsetMin = new Vector2(TextPaddingX, TextPaddingY);
+            text.rectTransform.offsetMax = new Vector2(-TextPaddingX, -TextPaddingY);
             return text;
         }
 
@@ -3519,6 +3524,14 @@ namespace ProjectW.IngameCore.CaseReview
             rectTransform.anchorMax = Vector2.one;
             rectTransform.offsetMin = Vector2.zero;
             rectTransform.offsetMax = Vector2.zero;
+        }
+
+        private static void StretchWithPadding(RectTransform rectTransform, float padding)
+        {
+            rectTransform.anchorMin = Vector2.zero;
+            rectTransform.anchorMax = Vector2.one;
+            rectTransform.offsetMin = new Vector2(padding, padding);
+            rectTransform.offsetMax = new Vector2(-padding, -padding);
         }
 
         private Transform CreateDynamicRoot(string name, Transform parent)
@@ -3685,8 +3698,8 @@ namespace ProjectW.IngameCore.CaseReview
 
             var suffix = string.IsNullOrWhiteSpace(statusSuffix) ? "" : $"\n{statusSuffix}";
             var text = CreateText($"ID {person.Id}  {person.Name}\nLOAD {person.LoadAssigned}/{Math.Max(1, person.MaxLoad)} | FAT {person.Fatigue} | TRUST {person.TrustToManager}{suffix}", token, 16, FontStyle.Bold, TextAnchor.MiddleCenter);
-            text.rectTransform.offsetMin = new Vector2(76f, 4f);
-            text.rectTransform.offsetMax = new Vector2(-8f, -4f);
+            text.rectTransform.offsetMin = new Vector2(96f, TextPaddingY);
+            text.rectTransform.offsetMax = new Vector2(-TextPaddingX, -TextPaddingY);
             text.color = dimmed ? new Color(PrimaryTextColor.r, PrimaryTextColor.g, PrimaryTextColor.b, 0.45f) : PrimaryTextColor;
             text.raycastTarget = false;
         }
@@ -3706,8 +3719,8 @@ namespace ProjectW.IngameCore.CaseReview
             });
 
             var text = CreateText($"{person.Id}\n{person.Name}", tab, 16, FontStyle.Bold, TextAnchor.MiddleCenter);
-            text.rectTransform.offsetMin = new Vector2(6, 4);
-            text.rectTransform.offsetMax = new Vector2(-6, -4);
+            text.rectTransform.offsetMin = new Vector2(16f, 12f);
+            text.rectTransform.offsetMax = new Vector2(-16f, -12f);
             text.color = PrimaryTextColor;
             text.raycastTarget = false;
         }
@@ -3751,8 +3764,8 @@ namespace ProjectW.IngameCore.CaseReview
             }
 
             var text = CreateText($"{card.Title}\n{string.Join(", ", card.Tags)} | LOW OUT {Signed(card.OutcomeModifier)} RISK {Signed(card.RiskModifier)} | CRIT {card.CriticalChancePercent}% x{FormatMultiplier(card.CriticalMultiplier)}\n{(used ? "CARD USED" : card.Summary)}", panel, 18, used ? FontStyle.Italic : FontStyle.Normal, TextAnchor.MiddleLeft);
-            text.rectTransform.offsetMin = new Vector2(icon is null ? 8 : 88, 4);
-            text.rectTransform.offsetMax = new Vector2(-8, -4);
+            text.rectTransform.offsetMin = new Vector2(icon is null ? TextPaddingX : 106f, TextPaddingY);
+            text.rectTransform.offsetMax = new Vector2(-TextPaddingX, -TextPaddingY);
             text.color = used ? WarningColor : PrimaryTextColor;
         }
 
