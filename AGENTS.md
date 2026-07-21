@@ -16,7 +16,6 @@ Before changing code, data, Unity settings, builds, patch tooling, or GitHub rel
 - Stay on `ai-integration` and push completed work directly to `origin/ai-integration` unless the user explicitly requests another branch.
 - Do not open a PR to `main`, merge into `main`, or change the patch channel to `main` without explicit user direction.
 - The runtime channel is `https://raw.githubusercontent.com/BaekNothing/ProjectW/ai-integration/PatchChannels/dev.json`.
-- The Architecture Doc Sync workflow is PR-only and is not part of the direct `ai-integration` deployment path.
 
 ## Hot-update boundary
 

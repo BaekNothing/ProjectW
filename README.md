@@ -4,7 +4,6 @@
 
 - Working title: **외행성재척지원실 3과**
 - AI entry point: `Assets/Specification/Project_W – System Index (AI Entry Point).md`
-- Current implementation overview: `Assets/Specification/Architecture – ProjectW System Overview.md`
 - Build/push guide for AI sessions: `Assets/Specification/AI Build and Git Push Guide.md`
 
 ## SSOT implementation status
@@ -30,7 +29,6 @@ README update rule:
 - If code implements an SSOT section, update the status in the same commit.
 - If an implementation is partial, name the concrete implemented types and the missing runtime surface.
 - Keep every `SSOT only` or partially implemented item visible here so another AI session can identify docs-without-code immediately from README.
-- After changing `Assets/Specification`, run `python tools\sync_architecture_doc.py` and include the updated Architecture document.
 
 ## Visual pipeline (current)
 
