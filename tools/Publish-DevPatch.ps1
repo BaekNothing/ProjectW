@@ -45,11 +45,12 @@ $headers = @{
     Accept = "application/vnd.github+json"
     "X-GitHub-Api-Version" = "2026-03-10"
 }
+$releaseNotes = [System.IO.File]::ReadAllText((Join-Path $patchDirectory "release-notes.md"))
 $releaseBody = @{
     tag_name = $tag
     target_commitish = (git -C $projectRoot branch --show-current).Trim()
     name = "ProjectW development patch $tag"
-    body = (Get-Content -Raw (Join-Path $patchDirectory "release-notes.md"))
+    body = $releaseNotes
     draft = $false
     prerelease = $true
 } | ConvertTo-Json
