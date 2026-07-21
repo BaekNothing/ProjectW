@@ -31,6 +31,8 @@ namespace ProjectW.MilestonePrototype
             float width = Screen.width / scale;
             float height = Screen.height / scale;
 
+            UiCoordinateGrid.Draw(width, height);
+
             GUILayout.BeginArea(new Rect(18, 14, width - 36, height - 28));
             GUILayout.BeginHorizontal();
             GUILayout.Label("PROJECT W — MILESTONE CONTROL", title);
