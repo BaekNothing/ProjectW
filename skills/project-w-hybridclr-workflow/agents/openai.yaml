@@ -1,0 +1,4 @@
+interface:
+  display_name: "ProjectW HybridCLR Workflow"
+  short_description: "Protect branch and hot-update boundaries"
+  default_prompt: "Use $project-w-hybridclr-workflow to implement and publish this ProjectW change without violating the APK and patch boundaries."
