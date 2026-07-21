@@ -200,7 +200,7 @@ namespace ProjectW.Bootstrap
                     return false;
                 }
             }
-            if (!manifest.files.Any(file => file.role == "hotUpdateAssembly" && file.name == manifest.entryAssembly + ".bytes"))
+            if (!manifest.files.Any(file => file.role == "hotUpdateAssembly" && file.name == GetHotUpdateFileName(manifest.entryAssembly)))
             {
                 error = "hot-update assembly entry is missing";
                 return false;
@@ -387,6 +387,8 @@ namespace ProjectW.Bootstrap
             if (string.IsNullOrWhiteSpace(url)) return url;
             return $"{url}{(url.Contains("?") ? "&" : "?")}projectw_nocache={nonce}";
         }
+
+        public static string GetHotUpdateFileName(string assemblyName) => assemblyName + ".dll.bytes";
 
         public static string FormatRequestResult(string kind, string url, long responseCode, string error, long byteCount)
         {

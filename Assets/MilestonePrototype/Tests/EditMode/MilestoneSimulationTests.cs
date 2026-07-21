@@ -95,5 +95,12 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(result, Does.Contain("Forbidden"));
             Assert.That(result, Does.Contain("https://example.test/channel.json"));
         }
+
+        [Test]
+        public void HotUpdateManifestFileNameIncludesDllExtension()
+        {
+            Assert.That(PatchBootstrapper.GetHotUpdateFileName("ProjectW.HotUpdate"),
+                Is.EqualTo("ProjectW.HotUpdate.dll.bytes"));
+        }
     }
 }
