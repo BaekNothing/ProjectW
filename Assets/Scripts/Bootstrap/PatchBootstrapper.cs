@@ -15,7 +15,7 @@ namespace ProjectW.Bootstrap
     {
         public const int BaseVersion = 1;
         public const string DefaultChannelUrl =
-            "https://raw.githubusercontent.com/BaekNothing/ProjectW/main/PatchChannels/dev.json";
+            "https://raw.githubusercontent.com/BaekNothing/ProjectW/ai-integration/PatchChannels/dev.json";
 
         private const string EmbeddedVersion = "embedded";
         private const string EmbeddedDllName = "ProjectW.HotUpdate.dll.bytes";

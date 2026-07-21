@@ -65,8 +65,9 @@ git commit -m "Activate development patch dev-20260721-001"
 git push
 ```
 
-On its next launch, the device fetches the channel pointer from the public `main` branch, downloads
-the immutable Release assets into `staging`, verifies size and SHA-256, and promotes the patch.
+On its next launch, the device fetches the channel pointer from the public `ai-integration` branch,
+downloads the immutable Release assets into `staging`, verifies size and SHA-256, and promotes the
+patch. This development workflow does not require merging into `main`.
 
 ## Rollback
 
