@@ -6,7 +6,8 @@ namespace ProjectW.HotUpdate
     {
         public void Start(GameStartupContext context)
         {
-            context.Host.AddComponent<ProjectW.MilestonePrototype.MilestonePrototypeController>();
+            var controller = context.Host.AddComponent<ProjectW.MilestonePrototype.MilestonePrototypeController>();
+            controller.Initialize(context.PatchVersion);
             context.MarkHealthy();
         }
     }

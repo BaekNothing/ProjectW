@@ -51,5 +51,28 @@ namespace ProjectW.MilestonePrototype.Tests
             game.AdvanceDay();
             Assert.That(game.Crew[1].Fatigue, Is.EqualTo(0));
         }
+
+        [Test]
+        public void StatusTextKeepsOnlyTheLatestTwoEventsOnSeparateLines()
+        {
+            var report = new DayReport();
+            report.Lines.Add("first");
+            report.Lines.Add("second");
+            report.Lines.Add("third");
+
+            string status = MilestonePrototypeController.FormatStatus(report, false, false);
+
+            Assert.That(status, Is.EqualTo("second\nthird"));
+        }
+
+        [Test]
+        public void StatusTextUsesTerminalCampaignStateInsteadOfEventLines()
+        {
+            var report = new DayReport();
+            report.Lines.Add("event");
+
+            Assert.That(MilestonePrototypeController.FormatStatus(report, true, false), Is.EqualTo("마일스톤 완료 — 캠페인 승리"));
+            Assert.That(MilestonePrototypeController.FormatStatus(report, false, true), Is.EqualTo("운영 붕괴 — 캠페인 실패"));
+        }
     }
 }

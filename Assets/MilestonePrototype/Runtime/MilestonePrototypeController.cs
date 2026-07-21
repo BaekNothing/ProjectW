@@ -11,8 +11,17 @@ namespace ProjectW.MilestonePrototype
         private GUIStyle title;
         private GUIStyle section;
         private GUIStyle warning;
+        private GUIStyle versionBadge;
+        private GUIStyle statusBox;
+        private GUIStyle statusWarningBox;
+        private string patchVersion = "embedded";
 
         private void Awake() => game = new MilestoneSimulation();
+
+        public void Initialize(string version)
+        {
+            patchVersion = string.IsNullOrWhiteSpace(version) ? "unknown" : version.Trim();
+        }
 
         private void OnGUI()
         {
@@ -23,25 +32,37 @@ namespace ProjectW.MilestonePrototype
             float height = Screen.height / scale;
 
             GUILayout.BeginArea(new Rect(18, 14, width - 36, height - 28));
+            GUILayout.BeginHorizontal();
             GUILayout.Label("PROJECT W — MILESTONE CONTROL", title);
+            GUILayout.FlexibleSpace();
+            GUILayout.Label($"PATCH {patchVersion}", versionBadge, GUILayout.ExpandWidth(false));
+            GUILayout.EndHorizontal();
             GUILayout.Label($"DAY {game.Day:00}/{game.CampaignEndDay}     자원 {game.Resources}     가용 {game.Crew.Count(c => c.Available)}/{game.Crew.Count}     평균 피로 {(int)game.Crew.Average(c => c.Fatigue)}%     미처리 사이드 {game.Tasks.Count(t => t.Kind == TaskKind.SideMission && t.State != TaskState.Complete)}");
             GUILayout.Space(8);
 
             GUILayout.BeginHorizontal();
-            DrawTasks(width * 0.62f, height - 145);
+            DrawTasks(width * 0.62f, height - 160);
             GUILayout.Space(10);
-            DrawCrew(width * 0.35f, height - 145);
+            DrawCrew(width * 0.35f, height - 160);
             GUILayout.EndHorizontal();
 
-            GUILayout.BeginHorizontal();
+            GUILayout.BeginHorizontal(GUILayout.Height(54));
             GUI.enabled = !game.IsWon && !game.IsLost;
-            if (GUILayout.Button("하루 실행", GUILayout.Height(42), GUILayout.Width(180))) game.AdvanceDay();
+            if (GUILayout.Button("하루 실행", GUILayout.Height(54), GUILayout.Width(180))) game.AdvanceDay();
             GUI.enabled = true;
             GUILayout.Space(10);
-            string state = game.IsWon ? "마일스톤 완료 — 캠페인 승리" : game.IsLost ? "운영 붕괴 — 캠페인 실패" : string.Join("   |   ", game.LastReport.Lines.TakeLast(3));
-            GUILayout.Label(state, game.IsLost ? warning : GUI.skin.label, GUILayout.Height(42));
+            GUILayout.Label(FormatStatus(game.LastReport, game.IsWon, game.IsLost), game.IsLost ? statusWarningBox : statusBox, GUILayout.Height(54), GUILayout.ExpandWidth(true));
             GUILayout.EndHorizontal();
             GUILayout.EndArea();
+        }
+
+        public static string FormatStatus(DayReport report, bool isWon, bool isLost)
+        {
+            if (isWon) return "마일스톤 완료 — 캠페인 승리";
+            if (isLost) return "운영 붕괴 — 캠페인 실패";
+            if (report == null || report.Lines.Count == 0) return string.Empty;
+
+            return string.Join("\n", report.Lines.Skip(System.Math.Max(0, report.Lines.Count - 2)));
         }
 
         private void DrawTasks(float width, float height)
@@ -114,6 +135,22 @@ namespace ProjectW.MilestonePrototype
             title = new GUIStyle(GUI.skin.label) { fontSize = 24, fontStyle = FontStyle.Bold };
             section = new GUIStyle(GUI.skin.label) { fontSize = 18, fontStyle = FontStyle.Bold };
             warning = new GUIStyle(GUI.skin.label) { normal = { textColor = new Color(1f, .38f, .25f) }, fontStyle = FontStyle.Bold };
+            versionBadge = new GUIStyle(GUI.skin.box)
+            {
+                alignment = TextAnchor.MiddleRight,
+                fontSize = 13,
+                fontStyle = FontStyle.Bold,
+                padding = new RectOffset(10, 10, 4, 4)
+            };
+            statusBox = new GUIStyle(GUI.skin.box)
+            {
+                alignment = TextAnchor.MiddleLeft,
+                clipping = TextClipping.Clip,
+                wordWrap = true,
+                padding = new RectOffset(10, 10, 5, 5)
+            };
+            statusWarningBox = new GUIStyle(statusBox) { fontStyle = FontStyle.Bold };
+            statusWarningBox.normal.textColor = new Color(1f, .38f, .25f);
         }
 
         private static string RoleName(WorkRole role) => role switch { WorkRole.Tech => "기술", WorkRole.Analysis => "분석", WorkRole.Management => "관리", _ => "적응" };
