@@ -84,6 +84,14 @@ InitTestScene*.unity*
 # Addressables default ignores, before user customizations
 /ServerData
 /[Aa]ssets/StreamingAssets/aa*
+/[Aa]ssets/StreamingAssets/HotUpdate/
+/[Aa]ssets/StreamingAssets/HotUpdate.meta
+/[Aa]ssets/StreamingAssets.meta
+/PatchBuild/
+/HybridCLRData/
+
+# Local GitHub credential wrapper. Never commit this file.
+/tools/Publish-DevPatch.local.ps1
 /[Aa]ssets/AddressableAssetsData/link.xml*
 /[Aa]ssets/Addressables_Temp*
 # By default, Addressables content builds will generate addressables_content_state.bin

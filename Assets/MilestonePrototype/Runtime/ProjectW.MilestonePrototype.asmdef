@@ -1,4 +1,5 @@
 {
-  "name": "ProjectW.MilestonePrototype",
-  "rootNamespace": "ProjectW.MilestonePrototype"
+  "name": "ProjectW.HotUpdate",
+  "rootNamespace": "ProjectW",
+  "references": ["ProjectW.Contracts"]
 }

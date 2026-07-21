@@ -1,0 +1,5 @@
+{
+  "name": "ProjectW.Bootstrap",
+  "rootNamespace": "ProjectW.Bootstrap",
+  "references": ["ProjectW.Contracts", "HybridCLR.Runtime"]
+}
