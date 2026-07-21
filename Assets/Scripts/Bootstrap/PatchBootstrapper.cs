@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -32,6 +33,24 @@ namespace ProjectW.Bootstrap
         private string pendingMarkerPath;
         private string status = "패치 시스템을 시작하는 중...";
         private bool gameStarted;
+        private string activeVersion = "none";
+        private readonly object logLock = new object();
+        private readonly List<DiagnosticLog> diagnosticLogs = new List<DiagnosticLog>();
+        private Vector2 diagnosticScroll;
+        private bool diagnosticsExpanded;
+        private GUIStyle diagnosticHeader;
+        private GUIStyle diagnosticBody;
+        private GUIStyle diagnosticError;
+
+        private void Awake()
+        {
+            Application.logMessageReceivedThreaded += CaptureLog;
+        }
+
+        private void OnDestroy()
+        {
+            Application.logMessageReceivedThreaded -= CaptureLog;
+        }
 
         private IEnumerator Start()
         {
@@ -72,7 +91,7 @@ namespace ProjectW.Bootstrap
         {
             status = "업데이트 채널 확인 중...";
             string channelJson = null;
-            yield return DownloadText(channelUrl, value => channelJson = value);
+            yield return DownloadText(AddCacheBuster(channelUrl, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()), value => channelJson = value);
             if (string.IsNullOrWhiteSpace(channelJson)) yield break;
 
             PatchChannel channel;
@@ -244,6 +263,7 @@ namespace ProjectW.Bootstrap
             if (!(Activator.CreateInstance(type) is IGameEntry entry))
                 throw new InvalidOperationException($"{entryType} must implement IGameEntry.");
 
+            activeVersion = version;
             File.WriteAllText(pendingMarkerPath, version);
             entry.Start(new GameStartupContext(gameObject, version, dataPath, MarkHealthy));
         }
@@ -252,7 +272,7 @@ namespace ProjectW.Bootstrap
         {
             if (File.Exists(pendingMarkerPath)) File.Delete(pendingMarkerPath);
             gameStarted = true;
-            status = string.Empty;
+            status = "실행 중";
         }
 
         private static PatchManifest ReadManifest(string directory)
@@ -270,7 +290,7 @@ namespace ProjectW.Bootstrap
                 request.timeout = requestTimeoutSeconds;
                 yield return request.SendWebRequest();
                 if (request.result == UnityWebRequest.Result.Success) complete(request.downloadHandler.text);
-                else Debug.LogWarning($"Patch request failed ({url}): {request.error}");
+                else Debug.LogWarning($"Patch request failed ({request.responseCode}, {url}): {request.error}");
             }
         }
 
@@ -282,7 +302,7 @@ namespace ProjectW.Bootstrap
                 request.downloadHandler = new DownloadHandlerFile(destination) { removeFileOnAbort = true };
                 yield return request.SendWebRequest();
                 bool success = request.result == UnityWebRequest.Result.Success;
-                if (!success) Debug.LogWarning($"Patch file request failed ({url}): {request.error}");
+                if (!success) Debug.LogWarning($"Patch file request failed ({request.responseCode}, {url}): {request.error}");
                 complete(success);
             }
         }
@@ -309,6 +329,12 @@ namespace ProjectW.Bootstrap
             return true;
         }
 
+        public static string AddCacheBuster(string url, long nonce)
+        {
+            if (string.IsNullOrWhiteSpace(url)) return url;
+            return $"{url}{(url.Contains("?") ? "&" : "?")}projectw_nocache={nonce}";
+        }
+
         private static void RecreateDirectory(string path)
         {
             if (Directory.Exists(path)) Directory.Delete(path, true);
@@ -317,8 +343,77 @@ namespace ProjectW.Bootstrap
 
         private void OnGUI()
         {
-            if (gameStarted || string.IsNullOrEmpty(status)) return;
-            GUI.Label(new Rect(24, 24, Screen.width - 48, 60), status);
+            EnsureDiagnosticStyles();
+            GUI.depth = -1000;
+            GUI.matrix = Matrix4x4.identity;
+
+            DiagnosticLog[] logs;
+            lock (logLock) logs = diagnosticLogs.ToArray();
+            string installed = ReadManifest(currentPath)?.patchVersion ?? "none";
+            float width = Mathf.Min(Screen.width - 24, 920);
+
+            GUILayout.BeginArea(new Rect(12, 10, width, Screen.height - 20));
+            GUILayout.BeginHorizontal(GUI.skin.box);
+            GUILayout.Label($"PATCH  active:{activeVersion}  installed:{installed}  state:{status}", diagnosticHeader);
+            GUILayout.FlexibleSpace();
+            if (logs.Length > 0 && GUILayout.Button(diagnosticsExpanded ? "로그 닫기" : $"로그 {logs.Length}", GUILayout.Width(92)))
+                diagnosticsExpanded = !diagnosticsExpanded;
+            GUILayout.EndHorizontal();
+
+            if (diagnosticsExpanded && logs.Length > 0)
+            {
+                float logHeight = Mathf.Min(Screen.height * .45f, 420);
+                diagnosticScroll = GUILayout.BeginScrollView(diagnosticScroll, GUI.skin.box, GUILayout.Height(logHeight));
+                foreach (DiagnosticLog log in logs)
+                {
+                    GUIStyle style = log.Type == LogType.Error || log.Type == LogType.Exception || log.Type == LogType.Assert
+                        ? diagnosticError : diagnosticBody;
+                    GUILayout.Label($"[{log.Type}] {log.Message}\n{log.StackTrace}", style);
+                }
+                GUILayout.EndScrollView();
+                GUILayout.BeginHorizontal();
+                if (GUILayout.Button("로그 지우기", GUILayout.Width(110)))
+                {
+                    lock (logLock) diagnosticLogs.Clear();
+                    diagnosticsExpanded = false;
+                }
+                GUILayout.EndHorizontal();
+            }
+            GUILayout.EndArea();
+        }
+
+        private void CaptureLog(string message, string stackTrace, LogType type)
+        {
+            if (type != LogType.Warning && type != LogType.Error && type != LogType.Exception && type != LogType.Assert) return;
+            lock (logLock)
+            {
+                diagnosticLogs.Add(new DiagnosticLog(type, message, stackTrace));
+                if (diagnosticLogs.Count > 40) diagnosticLogs.RemoveAt(0);
+            }
+            if (type != LogType.Warning) diagnosticsExpanded = true;
+        }
+
+        private void EnsureDiagnosticStyles()
+        {
+            if (diagnosticHeader != null) return;
+            diagnosticHeader = new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold, fontSize = 13 };
+            diagnosticBody = new GUIStyle(GUI.skin.label) { wordWrap = true, fontSize = 12 };
+            diagnosticError = new GUIStyle(diagnosticBody);
+            diagnosticError.normal.textColor = new Color(1f, .35f, .25f);
+        }
+
+        private readonly struct DiagnosticLog
+        {
+            public readonly LogType Type;
+            public readonly string Message;
+            public readonly string StackTrace;
+
+            public DiagnosticLog(LogType type, string message, string stackTrace)
+            {
+                Type = type;
+                Message = message;
+                StackTrace = stackTrace;
+            }
         }
     }
 }

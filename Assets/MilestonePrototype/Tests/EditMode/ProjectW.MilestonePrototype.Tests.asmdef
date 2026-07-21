@@ -1,6 +1,6 @@
 {
   "name": "ProjectW.MilestonePrototype.Tests",
-  "references": ["ProjectW.HotUpdate"],
+  "references": ["ProjectW.HotUpdate", "ProjectW.Bootstrap"],
   "optionalUnityReferences": ["TestAssemblies"],
   "includePlatforms": ["Editor"]
 }

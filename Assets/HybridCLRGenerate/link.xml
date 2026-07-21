@@ -19,6 +19,7 @@
     <type fullname="UnityEngine.Matrix4x4" preserve="all" />
     <type fullname="UnityEngine.MonoBehaviour" preserve="all" />
     <type fullname="UnityEngine.Rect" preserve="all" />
+    <type fullname="UnityEngine.RectOffset" preserve="all" />
     <type fullname="UnityEngine.Screen" preserve="all" />
     <type fullname="UnityEngine.Vector2" preserve="all" />
     <type fullname="UnityEngine.Vector3" preserve="all" />
@@ -30,9 +31,11 @@
     <type fullname="UnityEngine.GUISkin" preserve="all" />
     <type fullname="UnityEngine.GUIStyle" preserve="all" />
     <type fullname="UnityEngine.GUIStyleState" preserve="all" />
+    <type fullname="UnityEngine.TextClipping" preserve="all" />
   </assembly>
   <assembly fullname="UnityEngine.TextRenderingModule">
     <type fullname="UnityEngine.FontStyle" preserve="all" />
+    <type fullname="UnityEngine.TextAnchor" preserve="all" />
   </assembly>
   <assembly fullname="mscorlib">
     <type fullname="System.Array" preserve="all" />

@@ -28,14 +28,12 @@ public class AOTGenericReferences : UnityEngine.MonoBehaviour
 	// System.Collections.Generic.List.Enumerator<object>
 	// System.Collections.Generic.List<object>
 	// System.Collections.Generic.ObjectComparer<object>
-	// System.Collections.Generic.Queue.Enumerator<object>
-	// System.Collections.Generic.Queue<object>
 	// System.Collections.ObjectModel.ReadOnlyCollection<object>
 	// System.Comparison<object>
 	// System.Func<int,byte>
 	// System.Func<object,byte>
 	// System.Func<object,int>
-	// System.Linq.Enumerable.<TakeLastIterator>d__218<object>
+	// System.Linq.Enumerable.<SkipIterator>d__31<object>
 	// System.Linq.Enumerable.Iterator<int>
 	// System.Linq.Enumerable.Iterator<object>
 	// System.Linq.Enumerable.WhereArrayIterator<object>
@@ -57,8 +55,8 @@ public class AOTGenericReferences : UnityEngine.MonoBehaviour
 		// int System.Linq.Enumerable.Count<object>(System.Collections.Generic.IEnumerable<object>,System.Func<object,bool>)
 		// object System.Linq.Enumerable.FirstOrDefault<object>(System.Collections.Generic.IEnumerable<object>,System.Func<object,bool>)
 		// System.Collections.Generic.IEnumerable<int> System.Linq.Enumerable.Select<object,int>(System.Collections.Generic.IEnumerable<object>,System.Func<object,int>)
-		// System.Collections.Generic.IEnumerable<object> System.Linq.Enumerable.TakeLast<object>(System.Collections.Generic.IEnumerable<object>,int)
-		// System.Collections.Generic.IEnumerable<object> System.Linq.Enumerable.TakeLastIterator<object>(System.Collections.Generic.IEnumerable<object>,int)
+		// System.Collections.Generic.IEnumerable<object> System.Linq.Enumerable.Skip<object>(System.Collections.Generic.IEnumerable<object>,int)
+		// System.Collections.Generic.IEnumerable<object> System.Linq.Enumerable.SkipIterator<object>(System.Collections.Generic.IEnumerable<object>,int)
 		// System.Collections.Generic.List<object> System.Linq.Enumerable.ToList<object>(System.Collections.Generic.IEnumerable<object>)
 		// System.Collections.Generic.IEnumerable<object> System.Linq.Enumerable.Where<object>(System.Collections.Generic.IEnumerable<object>,System.Func<object,bool>)
 		// System.Collections.Generic.IEnumerable<int> System.Linq.Enumerable.Iterator<object>.Select<int>(System.Func<object,int>)

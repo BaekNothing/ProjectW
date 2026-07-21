@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using ProjectW.Bootstrap;
 
 namespace ProjectW.MilestonePrototype.Tests
 {
@@ -73,6 +74,15 @@ namespace ProjectW.MilestonePrototype.Tests
 
             Assert.That(MilestonePrototypeController.FormatStatus(report, true, false), Is.EqualTo("마일스톤 완료 — 캠페인 승리"));
             Assert.That(MilestonePrototypeController.FormatStatus(report, false, true), Is.EqualTo("운영 붕괴 — 캠페인 실패"));
+        }
+
+        [Test]
+        public void PatchChannelCacheBusterPreservesExistingQueryString()
+        {
+            Assert.That(PatchBootstrapper.AddCacheBuster("https://example.test/channel.json", 123),
+                Is.EqualTo("https://example.test/channel.json?projectw_nocache=123"));
+            Assert.That(PatchBootstrapper.AddCacheBuster("https://example.test/channel.json?branch=dev", 456),
+                Is.EqualTo("https://example.test/channel.json?branch=dev&projectw_nocache=456"));
         }
     }
 }
