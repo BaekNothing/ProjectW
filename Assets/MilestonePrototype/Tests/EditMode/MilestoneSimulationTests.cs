@@ -84,5 +84,16 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(PatchBootstrapper.AddCacheBuster("https://example.test/channel.json?branch=dev", 456),
                 Is.EqualTo("https://example.test/channel.json?branch=dev&projectw_nocache=456"));
         }
+
+        [Test]
+        public void RequestDiagnosticIncludesHttpCodeSizeAndError()
+        {
+            string result = PatchBootstrapper.FormatRequestResult("GET", "https://example.test/channel.json", 403, "Forbidden", 27);
+
+            Assert.That(result, Does.Contain("HTTP 403"));
+            Assert.That(result, Does.Contain("bytes=27"));
+            Assert.That(result, Does.Contain("Forbidden"));
+            Assert.That(result, Does.Contain("https://example.test/channel.json"));
+        }
     }
 }

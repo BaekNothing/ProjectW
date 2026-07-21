@@ -34,6 +34,7 @@ namespace ProjectW.Bootstrap
         private string status = "패치 시스템을 시작하는 중...";
         private bool gameStarted;
         private string activeVersion = "none";
+        private string patchResult = "not checked";
         private readonly object logLock = new object();
         private readonly List<DiagnosticLog> diagnosticLogs = new List<DiagnosticLog>();
         private Vector2 diagnosticScroll;
@@ -90,41 +91,64 @@ namespace ProjectW.Bootstrap
         private IEnumerator TryInstallRemotePatch()
         {
             status = "업데이트 채널 확인 중...";
+            patchResult = "checking channel";
+            AddDiagnostic(LogType.Log, $"Channel request: {channelUrl}");
             string channelJson = null;
             yield return DownloadText(AddCacheBuster(channelUrl, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()), value => channelJson = value);
-            if (string.IsNullOrWhiteSpace(channelJson)) yield break;
+            if (string.IsNullOrWhiteSpace(channelJson))
+            {
+                FailPatch("channel response was empty");
+                yield break;
+            }
 
             PatchChannel channel;
             try { channel = JsonUtility.FromJson<PatchChannel>(channelJson); }
             catch (Exception exception)
             {
-                Debug.LogWarning($"Patch channel parse failed: {exception.Message}");
+                FailPatch($"channel JSON parse failed: {exception.Message}");
                 yield break;
             }
 
             if (channel == null || channel.schemaVersion != 1 || string.IsNullOrWhiteSpace(channel.manifestUrl))
             {
-                Debug.LogWarning("Patch channel is invalid or unsupported.");
+                FailPatch($"channel invalid: schema={channel?.schemaVersion}, manifestUrl={channel?.manifestUrl ?? "null"}");
                 yield break;
             }
 
+            patchResult = "checking manifest";
+            AddDiagnostic(LogType.Log, $"Manifest request: {channel.manifestUrl}");
             string manifestJson = null;
             yield return DownloadText(channel.manifestUrl, value => manifestJson = value);
-            if (string.IsNullOrWhiteSpace(manifestJson)) yield break;
+            if (string.IsNullOrWhiteSpace(manifestJson))
+            {
+                FailPatch("manifest response was empty");
+                yield break;
+            }
 
             PatchManifest manifest;
             try { manifest = JsonUtility.FromJson<PatchManifest>(manifestJson); }
             catch (Exception exception)
             {
-                Debug.LogWarning($"Patch manifest parse failed: {exception.Message}");
+                FailPatch($"manifest JSON parse failed: {exception.Message}");
                 yield break;
             }
 
-            if (!ValidateManifest(manifest)) yield break;
+            if (!ValidateManifest(manifest, out string validationError))
+            {
+                FailPatch($"manifest invalid: {validationError}");
+                yield break;
+            }
+            AddDiagnostic(LogType.Log, $"Manifest valid: version={manifest.patchVersion}, files={manifest.files.Length}");
             PatchManifest installed = ReadManifest(currentPath);
-            if (installed != null && string.CompareOrdinal(installed.patchVersion, manifest.patchVersion) >= 0) yield break;
+            if (installed != null && string.CompareOrdinal(installed.patchVersion, manifest.patchVersion) >= 0)
+            {
+                patchResult = $"already current ({installed.patchVersion})";
+                AddDiagnostic(LogType.Log, patchResult);
+                yield break;
+            }
 
             status = $"패치 {manifest.patchVersion} 다운로드 중...";
+            patchResult = $"downloading {manifest.patchVersion}";
             RecreateDirectory(stagingPath);
             bool succeeded = true;
             foreach (PatchFile file in manifest.files)
@@ -134,9 +158,13 @@ namespace ProjectW.Bootstrap
                 yield return DownloadFile(file.url, destination, value => downloaded = value);
                 if (!downloaded || !VerifyFile(destination, file))
                 {
+                    FailPatch(!downloaded
+                        ? $"download failed: {file.name}"
+                        : $"size/hash verification failed: {file.name}");
                     succeeded = false;
                     break;
                 }
+                AddDiagnostic(LogType.Log, $"Verified {file.name} ({file.size} bytes)");
             }
 
             if (!succeeded)
@@ -148,22 +176,36 @@ namespace ProjectW.Bootstrap
 
             File.WriteAllText(Path.Combine(stagingPath, ManifestName), manifestJson);
             PromoteStaging();
+            patchResult = $"installed {manifest.patchVersion}";
+            AddDiagnostic(LogType.Log, patchResult);
         }
 
-        private bool ValidateManifest(PatchManifest manifest)
+        private bool ValidateManifest(PatchManifest manifest, out string error)
         {
-            if (manifest == null || manifest.schemaVersion != 1 || !IsValidPatchVersion(manifest.patchVersion) ||
-                manifest.minBaseVersion > BaseVersion || string.IsNullOrWhiteSpace(manifest.entryAssembly) ||
-                string.IsNullOrWhiteSpace(manifest.entryType) || manifest.files == null)
-                return false;
+            error = string.Empty;
+            if (manifest == null) { error = "manifest is null"; return false; }
+            if (manifest.schemaVersion != 1) { error = $"schema {manifest.schemaVersion}"; return false; }
+            if (!IsValidPatchVersion(manifest.patchVersion)) { error = $"version '{manifest.patchVersion}'"; return false; }
+            if (manifest.minBaseVersion > BaseVersion) { error = $"requires base {manifest.minBaseVersion}, app has {BaseVersion}"; return false; }
+            if (string.IsNullOrWhiteSpace(manifest.entryAssembly)) { error = "entryAssembly is empty"; return false; }
+            if (string.IsNullOrWhiteSpace(manifest.entryType)) { error = "entryType is empty"; return false; }
+            if (manifest.files == null) { error = "files is null"; return false; }
 
             foreach (PatchFile file in manifest.files)
             {
                 if (file == null || string.IsNullOrWhiteSpace(file.name) || file.name != Path.GetFileName(file.name) ||
                     string.IsNullOrWhiteSpace(file.url) || string.IsNullOrWhiteSpace(file.sha256) || file.size < 1)
+                {
+                    error = $"invalid file entry '{file?.name ?? "null"}'";
                     return false;
+                }
             }
-            return manifest.files.Any(file => file.role == "hotUpdateAssembly" && file.name == manifest.entryAssembly + ".bytes");
+            if (!manifest.files.Any(file => file.role == "hotUpdateAssembly" && file.name == manifest.entryAssembly + ".bytes"))
+            {
+                error = "hot-update assembly entry is missing";
+                return false;
+            }
+            return true;
         }
 
         private void PromoteStaging()
@@ -177,7 +219,11 @@ namespace ProjectW.Bootstrap
         private bool TryStartInstalledPatch()
         {
             PatchManifest manifest = ReadManifest(currentPath);
-            if (!ValidateManifest(manifest)) return false;
+            if (!ValidateManifest(manifest, out string validationError))
+            {
+                if (manifest != null) FailPatch($"installed manifest invalid: {validationError}");
+                return false;
+            }
 
             try
             {
@@ -186,11 +232,14 @@ namespace ProjectW.Bootstrap
                 byte[] dllBytes = File.ReadAllBytes(Path.Combine(currentPath, code.name));
                 StartAssembly(dllBytes, manifest.entryAssembly, manifest.entryType,
                     manifest.patchVersion, currentPath);
+                patchResult = $"running {manifest.patchVersion}";
+                AddDiagnostic(LogType.Log, patchResult);
                 return true;
             }
             catch (Exception exception)
             {
                 Debug.LogException(exception);
+                FailPatch($"patch start failed: {exception.GetType().Name}: {exception.Message}");
                 status = "새 패치 실행 실패. 내장 버전으로 복구합니다.";
                 return false;
             }
@@ -289,8 +338,10 @@ namespace ProjectW.Bootstrap
             {
                 request.timeout = requestTimeoutSeconds;
                 yield return request.SendWebRequest();
+                int byteCount = request.downloadHandler?.data?.Length ?? 0;
+                AddDiagnostic(request.result == UnityWebRequest.Result.Success ? LogType.Log : LogType.Warning,
+                    FormatRequestResult("GET", url, request.responseCode, request.error, byteCount));
                 if (request.result == UnityWebRequest.Result.Success) complete(request.downloadHandler.text);
-                else Debug.LogWarning($"Patch request failed ({request.responseCode}, {url}): {request.error}");
             }
         }
 
@@ -302,7 +353,9 @@ namespace ProjectW.Bootstrap
                 request.downloadHandler = new DownloadHandlerFile(destination) { removeFileOnAbort = true };
                 yield return request.SendWebRequest();
                 bool success = request.result == UnityWebRequest.Result.Success;
-                if (!success) Debug.LogWarning($"Patch file request failed ({request.responseCode}, {url}): {request.error}");
+                long byteCount = File.Exists(destination) ? new FileInfo(destination).Length : 0;
+                AddDiagnostic(success ? LogType.Log : LogType.Warning,
+                    FormatRequestResult("FILE", url, request.responseCode, request.error, byteCount));
                 complete(success);
             }
         }
@@ -335,6 +388,12 @@ namespace ProjectW.Bootstrap
             return $"{url}{(url.Contains("?") ? "&" : "?")}projectw_nocache={nonce}";
         }
 
+        public static string FormatRequestResult(string kind, string url, long responseCode, string error, long byteCount)
+        {
+            string outcome = string.IsNullOrWhiteSpace(error) ? "OK" : error;
+            return $"{kind} HTTP {responseCode} bytes={byteCount} result={outcome}\n{url}";
+        }
+
         private static void RecreateDirectory(string path)
         {
             if (Directory.Exists(path)) Directory.Delete(path, true);
@@ -353,12 +412,15 @@ namespace ProjectW.Bootstrap
             float width = Mathf.Min(Screen.width - 24, 920);
 
             GUILayout.BeginArea(new Rect(12, 10, width, Screen.height - 20));
-            GUILayout.BeginHorizontal(GUI.skin.box);
+            GUILayout.BeginVertical(GUI.skin.box);
+            GUILayout.BeginHorizontal();
             GUILayout.Label($"PATCH  active:{activeVersion}  installed:{installed}  state:{status}", diagnosticHeader);
             GUILayout.FlexibleSpace();
             if (logs.Length > 0 && GUILayout.Button(diagnosticsExpanded ? "로그 닫기" : $"로그 {logs.Length}", GUILayout.Width(92)))
                 diagnosticsExpanded = !diagnosticsExpanded;
             GUILayout.EndHorizontal();
+            GUILayout.Label($"last patch result: {patchResult}", diagnosticBody);
+            GUILayout.EndVertical();
 
             if (diagnosticsExpanded && logs.Length > 0)
             {
@@ -385,12 +447,24 @@ namespace ProjectW.Bootstrap
         private void CaptureLog(string message, string stackTrace, LogType type)
         {
             if (type != LogType.Warning && type != LogType.Error && type != LogType.Exception && type != LogType.Assert) return;
+            AddDiagnostic(type, message, stackTrace);
+        }
+
+        private void FailPatch(string reason)
+        {
+            patchResult = reason;
+            AddDiagnostic(LogType.Error, reason);
+        }
+
+        private void AddDiagnostic(LogType type, string message, string stackTrace = "")
+        {
             lock (logLock)
             {
                 diagnosticLogs.Add(new DiagnosticLog(type, message, stackTrace));
                 if (diagnosticLogs.Count > 40) diagnosticLogs.RemoveAt(0);
             }
-            if (type != LogType.Warning) diagnosticsExpanded = true;
+            if (type == LogType.Error || type == LogType.Exception || type == LogType.Assert)
+                diagnosticsExpanded = true;
         }
 
         private void EnsureDiagnosticStyles()
