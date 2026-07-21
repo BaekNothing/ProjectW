@@ -66,10 +66,13 @@ foreach ($file in Get-ChildItem -LiteralPath $patchDirectory -File | Where-Objec
         -ContentType "application/octet-stream" -InFile $file.FullName | Out-Null
 }
 
-$channel = @{
-    schemaVersion = 1
-    manifestUrl = "https://github.com/BaekNothing/ProjectW/releases/download/$tag/patch-manifest.json"
-} | ConvertTo-Json
-Set-Content -LiteralPath (Join-Path $projectRoot "PatchChannels\dev.json") -Value $channel -Encoding utf8
+$channel = @"
+{
+  "schemaVersion": 1,
+  "manifestUrl": "https://github.com/BaekNothing/ProjectW/releases/download/$tag/patch-manifest.json"
+}
+"@
+$channelPath = Join-Path $projectRoot "PatchChannels\dev.json"
+[System.IO.File]::WriteAllText($channelPath, $channel, [System.Text.UTF8Encoding]::new($false))
 
 Write-Host "Published $tag. Commit and push PatchChannels/dev.json to activate it for devices."
