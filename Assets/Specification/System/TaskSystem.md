@@ -137,9 +137,9 @@ External data includes:
 
 The authoritative runtime data file for this prototype is:
 
-`Assets/MilestonePrototype/Data/task-system.json`
+`Assets/MilestonePrototype/Resources/task-system.json`
 
-Patch builds must include this file in the patch manifest. Hot-update runtime loads it from the patch data directory. Editor execution loads the source asset directly. A missing or invalid required data file is an explicit startup error; gameplay code must not silently replace it with hard-coded content.
+Patch builds must include this file in the patch manifest. Hot-update runtime loads it from the patch data directory. Editor and APK-embedded fallback execution load the same source JSON as a Unity `Resources` asset. A missing or invalid required data file is an explicit startup error; gameplay code must not silently replace it with hard-coded content.
 
 ## Impact Matrix
 
