@@ -14,8 +14,12 @@ namespace ProjectW.MilestonePrototype
             public Rect Rect;
             public bool Minimized;
             public Vector2 Scroll;
+            public Vector2 TimelineScroll;
             public int Selected;
-            public int TimelineStartDay = 1;
+            public string DragRegion;
+            public Vector2 DragPointerOrigin;
+            public Vector2 DragScrollOrigin;
+            public bool DraggingContent;
         }
 
         private readonly List<DeskWindow> windows = new List<DeskWindow>();
@@ -38,6 +42,8 @@ namespace ProjectW.MilestonePrototype
         private const string DesktopSaveKey = "projectw.desktop.v1";
         private static readonly Color GrayColor = new Color(.6f, .6f, .6f, 1f);
         private static readonly Color InkColor = new Color(.267f, .267f, .267f, 1f);
+        private static readonly Color PaleColor = new Color(.88f, .88f, .88f, 1f);
+        private const float TouchDragThreshold = 8f;
         private float logicalWidth;
         private float logicalHeight;
 
@@ -149,7 +155,7 @@ namespace ProjectW.MilestonePrototype
                     SaveCampaign();
                 }
             }
-            GUILayout.EndScrollView();
+            EndTouchScroll(window, "mail-list", ref window.Scroll);
             GUILayout.EndVertical();
             GUILayout.BeginVertical(GUI.skin.box);
             if (arrived.Count == 0) GUILayout.Label("도착한 통신이 없습니다.");
@@ -178,79 +184,87 @@ namespace ProjectW.MilestonePrototype
         private void DrawGantt(DeskWindow window)
         {
             GUILayout.Label("GANTT / 일감 계획", section);
-            GUILayout.Label($"DAY {game.Day:00}  │  ■ 작업 구간  S SOFT  H HARD", small);
+            GUILayout.Label($"DAY {game.Day:00}  │  회색=완료  진회색=예상 잔여  ┆ SOFT  │ HARD", small);
+            window.Scroll = GUILayout.BeginScrollView(window.Scroll);
             DrawGanttTimeline(window);
             GUILayout.Space(8);
-            window.Scroll = GUILayout.BeginScrollView(window.Scroll);
             DrawTaskDetail(window);
-            GUILayout.EndScrollView();
+            EndTouchScroll(window, "gantt-body", ref window.Scroll);
         }
 
         private void DrawGanttTimeline(DeskWindow window)
         {
-            const int visibleDays = 10;
-            window.TimelineStartDay = Mathf.Clamp(window.TimelineStartDay, 1,
-                Mathf.Max(1, game.CampaignEndDay - visibleDays + 1));
-            int proposedLastDay = window.TimelineStartDay + visibleDays - 1;
-            int lastDay = proposedLastDay < game.CampaignEndDay ? proposedLastDay : game.CampaignEndDay;
+            const float labelWidth = 190f;
+            const float dayWidth = 28f;
+            const float rowHeight = 28f;
+            int rowCount = game.Groups.Sum(group =>
+                1 + game.Tasks.Count(task => task.GroupId == group.Id));
+            float contentWidth = labelWidth + game.CampaignEndDay * dayWidth + 16f;
+            float contentHeight = Math.Max(120f, rowCount * rowHeight + 28f);
+            Rect viewport = GUILayoutUtility.GetRect(100f, 230f, GUILayout.ExpandWidth(true));
+            Rect content = new Rect(0, 0, contentWidth, contentHeight);
 
-            GUILayout.BeginHorizontal();
-            GUI.enabled = window.TimelineStartDay > 1;
-            if (GUILayout.Button("◀", GUILayout.Width(42)))
-                window.TimelineStartDay = Mathf.Max(1, window.TimelineStartDay - visibleDays);
-            GUI.enabled = lastDay < game.CampaignEndDay;
-            if (GUILayout.Button("▶", GUILayout.Width(42)))
+            window.TimelineScroll = GUI.BeginScrollView(viewport, window.TimelineScroll, content);
+            DrawSolid(new Rect(0, 0, contentWidth, contentHeight), Color.white);
+            for (int day = 1; day <= game.CampaignEndDay; day++)
             {
-                int proposedStartDay = window.TimelineStartDay + visibleDays;
-                int maximumStartDay = game.CampaignEndDay - visibleDays + 1;
-                window.TimelineStartDay = proposedStartDay < maximumStartDay
-                    ? proposedStartDay
-                    : maximumStartDay;
+                float x = labelWidth + (day - 1) * dayWidth;
+                DrawSolid(new Rect(x, 0, 1, contentHeight), day == game.Day ? InkColor : PaleColor);
+                GUI.Label(new Rect(x + 2, 1, dayWidth - 3, 24), day.ToString(), small);
             }
-            GUI.enabled = true;
-            GUILayout.Label($"표시 D{window.TimelineStartDay:00}–D{lastDay:00}", small);
-            GUILayout.EndHorizontal();
 
-            GUILayout.BeginHorizontal();
-            GUILayout.Label("일 / Task", small, GUILayout.Width(180));
-            for (int day = window.TimelineStartDay; day <= lastDay; day++)
-                GUILayout.Label(day == game.Day ? $"[{day}]" : day.ToString(), small, GUILayout.Width(34));
-            GUILayout.EndHorizontal();
-
+            float y = 28f;
             foreach (WorkGroup group in game.Groups)
             {
                 List<WorkTask> tasks = game.Tasks.Where(task => task.GroupId == group.Id).ToList();
-                GUILayout.BeginHorizontal(GUI.skin.box);
-                GUILayout.Label($"{group.Name} · {WorkStateName(group.State)}", small, GUILayout.Width(180));
-                for (int day = window.TimelineStartDay; day <= lastDay; day++)
-                {
-                    string marker = day == group.HardDeadline ? "H" :
-                        day == group.SoftDeadline ? "S" : "·";
-                    GUILayout.Label(marker, small, GUILayout.Width(34));
-                }
-                GUILayout.EndHorizontal();
+                DrawSolid(new Rect(0, y, contentWidth, rowHeight - 1), PaleColor);
+                GUI.Label(new Rect(6, y + 4, labelWidth - 10, 22),
+                    $"{group.Name} · {WorkStateName(group.State)}", small);
+                DrawDeadlineLine(group.SoftDeadline, y, rowHeight * (tasks.Count + 1),
+                    labelWidth, dayWidth, false);
+                DrawDeadlineLine(group.HardDeadline, y, rowHeight * (tasks.Count + 1),
+                    labelWidth, dayWidth, true);
+                y += rowHeight;
 
                 foreach (WorkTask task in tasks)
                 {
                     int taskIndex = game.Tasks.IndexOf(task);
-                    GUILayout.BeginHorizontal();
-                    if (GUILayout.Button($"{StateName(task.State)}  {task.Name}", GUILayout.Width(180)))
+                    if (GUI.Button(new Rect(4, y + 2, labelWidth - 8, rowHeight - 4),
+                            $"{StateName(task.State)}  {task.Name}"))
                         window.Selected = taskIndex;
 
                     int completedDays = Mathf.CeilToInt(task.Progress);
                     int startDay = Mathf.Max(1, game.Day - completedDays);
-                    int remainingDays = Mathf.CeilToInt(task.RemainingWork);
-                    int projectedEnd = game.Day + remainingDays - 1;
-                    for (int day = window.TimelineStartDay; day <= lastDay; day++)
-                    {
-                        bool completed = day >= startDay && day < game.Day;
-                        bool projected = remainingDays > 0 && day >= game.Day && day <= projectedEnd;
-                        string marker = completed ? "□" : projected ? "■" : "·";
-                        GUILayout.Label(marker, small, GUILayout.Width(34));
-                    }
-                    GUILayout.EndHorizontal();
+                    float completedWidth = completedDays * dayWidth;
+                    float remainingWidth = Mathf.Ceil(task.RemainingWork) * dayWidth;
+                    float barX = labelWidth + (startDay - 1) * dayWidth + 3;
+                    if (completedWidth > 0)
+                        DrawSolid(new Rect(barX, y + 7, completedWidth, 14), GrayColor);
+                    float remainingX = labelWidth + (Mathf.Max(1, game.Day) - 1) * dayWidth + 3;
+                    if (remainingWidth > 0)
+                        DrawSolid(new Rect(remainingX, y + 7, remainingWidth, 14),
+                            task.State == TaskState.Locked ? PaleColor : InkColor);
+                    GUI.Label(new Rect(Math.Max(barX, remainingX) + 3, y + 4,
+                            Math.Max(54, remainingWidth - 4), 21),
+                        $"{task.RemainingWork:0.#}d", small);
+                    y += rowHeight;
                 }
             }
+            GUI.EndScrollView();
+            HandleTouchScroll(window, "gantt-timeline", viewport, ref window.TimelineScroll);
+        }
+
+        private static void DrawDeadlineLine(int day, float y, float height, float labelWidth,
+            float dayWidth, bool hard)
+        {
+            if (day <= 0) return;
+            float x = labelWidth + (day - 1) * dayWidth + (hard ? dayWidth - 2 : dayWidth * .5f);
+            Color color = hard ? InkColor : GrayColor;
+            float segment = hard ? height : 4f;
+            if (hard) DrawSolid(new Rect(x, y, 2, height), color);
+            else
+                for (float offset = 0; offset < height; offset += 8f)
+                    DrawSolid(new Rect(x, y + offset, 1, Math.Min(segment, height - offset)), color);
         }
 
         private void DrawTaskDetail(DeskWindow window)
@@ -329,7 +343,7 @@ namespace ProjectW.MilestonePrototype
                     GUILayout.Label($"{(task.Required ? "[필수]" : "[선택]")} {task.Name} — {StateName(task.State)} {task.Progress}/{task.RequiredWork}");
                 GUILayout.EndVertical();
             }
-            GUILayout.EndScrollView();
+            EndTouchScroll(window, "milestones", ref window.Scroll);
         }
 
         private void DrawWorkers(DeskWindow window)
@@ -353,7 +367,7 @@ namespace ProjectW.MilestonePrototype
                 GUILayout.EndHorizontal();
                 GUILayout.EndVertical();
             }
-            GUILayout.EndScrollView();
+            EndTouchScroll(window, "workers", ref window.Scroll);
         }
 
         private void DrawReport(DeskWindow window)
@@ -372,7 +386,7 @@ namespace ProjectW.MilestonePrototype
             GUILayout.Space(8);
             GUILayout.Label("최근 결과", section);
             foreach (string line in game.LastReport.Lines) GUILayout.Label(line);
-            GUILayout.EndScrollView();
+            EndTouchScroll(window, "report", ref window.Scroll);
         }
 
         private void DrawCodex(DeskWindow window)
@@ -395,7 +409,7 @@ namespace ProjectW.MilestonePrototype
         private void DrawHelp()
         {
             GUILayout.Label("OPS DESK 사용법", section);
-            GUILayout.Label("• 바탕화면 아이콘을 한 번 탭해 앱을 엽니다.\n• 창 제목을 드래그해 이동합니다.\n• 창 내용은 오른쪽 스크롤바로 이동합니다.\n• Gantt의 ◀/▶로 날짜 구간을 바꾸고 Task를 눌러 상세와 비용을 확인합니다.\n• 주 작업은 하루 하나, 잔여 1일 이하 작업은 피로를 더 써서 병행할 수 있습니다.\n• 담당 변경 전에 상세의 문맥 비용을 확인하십시오.\n• 통신 지시를 수락하면 마감·중요도·자원이 실제 게임에 반영됩니다.\n• 내정보에서 캠페인 또는 창 배치를 각각 초기화할 수 있습니다.");
+            GUILayout.Label("• 바탕화면 아이콘을 한 번 탭해 앱을 엽니다.\n• 창 제목을 드래그해 이동합니다.\n• 창 내용은 스크롤바 또는 빈 곳을 밀어서 이동합니다.\n• Gantt의 날짜 막대를 눌러 일감 상세와 비용을 확인합니다.\n• 주 작업은 하루 하나, 잔여 1일 이하 작업은 피로를 더 써서 병행할 수 있습니다.\n• 담당 변경 전에 상세의 문맥 비용을 확인하십시오.\n• 통신 지시를 수락하면 마감·중요도·자원이 실제 게임에 반영됩니다.\n• 내정보에서 캠페인 또는 창 배치를 각각 초기화할 수 있습니다.");
         }
 
         private void DrawProfile()
@@ -420,7 +434,7 @@ namespace ProjectW.MilestonePrototype
         {
             window.Scroll = GUILayout.BeginScrollView(window.Scroll);
             foreach (string line in game.SystemLog.AsEnumerable().Reverse()) GUILayout.Label(line, small);
-            GUILayout.EndScrollView();
+            EndTouchScroll(window, "system-log", ref window.Scroll);
         }
 
         private void DrawTaskbar()
@@ -511,6 +525,61 @@ namespace ProjectW.MilestonePrototype
             string[] tasks = game.Tasks.Where(t => t.AssignedCharacter == crewIndex)
                 .Select(t => t.IsParallelAssignment ? $"{t.Name}(병행)" : t.Name).ToArray();
             return tasks.Length == 0 ? "없음" : string.Join(", ", tasks);
+        }
+
+        private void EndTouchScroll(DeskWindow window, string region, ref Vector2 scroll)
+        {
+            GUILayout.EndScrollView();
+            HandleTouchScroll(window, region, GUILayoutUtility.GetLastRect(), ref scroll);
+        }
+
+        private static void HandleTouchScroll(DeskWindow window, string region, Rect viewport,
+            ref Vector2 scroll)
+        {
+            Event current = Event.current;
+            if (current == null) return;
+
+            if (current.type == EventType.MouseDown && current.button == 0 &&
+                viewport.Contains(current.mousePosition) && string.IsNullOrEmpty(window.DragRegion))
+            {
+                window.DragRegion = region;
+                window.DragPointerOrigin = current.mousePosition;
+                window.DragScrollOrigin = scroll;
+                window.DraggingContent = false;
+                return;
+            }
+
+            if (window.DragRegion != region) return;
+            if (current.type == EventType.MouseDrag && current.button == 0)
+            {
+                if (!window.DraggingContent &&
+                    Vector2.Distance(window.DragPointerOrigin, current.mousePosition) >= TouchDragThreshold)
+                {
+                    window.DraggingContent = true;
+                    GUIUtility.hotControl = 0;
+                    GUIUtility.keyboardControl = 0;
+                }
+                if (!window.DraggingContent) return;
+                scroll = CalculateDragScroll(window.DragScrollOrigin, window.DragPointerOrigin,
+                    current.mousePosition);
+                current.Use();
+            }
+            else if (current.type == EventType.MouseUp && current.button == 0)
+            {
+                bool consumed = window.DraggingContent;
+                window.DragRegion = null;
+                window.DraggingContent = false;
+                if (consumed) current.Use();
+            }
+        }
+
+        public static Vector2 CalculateDragScroll(Vector2 originalScroll, Vector2 pointerOrigin,
+            Vector2 pointerCurrent)
+        {
+            Vector2 delta = pointerCurrent - pointerOrigin;
+            return new Vector2(
+                Mathf.Max(0f, originalScroll.x - delta.x),
+                Mathf.Max(0f, originalScroll.y - delta.y));
         }
 
         private void SaveCampaign() => ProjectWSaveStore.SaveCampaign(CampaignSaveKey, game.CreateSnapshot());

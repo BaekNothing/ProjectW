@@ -27,16 +27,8 @@ namespace ProjectW.MilestonePrototype.Editor
         private const string GameplayDataName = "task-system.json";
         private const string HotUpdateRuntimeRoot = "Assets/MilestonePrototype/Runtime";
         private static readonly string[] AotMetadataAssemblies = { "mscorlib", "System", "System.Core" };
-        private static readonly string[] BaseV2ForbiddenAotTokens =
+        private static readonly string[] BaseV3ForbiddenAotTokens =
         {
-            "GUILayoutUtility.",
-            "GUI.BeginScrollView(",
-            "GUI.EndScrollView(",
-            "GUIUtility.hotControl",
-            "GUIUtility.keyboardControl",
-            "Event.current.mousePosition",
-            "Event.current.button",
-            ".Use()",
             "Input.touchCount",
             "Input.GetTouch("
         };
@@ -81,7 +73,7 @@ namespace ProjectW.MilestonePrototype.Editor
         {
             if (string.IsNullOrWhiteSpace(patchVersion) || !Regex.IsMatch(patchVersion, @"^\d{8}-\d{3}$"))
                 throw new ArgumentException("Patch version must use YYYYMMDD-NNN.", nameof(patchVersion));
-            ValidateBaseV2AotSurface();
+            ValidateBaseV3AotSurface();
             EnsureAndroidTarget();
             Configure();
             EnsureInstalled();
@@ -119,18 +111,18 @@ namespace ProjectW.MilestonePrototype.Editor
             return output;
         }
 
-        public static void ValidateBaseV2AotSurface()
+        public static void ValidateBaseV3AotSurface()
         {
             foreach (string path in Directory.GetFiles(HotUpdateRuntimeRoot, "*.cs", SearchOption.AllDirectories))
             {
                 string source = File.ReadAllText(path);
-                foreach (string token in BaseV2ForbiddenAotTokens)
+                foreach (string token in BaseV3ForbiddenAotTokens)
                 {
                     if (!source.Contains(token)) continue;
                     throw new BuildFailedException(
                         $"HotUpdate AOT safety blocked '{token}' in {path}. " +
-                        "Base APK v2 does not prove this member is preserved. " +
-                        "Use a normal base-v2-safe implementation or notify the user and rebuild the base APK.");
+                        "Base APK v3 does not prove this member is preserved. " +
+                        "Use a normal base-v3-safe implementation or notify the user and rebuild the base APK.");
                 }
             }
         }

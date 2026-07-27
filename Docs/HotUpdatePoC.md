@@ -35,6 +35,18 @@ The base build runs HybridCLR `Generate/All`, embeds a fallback hot-update DLL a
 and produces a development APK. Rebuild/reinstall it when Bootstrap, Contracts, Unity packages,
 native plugins, Android settings, Unity, or HybridCLR change.
 
+### Current base APK
+
+- Base version: `3`
+- Artifact: `APK/ProjectW-HybridCLR.apk`
+- Size: `50,283,444` bytes
+- SHA-256: `c409fba68ff76f38fe92d178bf3a483b367091646b26583f9313981d2309e1fa`
+- Required for: direct-content drag and horizontal Gantt patches using the explicitly preserved
+  `GUILayoutUtility` and `GUIUtility` AOT surface
+
+Base APK v2 devices remain compatible with `dev-20260727-007`, but reject v3-only manifests.
+Install base APK v3 once before consuming patches whose `minBaseVersion` is `3`.
+
 ## Routine code patch workflow
 
 Keep gameplay changes inside the `ProjectW.HotUpdate` assembly. The local credential wrapper
