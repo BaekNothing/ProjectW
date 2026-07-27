@@ -185,30 +185,31 @@ namespace ProjectW.MilestonePrototype
         {
             GUILayout.Label("GANTT / 일감 계획", section);
             GUILayout.Label($"DAY {game.Day:00}  │  회색=완료  진회색=예상 잔여  ┆ SOFT  │ HARD", small);
-            window.Scroll = GUILayout.BeginScrollView(window.Scroll);
-            DrawGanttTimeline(window);
-            GUILayout.Space(8);
-            DrawTaskDetail(window);
-            EndTouchScroll(window, "gantt-body", ref window.Scroll);
+            float availableHeight = Mathf.Max(120f, window.Rect.height - 82f);
+            Rect viewport = GUILayoutUtility.GetRect(100f, availableHeight,
+                GUILayout.ExpandWidth(true));
+            DrawGanttTimeline(window, viewport);
         }
 
-        private void DrawGanttTimeline(DeskWindow window)
+        private void DrawGanttTimeline(DeskWindow window, Rect viewport)
         {
             const float labelWidth = 190f;
             const float dayWidth = 28f;
             const float rowHeight = 28f;
             int rowCount = game.Groups.Sum(group =>
                 1 + game.Tasks.Count(task => task.GroupId == group.Id));
-            float contentWidth = labelWidth + game.CampaignEndDay * dayWidth + 16f;
+            float contentWidth = game.CampaignEndDay * dayWidth + 16f;
             float contentHeight = Math.Max(120f, rowCount * rowHeight + 28f);
-            Rect viewport = GUILayoutUtility.GetRect(100f, 230f, GUILayout.ExpandWidth(true));
             Rect content = new Rect(0, 0, contentWidth, contentHeight);
+            Rect labelViewport = new Rect(viewport.x, viewport.y, labelWidth, viewport.height);
+            Rect timelineViewport = new Rect(viewport.x + labelWidth, viewport.y,
+                Mathf.Max(1f, viewport.width - labelWidth), viewport.height);
 
-            window.TimelineScroll = GUI.BeginScrollView(viewport, window.TimelineScroll, content);
+            window.TimelineScroll = GUI.BeginScrollView(timelineViewport, window.TimelineScroll, content);
             DrawSolid(new Rect(0, 0, contentWidth, contentHeight), Color.white);
             for (int day = 1; day <= game.CampaignEndDay; day++)
             {
-                float x = labelWidth + (day - 1) * dayWidth;
+                float x = (day - 1) * dayWidth;
                 DrawSolid(new Rect(x, 0, 1, contentHeight), day == game.Day ? InkColor : PaleColor);
                 GUI.Label(new Rect(x + 2, 1, dayWidth - 3, 24), day.ToString(), small);
             }
@@ -218,29 +219,22 @@ namespace ProjectW.MilestonePrototype
             {
                 List<WorkTask> tasks = game.Tasks.Where(task => task.GroupId == group.Id).ToList();
                 DrawSolid(new Rect(0, y, contentWidth, rowHeight - 1), PaleColor);
-                GUI.Label(new Rect(6, y + 4, labelWidth - 10, 22),
-                    $"{group.Name} · {WorkStateName(group.State)}", small);
                 DrawDeadlineLine(group.SoftDeadline, y, rowHeight * (tasks.Count + 1),
-                    labelWidth, dayWidth, false);
+                    dayWidth, false);
                 DrawDeadlineLine(group.HardDeadline, y, rowHeight * (tasks.Count + 1),
-                    labelWidth, dayWidth, true);
+                    dayWidth, true);
                 y += rowHeight;
 
                 foreach (WorkTask task in tasks)
                 {
-                    int taskIndex = game.Tasks.IndexOf(task);
-                    if (GUI.Button(new Rect(4, y + 2, labelWidth - 8, rowHeight - 4),
-                            $"{StateName(task.State)}  {task.Name}"))
-                        window.Selected = taskIndex;
-
                     int completedDays = Mathf.CeilToInt(task.Progress);
                     int startDay = Mathf.Max(1, game.Day - completedDays);
                     float completedWidth = completedDays * dayWidth;
                     float remainingWidth = Mathf.Ceil(task.RemainingWork) * dayWidth;
-                    float barX = labelWidth + (startDay - 1) * dayWidth + 3;
+                    float barX = (startDay - 1) * dayWidth + 3;
                     if (completedWidth > 0)
                         DrawSolid(new Rect(barX, y + 7, completedWidth, 14), GrayColor);
-                    float remainingX = labelWidth + (Mathf.Max(1, game.Day) - 1) * dayWidth + 3;
+                    float remainingX = (Mathf.Max(1, game.Day) - 1) * dayWidth + 3;
                     if (remainingWidth > 0)
                         DrawSolid(new Rect(remainingX, y + 7, remainingWidth, 14),
                             task.State == TaskState.Locked ? PaleColor : InkColor);
@@ -251,14 +245,33 @@ namespace ProjectW.MilestonePrototype
                 }
             }
             GUI.EndScrollView();
-            HandleTouchScroll(window, "gantt-timeline", viewport, ref window.TimelineScroll);
+            HandleTouchScroll(window, "gantt-timeline", timelineViewport, ref window.TimelineScroll);
+
+            GUI.BeginGroup(labelViewport);
+            DrawSolid(new Rect(0, 0, labelWidth, labelViewport.height), Color.white);
+            y = 28f - window.TimelineScroll.y;
+            foreach (WorkGroup group in game.Groups)
+            {
+                List<WorkTask> tasks = game.Tasks.Where(task => task.GroupId == group.Id).ToList();
+                DrawSolid(new Rect(0, y, labelWidth, rowHeight - 1), PaleColor);
+                GUI.Label(new Rect(6, y + 4, labelWidth - 10, 22),
+                    $"{group.Name} · {WorkStateName(group.State)}", small);
+                y += rowHeight;
+
+                foreach (WorkTask task in tasks)
+                {
+                    GUI.Label(new Rect(6, y + 4, labelWidth - 10, rowHeight - 4),
+                        $"{StateName(task.State)}  {task.Name}", small);
+                    y += rowHeight;
+                }
+            }
+            GUI.EndGroup();
         }
 
-        private static void DrawDeadlineLine(int day, float y, float height, float labelWidth,
-            float dayWidth, bool hard)
+        private static void DrawDeadlineLine(int day, float y, float height, float dayWidth, bool hard)
         {
             if (day <= 0) return;
-            float x = labelWidth + (day - 1) * dayWidth + (hard ? dayWidth - 2 : dayWidth * .5f);
+            float x = (day - 1) * dayWidth + (hard ? dayWidth - 2 : dayWidth * .5f);
             Color color = hard ? InkColor : GrayColor;
             float segment = hard ? height : 4f;
             if (hard) DrawSolid(new Rect(x, y, 2, height), color);
@@ -409,7 +422,7 @@ namespace ProjectW.MilestonePrototype
         private void DrawHelp()
         {
             GUILayout.Label("OPS DESK 사용법", section);
-            GUILayout.Label("• 바탕화면 아이콘을 한 번 탭해 앱을 엽니다.\n• 창 제목을 드래그해 이동합니다.\n• 창 내용은 스크롤바 또는 빈 곳을 밀어서 이동합니다.\n• Gantt의 날짜 막대를 눌러 일감 상세와 비용을 확인합니다.\n• 주 작업은 하루 하나, 잔여 1일 이하 작업은 피로를 더 써서 병행할 수 있습니다.\n• 담당 변경 전에 상세의 문맥 비용을 확인하십시오.\n• 통신 지시를 수락하면 마감·중요도·자원이 실제 게임에 반영됩니다.\n• 내정보에서 캠페인 또는 창 배치를 각각 초기화할 수 있습니다.");
+            GUILayout.Label("• 바탕화면 아이콘을 한 번 탭해 앱을 엽니다.\n• 창 제목을 드래그해 이동합니다.\n• 창 내용은 스크롤바 또는 빈 곳을 밀어서 이동합니다.\n• Gantt에서는 왼쪽 일감 열이 고정되고 날짜 영역만 움직입니다.\n• 주 작업은 하루 하나, 잔여 1일 이하 작업은 피로를 더 써서 병행할 수 있습니다.\n• 통신 지시를 수락하면 마감·중요도·자원이 실제 게임에 반영됩니다.\n• 내정보에서 캠페인 또는 창 배치를 각각 초기화할 수 있습니다.");
         }
 
         private void DrawProfile()
@@ -634,6 +647,7 @@ namespace ProjectW.MilestonePrototype
         {
             if (title != null) return;
             Color white = Color.white;
+            Color black = Color.black;
             Color gray = GrayColor;
             Color ink = InkColor;
             Texture2D whiteFill = Texture2D.whiteTexture;
@@ -653,7 +667,14 @@ namespace ProjectW.MilestonePrototype
 
             GUI.skin.window.normal.background = whiteFill;
             GUI.skin.window.onNormal.background = whiteFill;
-            GUI.skin.window.normal.textColor = ink;
+            GUI.skin.window.normal.textColor = black;
+            GUI.skin.window.onNormal.textColor = black;
+            GUI.skin.window.hover.textColor = black;
+            GUI.skin.window.onHover.textColor = black;
+            GUI.skin.window.active.textColor = black;
+            GUI.skin.window.onActive.textColor = black;
+            GUI.skin.window.focused.textColor = black;
+            GUI.skin.window.onFocused.textColor = black;
             GUI.skin.window.border = new RectOffset();
             GUI.skin.window.padding = new RectOffset(8, 8, 24, 8);
 

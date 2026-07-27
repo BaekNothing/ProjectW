@@ -173,12 +173,16 @@ The Task application must present schedule information as a time-based Gantt vie
 - Each Task row shows its projected segment from the current day through its effective remaining duration.
 - Completed progress and projected remaining work use distinguishable portions of the same bar.
 - Locked Tasks remain visible and state why they cannot be entered.
-- Selecting a Task opens its detail without assigning it.
+- The Task application is Gantt-only; it does not combine a Task detail panel with the timeline.
+- The left Work/Task column stays horizontally fixed while only the timeline pans.
 - Work rows expose Work state, completion, and deadline status.
 
 The projected segment is operational guidance, not an immutable reservation. It is recalculated from current progress, context cost, prerequisites, assignments, and today whenever state changes.
 
 ### Task Detail
+
+Task detail is not displayed inside the Gantt application. If it is reintroduced, it must use a
+separate view so timeline navigation remains dedicated to the Gantt.
 
 The selected Task detail must expose:
 
