@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using UnityEngine;
 
@@ -5,115 +8,379 @@ namespace ProjectW.MilestonePrototype
 {
     public sealed class MilestonePrototypeController : MonoBehaviour
     {
-        private MilestoneSimulation game;
-        private Vector2 taskScroll;
-        private Vector2 crewScroll;
-        private GUIStyle title;
-        private GUIStyle section;
-        private GUIStyle warning;
-        private GUIStyle versionBadge;
-        private GUIStyle statusBox;
-        private GUIStyle statusWarningBox;
-        private string patchVersion = "embedded";
-
-        private void Awake() => game = new MilestoneSimulation();
-
-        public void Initialize(string version)
+        private sealed class DeskWindow
         {
-            patchVersion = string.IsNullOrWhiteSpace(version) ? "unknown" : version.Trim();
+            public string Id;
+            public string Title;
+            public Rect Rect;
+            public bool Minimized;
+            public Vector2 Scroll;
+            public int Selected;
         }
+
+        private readonly List<DeskWindow> windows = new List<DeskWindow>();
+        private readonly Dictionary<string, string> appTitles = new Dictionary<string, string>
+        {
+            { "mail", "MAIL / 통신" }, { "gantt", "GANTT / 작업" }, { "milestone", "MILESTONE" },
+            { "workers", "CREW / 대원" }, { "report", "REPORT" }, { "codex", "CODEX / 도감" },
+            { "help", "HELP" }, { "profile", "MY INFO" }, { "log", "SYSTEM LOG" }
+        };
+
+        private MilestoneSimulation game;
+        private GUIStyle title;
+        private GUIStyle desktopIcon;
+        private GUIStyle section;
+        private GUIStyle small;
+        private GUIStyle warning;
+        private GUIStyle success;
+        private GUIStyle taskbar;
+        private string patchVersion = "embedded";
+        private string campaignPath;
+        private string desktopPath;
+        private float logicalWidth;
+        private float logicalHeight;
+
+        private void Awake()
+        {
+            campaignPath = Path.Combine(Application.persistentDataPath, "projectw-campaign-v1.json");
+            desktopPath = Path.Combine(Application.persistentDataPath, "projectw-desktop-v1.json");
+            game = new MilestoneSimulation();
+            if (ProjectWSaveStore.TryLoadCampaign(campaignPath, out CampaignSnapshot snapshot)) game.Restore(snapshot);
+            RestoreDesktop();
+        }
+
+        public void Initialize(string version) => patchVersion = string.IsNullOrWhiteSpace(version) ? "unknown" : version.Trim();
+
+        private void OnApplicationPause(bool paused)
+        {
+            if (paused) SaveAll();
+        }
+
+        private void OnApplicationQuit() => SaveAll();
 
         private void OnGUI()
         {
             EnsureStyles();
-            float scale = Mathf.Clamp(Screen.width / 1500f, 0.75f, 1.35f);
+            float scale = Mathf.Clamp(Screen.width / 1280f, 0.72f, 1.5f);
             GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1));
-            float width = Screen.width / scale;
-            float height = Screen.height / scale;
-
-            UiCoordinateGrid.Draw(width, height);
-
-            GUILayout.BeginArea(new Rect(18, 14, width - 36, height - 28));
-            GUILayout.BeginHorizontal();
-            GUILayout.Label("PROJECT W — MILESTONE CONTROL", title);
-            GUILayout.FlexibleSpace();
-            GUILayout.Label($"PATCH {patchVersion}", versionBadge, GUILayout.ExpandWidth(false));
-            GUILayout.EndHorizontal();
-            GUILayout.Label($"DAY {game.Day:00}/{game.CampaignEndDay}     자원 {game.Resources}     가용 {game.Crew.Count(c => c.Available)}/{game.Crew.Count}     평균 피로 {(int)game.Crew.Average(c => c.Fatigue)}%     미처리 사이드 {game.Tasks.Count(t => t.Kind == TaskKind.SideMission && t.State != TaskState.Complete)}");
-            GUILayout.Space(8);
-
-            GUILayout.BeginHorizontal();
-            DrawTasks(width * 0.62f, height - 160);
-            GUILayout.Space(10);
-            DrawCrew(width * 0.35f, height - 160);
-            GUILayout.EndHorizontal();
-
-            GUILayout.BeginHorizontal(GUILayout.Height(54));
-            GUI.enabled = !game.IsWon && !game.IsLost;
-            if (GUILayout.Button("하루 실행", GUILayout.Height(54), GUILayout.Width(180))) game.AdvanceDay();
-            GUI.enabled = true;
-            GUILayout.Space(10);
-            GUILayout.Label(FormatStatus(game.LastReport, game.IsWon, game.IsLost), game.IsLost ? statusWarningBox : statusBox, GUILayout.Height(54), GUILayout.ExpandWidth(true));
-            GUILayout.EndHorizontal();
-            GUILayout.EndArea();
+            logicalWidth = Screen.width / scale;
+            logicalHeight = Screen.height / scale;
+            DrawDesktop();
+            DrawWindows();
+            DrawTaskbar();
+            if (Event.current.type == EventType.MouseUp) SaveDesktop();
         }
 
-        public static string FormatStatus(DayReport report, bool isWon, bool isLost)
+        private void DrawDesktop()
         {
-            if (isWon) return "마일스톤 완료 — 캠페인 승리";
-            if (isLost) return "운영 붕괴 — 캠페인 실패";
-            if (report == null || report.Lines.Count == 0) return string.Empty;
-
-            return string.Join("\n", report.Lines.Skip(System.Math.Max(0, report.Lines.Count - 2)));
-        }
-
-        private void DrawTasks(float width, float height)
-        {
-            GUILayout.BeginVertical(GUI.skin.box, GUILayout.Width(width), GUILayout.Height(height));
-            GUILayout.Label("작업 간트 / 배치", section);
-            GUILayout.Label("작업                           역할       진행              기한       담당 (클릭하여 변경)");
-            taskScroll = GUILayout.BeginScrollView(taskScroll);
-            foreach (WorkTask task in game.Tasks)
+            GUI.Box(new Rect(0, 0, logicalWidth, logicalHeight - 44), GUIContent.none);
+            GUI.Label(new Rect(22, 15, 480, 34), "PROJECT W  /  OPERATIONS DESK", title);
+            GUI.Label(new Rect(logicalWidth - 250, 18, 225, 25), $"DAY {game.Day:00}/{game.CampaignEndDay}   PATCH {patchVersion}", small);
+            string[] ids = { "mail", "gantt", "milestone", "workers", "report", "codex", "help", "profile" };
+            for (int i = 0; i < ids.Length; i++)
             {
-                GUILayout.BeginHorizontal(GUI.skin.box);
-                GUILayout.Label(task.Kind == TaskKind.SideMission ? $"! {task.Name}" : task.Required ? task.Name : $"◇ {task.Name}", GUILayout.Width(215));
-                GUILayout.Label(RoleName(task.RequiredRole), GUILayout.Width(58));
-                GUILayout.HorizontalSlider(task.Completion, 0, 1, GUILayout.Width(105));
-                GUILayout.Label($"{task.Progress}/{task.RequiredWork}", GUILayout.Width(55));
-                GUILayout.Label($"D{task.Deadline}" + (task.DelayDays > 0 ? $" +{task.DelayDays}" : ""), task.DelayDays > 0 ? warning : GUI.skin.label, GUILayout.Width(58));
-                GUI.enabled = task.State == TaskState.Available || task.State == TaskState.Active;
-                string assignee = task.AssignedCharacter < 0 ? StateName(task.State) : game.Crew[task.AssignedCharacter].Name;
-                if (GUILayout.Button(assignee, GUILayout.Width(130))) AssignNext(task);
-                GUI.enabled = true;
-                GUILayout.EndHorizontal();
+                int column = i % 4;
+                int row = i / 4;
+                var rect = new Rect(25 + column * 116, 70 + row * 94, 104, 78);
+                if (GUI.Button(rect, IconLabel(ids[i]), desktopIcon)) Open(ids[i]);
+            }
+            OperationsReport report = game.BuildReport();
+            GUI.Label(new Rect(25, 275, 455, 80),
+                $"운영 현황\n진행 {report.Active}  |  완료 {report.Complete}/{game.Tasks.Count}  |  지연 {report.Delayed}  |  고위험 {report.HighRisk}\n" +
+                $"가용 대원 {game.Crew.Count(c => c.Available)}/{game.Crew.Count}  |  자원 {game.Resources}", section);
+            GUI.enabled = !game.IsWon && !game.IsLost;
+            if (GUI.Button(new Rect(25, 365, 210, 48), "하루 진행"))
+            {
+                game.AdvanceDay();
+                SaveCampaign();
+            }
+            GUI.enabled = true;
+            GUI.Label(new Rect(25, logicalHeight - 105, 650, 40), FormatStatus(game.LastReport, game.IsWon, game.IsLost),
+                game.IsLost ? warning : success);
+        }
+
+        private void DrawWindows()
+        {
+            bool compact = logicalWidth < 900;
+            for (int i = 0; i < windows.Count; i++)
+            {
+                DeskWindow window = windows[i];
+                if (window.Minimized) continue;
+                if (compact) window.Rect = new Rect(6, 6, logicalWidth - 12, logicalHeight - 56);
+                window.Rect = ClampRect(window.Rect);
+                window.Rect = GUI.Window(100 + i, window.Rect, _ => DrawWindow(window), window.Title);
+            }
+        }
+
+        private void DrawWindow(DeskWindow window)
+        {
+            if (GUI.Button(new Rect(window.Rect.width - 58, 2, 25, 20), "—")) { window.Minimized = true; SaveDesktop(); }
+            if (GUI.Button(new Rect(window.Rect.width - 30, 2, 25, 20), "X")) { Close(window.Id); return; }
+            GUILayout.Space(6);
+            switch (window.Id)
+            {
+                case "mail": DrawMail(window); break;
+                case "gantt": DrawGantt(window); break;
+                case "milestone": DrawMilestones(window); break;
+                case "workers": DrawWorkers(window); break;
+                case "report": DrawReport(window); break;
+                case "codex": DrawCodex(window); break;
+                case "help": DrawHelp(); break;
+                case "profile": DrawProfile(); break;
+                case "log": DrawLog(window); break;
+            }
+            GUI.DragWindow(new Rect(0, 0, Mathf.Max(0, window.Rect.width - 65), 26));
+        }
+
+        private void DrawMail(DeskWindow window)
+        {
+            List<MailEvent> arrived = game.Mail.Where(m => m.ArrivalDay <= game.Day).ToList();
+            GUILayout.BeginHorizontal();
+            GUILayout.BeginVertical(GUILayout.Width(Mathf.Min(230, window.Rect.width * .36f)));
+            window.Scroll = GUILayout.BeginScrollView(window.Scroll);
+            for (int i = 0; i < arrived.Count; i++)
+            {
+                MailEvent mail = arrived[i];
+                string prefix = mail.Resolved ? "[완료] " : mail.Read ? "" : "[NEW] ";
+                if (GUILayout.Button($"{prefix}{mail.Subject}\n{mail.From}", GUILayout.Height(55)))
+                {
+                    window.Selected = i;
+                    game.MarkMailRead(mail.Id);
+                    SaveCampaign();
+                }
             }
             GUILayout.EndScrollView();
             GUILayout.EndVertical();
+            GUILayout.BeginVertical(GUI.skin.box);
+            if (arrived.Count == 0) GUILayout.Label("도착한 통신이 없습니다.");
+            else
+            {
+                window.Selected = Mathf.Clamp(window.Selected, 0, arrived.Count - 1);
+                MailEvent mail = arrived[window.Selected];
+                GUILayout.Label(mail.Subject, section);
+                GUILayout.Label($"FROM  {mail.From}    RISK  {RiskName(mail.Risk)}", small);
+                GUILayout.Space(8);
+                GUILayout.Label(mail.Body);
+                GUILayout.Space(8);
+                GUILayout.Label($"지시: {mail.Instruction}", warning);
+                GUI.enabled = !mail.Resolved;
+                if (GUILayout.Button(mail.Resolved ? "처리 완료" : "지시 수락 및 반영", GUILayout.Height(38)))
+                {
+                    game.ResolveMail(mail.Id);
+                    SaveCampaign();
+                }
+                GUI.enabled = true;
+            }
+            GUILayout.EndVertical();
+            GUILayout.EndHorizontal();
         }
 
-        private void DrawCrew(float width, float height)
+        private void DrawGantt(DeskWindow window)
         {
-            GUILayout.BeginVertical(GUI.skin.box, GUILayout.Width(width), GUILayout.Height(height));
-            GUILayout.Label("인력 운영", section);
-            GUILayout.Label("휴식은 하루 점유·피로 -18 / 재생성은 자원 3, 경험 손실");
-            crewScroll = GUILayout.BeginScrollView(crewScroll);
+            GUILayout.Label("작업 일정 / 배정", section);
+            GUILayout.Label("상태     작업                              역할      진행             마감    위험       담당", small);
+            window.Scroll = GUILayout.BeginScrollView(window.Scroll);
+            foreach (WorkGroup group in game.Groups)
+            {
+                List<WorkTask> tasks = game.Tasks.Where(t => t.GroupId == group.Id).ToList();
+                if (tasks.Count == 0) continue;
+                GUILayout.Label($"{group.Name}   완료 {tasks.Count(t => t.State == TaskState.Complete)}/{tasks.Count}   권장 D{group.SoftDeadline} / 확정 D{group.HardDeadline}", section);
+                foreach (WorkTask task in tasks)
+                {
+                    GUILayout.BeginHorizontal(GUI.skin.box);
+                    GUILayout.Label(StateName(task.State), GUILayout.Width(55));
+                    if (GUILayout.Button(task.Name, GUILayout.Width(210))) window.Selected = game.Tasks.IndexOf(task);
+                    GUILayout.Label(RoleName(task.RequiredRole), GUILayout.Width(55));
+                    GUILayout.HorizontalSlider(task.Completion, 0, 1, GUILayout.Width(100));
+                    GUILayout.Label($"{task.Progress}/{task.RequiredWork}", GUILayout.Width(52));
+                    GUILayout.Label($"D{task.Deadline}", GUILayout.Width(42));
+                    GUILayout.Label(RiskName(game.EffectiveRisk(task)), game.EffectiveRisk(task) == RiskLevel.High ? warning : small, GUILayout.Width(48));
+                    GUI.enabled = task.State == TaskState.Available || task.State == TaskState.Active;
+                    string assigned = task.AssignedCharacter < 0 ? "미배정" : game.Crew[task.AssignedCharacter].Name;
+                    if (GUILayout.Button(assigned, GUILayout.Width(100))) { AssignNext(task); SaveCampaign(); }
+                    GUI.enabled = true;
+                    GUILayout.EndHorizontal();
+                }
+            }
+            GUILayout.EndScrollView();
+            if (game.Tasks.Count > 0)
+            {
+                WorkTask selected = game.Tasks[Mathf.Clamp(window.Selected, 0, game.Tasks.Count - 1)];
+                GUILayout.Label($"선택: {selected.Name} | 중요 {ImportanceName(selected.Importance)} | 선행 {selected.PrerequisiteId ?? "없음"}", small);
+                if (selected.Records != null && selected.Records.Count > 0)
+                    GUILayout.Label($"최근 기록: {selected.Records[selected.Records.Count - 1].Text}", small);
+            }
+        }
+
+        private void DrawMilestones(DeskWindow window)
+        {
+            GUILayout.Label("마일스톤", section);
+            window.Scroll = GUILayout.BeginScrollView(window.Scroll);
+            foreach (WorkGroup group in game.Groups.Where(g => g.Id != "incident"))
+            {
+                List<WorkTask> tasks = game.Tasks.Where(t => t.GroupId == group.Id).ToList();
+                int progress = tasks.Count == 0 ? 0 : Mathf.RoundToInt(tasks.Average(t => t.Completion) * 100);
+                GUILayout.BeginVertical(GUI.skin.box);
+                GUILayout.Label($"{group.Name}   {progress}%   HARD D{group.HardDeadline}", section);
+                GUILayout.HorizontalSlider(progress, 0, 100);
+                foreach (WorkTask task in tasks)
+                    GUILayout.Label($"{(task.Required ? "[필수]" : "[선택]")} {task.Name} — {StateName(task.State)} {task.Progress}/{task.RequiredWork}");
+                GUILayout.EndVertical();
+            }
+            GUILayout.EndScrollView();
+        }
+
+        private void DrawWorkers(DeskWindow window)
+        {
+            GUILayout.Label("대원 파일", section);
+            window.Scroll = GUILayout.BeginScrollView(window.Scroll);
             for (int i = 0; i < game.Crew.Count; i++)
             {
                 CrewMember member = game.Crew[i];
                 GUILayout.BeginVertical(GUI.skin.box);
-                GUILayout.Label($"{member.Name}   {RoleName(member.Specialty)} {member.Skill}   경험 {member.Experience}   {(member.RestScheduled ? "휴식 예정" : member.Condition)}");
-                GUILayout.Label($"피로 {member.Fatigue}%  {new string('■', member.Fatigue / 10)}");
+                GUILayout.Label($"{member.Name}   {RoleName(member.Specialty)} / SKILL {member.Skill} / EXP {member.Experience}", section);
+                GUILayout.Label($"상태 {member.Condition}   피로 {member.Fatigue}%   담당 {AssignedTask(i)}");
+                GUILayout.HorizontalSlider(member.Fatigue, 0, 100);
+                if (member.History.Count > 0) GUILayout.Label($"최근: {member.History[member.History.Count - 1]}", small);
                 GUILayout.BeginHorizontal();
                 GUI.enabled = member.InjuryDays <= 0 && !member.RestScheduled;
-                if (GUILayout.Button(member.RestScheduled ? "휴식 예정" : "휴식 예약")) game.Rest(i);
+                if (GUILayout.Button(member.RestScheduled ? "휴식 예약됨" : "휴식 예약")) { game.Rest(i); SaveCampaign(); }
                 GUI.enabled = game.Resources >= 3;
-                if (GUILayout.Button($"재생성 ({member.RegenerationCount})")) game.Regenerate(i);
+                if (GUILayout.Button($"재생 시술 ({member.RegenerationCount})")) { game.Regenerate(i); SaveCampaign(); }
                 GUI.enabled = true;
                 GUILayout.EndHorizontal();
                 GUILayout.EndVertical();
             }
             GUILayout.EndScrollView();
+        }
+
+        private void DrawReport(DeskWindow window)
+        {
+            OperationsReport report = game.BuildReport();
+            GUILayout.Label("운영 보고서", section);
+            GUILayout.Label($"DAY {game.Day:00} 상태 요약", section);
+            GUILayout.Label($"완료 {report.Complete}  진행 {report.Active}  대기 {report.Available}  잠김 {report.Locked}");
+            GUILayout.Label($"지연 {report.Delayed}  고위험 {report.HighRisk}  과로/부상 대원 {report.OverloadedCrew}",
+                report.Delayed + report.HighRisk > 0 ? warning : success);
+            GUILayout.Space(8);
+            GUILayout.Label("주의 작업", section);
+            window.Scroll = GUILayout.BeginScrollView(window.Scroll);
+            foreach (WorkTask task in game.Tasks.Where(t => game.EffectiveRisk(t) == RiskLevel.High && t.State != TaskState.Complete))
+                GUILayout.Label($"[고위험] {task.Name} / D{task.Deadline} / {StateName(task.State)}", warning);
+            GUILayout.Space(8);
+            GUILayout.Label("최근 결과", section);
+            foreach (string line in game.LastReport.Lines) GUILayout.Label(line);
+            GUILayout.EndScrollView();
+        }
+
+        private void DrawCodex(DeskWindow window)
+        {
+            GUILayout.BeginHorizontal();
+            GUILayout.BeginVertical(GUILayout.Width(185));
+            for (int i = 0; i < game.Codex.Count; i++)
+                if (GUILayout.Button($"{game.Codex[i].Category}\n{game.Codex[i].Name}", GUILayout.Height(48))) window.Selected = i;
             GUILayout.EndVertical();
+            GUILayout.BeginVertical(GUI.skin.box);
+            CodexEntry entry = game.Codex[Mathf.Clamp(window.Selected, 0, game.Codex.Count - 1)];
+            GUILayout.Label(entry.Name, section);
+            GUILayout.Label(entry.Category, small);
+            GUILayout.Space(10);
+            GUILayout.Label(entry.Description);
+            GUILayout.EndVertical();
+            GUILayout.EndHorizontal();
+        }
+
+        private void DrawHelp()
+        {
+            GUILayout.Label("OPS DESK 사용법", section);
+            GUILayout.Label("• 바탕화면 아이콘을 한 번 탭해 앱을 엽니다.\n• 창 제목을 드래그해 이동합니다.\n• — 로 최소화하고 하단바에서 복원합니다.\n• Gantt의 담당 버튼을 눌러 가용 대원을 순환 배정합니다.\n• 통신 지시를 수락하면 마감·중요도·자원이 실제 게임에 반영됩니다.\n• 내정보에서 캠페인 또는 창 배치를 각각 초기화할 수 있습니다.");
+        }
+
+        private void DrawProfile()
+        {
+            GUILayout.Label("내 정보 / 캠페인 관리", section);
+            GUILayout.Label($"PROJECT W 운영 담당자\nDAY {game.Day}/{game.CampaignEndDay}\n자원 {game.Resources}\n패치 {patchVersion}");
+            GUILayout.Space(12);
+            if (GUILayout.Button("창 위치 및 열린 상태 초기화", GUILayout.Height(38)))
+            {
+                ProjectWSaveStore.Delete(desktopPath);
+                windows.Clear();
+            }
+            if (GUILayout.Button("새 캠페인 시작", GUILayout.Height(38)))
+            {
+                ProjectWSaveStore.Delete(campaignPath);
+                game = new MilestoneSimulation();
+                SaveCampaign();
+            }
+        }
+
+        private void DrawLog(DeskWindow window)
+        {
+            window.Scroll = GUILayout.BeginScrollView(window.Scroll);
+            foreach (string line in game.SystemLog.AsEnumerable().Reverse()) GUILayout.Label(line, small);
+            GUILayout.EndScrollView();
+        }
+
+        private void DrawTaskbar()
+        {
+            Rect bar = new Rect(0, logicalHeight - 44, logicalWidth, 44);
+            GUI.Box(bar, GUIContent.none, taskbar);
+            float x = 8;
+            foreach (DeskWindow window in windows.ToArray())
+            {
+                if (GUI.Button(new Rect(x, logicalHeight - 38, 118, 31), window.Title))
+                {
+                    window.Minimized = !window.Minimized;
+                    Focus(window);
+                    SaveDesktop();
+                }
+                x += 122;
+                if (x > logicalWidth - 330) break;
+            }
+            int unread = game.Mail.Count(m => m.ArrivalDay <= game.Day && !m.Read);
+            if (GUI.Button(new Rect(logicalWidth - 310, logicalHeight - 38, 95, 31), unread > 0 ? $"MAIL ({unread})" : "MAIL")) Open("mail");
+            if (GUI.Button(new Rect(logicalWidth - 210, logicalHeight - 38, 95, 31), "LOG")) Open("log");
+            GUI.Label(new Rect(logicalWidth - 108, logicalHeight - 34, 100, 25), $"DAY {game.Day:00}", small);
+        }
+
+        private void Open(string id)
+        {
+            DeskWindow existing = windows.FirstOrDefault(w => w.Id == id);
+            if (existing != null)
+            {
+                existing.Minimized = false;
+                Focus(existing);
+                return;
+            }
+            int offset = windows.Count * 22;
+            var window = new DeskWindow
+            {
+                Id = id, Title = appTitles[id], Rect = new Rect(490 + offset, 55 + offset, 710, 500)
+            };
+            windows.Add(window);
+            window.Rect = ClampRect(window.Rect);
+            SaveDesktop();
+        }
+
+        private void Close(string id)
+        {
+            windows.RemoveAll(w => w.Id == id);
+            SaveDesktop();
+        }
+
+        private void Focus(DeskWindow window)
+        {
+            windows.Remove(window);
+            windows.Add(window);
+        }
+
+        private Rect ClampRect(Rect rect)
+        {
+            rect.width = Mathf.Clamp(rect.width, 420, Mathf.Max(420, logicalWidth - 12));
+            rect.height = Mathf.Clamp(rect.height, 280, Mathf.Max(280, logicalHeight - 56));
+            rect.x = Mathf.Clamp(rect.x, 6, Mathf.Max(6, logicalWidth - rect.width - 6));
+            rect.y = Mathf.Clamp(rect.y, 6, Mathf.Max(6, logicalHeight - rect.height - 50));
+            return rect;
         }
 
         private void AssignNext(WorkTask task)
@@ -123,39 +390,96 @@ namespace ProjectW.MilestonePrototype
             {
                 int candidate = start + offset;
                 if (candidate >= game.Crew.Count) candidate = -1;
-                if (candidate < 0 || game.Crew[candidate].Available)
-                {
-                    game.Assign(task.Id, candidate);
-                    return;
-                }
+                if (candidate < 0 || game.Crew[candidate].Available) { game.Assign(task.Id, candidate); return; }
             }
+        }
+
+        private string AssignedTask(int crewIndex)
+        {
+            WorkTask task = game.Tasks.FirstOrDefault(t => t.AssignedCharacter == crewIndex);
+            return task == null ? "없음" : task.Name;
+        }
+
+        private void SaveCampaign() => ProjectWSaveStore.SaveCampaign(campaignPath, game.CreateSnapshot());
+
+        private void SaveDesktop()
+        {
+            var snapshot = new DesktopSnapshot
+            {
+                SchemaVersion = ProjectWSaveStore.DesktopSchema,
+                Windows = windows.Select((w, i) => new WindowSnapshot
+                {
+                    Id = w.Id, X = w.Rect.x, Y = w.Rect.y, Open = true, Minimized = w.Minimized, Order = i
+                }).ToArray()
+            };
+            ProjectWSaveStore.SaveDesktop(desktopPath, snapshot);
+        }
+
+        private void RestoreDesktop()
+        {
+            if (!ProjectWSaveStore.TryLoadDesktop(desktopPath, out DesktopSnapshot snapshot)) return;
+            foreach (WindowSnapshot saved in snapshot.Windows.Where(w => w.Open).OrderBy(w => w.Order))
+            {
+                if (!appTitles.ContainsKey(saved.Id)) continue;
+                windows.Add(new DeskWindow
+                {
+                    Id = saved.Id, Title = appTitles[saved.Id],
+                    Rect = new Rect(saved.X, saved.Y, 710, 500), Minimized = saved.Minimized
+                });
+            }
+        }
+
+        private void SaveAll() { SaveCampaign(); SaveDesktop(); }
+
+        public static string FormatStatus(DayReport report, bool isWon, bool isLost)
+        {
+            if (isWon) return "마일스톤 완료 — 캠페인 승리";
+            if (isLost) return "운영 붕괴 — 캠페인 실패";
+            if (report == null || report.Lines.Count == 0) return string.Empty;
+            return string.Join("\n", report.Lines.Skip(Math.Max(0, report.Lines.Count - 2)));
+        }
+
+        public static Rect ClampWindowRect(Rect rect, float width, float height)
+        {
+            rect.width = Mathf.Clamp(rect.width, 100, width);
+            rect.height = Mathf.Clamp(rect.height, 100, height);
+            rect.x = Mathf.Clamp(rect.x, 0, Mathf.Max(0, width - rect.width));
+            rect.y = Mathf.Clamp(rect.y, 0, Mathf.Max(0, height - rect.height));
+            return rect;
         }
 
         private void EnsureStyles()
         {
             if (title != null) return;
-            title = new GUIStyle(GUI.skin.label) { fontSize = 24, fontStyle = FontStyle.Bold };
-            section = new GUIStyle(GUI.skin.label) { fontSize = 18, fontStyle = FontStyle.Bold };
-            warning = new GUIStyle(GUI.skin.label) { normal = { textColor = new Color(1f, .38f, .25f) }, fontStyle = FontStyle.Bold };
-            versionBadge = new GUIStyle(GUI.skin.box)
-            {
-                alignment = TextAnchor.MiddleRight,
-                fontSize = 13,
-                fontStyle = FontStyle.Bold,
-                padding = new RectOffset(10, 10, 4, 4)
-            };
-            statusBox = new GUIStyle(GUI.skin.box)
-            {
-                alignment = TextAnchor.MiddleLeft,
-                clipping = TextClipping.Clip,
-                wordWrap = true,
-                padding = new RectOffset(10, 10, 5, 5)
-            };
-            statusWarningBox = new GUIStyle(statusBox) { fontStyle = FontStyle.Bold };
-            statusWarningBox.normal.textColor = new Color(1f, .38f, .25f);
+            title = new GUIStyle(GUI.skin.label) { fontSize = 23, fontStyle = FontStyle.Bold };
+            section = new GUIStyle(GUI.skin.label) { fontSize = 16, fontStyle = FontStyle.Bold, wordWrap = true };
+            small = new GUIStyle(GUI.skin.label) { fontSize = 12, wordWrap = true };
+            desktopIcon = new GUIStyle(GUI.skin.button) { fontSize = 14, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, wordWrap = true };
+            warning = new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold, wordWrap = true };
+            warning.normal.textColor = new Color(.75f, .18f, .12f);
+            success = new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold, wordWrap = true };
+            success.normal.textColor = new Color(.08f, .48f, .22f);
+            taskbar = new GUIStyle(GUI.skin.box);
         }
 
-        private static string RoleName(WorkRole role) => role switch { WorkRole.Tech => "기술", WorkRole.Analysis => "분석", WorkRole.Management => "관리", _ => "적응" };
-        private static string StateName(TaskState state) => state switch { TaskState.Locked => "잠김", TaskState.Complete => "완료", _ => "미배치" };
+        private static string IconLabel(string id)
+        {
+            switch (id)
+            {
+                case "mail": return "MAIL\n통신";
+                case "gantt": return "TASK\n작업";
+                case "milestone": return "MILE\n마일스톤";
+                case "workers": return "CREW\n대원";
+                case "report": return "REPORT\n보고서";
+                case "codex": return "CODEX\n도감";
+                case "help": return "HELP\n도움말";
+                default: return "INFO\n내정보";
+            }
+        }
+
+        private static string RoleName(WorkRole role) => role == WorkRole.Tech ? "기술" : role == WorkRole.Analysis ? "분석" : role == WorkRole.Management ? "관리" : "적응";
+        private static string StateName(TaskState state) => state == TaskState.Locked ? "잠김" : state == TaskState.Available ? "대기" : state == TaskState.Active ? "진행" : state == TaskState.Complete ? "완료" : "실패";
+        private static string RiskName(RiskLevel risk) => risk == RiskLevel.High ? "높음" : risk == RiskLevel.Medium ? "보통" : "낮음";
+        private static string ImportanceName(ImportanceLevel value) => value == ImportanceLevel.High ? "높음" : value == ImportanceLevel.Medium ? "보통" : "낮음";
     }
 }

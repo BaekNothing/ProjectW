@@ -1,5 +1,8 @@
+using System;
+using System.IO;
 using NUnit.Framework;
 using ProjectW.Bootstrap;
+using UnityEngine;
 
 namespace ProjectW.MilestonePrototype.Tests
 {
@@ -101,6 +104,88 @@ namespace ProjectW.MilestonePrototype.Tests
         {
             Assert.That(PatchBootstrapper.GetHotUpdateFileName("ProjectW.HotUpdate"),
                 Is.EqualTo("ProjectW.HotUpdate.dll.bytes"));
+        }
+
+        [Test]
+        public void ResolvingMailAppliesItsRuleOnlyOnce()
+        {
+            var game = new MilestoneSimulation(1);
+            WorkTask survey = game.Tasks.Find(t => t.Id == "survey");
+            int deadline = survey.Deadline;
+
+            Assert.That(game.ResolveMail("mail-1"), Is.True);
+            Assert.That(survey.Deadline, Is.EqualTo(deadline - 1));
+            Assert.That(survey.Importance, Is.EqualTo(ImportanceLevel.High));
+            Assert.That(survey.Records, Has.Count.EqualTo(1));
+            Assert.That(game.ResolveMail("mail-1"), Is.False);
+            Assert.That(survey.Deadline, Is.EqualTo(deadline - 1));
+        }
+
+        [Test]
+        public void FutureMailCannotBeResolvedEarly()
+        {
+            var game = new MilestoneSimulation(1);
+            Assert.That(game.ResolveMail("mail-2"), Is.False);
+        }
+
+        [Test]
+        public void SnapshotRestoresCampaignState()
+        {
+            var original = new MilestoneSimulation(1);
+            original.Assign("survey", 1);
+            original.AdvanceDay();
+            original.ResolveMail("mail-1");
+
+            var restored = new MilestoneSimulation(99);
+            Assert.That(restored.Restore(original.CreateSnapshot()), Is.True);
+            Assert.That(restored.Day, Is.EqualTo(original.Day));
+            Assert.That(restored.Resources, Is.EqualTo(original.Resources));
+            Assert.That(restored.Tasks.Find(t => t.Id == "survey").Progress,
+                Is.EqualTo(original.Tasks.Find(t => t.Id == "survey").Progress));
+            Assert.That(restored.Mail.Find(m => m.Id == "mail-1").Resolved, Is.True);
+        }
+
+        [Test]
+        public void OperationsReportCountsDynamicRiskAndLoad()
+        {
+            var game = new MilestoneSimulation(1);
+            game.Assign("survey", 0);
+            for (int i = 0; i < 4; i++) game.AdvanceDay();
+
+            OperationsReport report = game.BuildReport();
+            Assert.That(report.Active + report.Complete + report.Available + report.Locked, Is.EqualTo(game.Tasks.Count));
+            Assert.That(report.HighRisk, Is.GreaterThanOrEqualTo(1));
+        }
+
+        [Test]
+        public void WindowClampKeepsRectInsideWorkArea()
+        {
+            Rect result = MilestonePrototypeController.ClampWindowRect(new Rect(-20, 500, 900, 700), 800, 600);
+            Assert.That(result.x, Is.EqualTo(0));
+            Assert.That(result.y, Is.EqualTo(0));
+            Assert.That(result.width, Is.EqualTo(800));
+            Assert.That(result.height, Is.EqualTo(600));
+        }
+
+        [Test]
+        public void CampaignSaveRoundTripsAndRejectsCorruptJson()
+        {
+            string path = Path.Combine(Path.GetTempPath(), $"projectw-test-{Guid.NewGuid():N}.json");
+            try
+            {
+                var game = new MilestoneSimulation(1);
+                game.ResolveMail("mail-1");
+                Assert.That(ProjectWSaveStore.SaveCampaign(path, game.CreateSnapshot()), Is.True);
+                Assert.That(ProjectWSaveStore.TryLoadCampaign(path, out CampaignSnapshot loaded), Is.True);
+                Assert.That(loaded.Mail[0].Resolved, Is.True);
+
+                File.WriteAllText(path, "{not-json");
+                Assert.That(ProjectWSaveStore.TryLoadCampaign(path, out _), Is.False);
+            }
+            finally
+            {
+                ProjectWSaveStore.Delete(path);
+            }
         }
     }
 }
