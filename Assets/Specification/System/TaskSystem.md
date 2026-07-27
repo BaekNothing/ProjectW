@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Version: 0.1
+- Version: 0.2
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
@@ -161,3 +161,52 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 - No initial Work, Task, worker, mail, codex, or balance values are created in runtime code.
 - The gameplay JSON is emitted as a manifest-listed patch file.
 - EditMode tests cover assignment capacity, prerequisites, parallel work, interruption cost, handover cost, and deadlines.
+
+## Gantt and Task Detail UI
+
+### Gantt
+
+The Task application must present schedule information as a time-based Gantt view rather than only a flat progress list.
+
+- The horizontal axis represents campaign days.
+- Today, each Work soft deadline, and each Work hard deadline are visually distinct.
+- Each Task row shows its projected segment from the current day through its effective remaining duration.
+- Completed progress and projected remaining work use distinguishable portions of the same bar.
+- Locked Tasks remain visible and state why they cannot be entered.
+- Selecting a Task opens its detail without assigning it.
+- Work rows expose Work state, completion, and deadline status.
+
+The projected segment is operational guidance, not an immutable reservation. It is recalculated from current progress, context cost, prerequisites, assignments, and today whenever state changes.
+
+### Task Detail
+
+The selected Task detail must expose:
+
+- parent Work and Work state
+- required or optional status
+- prerequisite and lock reason
+- required role and current assignee
+- primary or parallel assignment mode
+- base duration, effective duration, completed work, remaining work
+- accumulated interruption/handover cost and split count
+- projected cost of changing the current assignee
+- fatigue cost for primary and parallel execution
+- soft and hard deadline status
+- recent Task records
+- primary assignment, parallel assignment, and unassignment controls when valid
+
+Costs must be shown before the player confirms a reassignment. The UI must not require the player to infer handover cost from a result log after the action.
+
+## Scroll and Touch Interaction
+
+Every scrollable window region keeps its visible scrollbar and also supports direct-content dragging.
+
+- Mouse drag and single-finger touch drag pan the content in the opposite direction of pointer movement.
+- Both horizontal and vertical scroll axes are supported when the content exceeds the viewport.
+- A press remains a normal button press until movement exceeds the drag threshold.
+- Crossing the drag threshold cancels click intent for that gesture and begins scrolling.
+- Scroll offsets remain clamped by the scroll view.
+- Window-title dragging continues to move the window and must not scroll its content.
+- Nested scroll regions use the region where the gesture began and do not transfer the gesture mid-drag.
+
+Unity IMGUI touch-to-mouse synthesis is the runtime input path for this prototype. Drag calculation remains a pure tested function so a later input-system migration does not redefine the interaction.
