@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using NUnit.Framework;
 using ProjectW.Bootstrap;
+using ProjectW.Contracts;
 using UnityEngine;
 
 namespace ProjectW.MilestonePrototype.Tests
@@ -170,6 +172,8 @@ namespace ProjectW.MilestonePrototype.Tests
         public void CampaignPlayerPrefsRoundTripsAndRejectsCorruptJson()
         {
             string key = $"projectw.test.{Guid.NewGuid():N}";
+            var storage = new MemoryStringStorage();
+            ProjectWSaveStore.Configure(storage);
             try
             {
                 var game = new MilestoneSimulation(1);
@@ -178,13 +182,22 @@ namespace ProjectW.MilestonePrototype.Tests
                 Assert.That(ProjectWSaveStore.TryLoadCampaign(key, out CampaignSnapshot loaded), Is.True);
                 Assert.That(loaded.Mail[0].Resolved, Is.True);
 
-                PlayerPrefs.SetString(key, "{not-json");
+                storage.SetString(key, "{not-json");
                 Assert.That(ProjectWSaveStore.TryLoadCampaign(key, out _), Is.False);
             }
             finally
             {
                 ProjectWSaveStore.Delete(key);
             }
+        }
+
+        private sealed class MemoryStringStorage : IStringStorage
+        {
+            private readonly Dictionary<string, string> values = new Dictionary<string, string>();
+
+            public bool TryGetString(string key, out string value) => values.TryGetValue(key, out value);
+            public void SetString(string key, string value) => values[key] = value;
+            public void DeleteKey(string key) => values.Remove(key);
         }
     }
 }

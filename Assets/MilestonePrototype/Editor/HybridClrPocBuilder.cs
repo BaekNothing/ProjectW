@@ -8,6 +8,7 @@ using HybridCLR.Editor;
 using HybridCLR.Editor.Commands;
 using HybridCLR.Editor.Installer;
 using HybridCLR.Editor.Settings;
+using ProjectW.Bootstrap;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
@@ -88,7 +89,7 @@ namespace ProjectW.MilestonePrototype.Editor
             {
                 schemaVersion = 1,
                 patchVersion = patchVersion,
-                minBaseVersion = 1,
+                minBaseVersion = PatchBootstrapper.BaseVersion,
                 entryAssembly = HotAssembly,
                 entryType = EntryType,
                 files = files.ToArray()

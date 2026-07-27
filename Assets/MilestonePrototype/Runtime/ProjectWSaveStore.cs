@@ -1,4 +1,5 @@
 using System;
+using ProjectW.Contracts;
 using UnityEngine;
 
 namespace ProjectW.MilestonePrototype
@@ -7,6 +8,9 @@ namespace ProjectW.MilestonePrototype
     {
         public const int CampaignSchema = 1;
         public const int DesktopSchema = 1;
+        private static IStringStorage storage;
+
+        public static void Configure(IStringStorage value) => storage = value;
 
         public static bool SaveCampaign(string key, CampaignSnapshot snapshot) =>
             Save(key, JsonUtility.ToJson(snapshot, true));
@@ -31,8 +35,7 @@ namespace ProjectW.MilestonePrototype
         {
             try
             {
-                PlayerPrefs.DeleteKey(key);
-                PlayerPrefs.Save();
+                storage?.DeleteKey(key);
             }
             catch (Exception exception)
             {
@@ -44,8 +47,8 @@ namespace ProjectW.MilestonePrototype
         {
             try
             {
-                PlayerPrefs.SetString(key, json);
-                PlayerPrefs.Save();
+                if (storage == null) return false;
+                storage.SetString(key, json);
                 return true;
             }
             catch (Exception exception)
@@ -59,7 +62,9 @@ namespace ProjectW.MilestonePrototype
         {
             try
             {
-                return PlayerPrefs.HasKey(key) ? JsonUtility.FromJson<T>(PlayerPrefs.GetString(key)) : null;
+                return storage != null && storage.TryGetString(key, out string json)
+                    ? JsonUtility.FromJson<T>(json)
+                    : null;
             }
             catch (Exception exception)
             {

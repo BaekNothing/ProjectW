@@ -14,7 +14,8 @@ namespace ProjectW.Bootstrap
 {
     public sealed class PatchBootstrapper : MonoBehaviour
     {
-        public const int BaseVersion = 1;
+        public const int BaseVersion = 2;
+        private readonly PlayerPrefsStringStorage storage = new PlayerPrefsStringStorage();
         public const string DefaultChannelUrl =
             "https://raw.githubusercontent.com/BaekNothing/ProjectW/ai-integration/PatchChannels/dev.json";
 
@@ -314,7 +315,7 @@ namespace ProjectW.Bootstrap
 
             activeVersion = version;
             File.WriteAllText(pendingMarkerPath, version);
-            entry.Start(new GameStartupContext(gameObject, version, dataPath, MarkHealthy));
+            entry.Start(new GameStartupContext(gameObject, version, dataPath, storage, MarkHealthy));
         }
 
         private void MarkHealthy()

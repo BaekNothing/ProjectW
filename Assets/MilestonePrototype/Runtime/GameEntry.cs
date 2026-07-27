@@ -6,6 +6,7 @@ namespace ProjectW.HotUpdate
     {
         public void Start(GameStartupContext context)
         {
+            ProjectW.MilestonePrototype.ProjectWSaveStore.Configure(context.Storage);
             var controller = context.Host.AddComponent<ProjectW.MilestonePrototype.MilestonePrototypeController>();
             controller.Initialize(context.PatchVersion);
             context.MarkHealthy();
