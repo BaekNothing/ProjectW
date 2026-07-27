@@ -15,6 +15,8 @@ namespace ProjectW.MilestonePrototype
         public int Resources { get; private set; }
         public float ParallelMaximumRemainingDays => balance.ParallelMaximumRemainingDays;
         public int RegenerationResourceCost => balance.RegenerationResourceCost;
+        public float InterruptionAndResumptionCostDays =>
+            balance.InterruptionCostDays + balance.ResumptionCostDays;
         public bool IsWon => Groups.Where(group => group.Required).All(group => group.State == WorkState.Complete);
         public bool IsLost => Groups.Any(group => group.Required && group.State == WorkState.Failed) ||
                               Day > CampaignEndDay ||
@@ -221,6 +223,29 @@ namespace ProjectW.MilestonePrototype
             if (task.AssignedCharacter >= 0 && Crew[task.AssignedCharacter].Fatigue >= 55)
                 return RiskLevel.High;
             return task.Risk;
+        }
+
+        public TaskCostPreview BuildCostPreview(WorkTask task, int crewIndex = -1)
+        {
+            if (task == null) throw new ArgumentNullException(nameof(task));
+            bool hasWorker = crewIndex >= 0 && crewIndex < Crew.Count;
+            bool matched = hasWorker && Crew[crewIndex].Specialty == task.RequiredRole;
+            int primaryFatigue = matched ? balance.MatchingFatigue : balance.MismatchedFatigue;
+            if (ParentWork(task)?.SoftDeadlineMissed == true)
+                primaryFatigue += balance.SoftDeadlineFatigue;
+            bool changesActiveOwner = task.AssignedCharacter >= 0 &&
+                                      task.AssignedCharacter != crewIndex &&
+                                      task.Progress > 0f;
+            return new TaskCostPreview
+            {
+                RemainingDays = task.RemainingWork,
+                AdditionalContextDays = changesActiveOwner
+                    ? InterruptionAndResumptionCostDays
+                    : 0f,
+                PrimaryFatigue = primaryFatigue,
+                ParallelFatigue = primaryFatigue + balance.ParallelFatigue,
+                CanRunInParallel = task.RemainingWork <= balance.ParallelMaximumRemainingDays + .001f
+            };
         }
 
         public CampaignSnapshot CreateSnapshot() => new CampaignSnapshot

@@ -245,6 +245,42 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void TaskCostPreviewShowsHandoverBeforeReassignment()
+        {
+            var game = new MilestoneSimulation(1);
+            CompleteSurvey(game);
+            WorkTask habitat = game.Tasks.Find(task => task.Id == "habitat");
+            game.Assign(habitat.Id, 0);
+            game.AdvanceDay();
+
+            TaskCostPreview preview = game.BuildCostPreview(habitat, 4);
+
+            Assert.That(preview.RemainingDays, Is.EqualTo(3f));
+            Assert.That(preview.AdditionalContextDays, Is.EqualTo(1f));
+            Assert.That(preview.PrimaryFatigue, Is.EqualTo(9));
+            Assert.That(preview.ParallelFatigue, Is.EqualTo(21));
+            Assert.That(preview.CanRunInParallel, Is.False);
+        }
+
+        [Test]
+        public void ContentDragMovesScrollOppositeToPointer()
+        {
+            Vector2 result = MilestonePrototypeController.CalculateDragScroll(
+                new Vector2(100, 80), new Vector2(50, 50), new Vector2(20, 10));
+
+            Assert.That(result, Is.EqualTo(new Vector2(130, 120)));
+        }
+
+        [Test]
+        public void ContentDragDoesNotCreateNegativeScroll()
+        {
+            Vector2 result = MilestonePrototypeController.CalculateDragScroll(
+                new Vector2(5, 7), Vector2.zero, new Vector2(30, 40));
+
+            Assert.That(result, Is.EqualTo(Vector2.zero));
+        }
+
+        [Test]
         public void OperationsReportCountsDynamicRiskAndLoad()
         {
             var game = new MilestoneSimulation(1);

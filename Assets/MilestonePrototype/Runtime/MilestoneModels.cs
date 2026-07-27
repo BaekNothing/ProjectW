@@ -109,6 +109,15 @@ namespace ProjectW.MilestonePrototype
         public int BaseSideMissionChance = 8;
     }
 
+    public sealed class TaskCostPreview
+    {
+        public float RemainingDays;
+        public float AdditionalContextDays;
+        public int PrimaryFatigue;
+        public int ParallelFatigue;
+        public bool CanRunInParallel;
+    }
+
     [Serializable]
     public sealed class TaskSystemData
     {
