@@ -220,3 +220,11 @@ Direct-content dragging is temporarily disabled for patch-only delivery on base 
 - The corrective patch keeps visible `GUILayout` scrollbars and Gantt day-page buttons.
 - Direct-content dragging remains a required feature, but it resumes only after a base APK explicitly preserves and verifies its exact AOT surface.
 - Do not simulate dragging through window movement, reflection, or another control with unrelated semantics.
+
+### Base APK v3 Activation
+
+Base APK v3 explicitly preserves the IMGUI layout, pointer, and control surface required by direct-content dragging.
+
+- The full horizontal Gantt scroll view and content dragging are restored only in patches with `minBaseVersion = 3`.
+- The base v3 embedded HotUpdate DLL contains the same restored behavior for offline fallback.
+- Base v2 continues to use the safe paged/scrollbar UI from `dev-20260727-007`.

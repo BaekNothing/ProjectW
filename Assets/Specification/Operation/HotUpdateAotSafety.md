@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Version: 1.0
+- Version: 1.1
 - Status: Mandatory
 - Action: Create
 - SSOT Change: Yes
@@ -91,6 +91,26 @@ If a patch produces `MissingMethodException`, `TypeLoadException`, missing nativ
 ## Current Incident
 
 Patch `dev-20260727-006` called `GUILayoutUtility.GetRect` and `GUILayoutUtility.GetLastRect`, which were not exercised by the installed base APK v2. The resulting `MissingMethodException` interrupted Gantt rendering and produced secondary GUI clip imbalance errors. The corrective patch must use only IMGUI members already present in base APK v2 or trigger a base rebuild.
+
+## Base APK v3 AOT Baseline
+
+Base APK v3 is an approved base rebuild that resolves the current incident and restores direct-content dragging.
+
+It must bundle:
+
+- `BaseVersion = 3`
+- the latest embedded `ProjectW.HotUpdate.dll.bytes`
+- the latest embedded `task-system.json`
+- regenerated Android AOT metadata
+- explicit linker preservation for `UnityEngine.GUILayoutUtility`
+- explicit linker preservation for `UnityEngine.GUIUtility`
+- the existing preserved `UnityEngine.Event`, `UnityEngine.GUI`, and `UnityEngine.GUILayout` surfaces
+
+The stable preservation declaration must live outside generated HybridCLR output so regeneration cannot silently remove it.
+
+Patches that rely on the restored direct-drag surface must declare `minBaseVersion = 3`. Base APK v2 devices must remain on the safe non-drag patch until v3 is installed.
+
+This baseline does not authorize unrelated new Unity or platform APIs. Every later external member still follows the default-deny policy.
 
 ## Impact Matrix
 
