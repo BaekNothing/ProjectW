@@ -6,7 +6,7 @@ namespace ProjectW.MilestonePrototype
 {
     public static class ProjectWSaveStore
     {
-        public const int CampaignSchema = 1;
+        public const int CampaignSchema = 2;
         public const int DesktopSchema = 1;
         private static IStringStorage storage;
 
@@ -22,7 +22,8 @@ namespace ProjectW.MilestonePrototype
         {
             snapshot = Load<CampaignSnapshot>(key);
             return snapshot != null && snapshot.SchemaVersion == CampaignSchema &&
-                   snapshot.Tasks != null && snapshot.Crew != null && snapshot.Mail != null;
+                   snapshot.Tasks != null && snapshot.Groups != null &&
+                   snapshot.Crew != null && snapshot.Mail != null;
         }
 
         public static bool TryLoadDesktop(string key, out DesktopSnapshot snapshot)

@@ -177,7 +177,7 @@ namespace ProjectW.MilestonePrototype
         private void DrawGantt(DeskWindow window)
         {
             GUILayout.Label("작업 일정 / 배정", section);
-            GUILayout.Label("상태     작업                              역할      진행             마감    위험       담당", small);
+            GUILayout.Label("상태     작업                         역할   진행        마감  위험    담당 / 배정 방식", small);
             window.Scroll = GUILayout.BeginScrollView(window.Scroll);
             foreach (WorkGroup group in game.Groups)
             {
@@ -188,15 +188,20 @@ namespace ProjectW.MilestonePrototype
                 {
                     GUILayout.BeginHorizontal(GUI.skin.box);
                     GUILayout.Label(StateName(task.State), GUILayout.Width(55));
-                    if (GUILayout.Button(task.Name, GUILayout.Width(210))) window.Selected = game.Tasks.IndexOf(task);
+                    if (GUILayout.Button(task.Name, GUILayout.Width(180))) window.Selected = game.Tasks.IndexOf(task);
                     GUILayout.Label(RoleName(task.RequiredRole), GUILayout.Width(55));
                     GUILayout.HorizontalSlider(task.Completion, 0, 1, GUILayout.Width(100));
-                    GUILayout.Label($"{task.Progress}/{task.RequiredWork}", GUILayout.Width(52));
+                    GUILayout.Label($"{task.Progress:0.#}/{task.EffectiveRequiredWork:0.#}", GUILayout.Width(66));
                     GUILayout.Label($"D{task.Deadline}", GUILayout.Width(42));
                     GUILayout.Label(RiskName(game.EffectiveRisk(task)), game.EffectiveRisk(task) == RiskLevel.High ? warning : small, GUILayout.Width(48));
                     GUI.enabled = task.State == TaskState.Available || task.State == TaskState.Active;
-                    string assigned = task.AssignedCharacter < 0 ? "미배정" : game.Crew[task.AssignedCharacter].Name;
-                    if (GUILayout.Button(assigned, GUILayout.Width(100))) { AssignNext(task); SaveCampaign(); }
+                    string assigned = task.AssignedCharacter < 0
+                        ? "미배정"
+                        : $"{game.Crew[task.AssignedCharacter].Name}{(task.IsParallelAssignment ? " +병행" : "")}";
+                    if (GUILayout.Button(assigned, GUILayout.Width(115))) { AssignNext(task); SaveCampaign(); }
+                    GUI.enabled = (task.State == TaskState.Available || task.State == TaskState.Active) &&
+                                  task.RemainingWork <= game.ParallelMaximumRemainingDays + .001f;
+                    if (GUILayout.Button("병행", GUILayout.Width(45))) { AssignNextParallel(task); SaveCampaign(); }
                     GUI.enabled = true;
                     GUILayout.EndHorizontal();
                 }
@@ -205,7 +210,10 @@ namespace ProjectW.MilestonePrototype
             if (game.Tasks.Count > 0)
             {
                 WorkTask selected = game.Tasks[Mathf.Clamp(window.Selected, 0, game.Tasks.Count - 1)];
-                GUILayout.Label($"선택: {selected.Name} | 중요 {ImportanceName(selected.Importance)} | 선행 {selected.PrerequisiteId ?? "없음"}", small);
+                GUILayout.Label(
+                    $"선택: {selected.Name} | 중요 {ImportanceName(selected.Importance)} | 선행 {selected.PrerequisiteId ?? "없음"} | " +
+                    $"기본 {selected.RequiredWork:0.#}일 + 문맥 {selected.ContextCostDays:0.#}일 | 분할 {selected.SplitCount}회",
+                    small);
                 if (selected.Records != null && selected.Records.Count > 0)
                     GUILayout.Label($"최근 기록: {selected.Records[selected.Records.Count - 1].Text}", small);
             }
@@ -245,7 +253,7 @@ namespace ProjectW.MilestonePrototype
                 GUI.enabled = member.InjuryDays <= 0 && !member.RestScheduled;
                 if (GUILayout.Button(member.RestScheduled ? "휴식 예약됨" : "휴식 예약")) { game.Rest(i); SaveCampaign(); }
                 GUI.enabled = game.Resources >= 3;
-                if (GUILayout.Button($"재생 시술 ({member.RegenerationCount})")) { game.Regenerate(i); SaveCampaign(); }
+                if (GUILayout.Button($"재생 시술 {game.RegenerationResourceCost}자원 ({member.RegenerationCount})")) { game.Regenerate(i); SaveCampaign(); }
                 GUI.enabled = true;
                 GUILayout.EndHorizontal();
                 GUILayout.EndVertical();
@@ -393,10 +401,21 @@ namespace ProjectW.MilestonePrototype
             }
         }
 
+        private void AssignNextParallel(WorkTask task)
+        {
+            int start = task.AssignedCharacter;
+            for (int offset = 1; offset <= game.Crew.Count; offset++)
+            {
+                int candidate = (start + offset) % game.Crew.Count;
+                if (game.AssignParallel(task.Id, candidate)) return;
+            }
+        }
+
         private string AssignedTask(int crewIndex)
         {
-            WorkTask task = game.Tasks.FirstOrDefault(t => t.AssignedCharacter == crewIndex);
-            return task == null ? "없음" : task.Name;
+            string[] tasks = game.Tasks.Where(t => t.AssignedCharacter == crewIndex)
+                .Select(t => t.IsParallelAssignment ? $"{t.Name}(병행)" : t.Name).ToArray();
+            return tasks.Length == 0 ? "없음" : string.Join(", ", tasks);
         }
 
         private void SaveCampaign() => ProjectWSaveStore.SaveCampaign(CampaignSaveKey, game.CreateSnapshot());

@@ -15,7 +15,7 @@ namespace ProjectW.MilestonePrototype.Tests
             var game = new MilestoneSimulation(1);
             Assert.That(game.Assign("survey", 1), Is.True);
             game.AdvanceDay();
-            Assert.That(game.Tasks[0].Progress, Is.EqualTo(6));
+            Assert.That(game.Tasks[0].Progress, Is.EqualTo(1f));
             Assert.That(game.Crew[1].Fatigue, Is.EqualTo(9));
         }
 
@@ -111,15 +111,18 @@ namespace ProjectW.MilestonePrototype.Tests
         public void ResolvingMailAppliesItsRuleOnlyOnce()
         {
             var game = new MilestoneSimulation(1);
-            WorkTask survey = game.Tasks.Find(t => t.Id == "survey");
-            int deadline = survey.Deadline;
+            WorkGroup foundation = game.Groups.Find(group => group.Id == "foundation");
+            int softDeadline = foundation.SoftDeadline;
+            int hardDeadline = foundation.HardDeadline;
 
             Assert.That(game.ResolveMail("mail-1"), Is.True);
-            Assert.That(survey.Deadline, Is.EqualTo(deadline - 1));
+            Assert.That(foundation.SoftDeadline, Is.EqualTo(softDeadline - 1));
+            Assert.That(foundation.HardDeadline, Is.EqualTo(hardDeadline - 1));
+            WorkTask survey = game.Tasks.Find(t => t.Id == "survey");
             Assert.That(survey.Importance, Is.EqualTo(ImportanceLevel.High));
             Assert.That(survey.Records, Has.Count.EqualTo(1));
             Assert.That(game.ResolveMail("mail-1"), Is.False);
-            Assert.That(survey.Deadline, Is.EqualTo(deadline - 1));
+            Assert.That(foundation.HardDeadline, Is.EqualTo(hardDeadline - 1));
         }
 
         [Test]
@@ -143,7 +146,102 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(restored.Resources, Is.EqualTo(original.Resources));
             Assert.That(restored.Tasks.Find(t => t.Id == "survey").Progress,
                 Is.EqualTo(original.Tasks.Find(t => t.Id == "survey").Progress));
+            Assert.That(restored.Groups.Find(group => group.Id == "foundation").HardDeadline,
+                Is.EqualTo(original.Groups.Find(group => group.Id == "foundation").HardDeadline));
             Assert.That(restored.Mail.Find(m => m.Id == "mail-1").Resolved, Is.True);
+        }
+
+        [Test]
+        public void WorkPrerequisiteLocksLaunchUntilFoundationCompletes()
+        {
+            var game = new MilestoneSimulation(1);
+
+            Assert.That(game.Groups.Find(group => group.Id == "launch").State, Is.EqualTo(WorkState.Locked));
+            Assert.That(game.Tasks.Find(task => task.Id == "launch").State, Is.EqualTo(TaskState.Locked));
+            Assert.That(game.Assign("launch", 0), Is.False);
+        }
+
+        [Test]
+        public void WorkerCanHoldOnlyOnePrimaryTask()
+        {
+            var game = new MilestoneSimulation(1);
+            CompleteSurvey(game);
+            Assert.That(game.Assign("power", 0), Is.True);
+            Assert.That(game.Assign("habitat", 0), Is.True);
+
+            Assert.That(game.Tasks.Find(task => task.Id == "power").AssignedCharacter, Is.EqualTo(-1));
+            Assert.That(game.Tasks.Find(task => task.Id == "habitat").AssignedCharacter, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void SmallTaskCanRunInParallelForAdditionalFatigue()
+        {
+            var game = new MilestoneSimulation(1);
+            CompleteSurvey(game);
+            Assert.That(game.Assign("power", 0), Is.True);
+            WorkTask safety = game.Tasks.Find(task => task.Id == "safety");
+            safety.PrerequisiteId = null;
+            safety.State = TaskState.Available;
+
+            Assert.That(game.AssignParallel("safety", 0), Is.True);
+            game.AdvanceDay();
+
+            Assert.That(game.Tasks.Find(task => task.Id == "power").Progress, Is.EqualTo(1f));
+            Assert.That(safety.State, Is.EqualTo(TaskState.Complete));
+            Assert.That(game.Crew[0].Fatigue, Is.EqualTo(36));
+        }
+
+        [Test]
+        public void InterruptingFourDayTaskAddsOneDayContextCost()
+        {
+            var game = new MilestoneSimulation(1);
+            CompleteSurvey(game);
+            WorkTask habitat = game.Tasks.Find(task => task.Id == "habitat");
+            Assert.That(game.Assign(habitat.Id, 0), Is.True);
+            game.AdvanceDay();
+
+            Assert.That(game.Assign(habitat.Id, -1), Is.True);
+            Assert.That(habitat.Progress, Is.EqualTo(1f));
+            Assert.That(habitat.ContextCostDays, Is.EqualTo(1f));
+            Assert.That(habitat.EffectiveRequiredWork, Is.EqualTo(5f));
+            Assert.That(habitat.SplitCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void HandoverChargesExactlyOneSplit()
+        {
+            var game = new MilestoneSimulation(1);
+            CompleteSurvey(game);
+            WorkTask habitat = game.Tasks.Find(task => task.Id == "habitat");
+            game.Assign(habitat.Id, 0);
+            game.AdvanceDay();
+
+            Assert.That(game.Assign(habitat.Id, 4), Is.True);
+
+            Assert.That(habitat.AssignedCharacter, Is.EqualTo(4));
+            Assert.That(habitat.ContextCostDays, Is.EqualTo(1f));
+            Assert.That(habitat.SplitCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void MissingHardDeadlineFailsRequiredWork()
+        {
+            var game = new MilestoneSimulation(1);
+            while (game.Day <= 20) game.AdvanceDay();
+
+            Assert.That(game.Groups.Find(group => group.Id == "foundation").State, Is.EqualTo(WorkState.Failed));
+            Assert.That(game.IsLost, Is.True);
+        }
+
+        [Test]
+        public void GameplayDefinitionsLoadFromExternalJsonResource()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+
+            Assert.That(data.Works, Is.Not.Empty);
+            Assert.That(data.Tasks, Is.Not.Empty);
+            Assert.That(data.Balance.InterruptionCostDays, Is.EqualTo(.5f));
+            Assert.That(data.Balance.ResumptionCostDays, Is.EqualTo(.5f));
         }
 
         [Test]
@@ -198,6 +296,15 @@ namespace ProjectW.MilestonePrototype.Tests
             public bool TryGetString(string key, out string value) => values.TryGetValue(key, out value);
             public void SetString(string key, string value) => values[key] = value;
             public void DeleteKey(string key) => values.Remove(key);
+        }
+
+        private static void CompleteSurvey(MilestoneSimulation game)
+        {
+            Assert.That(game.Assign("survey", 1), Is.True);
+            game.AdvanceDay();
+            game.AdvanceDay();
+            game.AdvanceDay();
+            Assert.That(game.Tasks.Find(task => task.Id == "survey").State, Is.EqualTo(TaskState.Complete));
         }
     }
 }

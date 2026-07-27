@@ -1,0 +1,225 @@
+{
+  "SchemaVersion": 1,
+  "CampaignEndDay": 30,
+  "StartingResources": 12,
+  "Balance": {
+    "PrimaryProgressDays": 1.0,
+    "ParallelProgressDays": 1.0,
+    "ParallelMaximumRemainingDays": 1.0,
+    "InterruptionCostDays": 0.5,
+    "ResumptionCostDays": 0.5,
+    "MatchingFatigue": 9,
+    "MismatchedFatigue": 15,
+    "ParallelFatigue": 12,
+    "SoftDeadlineFatigue": 4,
+    "RestRecovery": 18,
+    "RegenerationResourceCost": 3,
+    "HighFatigueAccidentChance": 28,
+    "MediumFatigueAccidentChance": 10,
+    "MismatchAccidentChance": 6,
+    "SideMissionLimit": 3,
+    "BaseSideMissionChance": 8
+  },
+  "Works": [
+    {
+      "Id": "foundation",
+      "Name": "정착 기반",
+      "SoftDeadline": 15,
+      "HardDeadline": 20,
+      "Required": true,
+      "PredecessorIds": []
+    },
+    {
+      "Id": "launch",
+      "Name": "최종 가동",
+      "SoftDeadline": 27,
+      "HardDeadline": 30,
+      "Required": true,
+      "PredecessorIds": ["foundation"]
+    },
+    {
+      "Id": "incident",
+      "Name": "돌발 대응",
+      "SoftDeadline": 30,
+      "HardDeadline": 30,
+      "Required": false,
+      "PredecessorIds": []
+    }
+  ],
+  "Tasks": [
+    {
+      "Id": "survey",
+      "Name": "착륙 지점 조사",
+      "Kind": 0,
+      "RequiredRole": 1,
+      "RequiredWork": 3.0,
+      "Required": true,
+      "PrerequisiteId": "",
+      "AssignedCharacter": -1,
+      "GroupId": "foundation",
+      "Risk": 1,
+      "Importance": 2,
+      "Difficulty": 2
+    },
+    {
+      "Id": "power",
+      "Name": "발전 설비 설치",
+      "Kind": 0,
+      "RequiredRole": 0,
+      "RequiredWork": 4.0,
+      "Required": true,
+      "PrerequisiteId": "survey",
+      "AssignedCharacter": -1,
+      "GroupId": "foundation",
+      "Risk": 2,
+      "Importance": 2,
+      "Difficulty": 3
+    },
+    {
+      "Id": "habitat",
+      "Name": "거주 구역 건설",
+      "Kind": 0,
+      "RequiredRole": 0,
+      "RequiredWork": 4.0,
+      "Required": true,
+      "PrerequisiteId": "survey",
+      "AssignedCharacter": -1,
+      "GroupId": "foundation",
+      "Risk": 1,
+      "Importance": 2,
+      "Difficulty": 2
+    },
+    {
+      "Id": "safety",
+      "Name": "안전 검증",
+      "Kind": 0,
+      "RequiredRole": 1,
+      "RequiredWork": 1.0,
+      "Required": false,
+      "PrerequisiteId": "power",
+      "AssignedCharacter": -1,
+      "GroupId": "foundation",
+      "Risk": 0,
+      "Importance": 1,
+      "Difficulty": 1
+    },
+    {
+      "Id": "launch",
+      "Name": "최종 가동 시험",
+      "Kind": 0,
+      "RequiredRole": 3,
+      "RequiredWork": 3.0,
+      "Required": true,
+      "PrerequisiteId": "",
+      "AssignedCharacter": -1,
+      "GroupId": "launch",
+      "Risk": 2,
+      "Importance": 2,
+      "Difficulty": 3
+    }
+  ],
+  "Crew": [
+    {
+      "Name": "한기술관",
+      "Specialty": 0,
+      "Skill": 4,
+      "Trust": 55,
+      "Pride": 45,
+      "Authority": 35
+    },
+    {
+      "Name": "윤분석관",
+      "Specialty": 1,
+      "Skill": 4,
+      "Trust": 50,
+      "Pride": 55,
+      "Authority": 30
+    },
+    {
+      "Name": "미관리자",
+      "Specialty": 2,
+      "Skill": 4,
+      "Trust": 60,
+      "Pride": 40,
+      "Authority": 50
+    },
+    {
+      "Name": "강적응관",
+      "Specialty": 3,
+      "Skill": 4,
+      "Trust": 45,
+      "Pride": 60,
+      "Authority": 35
+    },
+    {
+      "Name": "오정비관",
+      "Specialty": 0,
+      "Skill": 3,
+      "Trust": 50,
+      "Pride": 50,
+      "Authority": 25
+    },
+    {
+      "Name": "문조정관",
+      "Specialty": 2,
+      "Skill": 3,
+      "Trust": 65,
+      "Pride": 35,
+      "Authority": 40
+    }
+  ],
+  "Mail": [
+    {
+      "Id": "mail-1",
+      "ArrivalDay": 1,
+      "From": "개척 본부",
+      "Subject": "착륙 지점 조사 우선 요청",
+      "Body": "후속 설비 작업을 위해 조사 일정을 앞당겨 주십시오.",
+      "Instruction": "정착 기반의 마감이 하루 앞당겨지고 중요도가 상승합니다.",
+      "TargetWorkId": "foundation",
+      "DeadlineDelta": -1,
+      "Risk": 1
+    },
+    {
+      "Id": "mail-2",
+      "ArrivalDay": 4,
+      "From": "보급 통제실",
+      "Subject": "추가 보급 승인",
+      "Body": "초기 운영 보고가 승인되었습니다.",
+      "Instruction": "자원 2를 수령합니다.",
+      "ResourceDelta": 2,
+      "Risk": 0
+    },
+    {
+      "Id": "mail-3",
+      "ArrivalDay": 10,
+      "From": "안전 위원회",
+      "Subject": "발전 설비 안전 검토",
+      "Body": "일정 압박으로 사고 위험이 증가했습니다.",
+      "Instruction": "정착 기반 마감이 하루 앞당겨집니다.",
+      "TargetWorkId": "foundation",
+      "DeadlineDelta": -1,
+      "Risk": 2
+    }
+  ],
+  "Codex": [
+    {
+      "Id": "assignment",
+      "Category": "작업",
+      "Name": "하루 배정",
+      "Description": "한 사람은 하루에 하나의 주 작업을 맡습니다. 잔여 작업이 1일 이하라면 체력을 더 써서 하나를 병행할 수 있습니다."
+    },
+    {
+      "Id": "handover",
+      "Category": "작업",
+      "Name": "중단과 인수인계",
+      "Description": "완료하지 않은 작업을 끊거나 담당자를 바꾸면 중단 0.5일과 재개 0.5일의 문맥 비용이 추가됩니다."
+    },
+    {
+      "Id": "deadline",
+      "Category": "작업",
+      "Name": "마감과 위험",
+      "Description": "소프트 마감을 넘기면 피로 비용이 증가하고, 하드 마감을 넘기면 해당 일은 실패합니다."
+    }
+  ]
+}

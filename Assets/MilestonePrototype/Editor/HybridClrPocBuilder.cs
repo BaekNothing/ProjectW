@@ -23,6 +23,8 @@ namespace ProjectW.MilestonePrototype.Editor
         private const string Owner = "BaekNothing";
         private const string Repository = "ProjectW";
         private const string StartScene = "Assets/MilestonePrototype/Scenes/MilestonePrototype.unity";
+        private const string GameplayDataSource = "Assets/MilestonePrototype/Resources/task-system.json";
+        private const string GameplayDataName = "task-system.json";
         private static readonly string[] AotMetadataAssemblies = { "mscorlib", "System", "System.Core" };
 
         [MenuItem("ProjectW/Hot Update/1. Configure HybridCLR")]
@@ -77,6 +79,7 @@ namespace ProjectW.MilestonePrototype.Editor
             var files = new List<PatchFileRecord>();
             string hotDllSource = Path.Combine(SettingsUtil.GetHotUpdateDllsOutputDirByTarget(BuildTarget.Android), HotAssembly + ".dll");
             AddFile(hotDllSource, output, HotAssembly + ".dll.bytes", "hotUpdateAssembly", tag, files);
+            AddFile(GameplayDataSource, output, GameplayDataName, "gameplayData", tag, files);
 
             string metadataRoot = SettingsUtil.GetAssembliesPostIl2CppStripDir(BuildTarget.Android);
             foreach (string assembly in AotMetadataAssemblies)
