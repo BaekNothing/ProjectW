@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using NUnit.Framework;
 using ProjectW.Bootstrap;
 using UnityEngine;
@@ -168,23 +167,23 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void CampaignSaveRoundTripsAndRejectsCorruptJson()
+        public void CampaignPlayerPrefsRoundTripsAndRejectsCorruptJson()
         {
-            string path = Path.Combine(Path.GetTempPath(), $"projectw-test-{Guid.NewGuid():N}.json");
+            string key = $"projectw.test.{Guid.NewGuid():N}";
             try
             {
                 var game = new MilestoneSimulation(1);
                 game.ResolveMail("mail-1");
-                Assert.That(ProjectWSaveStore.SaveCampaign(path, game.CreateSnapshot()), Is.True);
-                Assert.That(ProjectWSaveStore.TryLoadCampaign(path, out CampaignSnapshot loaded), Is.True);
+                Assert.That(ProjectWSaveStore.SaveCampaign(key, game.CreateSnapshot()), Is.True);
+                Assert.That(ProjectWSaveStore.TryLoadCampaign(key, out CampaignSnapshot loaded), Is.True);
                 Assert.That(loaded.Mail[0].Resolved, Is.True);
 
-                File.WriteAllText(path, "{not-json");
-                Assert.That(ProjectWSaveStore.TryLoadCampaign(path, out _), Is.False);
+                PlayerPrefs.SetString(key, "{not-json");
+                Assert.That(ProjectWSaveStore.TryLoadCampaign(key, out _), Is.False);
             }
             finally
             {
-                ProjectWSaveStore.Delete(path);
+                ProjectWSaveStore.Delete(key);
             }
         }
     }

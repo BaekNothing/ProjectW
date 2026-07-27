@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using UnityEngine;
 
 namespace ProjectW.MilestonePrototype
@@ -9,30 +8,31 @@ namespace ProjectW.MilestonePrototype
         public const int CampaignSchema = 1;
         public const int DesktopSchema = 1;
 
-        public static bool SaveCampaign(string path, CampaignSnapshot snapshot) =>
-            Save(path, JsonUtility.ToJson(snapshot, true));
+        public static bool SaveCampaign(string key, CampaignSnapshot snapshot) =>
+            Save(key, JsonUtility.ToJson(snapshot, true));
 
-        public static bool SaveDesktop(string path, DesktopSnapshot snapshot) =>
-            Save(path, JsonUtility.ToJson(snapshot, true));
+        public static bool SaveDesktop(string key, DesktopSnapshot snapshot) =>
+            Save(key, JsonUtility.ToJson(snapshot, true));
 
-        public static bool TryLoadCampaign(string path, out CampaignSnapshot snapshot)
+        public static bool TryLoadCampaign(string key, out CampaignSnapshot snapshot)
         {
-            snapshot = Load<CampaignSnapshot>(path);
+            snapshot = Load<CampaignSnapshot>(key);
             return snapshot != null && snapshot.SchemaVersion == CampaignSchema &&
                    snapshot.Tasks != null && snapshot.Crew != null && snapshot.Mail != null;
         }
 
-        public static bool TryLoadDesktop(string path, out DesktopSnapshot snapshot)
+        public static bool TryLoadDesktop(string key, out DesktopSnapshot snapshot)
         {
-            snapshot = Load<DesktopSnapshot>(path);
+            snapshot = Load<DesktopSnapshot>(key);
             return snapshot != null && snapshot.SchemaVersion == DesktopSchema && snapshot.Windows != null;
         }
 
-        public static void Delete(string path)
+        public static void Delete(string key)
         {
             try
             {
-                if (File.Exists(path)) File.Delete(path);
+                PlayerPrefs.DeleteKey(key);
+                PlayerPrefs.Save();
             }
             catch (Exception exception)
             {
@@ -40,13 +40,12 @@ namespace ProjectW.MilestonePrototype
             }
         }
 
-        private static bool Save(string path, string json)
+        private static bool Save(string key, string json)
         {
             try
             {
-                string directory = Path.GetDirectoryName(path);
-                if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
-                File.WriteAllText(path, json);
+                PlayerPrefs.SetString(key, json);
+                PlayerPrefs.Save();
                 return true;
             }
             catch (Exception exception)
@@ -56,11 +55,11 @@ namespace ProjectW.MilestonePrototype
             }
         }
 
-        private static T Load<T>(string path) where T : class
+        private static T Load<T>(string key) where T : class
         {
             try
             {
-                return File.Exists(path) ? JsonUtility.FromJson<T>(File.ReadAllText(path)) : null;
+                return PlayerPrefs.HasKey(key) ? JsonUtility.FromJson<T>(PlayerPrefs.GetString(key)) : null;
             }
             catch (Exception exception)
             {

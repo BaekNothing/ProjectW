@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using UnityEngine;
 
@@ -33,20 +32,18 @@ namespace ProjectW.MilestonePrototype
         private GUIStyle small;
         private GUIStyle warning;
         private GUIStyle success;
-        private GUIStyle taskbar;
-        private readonly List<Texture2D> styleTextures = new List<Texture2D>();
         private string patchVersion = "embedded";
-        private string campaignPath;
-        private string desktopPath;
+        private const string CampaignSaveKey = "projectw.campaign.v1";
+        private const string DesktopSaveKey = "projectw.desktop.v1";
+        private static readonly Color GrayColor = new Color(.6f, .6f, .6f, 1f);
+        private static readonly Color InkColor = new Color(.267f, .267f, .267f, 1f);
         private float logicalWidth;
         private float logicalHeight;
 
         private void Awake()
         {
-            campaignPath = Path.Combine(Application.persistentDataPath, "projectw-campaign-v1.json");
-            desktopPath = Path.Combine(Application.persistentDataPath, "projectw-desktop-v1.json");
             game = new MilestoneSimulation();
-            if (ProjectWSaveStore.TryLoadCampaign(campaignPath, out CampaignSnapshot snapshot)) game.Restore(snapshot);
+            if (ProjectWSaveStore.TryLoadCampaign(CampaignSaveKey, out CampaignSnapshot snapshot)) game.Restore(snapshot);
             RestoreDesktop();
         }
 
@@ -58,13 +55,6 @@ namespace ProjectW.MilestonePrototype
         }
 
         private void OnApplicationQuit() => SaveAll();
-
-        private void OnDestroy()
-        {
-            foreach (Texture2D texture in styleTextures)
-                if (texture != null) Destroy(texture);
-            styleTextures.Clear();
-        }
 
         private void OnGUI()
         {
@@ -122,6 +112,7 @@ namespace ProjectW.MilestonePrototype
 
         private void DrawWindow(DeskWindow window)
         {
+            DrawBorder(new Rect(0, 0, window.Rect.width, window.Rect.height), InkColor);
             if (GUI.Button(new Rect(window.Rect.width - 58, 2, 25, 20), "—")) { window.Minimized = true; SaveDesktop(); }
             if (GUI.Button(new Rect(window.Rect.width - 30, 2, 25, 20), "X")) { Close(window.Id); return; }
             GUILayout.Space(6);
@@ -311,12 +302,12 @@ namespace ProjectW.MilestonePrototype
             GUILayout.Space(12);
             if (GUILayout.Button("창 위치 및 열린 상태 초기화", GUILayout.Height(38)))
             {
-                ProjectWSaveStore.Delete(desktopPath);
+                ProjectWSaveStore.Delete(DesktopSaveKey);
                 windows.Clear();
             }
             if (GUILayout.Button("새 캠페인 시작", GUILayout.Height(38)))
             {
-                ProjectWSaveStore.Delete(campaignPath);
+                ProjectWSaveStore.Delete(CampaignSaveKey);
                 game = new MilestoneSimulation();
                 SaveCampaign();
             }
@@ -332,7 +323,7 @@ namespace ProjectW.MilestonePrototype
         private void DrawTaskbar()
         {
             Rect bar = new Rect(0, logicalHeight - 44, logicalWidth, 44);
-            GUI.Box(bar, GUIContent.none, taskbar);
+            DrawSolid(bar, GrayColor);
             float x = 8;
             foreach (DeskWindow window in windows.ToArray())
             {
@@ -408,7 +399,7 @@ namespace ProjectW.MilestonePrototype
             return task == null ? "없음" : task.Name;
         }
 
-        private void SaveCampaign() => ProjectWSaveStore.SaveCampaign(campaignPath, game.CreateSnapshot());
+        private void SaveCampaign() => ProjectWSaveStore.SaveCampaign(CampaignSaveKey, game.CreateSnapshot());
 
         private void SaveDesktop()
         {
@@ -420,12 +411,12 @@ namespace ProjectW.MilestonePrototype
                     Id = w.Id, X = w.Rect.x, Y = w.Rect.y, Open = true, Minimized = w.Minimized, Order = i
                 }).ToArray()
             };
-            ProjectWSaveStore.SaveDesktop(desktopPath, snapshot);
+            ProjectWSaveStore.SaveDesktop(DesktopSaveKey, snapshot);
         }
 
         private void RestoreDesktop()
         {
-            if (!ProjectWSaveStore.TryLoadDesktop(desktopPath, out DesktopSnapshot snapshot)) return;
+            if (!ProjectWSaveStore.TryLoadDesktop(DesktopSaveKey, out DesktopSnapshot snapshot)) return;
             foreach (WindowSnapshot saved in snapshot.Windows.Where(w => w.Open).OrderBy(w => w.Order))
             {
                 if (!appTitles.ContainsKey(saved.Id)) continue;
@@ -459,43 +450,34 @@ namespace ProjectW.MilestonePrototype
         private void EnsureStyles()
         {
             if (title != null) return;
-            Color white = HtmlColor("FFFFFF");
-            Color gray = HtmlColor("999999");
-            Color ink = HtmlColor("444444");
-            Color pale = HtmlColor("EEEEEE");
-            Texture2D whiteFill = SolidTexture(white);
-            Texture2D grayFill = SolidTexture(gray);
-            Texture2D paleFill = SolidTexture(pale);
-            Texture2D inkFill = SolidTexture(ink);
-            Texture2D outlined = OutlinedTexture(white, ink);
+            Color white = Color.white;
+            Color gray = GrayColor;
+            Color ink = InkColor;
+            Texture2D whiteFill = Texture2D.whiteTexture;
 
             GUI.skin.label.normal.textColor = ink;
-            GUI.skin.button.normal.background = outlined;
-            GUI.skin.button.hover.background = grayFill;
-            GUI.skin.button.active.background = grayFill;
-            GUI.skin.button.focused.background = outlined;
+            GUI.skin.button.normal.background = whiteFill;
+            GUI.skin.button.hover.background = whiteFill;
+            GUI.skin.button.active.background = whiteFill;
+            GUI.skin.button.focused.background = whiteFill;
             GUI.skin.button.normal.textColor = ink;
-            GUI.skin.button.hover.textColor = white;
-            GUI.skin.button.active.textColor = white;
+            GUI.skin.button.hover.textColor = ink;
+            GUI.skin.button.active.textColor = ink;
             GUI.skin.button.focused.textColor = ink;
-            GUI.skin.button.border = new RectOffset(1, 1, 1, 1);
+            GUI.skin.button.border = new RectOffset();
             GUI.skin.button.margin = new RectOffset(2, 2, 2, 2);
             GUI.skin.button.padding = new RectOffset(7, 7, 5, 5);
 
-            GUI.skin.window.normal.background = outlined;
-            GUI.skin.window.onNormal.background = outlined;
+            GUI.skin.window.normal.background = whiteFill;
+            GUI.skin.window.onNormal.background = whiteFill;
             GUI.skin.window.normal.textColor = ink;
-            GUI.skin.window.border = new RectOffset(1, 1, 1, 1);
+            GUI.skin.window.border = new RectOffset();
             GUI.skin.window.padding = new RectOffset(8, 8, 24, 8);
 
-            GUI.skin.box.normal.background = outlined;
+            GUI.skin.box.normal.background = whiteFill;
             GUI.skin.box.normal.textColor = ink;
-            GUI.skin.box.border = new RectOffset(1, 1, 1, 1);
+            GUI.skin.box.border = new RectOffset();
             GUI.skin.scrollView.normal.background = whiteFill;
-            GUI.skin.horizontalSlider.normal.background = paleFill;
-            GUI.skin.horizontalSliderThumb.normal.background = inkFill;
-            GUI.skin.horizontalSliderThumb.fixedWidth = 8;
-            GUI.skin.horizontalSliderThumb.fixedHeight = 14;
 
             title = new GUIStyle(GUI.skin.label) { fontSize = 23, fontStyle = FontStyle.Bold };
             section = new GUIStyle(GUI.skin.label)
@@ -505,43 +487,30 @@ namespace ProjectW.MilestonePrototype
                 wordWrap = true,
                 padding = new RectOffset(6, 6, 3, 3)
             };
-            section.normal.background = grayFill;
-            section.normal.textColor = white;
+            section.normal.background = whiteFill;
+            section.normal.textColor = gray;
             small = new GUIStyle(GUI.skin.label) { fontSize = 12, wordWrap = true };
             desktopIcon = new GUIStyle(GUI.skin.button) { fontSize = 14, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, wordWrap = true };
             warning = new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold, wordWrap = true };
             warning.normal.textColor = ink;
             success = new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold, wordWrap = true };
             success.normal.textColor = ink;
-            taskbar = new GUIStyle(GUI.skin.box);
-            taskbar.normal.background = grayFill;
-            taskbar.border = new RectOffset();
         }
 
-        private static Color HtmlColor(string hex)
+        private static void DrawSolid(Rect rect, Color color)
         {
-            ColorUtility.TryParseHtmlString("#" + hex, out Color color);
-            return color;
+            Color previous = GUI.color;
+            GUI.color = color;
+            GUI.DrawTexture(rect, Texture2D.whiteTexture);
+            GUI.color = previous;
         }
 
-        private Texture2D SolidTexture(Color color)
+        private static void DrawBorder(Rect rect, Color color)
         {
-            var texture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
-            texture.SetPixel(0, 0, color);
-            texture.Apply(false, true);
-            styleTextures.Add(texture);
-            return texture;
-        }
-
-        private Texture2D OutlinedTexture(Color fill, Color outline)
-        {
-            var texture = new Texture2D(3, 3, TextureFormat.RGBA32, false);
-            for (int y = 0; y < 3; y++)
-                for (int x = 0; x < 3; x++)
-                    texture.SetPixel(x, y, x == 0 || y == 0 || x == 2 || y == 2 ? outline : fill);
-            texture.Apply(false, true);
-            styleTextures.Add(texture);
-            return texture;
+            DrawSolid(new Rect(rect.x, rect.y, rect.width, 1), color);
+            DrawSolid(new Rect(rect.x, rect.yMax - 1, rect.width, 1), color);
+            DrawSolid(new Rect(rect.x, rect.y, 1, rect.height), color);
+            DrawSolid(new Rect(rect.xMax - 1, rect.y, 1, rect.height), color);
         }
 
         private static string IconLabel(string id)
