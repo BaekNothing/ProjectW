@@ -10,6 +10,16 @@ namespace ProjectW.MilestonePrototype.Tests
     public sealed class MilestoneSimulationTests
     {
         [Test]
+        public void CrewProfilesLoadPortraitMemoAndPerksFromExternalData()
+        {
+            var game = new MilestoneSimulation(1);
+
+            Assert.That(game.Crew[0].PortraitLabel, Is.Not.Empty);
+            Assert.That(game.Crew[0].Memo, Is.Not.Empty);
+            Assert.That(game.Crew[0].Perks, Is.Not.Null.And.Not.Empty);
+        }
+
+        [Test]
         public void MatchingSpecialtyAdvancesWorkAndAddsFatigue()
         {
             var game = new MilestoneSimulation(1);

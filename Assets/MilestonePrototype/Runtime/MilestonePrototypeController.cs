@@ -27,7 +27,8 @@ namespace ProjectW.MilestonePrototype
         {
             { "mail", "MAIL / 통신" }, { "gantt", "GANTT / 작업" }, { "milestone", "MILESTONE" },
             { "workers", "CREW / 대원" }, { "report", "REPORT" }, { "codex", "CODEX / 도감" },
-            { "help", "HELP" }, { "profile", "MY INFO" }, { "log", "SYSTEM LOG" }
+            { "help", "HELP" }, { "profile", "MY INFO" }, { "log", "SYSTEM LOG" },
+            { "worker-detail", "CREW PROFILE / 대원 상세" }
         };
 
         private MilestoneSimulation game;
@@ -136,6 +137,7 @@ namespace ProjectW.MilestonePrototype
                 case "gantt": DrawGantt(window); break;
                 case "milestone": DrawMilestones(window); break;
                 case "workers": DrawWorkers(window); break;
+                case "worker-detail": DrawWorkerDetail(window); break;
                 case "report": DrawReport(window); break;
                 case "codex": DrawCodex(window); break;
                 case "help": DrawHelp(); break;
@@ -481,7 +483,10 @@ namespace ProjectW.MilestonePrototype
             {
                 CrewMember member = game.Crew[i];
                 GUILayout.BeginVertical(GUI.skin.box);
-                GUILayout.Label($"{member.Name}   {RoleName(member.Specialty)} / SKILL {member.Skill} / EXP {member.Experience}", section);
+                if (GUILayout.Button(
+                        $"{member.Name}   {RoleName(member.Specialty)} / SKILL {member.Skill} / EXP {member.Experience}",
+                        section, GUILayout.Height(38)))
+                    OpenWorkerDetail(i);
                 GUILayout.Label($"상태 {member.Condition}   피로 {member.Fatigue}%   담당 {AssignedTask(i)}");
                 GUILayout.HorizontalSlider(member.Fatigue, 0, 100);
                 if (member.History.Count > 0) GUILayout.Label($"최근: {member.History[member.History.Count - 1]}", small);
@@ -495,6 +500,76 @@ namespace ProjectW.MilestonePrototype
                 GUILayout.EndVertical();
             }
             EndTouchScroll(window, "workers", ref window.Scroll);
+        }
+
+        private void DrawWorkerDetail(DeskWindow window)
+        {
+            GUILayout.Label("대원 세부 파일", section);
+            if (game.Crew.Count == 0)
+            {
+                GUILayout.Label("등록된 대원이 없습니다.");
+                return;
+            }
+
+            window.Selected = Mathf.Clamp(window.Selected, 0, game.Crew.Count - 1);
+            CrewMember member = game.Crew[window.Selected];
+            window.Scroll = GUILayout.BeginScrollView(window.Scroll);
+
+            GUILayout.BeginHorizontal();
+            GUILayout.BeginVertical(GUI.skin.box, GUILayout.Width(155), GUILayout.Height(185));
+            GUILayout.Label("사진", small);
+            GUILayout.FlexibleSpace();
+            GUILayout.Label(string.IsNullOrEmpty(member.PortraitLabel) ? "NO PHOTO" : member.PortraitLabel,
+                title, GUILayout.Height(105));
+            GUILayout.FlexibleSpace();
+            GUILayout.Label(RoleName(member.Specialty), small);
+            GUILayout.EndVertical();
+
+            GUILayout.BeginVertical(GUI.skin.box);
+            GUILayout.Label(member.Name, title);
+            GUILayout.Label($"{RoleName(member.Specialty)}  /  SKILL {member.Skill}  /  EXP {member.Experience}",
+                section);
+            GUILayout.Label($"상태 {member.Condition}   피로 {member.Fatigue}%");
+            GUILayout.Label($"현재 담당  {AssignedTask(window.Selected)}", small);
+            DrawSectionRule();
+            GUILayout.Label("메모", section);
+            GUILayout.Label(string.IsNullOrEmpty(member.Memo) ? "메모 없음" : member.Memo);
+            GUILayout.EndVertical();
+            GUILayout.EndHorizontal();
+
+            DrawSectionRule();
+            GUILayout.Label("퍽", section);
+            if (member.Perks == null || member.Perks.Length == 0)
+                GUILayout.Label("보유 퍽 없음", small);
+            else
+                foreach (string perk in member.Perks)
+                    GUILayout.Label($"• {perk}");
+
+            DrawSectionRule();
+            GUILayout.Label("작업 히스토리", section);
+            bool hasHistory = false;
+            if (member.History != null)
+            {
+                foreach (string history in member.History.AsEnumerable().Reverse())
+                {
+                    GUILayout.Label(history, small);
+                    hasHistory = true;
+                }
+            }
+            foreach (WorkTask task in game.Tasks)
+            {
+                if (task.Records == null) continue;
+                foreach (TaskRecord record in task.Records.AsEnumerable().Reverse())
+                {
+                    if (record.Actor != member.Name ||
+                        !string.IsNullOrEmpty(record.Text) && record.Text.Contains("배정")) continue;
+                    GUILayout.Label($"DAY {record.Day}: {task.Name} — {record.Text}", small);
+                    hasHistory = true;
+                }
+            }
+            if (!hasHistory) GUILayout.Label("아직 작업 기록이 없습니다.", small);
+
+            EndTouchScroll(window, "worker-detail", ref window.Scroll);
         }
 
         private void DrawReport(DeskWindow window)
@@ -603,6 +678,16 @@ namespace ProjectW.MilestonePrototype
             windows.Add(window);
             window.Rect = ClampRect(window.Rect);
             SaveDesktop();
+        }
+
+        private void OpenWorkerDetail(int crewIndex)
+        {
+            Open("worker-detail");
+            DeskWindow detail = windows.FirstOrDefault(window => window.Id == "worker-detail");
+            if (detail == null) return;
+            detail.Selected = Mathf.Clamp(crewIndex, 0, Mathf.Max(0, game.Crew.Count - 1));
+            detail.Scroll = Vector2.zero;
+            Focus(detail);
         }
 
         private void Close(string id)
@@ -879,6 +964,13 @@ namespace ProjectW.MilestonePrototype
         {
             float start = Mathf.Min(x1, x2);
             DrawSolid(new Rect(start, y, Mathf.Max(2f, Mathf.Abs(x2 - x1)), 2f), color);
+        }
+
+        private static void DrawSectionRule()
+        {
+            Rect rule = GUILayoutUtility.GetRect(1f, 1f, GUILayout.ExpandWidth(true));
+            DrawSolid(rule, GrayColor);
+            GUILayout.Space(5);
         }
 
         private static void DrawBorder(Rect rect, Color color)

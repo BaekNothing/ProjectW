@@ -8,6 +8,9 @@ namespace ProjectW.MilestonePrototype
     {
         private readonly Random random;
         private readonly TaskSystemBalance balance;
+        private readonly string[] crewPortraits;
+        private readonly string[] crewMemos;
+        private readonly string[][] crewPerks;
         private int nextSideMissionId;
 
         public int Day { get; private set; } = 1;
@@ -39,6 +42,15 @@ namespace ProjectW.MilestonePrototype
             TaskSystemDataLoader.Validate(data);
             random = new Random(seed);
             balance = data.Balance;
+            crewPortraits = new string[data.Crew.Length];
+            crewMemos = new string[data.Crew.Length];
+            crewPerks = new string[data.Crew.Length][];
+            for (int i = 0; i < data.Crew.Length; i++)
+            {
+                crewPortraits[i] = data.Crew[i].PortraitLabel;
+                crewMemos[i] = data.Crew[i].Memo;
+                crewPerks[i] = data.Crew[i].Perks;
+            }
             CampaignEndDay = data.CampaignEndDay;
             Resources = data.StartingResources;
             Groups.AddRange(data.Works);
@@ -458,9 +470,18 @@ namespace ProjectW.MilestonePrototype
                 WorkGroup group = ParentWork(task);
                 if (group != null) task.Deadline = group.HardDeadline;
             }
-            foreach (CrewMember member in Crew)
+            for (int i = 0; i < Crew.Count; i++)
             {
+                CrewMember member = Crew[i];
                 member.History = member.History ?? new List<string>();
+                if (i < crewPortraits.Length && string.IsNullOrEmpty(member.PortraitLabel))
+                    member.PortraitLabel = crewPortraits[i];
+                if (i < crewMemos.Length && string.IsNullOrEmpty(member.Memo))
+                    member.Memo = crewMemos[i];
+                if (member.Perks == null)
+                    member.Perks = i < crewPerks.Length && crewPerks[i] != null
+                        ? crewPerks[i]
+                        : Array.Empty<string>();
                 member.RestScheduled = false;
             }
             int highestSideId = Tasks.Where(task => task.Id != null && task.Id.StartsWith("side-"))

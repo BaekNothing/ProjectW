@@ -218,6 +218,14 @@ Every scrollable window region keeps its visible scrollbar and also supports dir
 - Escape closes the active non-minimized window, then the next active window on another press.
 - Nested scroll regions use the region where the gesture began and do not transfer the gesture mid-drag.
 
+## Crew Detail UI
+
+- Selecting a crew member opens a separate crew-detail window.
+- The detail shows a portrait area, name, memo, perks, current assignment, and work history.
+- Crew profile metadata is owned by `task-system.json`.
+- Until remote image content delivery exists, the portrait area uses the data-defined text portrait;
+  adding bitmap portraits remains a base APK or future Addressables content change.
+
 Unity IMGUI touch-to-mouse synthesis is the runtime input path for this prototype. Drag calculation remains a pure tested function so a later input-system migration does not redefine the interaction.
 
 ### Base APK v2 Compatibility Hold

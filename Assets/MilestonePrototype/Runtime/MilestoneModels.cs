@@ -45,6 +45,9 @@ namespace ProjectW.MilestonePrototype
     public sealed class CrewMember
     {
         public string Name;
+        public string PortraitLabel;
+        public string Memo;
+        public string[] Perks;
         public WorkRole Specialty;
         public int Skill;
         public int Fatigue;
