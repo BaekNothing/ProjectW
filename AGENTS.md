@@ -26,6 +26,17 @@ Before changing code, data, Unity settings, builds, patch tooling, or GitHub rel
 - Keep scenes dependent on the fixed bootstrap, not directly on hot-update implementation types.
 - Keep `ProjectW.Contracts` minimal and stable. A breaking Contracts change requires a new base APK.
 
+## Mandatory AOT safety gate
+
+- Read `Assets/Specification/Operation/HotUpdateAotSafety.md` before every HotUpdate code change.
+- Default-deny new Unity, package, platform, native, Contracts, reflection, delegate, serialization, and closed-generic AOT references in `ProjectW.HotUpdate`.
+- An exact member and overload is patch-safe only when the installed base APK source/baseline or an on-device test proves it exists. Editor compilation and tests are not proof.
+- Supplemental AOT metadata does not create missing native implementations.
+- Audit every patch diff for new AOT-facing references before publishing.
+- Never use reflection, copied engine behavior, fake subsystems, exception swallowing, or convoluted substitutions merely to avoid an APK rebuild.
+- If avoiding an unproven AOT dependency would require a strange workaround, stop before publishing, tell the user the exact dependency and reason, reclassify the work as base-APK-affecting, then build and verify a new APK.
+- Do not claim on-device compatibility without an on-device smoke test of the changed AOT-facing path.
+
 ## Build and release policy
 
 - Rebuild/reinstall the APK only for fixed-layer, package, Unity, native, Android, HybridCLR, or incompatible contract changes.

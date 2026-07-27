@@ -39,6 +39,24 @@ When uncertain, treat a change as base-APK-affecting and explain why before buil
   Addressables is implemented, to a remote Addressables group.
 - Treat a breaking Contracts change as a new base version and rebuild the APK.
 
+## Enforce the AOT safety gate
+
+Read `Assets/Specification/Operation/HotUpdateAotSafety.md` before changing HotUpdate code.
+
+- Default-deny every new Unity/package/platform/native/Contracts member or overload and every new
+  reflection, delegate, serialization, interop, or closed-generic AOT shape.
+- Prove the exact dependency exists in the installed base APK source/baseline or by executing it on
+  that exact base version. Editor success is insufficient.
+- Treat supplemental AOT metadata as metadata only; it cannot supply a missing native method.
+- Audit the patch diff for new external/AOT references before publishing.
+- Do not create strange workarounds such as reflection, copied engine behavior, fake services,
+  exception swallowing, or convoluted substitutions merely to keep a change patch-only.
+- If normal implementation needs an unproven dependency, stop, identify it to the user, classify
+  the change as base APK, add an explicit preservation/reference point where appropriate, and build
+  and verify a new APK.
+- If a device is available, smoke-test changed AOT-facing paths on-device. Never call Editor-only
+  verification proof of device compatibility.
+
 ## Implement and validate
 
 1. Read applicable ProjectW specification documents when present.
@@ -46,7 +64,8 @@ When uncertain, treat a change as base-APK-affecting and explain why before buil
 3. Add or update Unity EditMode tests.
 4. Run relevant tests.
 5. For base changes, build `APK/ProjectW-HybridCLR.apk` and verify embedded HotUpdate/AOT files.
-6. For patch-only changes, do not spend time rebuilding the APK.
+6. For patch-only changes, do not spend time rebuilding the APK after the AOT safety gate proves
+   the diff stays inside the installed base surface.
 
 ## Publish a hot-update patch
 

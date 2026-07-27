@@ -84,3 +84,17 @@ a device cannot combine files from two releases.
 Code and arbitrary files listed in the manifest can be patched now. Addressables remote catalogs are
 not part of this first PoC; add them after the code path is proven on the remote device. Until then,
 large prefab, scene, texture, and audio changes still require a base APK.
+
+## AOT compatibility warning
+
+The downloaded assembly can replace managed gameplay logic, but it cannot assume that arbitrary
+Unity, package, platform, native, or generic AOT implementations exist in the installed APK.
+Supplemental AOT metadata does not add missing native implementations.
+
+Before publishing a patch, audit every newly referenced external member and exact overload against
+the installed base APK. Editor compilation and tests are not sufficient evidence. Follow
+`Assets/Specification/Operation/HotUpdateAotSafety.md`.
+
+If the normal implementation needs an unproven AOT member, do not hide it behind reflection or a
+distorted workaround. Tell the user, reclassify the change as base-APK-affecting, preserve the
+required surface explicitly, and build a new APK.
