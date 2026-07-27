@@ -210,3 +210,13 @@ Every scrollable window region keeps its visible scrollbar and also supports dir
 - Nested scroll regions use the region where the gesture began and do not transfer the gesture mid-drag.
 
 Unity IMGUI touch-to-mouse synthesis is the runtime input path for this prototype. Drag calculation remains a pure tested function so a later input-system migration does not redefine the interaction.
+
+### Base APK v2 Compatibility Hold
+
+Direct-content dragging is temporarily disabled for patch-only delivery on base APK v2.
+
+- Base APK v2 does not prove preservation of the required IMGUI pointer and control APIs.
+- A patch must not call unproven `GUILayoutUtility`, direct `GUI.BeginScrollView`, `Event` pointer, or `GUIUtility` control members.
+- The corrective patch keeps visible `GUILayout` scrollbars and Gantt day-page buttons.
+- Direct-content dragging remains a required feature, but it resumes only after a base APK explicitly preserves and verifies its exact AOT surface.
+- Do not simulate dragging through window movement, reflection, or another control with unrelated semantics.
