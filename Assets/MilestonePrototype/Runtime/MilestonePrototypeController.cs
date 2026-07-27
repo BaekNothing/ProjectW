@@ -34,6 +34,7 @@ namespace ProjectW.MilestonePrototype
         private GUIStyle warning;
         private GUIStyle success;
         private GUIStyle taskbar;
+        private readonly List<Texture2D> styleTextures = new List<Texture2D>();
         private string patchVersion = "embedded";
         private string campaignPath;
         private string desktopPath;
@@ -58,6 +59,13 @@ namespace ProjectW.MilestonePrototype
 
         private void OnApplicationQuit() => SaveAll();
 
+        private void OnDestroy()
+        {
+            foreach (Texture2D texture in styleTextures)
+                if (texture != null) Destroy(texture);
+            styleTextures.Clear();
+        }
+
         private void OnGUI()
         {
             EnsureStyles();
@@ -73,7 +81,7 @@ namespace ProjectW.MilestonePrototype
 
         private void DrawDesktop()
         {
-            GUI.Box(new Rect(0, 0, logicalWidth, logicalHeight - 44), GUIContent.none);
+            GUI.DrawTexture(new Rect(0, 0, logicalWidth, logicalHeight), Texture2D.whiteTexture);
             GUI.Label(new Rect(22, 15, 480, 34), "PROJECT W  /  OPERATIONS DESK", title);
             GUI.Label(new Rect(logicalWidth - 250, 18, 225, 25), $"DAY {game.Day:00}/{game.CampaignEndDay}   PATCH {patchVersion}", small);
             string[] ids = { "mail", "gantt", "milestone", "workers", "report", "codex", "help", "profile" };
@@ -451,15 +459,89 @@ namespace ProjectW.MilestonePrototype
         private void EnsureStyles()
         {
             if (title != null) return;
+            Color white = HtmlColor("FFFFFF");
+            Color gray = HtmlColor("999999");
+            Color ink = HtmlColor("444444");
+            Color pale = HtmlColor("EEEEEE");
+            Texture2D whiteFill = SolidTexture(white);
+            Texture2D grayFill = SolidTexture(gray);
+            Texture2D paleFill = SolidTexture(pale);
+            Texture2D inkFill = SolidTexture(ink);
+            Texture2D outlined = OutlinedTexture(white, ink);
+
+            GUI.skin.label.normal.textColor = ink;
+            GUI.skin.button.normal.background = outlined;
+            GUI.skin.button.hover.background = grayFill;
+            GUI.skin.button.active.background = grayFill;
+            GUI.skin.button.focused.background = outlined;
+            GUI.skin.button.normal.textColor = ink;
+            GUI.skin.button.hover.textColor = white;
+            GUI.skin.button.active.textColor = white;
+            GUI.skin.button.focused.textColor = ink;
+            GUI.skin.button.border = new RectOffset(1, 1, 1, 1);
+            GUI.skin.button.margin = new RectOffset(2, 2, 2, 2);
+            GUI.skin.button.padding = new RectOffset(7, 7, 5, 5);
+
+            GUI.skin.window.normal.background = outlined;
+            GUI.skin.window.onNormal.background = outlined;
+            GUI.skin.window.normal.textColor = ink;
+            GUI.skin.window.border = new RectOffset(1, 1, 1, 1);
+            GUI.skin.window.padding = new RectOffset(8, 8, 24, 8);
+
+            GUI.skin.box.normal.background = outlined;
+            GUI.skin.box.normal.textColor = ink;
+            GUI.skin.box.border = new RectOffset(1, 1, 1, 1);
+            GUI.skin.scrollView.normal.background = whiteFill;
+            GUI.skin.horizontalSlider.normal.background = paleFill;
+            GUI.skin.horizontalSliderThumb.normal.background = inkFill;
+            GUI.skin.horizontalSliderThumb.fixedWidth = 8;
+            GUI.skin.horizontalSliderThumb.fixedHeight = 14;
+
             title = new GUIStyle(GUI.skin.label) { fontSize = 23, fontStyle = FontStyle.Bold };
-            section = new GUIStyle(GUI.skin.label) { fontSize = 16, fontStyle = FontStyle.Bold, wordWrap = true };
+            section = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 16,
+                fontStyle = FontStyle.Bold,
+                wordWrap = true,
+                padding = new RectOffset(6, 6, 3, 3)
+            };
+            section.normal.background = grayFill;
+            section.normal.textColor = white;
             small = new GUIStyle(GUI.skin.label) { fontSize = 12, wordWrap = true };
             desktopIcon = new GUIStyle(GUI.skin.button) { fontSize = 14, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, wordWrap = true };
             warning = new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold, wordWrap = true };
-            warning.normal.textColor = new Color(.75f, .18f, .12f);
+            warning.normal.textColor = ink;
             success = new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold, wordWrap = true };
-            success.normal.textColor = new Color(.08f, .48f, .22f);
+            success.normal.textColor = ink;
             taskbar = new GUIStyle(GUI.skin.box);
+            taskbar.normal.background = grayFill;
+            taskbar.border = new RectOffset();
+        }
+
+        private static Color HtmlColor(string hex)
+        {
+            ColorUtility.TryParseHtmlString("#" + hex, out Color color);
+            return color;
+        }
+
+        private Texture2D SolidTexture(Color color)
+        {
+            var texture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+            texture.SetPixel(0, 0, color);
+            texture.Apply(false, true);
+            styleTextures.Add(texture);
+            return texture;
+        }
+
+        private Texture2D OutlinedTexture(Color fill, Color outline)
+        {
+            var texture = new Texture2D(3, 3, TextureFormat.RGBA32, false);
+            for (int y = 0; y < 3; y++)
+                for (int x = 0; x < 3; x++)
+                    texture.SetPixel(x, y, x == 0 || y == 0 || x == 2 || y == 2 ? outline : fill);
+            texture.Apply(false, true);
+            styleTextures.Add(texture);
+            return texture;
         }
 
         private static string IconLabel(string id)

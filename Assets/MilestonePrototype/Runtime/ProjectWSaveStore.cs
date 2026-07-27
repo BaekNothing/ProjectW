@@ -46,10 +46,7 @@ namespace ProjectW.MilestonePrototype
             {
                 string directory = Path.GetDirectoryName(path);
                 if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
-                string temporary = path + ".tmp";
-                File.WriteAllText(temporary, json);
-                if (File.Exists(path)) File.Delete(path);
-                File.Move(temporary, path);
+                File.WriteAllText(path, json);
                 return true;
             }
             catch (Exception exception)
