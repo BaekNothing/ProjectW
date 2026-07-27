@@ -70,6 +70,7 @@ namespace ProjectW.MilestonePrototype
             GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1));
             logicalWidth = Screen.width / scale;
             logicalHeight = Screen.height / scale;
+            HandleWindowInput();
             DrawDesktop();
             DrawWindows();
             DrawTaskbar();
@@ -120,8 +121,14 @@ namespace ProjectW.MilestonePrototype
         private void DrawWindow(DeskWindow window)
         {
             DrawBorder(new Rect(0, 0, window.Rect.width, window.Rect.height), InkColor);
-            if (GUI.Button(new Rect(window.Rect.width - 58, 2, 25, 20), "—")) { window.Minimized = true; SaveDesktop(); }
-            if (GUI.Button(new Rect(window.Rect.width - 30, 2, 25, 20), "X")) { Close(window.Id); return; }
+            Rect minimizeRect = new Rect(window.Rect.width - 83, 2, 25, 20);
+            Rect closeRect = new Rect(window.Rect.width - 30, 2, 25, 20);
+            if (ExpandedHitButton(minimizeRect, "—"))
+            {
+                window.Minimized = true;
+                SaveDesktop();
+            }
+            if (ExpandedHitButton(closeRect, "X")) { Close(window.Id); return; }
             GUILayout.Space(6);
             switch (window.Id)
             {
@@ -135,7 +142,7 @@ namespace ProjectW.MilestonePrototype
                 case "profile": DrawProfile(); break;
                 case "log": DrawLog(window); break;
             }
-            GUI.DragWindow(new Rect(0, 0, Mathf.Max(0, window.Rect.width - 65), 26));
+            GUI.DragWindow(WindowDragHitRect(window.Rect.width));
         }
 
         private void DrawMail(DeskWindow window)
@@ -219,6 +226,7 @@ namespace ProjectW.MilestonePrototype
             {
                 List<WorkTask> tasks = game.Tasks.Where(task => task.GroupId == group.Id).ToList();
                 DrawSolid(new Rect(0, y, contentWidth, rowHeight - 1), PaleColor);
+                DrawSolid(new Rect(0, y, contentWidth, 1), GrayColor);
                 DrawDeadlineLine(group.SoftDeadline, y, rowHeight * (tasks.Count + 1),
                     dayWidth, false);
                 DrawDeadlineLine(group.HardDeadline, y, rowHeight * (tasks.Count + 1),
@@ -243,7 +251,9 @@ namespace ProjectW.MilestonePrototype
                         $"{task.RemainingWork:0.#}d", small);
                     y += rowHeight;
                 }
+                DrawSolid(new Rect(0, y - 1, contentWidth, 1), GrayColor);
             }
+            DrawDependencyArrows(dayWidth, rowHeight);
             GUI.EndScrollView();
             HandleTouchScroll(window, "gantt-timeline", timelineViewport, ref window.TimelineScroll);
 
@@ -254,6 +264,7 @@ namespace ProjectW.MilestonePrototype
             {
                 List<WorkTask> tasks = game.Tasks.Where(task => task.GroupId == group.Id).ToList();
                 DrawSolid(new Rect(0, y, labelWidth, rowHeight - 1), PaleColor);
+                DrawSolid(new Rect(0, y, labelWidth, 1), GrayColor);
                 GUI.Label(new Rect(6, y + 4, labelWidth - 10, 22),
                     $"{group.Name} · {WorkStateName(group.State)}", small);
                 y += rowHeight;
@@ -264,8 +275,111 @@ namespace ProjectW.MilestonePrototype
                         $"{StateName(task.State)}  {task.Name}", small);
                     y += rowHeight;
                 }
+                DrawSolid(new Rect(0, y - 1, labelWidth, 1), GrayColor);
             }
             GUI.EndGroup();
+        }
+
+        private void DrawDependencyArrows(float dayWidth, float rowHeight)
+        {
+            foreach (WorkTask task in game.Tasks)
+            {
+                if (string.IsNullOrEmpty(task.PrerequisiteId)) continue;
+                WorkTask predecessor = game.Tasks.FirstOrDefault(candidate =>
+                    candidate.Id == task.PrerequisiteId);
+                if (predecessor != null)
+                    DrawDependencyArrow(predecessor, task, dayWidth, rowHeight);
+            }
+
+            foreach (WorkGroup group in game.Groups)
+            {
+                if (group.PredecessorIds == null) continue;
+                foreach (string predecessorId in group.PredecessorIds)
+                {
+                    DrawWorkDependencyArrow(predecessorId, group.Id, dayWidth, rowHeight);
+                }
+            }
+        }
+
+        private void DrawWorkDependencyArrow(string predecessorId, string successorId,
+            float dayWidth, float rowHeight)
+        {
+            float fromY = WorkRowCenterY(predecessorId, rowHeight);
+            float toY = WorkRowCenterY(successorId, rowHeight);
+            if (fromY < 0 || toY < 0) return;
+
+            float x = Mathf.Max(8f, (Mathf.Max(1, game.Day) - 1) * dayWidth - 8f);
+            DrawSolid(new Rect(x, Mathf.Min(fromY, toY), 2f,
+                Mathf.Max(2f, Mathf.Abs(toY - fromY))), GrayColor);
+            float direction = toY >= fromY ? 1f : -1f;
+            DrawSolid(new Rect(x - 4f, toY - direction * 6f, 10f, 2f), GrayColor);
+            DrawSolid(new Rect(x - 3f, toY - direction * 4f, 8f, 2f), GrayColor);
+            DrawSolid(new Rect(x - 2f, toY - direction * 2f, 6f, 2f), GrayColor);
+        }
+
+        private void DrawDependencyArrow(WorkTask predecessor, WorkTask successor,
+            float dayWidth, float rowHeight)
+        {
+            float fromX = TaskBarEndX(predecessor, dayWidth);
+            float toX = TaskBarStartX(successor, dayWidth);
+            float fromY = TaskRowCenterY(predecessor.Id, rowHeight);
+            float toY = TaskRowCenterY(successor.Id, rowHeight);
+            float bendX = Mathf.Max(2f, toX - 10f);
+
+            DrawHorizontalLine(fromX, bendX, fromY, GrayColor);
+            DrawSolid(new Rect(bendX, Mathf.Min(fromY, toY), 2f,
+                Mathf.Max(2f, Mathf.Abs(toY - fromY))), GrayColor);
+            DrawHorizontalLine(bendX, toX, toY, GrayColor);
+            DrawSolid(new Rect(toX - 6f, toY - 4f, 2f, 8f), GrayColor);
+            DrawSolid(new Rect(toX - 4f, toY - 3f, 2f, 6f), GrayColor);
+            DrawSolid(new Rect(toX - 2f, toY - 2f, 2f, 4f), GrayColor);
+        }
+
+        private float TaskRowCenterY(string taskId, float rowHeight)
+        {
+            float y = 28f;
+            foreach (WorkGroup group in game.Groups)
+            {
+                y += rowHeight;
+                foreach (WorkTask task in game.Tasks.Where(candidate =>
+                             candidate.GroupId == group.Id))
+                {
+                    if (task.Id == taskId) return y + rowHeight * .5f;
+                    y += rowHeight;
+                }
+            }
+            return 28f;
+        }
+
+        private float WorkRowCenterY(string groupId, float rowHeight)
+        {
+            float y = 28f;
+            foreach (WorkGroup group in game.Groups)
+            {
+                if (group.Id == groupId) return y + rowHeight * .5f;
+                y += rowHeight;
+                y += game.Tasks.Count(task => task.GroupId == group.Id) * rowHeight;
+            }
+            return -1f;
+        }
+
+        private float TaskBarStartX(WorkTask task, float dayWidth)
+        {
+            int completedDays = Mathf.CeilToInt(task.Progress);
+            int startDay = Mathf.Max(1, game.Day - completedDays);
+            return task.Progress > 0
+                ? (startDay - 1) * dayWidth + 3f
+                : (Mathf.Max(1, game.Day) - 1) * dayWidth + 3f;
+        }
+
+        private float TaskBarEndX(WorkTask task, float dayWidth)
+        {
+            int completedDays = Mathf.CeilToInt(task.Progress);
+            int startDay = Mathf.Max(1, game.Day - completedDays);
+            float completedEnd = (startDay - 1) * dayWidth + 3f + completedDays * dayWidth;
+            float remainingEnd = (Mathf.Max(1, game.Day) - 1) * dayWidth + 3f +
+                                 Mathf.Ceil(task.RemainingWork) * dayWidth;
+            return Mathf.Max(completedEnd, remainingEnd);
         }
 
         private static void DrawDeadlineLine(int day, float y, float height, float dayWidth, bool hard)
@@ -503,6 +617,58 @@ namespace ProjectW.MilestonePrototype
             windows.Add(window);
         }
 
+        private void HandleWindowInput()
+        {
+            Event current = Event.current;
+            if (current == null) return;
+
+            if (current.type == EventType.KeyDown && current.keyCode == KeyCode.Escape)
+            {
+                for (int i = windows.Count - 1; i >= 0; i--)
+                {
+                    if (windows[i].Minimized) continue;
+                    Close(windows[i].Id);
+                    current.Use();
+                    return;
+                }
+            }
+
+            if (current.type != EventType.MouseDown || current.button != 0) return;
+            for (int i = windows.Count - 1; i >= 0; i--)
+            {
+                DeskWindow window = windows[i];
+                if (window.Minimized || !window.Rect.Contains(current.mousePosition)) continue;
+                Focus(window);
+                return;
+            }
+        }
+
+        private static bool ExpandedHitButton(Rect visualRect, string label)
+        {
+            if (GUI.Button(visualRect, label)) return true;
+
+            Event current = Event.current;
+            if (current == null || current.type != EventType.MouseUp || current.button != 0)
+                return false;
+
+            Rect hitRect = ExpandHitRect(visualRect);
+            if (!hitRect.Contains(current.mousePosition)) return false;
+            current.Use();
+            return true;
+        }
+
+        public static Rect ExpandHitRect(Rect visualRect)
+        {
+            return new Rect(visualRect.center.x - visualRect.width,
+                visualRect.center.y - visualRect.height,
+                visualRect.width * 2f, visualRect.height * 2f);
+        }
+
+        public static Rect WindowDragHitRect(float windowWidth)
+        {
+            return new Rect(0, 0, Mathf.Max(0, windowWidth - 95f), 52f);
+        }
+
         private Rect ClampRect(Rect rect)
         {
             rect.width = Mathf.Clamp(rect.width, 420, Mathf.Max(420, logicalWidth - 12));
@@ -707,6 +873,12 @@ namespace ProjectW.MilestonePrototype
             GUI.color = color;
             GUI.DrawTexture(rect, Texture2D.whiteTexture);
             GUI.color = previous;
+        }
+
+        private static void DrawHorizontalLine(float x1, float x2, float y, Color color)
+        {
+            float start = Mathf.Min(x1, x2);
+            DrawSolid(new Rect(start, y, Mathf.Max(2f, Mathf.Abs(x2 - x1)), 2f), color);
         }
 
         private static void DrawBorder(Rect rect, Color color)

@@ -175,6 +175,8 @@ The Task application must present schedule information as a time-based Gantt vie
 - Locked Tasks remain visible and state why they cannot be entered.
 - The Task application is Gantt-only; it does not combine a Task detail panel with the timeline.
 - The left Work/Task column stays horizontally fixed while only the timeline pans.
+- Work predecessors and Task prerequisites are shown as arrowed dependency connectors.
+- Work sections are divided with `#999999` separator lines on the white background.
 - Work rows expose Work state, completion, and deadline status.
 
 The projected segment is operational guidance, not an immutable reservation. It is recalculated from current progress, context cost, prerequisites, assignments, and today whenever state changes.
@@ -211,6 +213,9 @@ Every scrollable window region keeps its visible scrollbar and also supports dir
 - Crossing the drag threshold cancels click intent for that gesture and begins scrolling.
 - Scroll offsets remain clamped by the scroll view.
 - Window-title dragging continues to move the window and must not scroll its content.
+- The window-title drag hit area is twice the visible title-bar height.
+- Minimize and close keep their visual size but use hit areas twice their width and height.
+- Escape closes the active non-minimized window, then the next active window on another press.
 - Nested scroll regions use the region where the gesture began and do not transfer the gesture mid-drag.
 
 Unity IMGUI touch-to-mouse synthesis is the runtime input path for this prototype. Drag calculation remains a pure tested function so a later input-system migration does not redefine the interaction.

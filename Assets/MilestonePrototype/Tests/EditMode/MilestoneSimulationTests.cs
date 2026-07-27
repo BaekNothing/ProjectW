@@ -309,6 +309,25 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void ExpandedHitRectDoublesButtonHitAreaWithoutMovingCenter()
+        {
+            Rect visual = new Rect(100, 20, 25, 20);
+
+            Rect result = MilestonePrototypeController.ExpandHitRect(visual);
+
+            Assert.That(result.size, Is.EqualTo(new Vector2(50, 40)));
+            Assert.That(result.center, Is.EqualTo(visual.center));
+        }
+
+        [Test]
+        public void WindowDragHitAreaUsesDoubleTitleHeight()
+        {
+            Rect result = MilestonePrototypeController.WindowDragHitRect(710);
+
+            Assert.That(result, Is.EqualTo(new Rect(0, 0, 615, 52)));
+        }
+
+        [Test]
         public void CampaignPlayerPrefsRoundTripsAndRejectsCorruptJson()
         {
             string key = $"projectw.test.{Guid.NewGuid():N}";
