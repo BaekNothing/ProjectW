@@ -252,6 +252,12 @@ Costs must be shown before the player confirms a reassignment. The UI must not r
 
 Every scrollable window region keeps its visible scrollbar and also supports direct-content dragging.
 
+- The complete operations UI uses a `1.8x` accessibility magnification over the responsive screen
+  scale. Font size, padding, controls, panels, windows, taskbar, and touch targets share the same
+  magnification so text does not outgrow its layout.
+- When magnification reduces the logical desktop below the compact breakpoint, application windows
+  use the existing near-full-screen compact layout and retain scrollable content.
+
 - Mouse drag and single-finger touch drag pan the content in the opposite direction of pointer movement.
 - Both horizontal and vertical scroll axes are supported when the content exceeds the viewport.
 - A press remains a normal button press until movement exceeds the drag threshold.

@@ -49,6 +49,7 @@ namespace ProjectW.MilestonePrototype
         private static readonly Color InkColor = new Color(.267f, .267f, .267f, 1f);
         private static readonly Color PaleColor = new Color(.88f, .88f, .88f, 1f);
         private const float TouchDragThreshold = 8f;
+        public const float UiMagnification = 1.8f;
         private float logicalWidth;
         private float logicalHeight;
 
@@ -71,7 +72,7 @@ namespace ProjectW.MilestonePrototype
         private void OnGUI()
         {
             EnsureStyles();
-            float scale = Mathf.Clamp(Screen.width / 1280f, 0.72f, 1.5f);
+            float scale = CalculateUiScale(Screen.width);
             GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1));
             logicalWidth = Screen.width / scale;
             logicalHeight = Screen.height / scale;
@@ -85,7 +86,8 @@ namespace ProjectW.MilestonePrototype
         private void DrawDesktop()
         {
             GUI.DrawTexture(new Rect(0, 0, logicalWidth, logicalHeight), Texture2D.whiteTexture);
-            GUI.Label(new Rect(22, 15, 480, 34), "PROJECT W  /  OPERATIONS DESK", title);
+            GUI.Label(new Rect(22, 15, Mathf.Max(220f, logicalWidth - 300f), 34),
+                "PROJECT W  /  OPERATIONS DESK", title);
             GUI.Label(new Rect(logicalWidth - 250, 18, 225, 25), $"DAY {game.Day:00}/{game.CampaignEndDay}   PATCH {patchVersion}", small);
             string[] ids = { "mail", "gantt", "milestone", "workers", "report", "codex", "help", "profile" };
             for (int i = 0; i < ids.Length; i++)
@@ -96,14 +98,18 @@ namespace ProjectW.MilestonePrototype
                 if (GUI.Button(rect, IconLabel(ids[i]), desktopIcon)) Open(ids[i]);
             }
             OperationsReport report = game.BuildReport();
-            GUI.Label(new Rect(25, 275, 455, 80),
+            GUI.Label(DesktopReportRect(logicalWidth, logicalHeight),
                 $"운영 현황\n진행 {report.Active}  |  완료 {report.Complete}/{game.Tasks.Count}  |  지연 {report.Delayed}  |  고위험 {report.HighRisk}\n" +
                 $"가용 대원 {game.Crew.Count(c => c.Available)}/{game.Crew.Count}  |  자원 {game.Resources}", section);
-            GUI.enabled = !game.IsWon && !game.IsLost;
-            if (GUI.Button(new Rect(25, 365, 210, 48), "하루 진행"))
-                AdvanceToNextDay();
-            GUI.enabled = true;
-            GUI.Label(new Rect(25, logicalHeight - 105, 650, 40), FormatStatus(game.LastReport, game.IsWon, game.IsLost),
+            if (logicalHeight >= 520f)
+            {
+                GUI.enabled = !game.IsWon && !game.IsLost;
+                if (GUI.Button(new Rect(25, 365, 210, 48), "하루 진행"))
+                    AdvanceToNextDay();
+                GUI.enabled = true;
+            }
+            GUI.Label(DesktopStatusRect(logicalWidth, logicalHeight),
+                FormatStatus(game.LastReport, game.IsWon, game.IsLost),
                 game.IsLost ? warning : success);
         }
 
@@ -751,6 +757,24 @@ namespace ProjectW.MilestonePrototype
 
         public static Rect NextDayButtonRect(float width, float height) =>
             new Rect(Mathf.Max(10f, width - 180f), Mathf.Max(10f, height - 98f), 170f, 48f);
+
+        public static float CalculateUiScale(float screenWidth) =>
+            Mathf.Clamp(screenWidth / 1280f, 0.72f, 1.5f) * UiMagnification;
+
+        public static Rect DesktopReportRect(float width, float height)
+        {
+            bool compactHeight = height < 520f;
+            return new Rect(25f, compactHeight ? 250f : 275f,
+                Mathf.Max(220f, Mathf.Min(455f, width - (compactHeight ? 220f : 50f))),
+                compactHeight ? 68f : 80f);
+        }
+
+        public static Rect DesktopStatusRect(float width, float height)
+        {
+            bool compactHeight = height < 520f;
+            return new Rect(25f, compactHeight ? 324f : height - 105f,
+                Mathf.Max(180f, width - (compactHeight ? 220f : 60f)), 40f);
+        }
 
         private void Open(string id)
         {

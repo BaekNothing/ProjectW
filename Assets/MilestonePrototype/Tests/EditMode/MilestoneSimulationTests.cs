@@ -505,6 +505,29 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void UiScaleMagnifiesFontsPanelsAndSpacingByOnePointEight()
+        {
+            Assert.That(MilestonePrototypeController.UiMagnification, Is.EqualTo(1.8f));
+            Assert.That(MilestonePrototypeController.CalculateUiScale(1280), Is.EqualTo(1.8f).Within(.001f));
+            Assert.That(MilestonePrototypeController.CalculateUiScale(1920), Is.EqualTo(2.7f).Within(.001f));
+        }
+
+        [Test]
+        public void MagnifiedLandscapeDesktopKeepsStatusAndReportClearOfNextDayButton()
+        {
+            float scale = MilestonePrototypeController.CalculateUiScale(1280);
+            float width = 1280 / scale;
+            float height = 720 / scale;
+            Rect nextDay = MilestonePrototypeController.NextDayButtonRect(width, height);
+            Rect report = MilestonePrototypeController.DesktopReportRect(width, height);
+            Rect status = MilestonePrototypeController.DesktopStatusRect(width, height);
+
+            Assert.That(report.Overlaps(nextDay), Is.False);
+            Assert.That(status.Overlaps(nextDay), Is.False);
+            Assert.That(report.yMax, Is.LessThanOrEqualTo(status.y));
+        }
+
+        [Test]
         public void CampaignPlayerPrefsRoundTripsAndRejectsCorruptJson()
         {
             string key = $"projectw.test.{Guid.NewGuid():N}";
