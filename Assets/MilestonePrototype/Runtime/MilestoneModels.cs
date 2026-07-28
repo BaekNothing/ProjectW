@@ -34,6 +34,7 @@ namespace ProjectW.MilestonePrototype
         public int SplitCount;
         public int LastWorker = -1;
         public int Difficulty;
+        public float LastOutput;
         public List<TaskRecord> Records = new List<TaskRecord>();
 
         public float EffectiveRequiredWork => RequiredWork + ContextCostDays;
@@ -57,6 +58,7 @@ namespace ProjectW.MilestonePrototype
         public int Trust;
         public int Pride;
         public int Authority;
+        public float DailyOutput = 1f;
         public bool RestScheduled;
         public List<string> History = new List<string>();
 
@@ -89,6 +91,12 @@ namespace ProjectW.MilestonePrototype
         public string[] PredecessorIds;
         public WorkState State;
         public bool SoftDeadlineMissed;
+        public int RewardCredits;
+        public int SoftPenaltyCredits;
+        public int HardPenaltyCredits;
+        public bool RewardClaimed;
+        public bool SoftPenaltyApplied;
+        public bool HardPenaltyApplied;
     }
 
     [Serializable]
@@ -110,6 +118,20 @@ namespace ProjectW.MilestonePrototype
         public int MismatchAccidentChance = 6;
         public int SideMissionLimit = 3;
         public int BaseSideMissionChance = 8;
+        public int RandomWorkLimit = 3;
+        public int RandomWorkMinSoftDays = 3;
+        public int RandomWorkMaxSoftDays = 6;
+        public int RandomWorkHardDeadlineDays = 3;
+        public int RandomWorkMinReward = 2;
+        public int RandomWorkMaxReward = 5;
+        public int RandomWorkSoftPenalty = 1;
+        public int RandomWorkHardPenalty = 4;
+        public int RandomWorkDependencyChance = 15;
+        public float PrerequisiteProgressLimit = .3f;
+        public int LowOutputChance = 20;
+        public int HighOutputChance = 20;
+        public float LowOutputMultiplier = .7f;
+        public float HighOutputMultiplier = 1.3f;
     }
 
     public sealed class TaskCostPreview

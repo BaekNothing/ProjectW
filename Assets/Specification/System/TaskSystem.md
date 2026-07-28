@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Version: 0.2
+- Version: 0.3
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
@@ -42,7 +42,8 @@ A Task is the smallest unit to which the player assigns a worker.
 
 - A Task belongs to exactly one Work.
 - A Task has a duration measured in half-day increments.
-- A Task may depend on other Tasks.
+- A Task may depend on another Task. Before that predecessor completes, the successor can be
+  assigned but cannot progress beyond 30% of its effective workload.
 - An unassigned Task does not progress.
 - Optional Tasks do not block Work completion.
 
@@ -70,7 +71,10 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 
 - One turn advances the calendar by one day.
 - A worker can hold at most one primary Task for that day.
-- A primary assignment contributes one day of Task progress before outcome modifiers.
+- Each worker owns a daily output value. A primary assignment contributes that output toward the
+  Task workload before outcome modifiers.
+- Daily output lands in a low band 20% of the time, the expected band 60% of the time, and a high
+  band 20% of the time. Version 0.3 multipliers are data-driven and default to 0.7 / 1.0 / 1.3.
 - A worker may additionally hold at most one parallel Task when that Task has no more than one day of effective work remaining.
 - Parallel work costs additional fatigue defined by gameplay balance data.
 - Parallel assignment does not interrupt the worker's primary Task.
@@ -103,12 +107,25 @@ The UI must show base progress, accumulated context cost, current owner, and exp
 
 ## Deadlines
 
-- Soft deadline: work may continue, but the Work becomes overdue and its configured soft-deadline consequence is applied.
-- Hard deadline: if required Tasks are not complete when the deadline passes, the Work and its unfinished Tasks fail.
+- Soft deadline: work may continue, but the Work becomes overdue and its configured credit penalty
+  is applied once.
+- Hard deadline: if required Tasks are not complete when the deadline passes, the Work and its
+  unfinished Tasks fail and the larger configured credit penalty is applied once.
+- Completing all required Tasks pays the Work's configured credit reward once.
 - Deadline ownership belongs to Work by default.
 - A Task-specific deadline is allowed only when explicitly supplied by external data.
 
-Version 0.1 uses increased fatigue after a soft deadline. Further consequences may be added through data without redefining Task ownership.
+Overdue work also retains the increased-fatigue consequence. Further consequences may be added
+through data without redefining Task ownership.
+
+## Random Work Generation
+
+- The daily cycle may generate optional Works up to the configured active limit.
+- Every generated Work receives a soft deadline, later hard deadline, credit reward, soft penalty,
+  and larger hard penalty.
+- Generated Tasks receive a workload and required role.
+- A data-driven rare roll may connect a generated Task to an existing predecessor Task; the normal
+  30% progress cap applies until that predecessor completes.
 
 ## Task Outcomes and People
 

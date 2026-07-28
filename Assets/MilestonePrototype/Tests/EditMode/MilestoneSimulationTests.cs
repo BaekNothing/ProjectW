@@ -25,8 +25,116 @@ namespace ProjectW.MilestonePrototype.Tests
             var game = new MilestoneSimulation(1);
             Assert.That(game.Assign("survey", 1), Is.True);
             game.AdvanceDay();
-            Assert.That(game.Tasks[0].Progress, Is.EqualTo(1f));
+            Assert.That(game.Tasks[0].Progress, Is.InRange(.7f, 1.3f));
             Assert.That(game.Crew[1].Fatigue, Is.EqualTo(9));
+        }
+
+        [Test]
+        public void IncompletePrerequisiteCapsSuccessorAtThirtyPercent()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.LowOutputChance = 0;
+            data.Balance.HighOutputChance = 0;
+            data.Balance.HighFatigueAccidentChance = 0;
+            data.Balance.MediumFatigueAccidentChance = 0;
+            data.Balance.MismatchAccidentChance = 0;
+            var game = new MilestoneSimulation(data, 1);
+            WorkTask habitat = game.Tasks.Find(task => task.Id == "habitat");
+
+            Assert.That(game.Assign(habitat.Id, 0), Is.True);
+            game.AdvanceDay();
+            game.AdvanceDay();
+
+            Assert.That(habitat.Progress, Is.EqualTo(habitat.EffectiveRequiredWork * .3f).Within(.001f));
+            Assert.That(habitat.State, Is.EqualTo(TaskState.Active));
+        }
+
+        [Test]
+        public void WorkerDailyOutputUsesTwentyPercentLowBand()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.LowOutputChance = 100;
+            data.Balance.HighOutputChance = 0;
+            data.Balance.HighFatigueAccidentChance = 0;
+            data.Balance.MediumFatigueAccidentChance = 0;
+            data.Balance.MismatchAccidentChance = 0;
+            data.Crew[1].DailyOutput = 2f;
+            var game = new MilestoneSimulation(data, 1);
+
+            game.Assign("survey", 1);
+            game.AdvanceDay();
+
+            Assert.That(game.Tasks.Find(task => task.Id == "survey").LastOutput, Is.EqualTo(1.4f).Within(.001f));
+        }
+
+        [Test]
+        public void WorkCompletionPaysConfiguredCreditRewardOnce()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.LowOutputChance = 0;
+            data.Balance.HighOutputChance = 0;
+            data.Balance.HighFatigueAccidentChance = 0;
+            data.Balance.MediumFatigueAccidentChance = 0;
+            data.Balance.MismatchAccidentChance = 0;
+            WorkGroup foundation = Array.Find(data.Works, work => work.Id == "foundation");
+            foundation.RewardCredits = 6;
+            foreach (WorkTask task in data.Tasks)
+                if (task.GroupId == foundation.Id && task.Required)
+                {
+                    task.RequiredWork = .1f;
+                    task.PrerequisiteId = null;
+                }
+            var game = new MilestoneSimulation(data, 1);
+            int before = game.Resources;
+
+            foreach (WorkTask task in game.Tasks.FindAll(item => item.GroupId == foundation.Id && item.Required))
+            {
+                game.Assign(task.Id, 0);
+                game.AdvanceDay();
+            }
+
+            Assert.That(foundation.State, Is.EqualTo(WorkState.Complete));
+            Assert.That(game.Resources, Is.EqualTo(before + 6));
+            Assert.That(foundation.RewardClaimed, Is.True);
+        }
+
+        [Test]
+        public void SoftAndHardDeadlinePenaltiesReduceCreditsOnce()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.BaseSideMissionChance = 0;
+            WorkGroup foundation = Array.Find(data.Works, work => work.Id == "foundation");
+            foundation.SoftDeadline = 1;
+            foundation.HardDeadline = 2;
+            foundation.SoftPenaltyCredits = 2;
+            foundation.HardPenaltyCredits = 7;
+            var game = new MilestoneSimulation(data, 1);
+
+            game.AdvanceDay();
+            Assert.That(game.Resources, Is.EqualTo(data.StartingResources - 2));
+            game.AdvanceDay();
+
+            Assert.That(game.Resources, Is.EqualTo(data.StartingResources - 9));
+            Assert.That(foundation.SoftPenaltyApplied, Is.True);
+            Assert.That(foundation.HardPenaltyApplied, Is.True);
+        }
+
+        [Test]
+        public void DailyCycleCanGenerateRandomWorkWithDeadlinesAndCredits()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.BaseSideMissionChance = 100;
+            data.Balance.RandomWorkDependencyChance = 0;
+            var game = new MilestoneSimulation(data, 1);
+
+            game.AdvanceDay();
+
+            WorkGroup generated = game.Groups.Find(work => work.Id.StartsWith("random-work-"));
+            Assert.That(generated, Is.Not.Null);
+            Assert.That(generated.SoftDeadline, Is.LessThan(generated.HardDeadline));
+            Assert.That(generated.RewardCredits, Is.GreaterThan(0));
+            Assert.That(generated.HardPenaltyCredits, Is.GreaterThan(generated.SoftPenaltyCredits));
+            Assert.That(game.Tasks.Exists(task => task.GroupId == generated.Id), Is.True);
         }
 
         [Test]
@@ -372,9 +480,8 @@ namespace ProjectW.MilestonePrototype.Tests
         private static void CompleteSurvey(MilestoneSimulation game)
         {
             Assert.That(game.Assign("survey", 1), Is.True);
-            game.AdvanceDay();
-            game.AdvanceDay();
-            game.AdvanceDay();
+            for (int i = 0; i < 8 && game.Tasks.Find(task => task.Id == "survey").State != TaskState.Complete; i++)
+                game.AdvanceDay();
             Assert.That(game.Tasks.Find(task => task.Id == "survey").State, Is.EqualTo(TaskState.Complete));
         }
     }

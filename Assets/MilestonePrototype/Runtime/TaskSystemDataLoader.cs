@@ -56,7 +56,14 @@ namespace ProjectW.MilestonePrototype
                 throw new InvalidOperationException("Task-system campaign values are invalid.");
             if (data.Balance.PrimaryProgressDays <= 0f ||
                 data.Balance.InterruptionCostDays < 0f ||
-                data.Balance.ResumptionCostDays < 0f)
+                data.Balance.ResumptionCostDays < 0f ||
+                data.Balance.PrerequisiteProgressLimit < 0f ||
+                data.Balance.PrerequisiteProgressLimit > 1f ||
+                data.Balance.LowOutputChance < 0 ||
+                data.Balance.HighOutputChance < 0 ||
+                data.Balance.LowOutputChance + data.Balance.HighOutputChance > 100 ||
+                data.Balance.LowOutputMultiplier <= 0f ||
+                data.Balance.HighOutputMultiplier <= 0f)
                 throw new InvalidOperationException("Task-system balance values are invalid.");
         }
     }

@@ -11,7 +11,7 @@ namespace ProjectW.MilestonePrototype
         private readonly string[] crewPortraits;
         private readonly string[] crewMemos;
         private readonly string[][] crewPerks;
-        private int nextSideMissionId;
+        private int nextRandomWorkId;
 
         public int Day { get; private set; } = 1;
         public int CampaignEndDay { get; }
@@ -202,7 +202,7 @@ namespace ProjectW.MilestonePrototype
                          .OrderBy(candidate => candidate.IsParallelAssignment).ToList())
                 ProcessTask(task, report);
 
-            TriggerSideMission(report);
+            TriggerRandomWork(report);
             Day++;
             RefreshStates();
             ApplyDeadlineResults(report);
@@ -301,12 +301,31 @@ namespace ProjectW.MilestonePrototype
             }
 
             bool matched = member.Specialty == task.RequiredRole;
-            float progress = task.IsParallelAssignment ? balance.ParallelProgressDays : balance.PrimaryProgressDays;
+            float baseOutput = member.DailyOutput > 0f ? member.DailyOutput : 1f;
+            baseOutput *= task.IsParallelAssignment
+                ? balance.ParallelProgressDays
+                : balance.PrimaryProgressDays;
+            int outputRoll = random.Next(100);
+            float outputMultiplier = outputRoll < balance.LowOutputChance
+                ? balance.LowOutputMultiplier
+                : outputRoll >= 100 - balance.HighOutputChance
+                    ? balance.HighOutputMultiplier
+                    : 1f;
+            float progress = baseOutput * outputMultiplier;
+            WorkTask prerequisite = string.IsNullOrEmpty(task.PrerequisiteId)
+                ? null
+                : Tasks.FirstOrDefault(candidate => candidate.Id == task.PrerequisiteId);
+            if (prerequisite != null && prerequisite.State != TaskState.Complete)
+            {
+                float progressLimit = task.EffectiveRequiredWork * balance.PrerequisiteProgressLimit;
+                progress = Math.Max(0f, Math.Min(progress, progressLimit - task.Progress));
+            }
             int fatigue = matched ? balance.MatchingFatigue : balance.MismatchedFatigue;
             if (task.IsParallelAssignment) fatigue += balance.ParallelFatigue;
             if (ParentWork(task)?.SoftDeadlineMissed == true) fatigue += balance.SoftDeadlineFatigue;
 
             task.Progress = Math.Min(task.EffectiveRequiredWork, task.Progress + progress);
+            task.LastOutput = progress;
             member.Fatigue = Math.Min(100, member.Fatigue + fatigue);
             member.Experience++;
             task.LastWorker = task.AssignedCharacter;
@@ -337,10 +356,12 @@ namespace ProjectW.MilestonePrototype
             task.State = TaskState.Complete;
             task.AssignedCharacter = -1;
             task.IsParallelAssignment = false;
-            Resources += task.Kind == TaskKind.SideMission ? 2 : 1;
             report.Lines.Add($"완료: {task.Name}");
             AddRecord(task, member.Name, RecordKind.Output, "작업 완료");
             RefreshStates();
+            WorkGroup group = ParentWork(task);
+            if (group != null)
+                TryGrantWorkReward(group, report);
         }
 
         private void Detach(WorkTask task, bool interrupted)
@@ -369,10 +390,20 @@ namespace ProjectW.MilestonePrototype
                 if (Day > group.SoftDeadline && !group.SoftDeadlineMissed)
                 {
                     group.SoftDeadlineMissed = true;
+                    if (!group.SoftPenaltyApplied)
+                    {
+                        group.SoftPenaltyApplied = true;
+                        Resources = Math.Max(0, Resources - group.SoftPenaltyCredits);
+                    }
                     report.Lines.Add($"소프트 마감 초과: {group.Name}");
                 }
                 if (Day <= group.HardDeadline) continue;
                 group.State = WorkState.Failed;
+                if (!group.HardPenaltyApplied)
+                {
+                    group.HardPenaltyApplied = true;
+                    Resources = Math.Max(0, Resources - group.HardPenaltyCredits);
+                }
                 foreach (WorkTask task in Tasks.Where(candidate =>
                              candidate.GroupId == group.Id && candidate.State != TaskState.Complete))
                 {
@@ -417,10 +448,7 @@ namespace ProjectW.MilestonePrototype
                 bool workAvailable = group != null &&
                                      group.State != WorkState.Locked &&
                                      group.State != WorkState.Failed;
-                bool prerequisiteComplete = string.IsNullOrEmpty(task.PrerequisiteId) ||
-                    Tasks.Any(candidate => candidate.Id == task.PrerequisiteId &&
-                                           candidate.State == TaskState.Complete);
-                if (!workAvailable || !prerequisiteComplete)
+                if (!workAvailable)
                 {
                     task.State = TaskState.Locked;
                     continue;
@@ -429,34 +457,64 @@ namespace ProjectW.MilestonePrototype
             }
         }
 
-        private void TriggerSideMission(DayReport report)
+        private void TriggerRandomWork(DayReport report)
         {
             int overdue = Groups.Count(group => group.SoftDeadlineMissed &&
                                                 group.State != WorkState.Complete);
             int exhausted = Crew.Count(member => member.Fatigue >= 55);
             int chance = balance.BaseSideMissionChance + overdue * 16 + exhausted * 8;
-            if (Tasks.Count(task => task.Kind == TaskKind.SideMission &&
-                                    task.State != TaskState.Complete) >= balance.SideMissionLimit ||
+            if (Groups.Count(group => group.Id != null && group.Id.StartsWith("random-work-") &&
+                                      group.State != WorkState.Complete && group.State != WorkState.Failed) >=
+                    balance.RandomWorkLimit ||
                 random.Next(100) >= chance) return;
 
-            WorkGroup incident = Groups.FirstOrDefault(group => group.Id == "incident");
-            if (incident == null || incident.State == WorkState.Locked || incident.State == WorkState.Failed) return;
+            int id = ++nextRandomWorkId;
+            int softDays = random.Next(balance.RandomWorkMinSoftDays, balance.RandomWorkMaxSoftDays + 1);
+            int reward = random.Next(balance.RandomWorkMinReward, balance.RandomWorkMaxReward + 1);
+            var work = new WorkGroup
+            {
+                Id = $"random-work-{id}",
+                Name = $"긴급 업무 {id}",
+                SoftDeadline = Day + softDays,
+                HardDeadline = Day + softDays + balance.RandomWorkHardDeadlineDays,
+                Required = false,
+                PredecessorIds = Array.Empty<string>(),
+                State = WorkState.Available,
+                RewardCredits = reward,
+                SoftPenaltyCredits = balance.RandomWorkSoftPenalty,
+                HardPenaltyCredits = balance.RandomWorkHardPenalty
+            };
+            WorkTask predecessor = random.Next(100) < balance.RandomWorkDependencyChance
+                ? Tasks.Where(candidate => candidate.State != TaskState.Failed)
+                    .OrderBy(candidate => candidate.Id).FirstOrDefault()
+                : null;
             var mission = new WorkTask
             {
-                Id = $"side-{++nextSideMissionId}",
+                Id = $"random-task-{id}",
                 Name = exhausted > 0 ? "과로 인력 건강 점검" :
                     overdue > 0 ? "지연 일정 해명 보고" : "예고 없는 장비 점검",
                 Kind = TaskKind.SideMission,
                 RequiredRole = overdue > 0 || exhausted > 0 ? WorkRole.Management : WorkRole.Tech,
-                RequiredWork = exhausted > 0 ? 1f : 1.5f,
-                Deadline = incident.HardDeadline,
+                RequiredWork = random.Next(2, 6),
+                Required = true,
+                PrerequisiteId = predecessor?.Id,
+                Deadline = work.HardDeadline,
                 State = TaskState.Available,
-                GroupId = incident.Id,
+                GroupId = work.Id,
                 Risk = RiskLevel.High,
                 Importance = ImportanceLevel.Medium
             };
+            Groups.Add(work);
             Tasks.Add(mission);
             report.Lines.Add($"사이드 업무 발생: {mission.Name}");
+        }
+
+        private void TryGrantWorkReward(WorkGroup group, DayReport report)
+        {
+            if (group.State != WorkState.Complete || group.RewardClaimed) return;
+            group.RewardClaimed = true;
+            Resources += group.RewardCredits;
+            report.Lines.Add($"보상: {group.Name} credit +{group.RewardCredits}");
         }
 
         private void NormalizeLoadedData()
@@ -484,10 +542,11 @@ namespace ProjectW.MilestonePrototype
                         : Array.Empty<string>();
                 member.RestScheduled = false;
             }
-            int highestSideId = Tasks.Where(task => task.Id != null && task.Id.StartsWith("side-"))
-                .Select(task => int.TryParse(task.Id.Substring(5), out int value) ? value : 0)
+            int highestRandomWorkId = Groups.Where(group => group.Id != null &&
+                                                            group.Id.StartsWith("random-work-"))
+                .Select(group => int.TryParse(group.Id.Substring(12), out int value) ? value : 0)
                 .DefaultIfEmpty(0).Max();
-            nextSideMissionId = highestSideId;
+            nextRandomWorkId = highestRandomWorkId;
         }
 
         private WorkGroup ParentWork(WorkTask task) =>
