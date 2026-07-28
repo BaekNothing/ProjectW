@@ -252,9 +252,12 @@ Costs must be shown before the player confirms a reassignment. The UI must not r
 
 Every scrollable window region keeps its visible scrollbar and also supports direct-content dragging.
 
-- The complete operations UI uses a `1.8x` accessibility magnification over the responsive screen
-  scale. Font size, padding, controls, panels, windows, taskbar, and touch targets share the same
+- The Options application lets the player select `1.0x`, `1.4x`, `1.8x`, or `2.2x` accessibility
+  magnification over the responsive screen scale. `1.8x` is the default.
+- Font size, padding, controls, panels, windows, taskbar, and touch targets share the selected
   magnification so text does not outgrow its layout.
+- The selected magnification is saved in desktop settings and restored on the next launch. Older
+  desktop saves without a value use the `1.8x` default.
 - When magnification reduces the logical desktop below the compact breakpoint, application windows
   use the existing near-full-screen compact layout and retain scrollable content.
 

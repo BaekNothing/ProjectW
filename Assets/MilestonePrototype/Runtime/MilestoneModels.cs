@@ -214,6 +214,7 @@ namespace ProjectW.MilestonePrototype
     public sealed class DesktopSnapshot
     {
         public int SchemaVersion = 1;
+        public float UiMagnification;
         public WindowSnapshot[] Windows;
     }
 

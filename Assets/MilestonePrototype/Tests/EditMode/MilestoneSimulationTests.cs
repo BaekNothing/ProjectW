@@ -507,9 +507,47 @@ namespace ProjectW.MilestonePrototype.Tests
         [Test]
         public void UiScaleMagnifiesFontsPanelsAndSpacingByOnePointEight()
         {
-            Assert.That(MilestonePrototypeController.UiMagnification, Is.EqualTo(1.8f));
+            Assert.That(MilestonePrototypeController.DefaultUiMagnification, Is.EqualTo(1.8f));
             Assert.That(MilestonePrototypeController.CalculateUiScale(1280), Is.EqualTo(1.8f).Within(.001f));
             Assert.That(MilestonePrototypeController.CalculateUiScale(1920), Is.EqualTo(2.7f).Within(.001f));
+        }
+
+        [Test]
+        public void UiScaleSupportsOptionsAndDefaultsOldSavesToOnePointEight()
+        {
+            Assert.That(MilestonePrototypeController.CalculateUiScale(1280, 1f),
+                Is.EqualTo(1f).Within(.001f));
+            Assert.That(MilestonePrototypeController.CalculateUiScale(1280, 1.4f),
+                Is.EqualTo(1.4f).Within(.001f));
+            Assert.That(MilestonePrototypeController.CalculateUiScale(1280, 2.2f),
+                Is.EqualTo(2.2f).Within(.001f));
+            Assert.That(MilestonePrototypeController.NormalizeUiMagnification(0f),
+                Is.EqualTo(1.8f));
+        }
+
+        [Test]
+        public void DesktopSettingsRoundTripSelectedUiMagnification()
+        {
+            string key = $"projectw.desktop.test.{Guid.NewGuid():N}";
+            var storage = new MemoryStringStorage();
+            ProjectWSaveStore.Configure(storage);
+            try
+            {
+                var snapshot = new DesktopSnapshot
+                {
+                    SchemaVersion = ProjectWSaveStore.DesktopSchema,
+                    UiMagnification = 1.4f,
+                    Windows = Array.Empty<WindowSnapshot>()
+                };
+
+                Assert.That(ProjectWSaveStore.SaveDesktop(key, snapshot), Is.True);
+                Assert.That(ProjectWSaveStore.TryLoadDesktop(key, out DesktopSnapshot loaded), Is.True);
+                Assert.That(loaded.UiMagnification, Is.EqualTo(1.4f));
+            }
+            finally
+            {
+                ProjectWSaveStore.Delete(key);
+            }
         }
 
         [Test]
@@ -525,6 +563,17 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(report.Overlaps(nextDay), Is.False);
             Assert.That(status.Overlaps(nextDay), Is.False);
             Assert.That(report.yMax, Is.LessThanOrEqualTo(status.y));
+        }
+
+        [Test]
+        public void OptionsIconRemainsInTwoRowGridAtMaximumScale()
+        {
+            float width = 1280 / MilestonePrototypeController.CalculateUiScale(1280, 2.2f);
+            Rect options = MilestonePrototypeController.DesktopIconRect(8, width);
+            Rect report = MilestonePrototypeController.DesktopReportRect(width, 720 / 2.2f);
+
+            Assert.That(options.xMax, Is.LessThanOrEqualTo(width));
+            Assert.That(options.yMax, Is.LessThan(report.y));
         }
 
         [Test]

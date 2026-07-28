@@ -32,7 +32,8 @@ namespace ProjectW.MilestonePrototype
             { "workers", "CREW / 대원" }, { "report", "REPORT" }, { "codex", "CODEX / 도감" },
             { "help", "HELP" }, { "profile", "MY INFO" }, { "log", "SYSTEM LOG" },
             { "worker-detail", "CREW PROFILE / 대원 상세" },
-            { "task-detail", "TASK DETAIL / 작업 상세" }
+            { "task-detail", "TASK DETAIL / 작업 상세" },
+            { "options", "OPTIONS / 옵션" }
         };
 
         private MilestoneSimulation game;
@@ -49,7 +50,8 @@ namespace ProjectW.MilestonePrototype
         private static readonly Color InkColor = new Color(.267f, .267f, .267f, 1f);
         private static readonly Color PaleColor = new Color(.88f, .88f, .88f, 1f);
         private const float TouchDragThreshold = 8f;
-        public const float UiMagnification = 1.8f;
+        public const float DefaultUiMagnification = 1.8f;
+        private float uiMagnification = DefaultUiMagnification;
         private float logicalWidth;
         private float logicalHeight;
 
@@ -72,7 +74,7 @@ namespace ProjectW.MilestonePrototype
         private void OnGUI()
         {
             EnsureStyles();
-            float scale = CalculateUiScale(Screen.width);
+            float scale = CalculateUiScale(Screen.width, uiMagnification);
             GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1));
             logicalWidth = Screen.width / scale;
             logicalHeight = Screen.height / scale;
@@ -89,12 +91,10 @@ namespace ProjectW.MilestonePrototype
             GUI.Label(new Rect(22, 15, Mathf.Max(220f, logicalWidth - 300f), 34),
                 "PROJECT W  /  OPERATIONS DESK", title);
             GUI.Label(new Rect(logicalWidth - 250, 18, 225, 25), $"DAY {game.Day:00}/{game.CampaignEndDay}   PATCH {patchVersion}", small);
-            string[] ids = { "mail", "gantt", "milestone", "workers", "report", "codex", "help", "profile" };
+            string[] ids = { "mail", "gantt", "milestone", "workers", "report", "codex", "help", "profile", "options" };
             for (int i = 0; i < ids.Length; i++)
             {
-                int column = i % 4;
-                int row = i / 4;
-                var rect = new Rect(25 + column * 116, 70 + row * 94, 104, 78);
+                Rect rect = DesktopIconRect(i, logicalWidth);
                 if (GUI.Button(rect, IconLabel(ids[i]), desktopIcon)) Open(ids[i]);
             }
             OperationsReport report = game.BuildReport();
@@ -150,6 +150,7 @@ namespace ProjectW.MilestonePrototype
                 case "codex": DrawCodex(window); break;
                 case "help": DrawHelp(); break;
                 case "profile": DrawProfile(); break;
+                case "options": DrawOptions(); break;
                 case "log": DrawLog(window); break;
             }
             GUI.DragWindow(WindowDragHitRect(window.Rect.width));
@@ -707,12 +708,40 @@ namespace ProjectW.MilestonePrototype
             {
                 ProjectWSaveStore.Delete(DesktopSaveKey);
                 windows.Clear();
+                SaveDesktop();
             }
             if (GUILayout.Button("새 캠페인 시작", GUILayout.Height(38)))
             {
                 ProjectWSaveStore.Delete(CampaignSaveKey);
                 game = new MilestoneSimulation();
                 SaveCampaign();
+            }
+        }
+
+        private void DrawOptions()
+        {
+            GUILayout.Label("화면 설정", title);
+            GUILayout.Space(8);
+            GUILayout.Label("화면 배율", section);
+            GUILayout.Label(
+                "글자, 버튼, 여백, 패널과 터치 영역이 함께 조정됩니다. 선택 즉시 적용되며 재실행 후에도 유지됩니다.",
+                small);
+            GUILayout.Space(8);
+            DrawScaleOption(1f, "1.0×  기본");
+            DrawScaleOption(1.4f, "1.4×  크게");
+            DrawScaleOption(1.8f, "1.8×  매우 크게");
+            DrawScaleOption(2.2f, "2.2×  최대");
+            GUILayout.Space(8);
+            GUILayout.Label($"현재 화면 배율: {uiMagnification:0.0}×", success);
+        }
+
+        private void DrawScaleOption(float value, string label)
+        {
+            bool selected = Mathf.Abs(uiMagnification - value) < .01f;
+            if (GUILayout.Button($"{(selected ? "●" : "○")}  {label}", GUILayout.Height(48f)))
+            {
+                uiMagnification = value;
+                SaveDesktop();
             }
         }
 
@@ -759,7 +788,16 @@ namespace ProjectW.MilestonePrototype
             new Rect(Mathf.Max(10f, width - 180f), Mathf.Max(10f, height - 98f), 170f, 48f);
 
         public static float CalculateUiScale(float screenWidth) =>
-            Mathf.Clamp(screenWidth / 1280f, 0.72f, 1.5f) * UiMagnification;
+            CalculateUiScale(screenWidth, DefaultUiMagnification);
+
+        public static float CalculateUiScale(float screenWidth, float magnification) =>
+            Mathf.Clamp(screenWidth / 1280f, 0.72f, 1.5f) *
+            NormalizeUiMagnification(magnification);
+
+        public static float NormalizeUiMagnification(float magnification) =>
+            magnification <= 0f
+                ? DefaultUiMagnification
+                : Mathf.Clamp(magnification, 1f, 2.2f);
 
         public static Rect DesktopReportRect(float width, float height)
         {
@@ -774,6 +812,16 @@ namespace ProjectW.MilestonePrototype
             bool compactHeight = height < 520f;
             return new Rect(25f, compactHeight ? 324f : height - 105f,
                 Mathf.Max(180f, width - (compactHeight ? 220f : 60f)), 40f);
+        }
+
+        public static Rect DesktopIconRect(int index, float width)
+        {
+            const int columns = 5;
+            float cellWidth = Mathf.Max(72f, (width - 40f) / columns);
+            float iconWidth = Mathf.Min(104f, cellWidth - 8f);
+            int column = index % columns;
+            int row = index / columns;
+            return new Rect(20f + column * cellWidth, 70f + row * 94f, iconWidth, 78f);
         }
 
         private void Open(string id)
@@ -984,6 +1032,7 @@ namespace ProjectW.MilestonePrototype
             var snapshot = new DesktopSnapshot
             {
                 SchemaVersion = ProjectWSaveStore.DesktopSchema,
+                UiMagnification = uiMagnification,
                 Windows = windows.Select((w, i) => new WindowSnapshot
                 {
                     Id = w.Id, X = w.Rect.x, Y = w.Rect.y, Open = true, Minimized = w.Minimized, Order = i
@@ -995,6 +1044,7 @@ namespace ProjectW.MilestonePrototype
         private void RestoreDesktop()
         {
             if (!ProjectWSaveStore.TryLoadDesktop(DesktopSaveKey, out DesktopSnapshot snapshot)) return;
+            uiMagnification = NormalizeUiMagnification(snapshot.UiMagnification);
             foreach (WindowSnapshot saved in snapshot.Windows.Where(w => w.Open).OrderBy(w => w.Order))
             {
                 if (!appTitles.ContainsKey(saved.Id)) continue;
@@ -1123,6 +1173,7 @@ namespace ProjectW.MilestonePrototype
                 case "report": return "REPORT\n보고서";
                 case "codex": return "CODEX\n도감";
                 case "help": return "HELP\n도움말";
+                case "options": return "OPTIONS\n옵션";
                 default: return "INFO\n내정보";
             }
         }
