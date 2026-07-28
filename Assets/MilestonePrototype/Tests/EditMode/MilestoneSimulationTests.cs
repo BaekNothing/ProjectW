@@ -494,6 +494,17 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void NextDayButtonStaysAtBottomRightAboveTaskbar()
+        {
+            Rect result = MilestonePrototypeController.NextDayButtonRect(1280, 720);
+
+            Assert.That(result.xMax, Is.EqualTo(1270));
+            Assert.That(result.yMax, Is.EqualTo(670));
+            Assert.That(result.width, Is.EqualTo(170));
+            Assert.That(result.height, Is.EqualTo(48));
+        }
+
+        [Test]
         public void CampaignPlayerPrefsRoundTripsAndRejectsCorruptJson()
         {
             string key = $"projectw.test.{Guid.NewGuid():N}";

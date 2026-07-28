@@ -101,10 +101,7 @@ namespace ProjectW.MilestonePrototype
                 $"가용 대원 {game.Crew.Count(c => c.Available)}/{game.Crew.Count}  |  자원 {game.Resources}", section);
             GUI.enabled = !game.IsWon && !game.IsLost;
             if (GUI.Button(new Rect(25, 365, 210, 48), "하루 진행"))
-            {
-                game.AdvanceDay();
-                SaveCampaign();
-            }
+                AdvanceToNextDay();
             GUI.enabled = true;
             GUI.Label(new Rect(25, logicalHeight - 105, 650, 40), FormatStatus(game.LastReport, game.IsWon, game.IsLost),
                 game.IsLost ? warning : success);
@@ -724,6 +721,10 @@ namespace ProjectW.MilestonePrototype
         {
             Rect bar = new Rect(0, logicalHeight - 44, logicalWidth, 44);
             DrawSolid(bar, GrayColor);
+            GUI.enabled = !game.IsWon && !game.IsLost;
+            if (GUI.Button(NextDayButtonRect(logicalWidth, logicalHeight), "다음날로 →"))
+                AdvanceToNextDay();
+            GUI.enabled = true;
             float x = 8;
             foreach (DeskWindow window in windows.ToArray())
             {
@@ -741,6 +742,15 @@ namespace ProjectW.MilestonePrototype
             if (GUI.Button(new Rect(logicalWidth - 210, logicalHeight - 38, 95, 31), "LOG")) Open("log");
             GUI.Label(new Rect(logicalWidth - 108, logicalHeight - 34, 100, 25), $"DAY {game.Day:00}", small);
         }
+
+        private void AdvanceToNextDay()
+        {
+            game.AdvanceDay();
+            SaveCampaign();
+        }
+
+        public static Rect NextDayButtonRect(float width, float height) =>
+            new Rect(Mathf.Max(10f, width - 180f), Mathf.Max(10f, height - 98f), 170f, 48f);
 
         private void Open(string id)
         {

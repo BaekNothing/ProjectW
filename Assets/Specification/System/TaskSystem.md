@@ -70,6 +70,8 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 ## Day and Assignment Rules
 
 - One turn advances the calendar by one day.
+- The operations desktop exposes an always-visible `다음날로` button at the bottom-right above the
+  taskbar. It is disabled after campaign victory or loss.
 - A worker can hold at most one primary Task for that day.
 - Each worker owns a daily output value. A primary assignment contributes that output toward the
   Task workload before outcome modifiers.
