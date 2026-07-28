@@ -60,8 +60,9 @@ Work states:
 Task states:
 
 1. `Locked`: its Work or Task prerequisite is locked.
-2. `Available`: it may receive an assignment.
-3. `Active`: it has a primary or parallel assignment.
+2. `Available`: it may receive an assignment. A newly assigned Task remains in this state until a
+   daily cycle actually produces work.
+3. `Active`: it has produced work on or after its recorded start day and still has an assignee.
 4. `Complete`: its base duration and accumulated context cost are paid.
 5. `Failed`: its parent Work failed.
 
@@ -81,6 +82,12 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 - Parallel work costs additional fatigue defined by gameplay balance data.
 - Parallel assignment does not interrupt the worker's primary Task.
 - Rest, injury, or reassignment removes assignments according to the interruption rules.
+- An assigned, progressable Task records its start day when the next daily cycle first produces
+  work.
+- While the assignee remains unchanged, every following daily cycle continues to add that worker's
+  output.
+- When accumulated output reaches effective required work, the Task records that cycle's day as
+  its completion day, enters `Complete`, and releases its assignee.
 
 ## Task Scheduling
 
@@ -215,7 +222,10 @@ The Task application must present schedule information as a time-based Gantt vie
 
 - The horizontal axis represents campaign days.
 - Today, each Work soft deadline, and each Work hard deadline are visually distinct.
-- Each Task row shows its projected segment from the current day through its effective remaining duration.
+- Each Task row anchors completed history to its recorded start and completion days. Completed bars
+  never move forward with the current day.
+- Unstarted Tasks show their reservation or projected start; active Tasks project only their
+  remaining duration from today.
 - Completed progress and projected remaining work use distinguishable portions of the same bar.
 - Locked Tasks remain visible and state why they cannot be entered.
 - The Task application is Gantt-only; it does not combine a Task detail panel with the timeline.

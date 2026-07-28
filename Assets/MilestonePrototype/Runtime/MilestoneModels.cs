@@ -37,6 +37,8 @@ namespace ProjectW.MilestonePrototype
         public float LastOutput;
         public int ScheduledDay;
         public int ScheduledWorker = -1;
+        public int StartedDay;
+        public int CompletedDay;
         public List<TaskRecord> Records = new List<TaskRecord>();
 
         public float EffectiveRequiredWork => RequiredWork + ContextCostDays;

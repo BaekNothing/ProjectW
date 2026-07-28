@@ -30,6 +30,77 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void AssignmentWaitsUntilDailyCycleBeforeTaskStarts()
+        {
+            var game = new MilestoneSimulation(1);
+            WorkTask survey = game.Tasks.Find(task => task.Id == "survey");
+
+            Assert.That(game.Assign(survey.Id, 1), Is.True);
+            Assert.That(survey.StartedDay, Is.Zero);
+            Assert.That(survey.State, Is.EqualTo(TaskState.Available));
+
+            game.AdvanceDay();
+
+            Assert.That(survey.StartedDay, Is.EqualTo(1));
+            Assert.That(survey.State, Is.EqualTo(TaskState.Active));
+        }
+
+        [Test]
+        public void UnchangedAssigneeWorksUntilOutputCompletesTaskAndRecordsDates()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.LowOutputChance = 0;
+            data.Balance.HighOutputChance = 0;
+            data.Balance.HighFatigueAccidentChance = 0;
+            data.Balance.MediumFatigueAccidentChance = 0;
+            data.Balance.MismatchAccidentChance = 0;
+            var game = new MilestoneSimulation(data, 1);
+            WorkTask survey = game.Tasks.Find(task => task.Id == "survey");
+
+            game.Assign(survey.Id, 1);
+            game.AdvanceDay();
+            game.AdvanceDay();
+            Assert.That(survey.State, Is.EqualTo(TaskState.Active));
+            Assert.That(survey.Progress, Is.EqualTo(2f));
+
+            game.AdvanceDay();
+
+            Assert.That(survey.Progress, Is.EqualTo(survey.EffectiveRequiredWork));
+            Assert.That(survey.State, Is.EqualTo(TaskState.Complete));
+            Assert.That(survey.StartedDay, Is.EqualTo(1));
+            Assert.That(survey.CompletedDay, Is.EqualTo(3));
+            Assert.That(survey.AssignedCharacter, Is.EqualTo(-1));
+        }
+
+        [Test]
+        public void CompletedTaskTimelineDoesNotFollowCurrentDay()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.BaseSideMissionChance = 0;
+            data.Balance.LowOutputChance = 0;
+            data.Balance.HighOutputChance = 0;
+            data.Balance.HighFatigueAccidentChance = 0;
+            data.Balance.MediumFatigueAccidentChance = 0;
+            data.Balance.MismatchAccidentChance = 0;
+            WorkTask surveyDefinition = Array.Find(data.Tasks, task => task.Id == "survey");
+            surveyDefinition.RequiredWork = .5f;
+            var game = new MilestoneSimulation(data, 1);
+            WorkTask survey = game.Tasks.Find(task => task.Id == "survey");
+
+            game.Assign(survey.Id, 1);
+            game.AdvanceDay();
+            int started = survey.StartedDay;
+            int completed = survey.CompletedDay;
+            game.AdvanceDay();
+            game.AdvanceDay();
+
+            Assert.That(survey.StartedDay, Is.EqualTo(started));
+            Assert.That(survey.CompletedDay, Is.EqualTo(completed));
+            Assert.That(MilestonePrototypeController.TaskActualDurationDays(survey, game.Day),
+                Is.EqualTo(1));
+        }
+
+        [Test]
         public void IncompletePrerequisiteCapsSuccessorAtThirtyPercent()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();

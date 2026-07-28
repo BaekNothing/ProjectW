@@ -246,14 +246,17 @@ namespace ProjectW.MilestonePrototype
 
                 foreach (WorkTask task in tasks)
                 {
-                    int completedDays = Mathf.CeilToInt(task.Progress);
-                    int startDay = Mathf.Max(1, game.Day - completedDays);
-                    float completedWidth = completedDays * dayWidth;
+                    int actualDays = TaskActualDurationDays(task, game.Day);
+                    int startDay = task.StartedDay > 0 ? task.StartedDay : PlannedStartDay(task);
+                    float completedWidth = actualDays * dayWidth;
                     float remainingWidth = Mathf.Ceil(task.RemainingWork) * dayWidth;
                     float barX = (startDay - 1) * dayWidth + 3;
                     if (completedWidth > 0)
                         DrawSolid(new Rect(barX, y + 7, completedWidth, 14), GrayColor);
-                    float remainingX = (PlannedStartDay(task) - 1) * dayWidth + 3;
+                    int projectedStartDay = task.StartedDay > 0
+                        ? Mathf.Max(game.Day, task.StartedDay + actualDays)
+                        : PlannedStartDay(task);
+                    float remainingX = (projectedStartDay - 1) * dayWidth + 3;
                     if (remainingWidth > 0)
                         DrawSolid(new Rect(remainingX, y + 7, remainingWidth, 14),
                             task.State == TaskState.Locked ? PaleColor : InkColor);
@@ -378,25 +381,34 @@ namespace ProjectW.MilestonePrototype
 
         private float TaskBarStartX(WorkTask task, float dayWidth)
         {
-            int completedDays = Mathf.CeilToInt(task.Progress);
-            int startDay = Mathf.Max(1, game.Day - completedDays);
-            return task.Progress > 0
-                ? (startDay - 1) * dayWidth + 3f
-                : (PlannedStartDay(task) - 1) * dayWidth + 3f;
+            int startDay = task.StartedDay > 0 ? task.StartedDay : PlannedStartDay(task);
+            return (startDay - 1) * dayWidth + 3f;
         }
 
         private float TaskBarEndX(WorkTask task, float dayWidth)
         {
-            int completedDays = Mathf.CeilToInt(task.Progress);
-            int startDay = Mathf.Max(1, game.Day - completedDays);
-            float completedEnd = (startDay - 1) * dayWidth + 3f + completedDays * dayWidth;
-            float remainingEnd = (PlannedStartDay(task) - 1) * dayWidth + 3f +
+            int actualDays = TaskActualDurationDays(task, game.Day);
+            int startDay = task.StartedDay > 0 ? task.StartedDay : PlannedStartDay(task);
+            float completedEnd = (startDay - 1) * dayWidth + 3f + actualDays * dayWidth;
+            int projectedStartDay = task.StartedDay > 0
+                ? Mathf.Max(game.Day, task.StartedDay + actualDays)
+                : PlannedStartDay(task);
+            float remainingEnd = (projectedStartDay - 1) * dayWidth + 3f +
                                  Mathf.Ceil(task.RemainingWork) * dayWidth;
             return Mathf.Max(completedEnd, remainingEnd);
         }
 
         private int PlannedStartDay(WorkTask task) =>
             Mathf.Max(1, task.ScheduledDay > game.Day ? task.ScheduledDay : game.Day);
+
+        public static int TaskActualDurationDays(WorkTask task, int currentDay)
+        {
+            if (task == null || task.StartedDay <= 0) return 0;
+            int endDay = task.CompletedDay > 0
+                ? task.CompletedDay
+                : Mathf.Max(task.StartedDay, currentDay - 1);
+            return Mathf.Max(1, endDay - task.StartedDay + 1);
+        }
 
         private static void DrawDeadlineLine(int day, float y, float height, float dayWidth, bool hard)
         {
@@ -436,6 +448,9 @@ namespace ProjectW.MilestonePrototype
             GUILayout.Label(
                 $"진행 {task.Progress:0.#}일 / 유효 {task.EffectiveRequiredWork:0.#}일   " +
                 $"잔여 {task.RemainingWork:0.#}일", small);
+            GUILayout.Label(
+                $"시작일 {(task.StartedDay > 0 ? $"DAY {task.StartedDay:00}" : "미시작")}  /  " +
+                $"완료일 {(task.CompletedDay > 0 ? $"DAY {task.CompletedDay:00}" : "미완료")}", small);
             GUILayout.Label($"최근 하루 산출 {task.LastOutput:0.#}  /  중요도 {ImportanceName(task.Importance)}", small);
 
             GUILayout.BeginHorizontal();

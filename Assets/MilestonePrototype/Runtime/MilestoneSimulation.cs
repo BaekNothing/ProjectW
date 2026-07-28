@@ -88,7 +88,7 @@ namespace ProjectW.MilestonePrototype
             Crew[crewIndex].RestScheduled = false;
             task.AssignedCharacter = crewIndex;
             task.IsParallelAssignment = false;
-            task.State = TaskState.Active;
+            task.State = task.StartedDay > 0 ? TaskState.Active : TaskState.Available;
             AddAssignmentRecord(task, crewIndex, "주 작업 배정");
             RefreshStates();
             return true;
@@ -110,7 +110,7 @@ namespace ProjectW.MilestonePrototype
 
             task.AssignedCharacter = crewIndex;
             task.IsParallelAssignment = true;
-            task.State = TaskState.Active;
+            task.State = task.StartedDay > 0 ? TaskState.Active : TaskState.Available;
             AddAssignmentRecord(task, crewIndex, "병행 작업 배정");
             RefreshStates();
             return true;
@@ -227,7 +227,10 @@ namespace ProjectW.MilestonePrototype
                 report.Lines.Add($"{member.Name}: 휴식으로 피로 회복");
             }
 
-            foreach (WorkTask task in Tasks.Where(candidate => candidate.State == TaskState.Active)
+            foreach (WorkTask task in Tasks.Where(candidate =>
+                         candidate.AssignedCharacter >= 0 &&
+                         candidate.State != TaskState.Complete &&
+                         candidate.State != TaskState.Failed)
                          .OrderBy(candidate => candidate.IsParallelAssignment).ToList())
                 ProcessTask(task, report);
 
@@ -329,6 +332,8 @@ namespace ProjectW.MilestonePrototype
                 return;
             }
 
+            if (task.StartedDay <= 0) task.StartedDay = Day;
+            task.State = TaskState.Active;
             bool matched = member.Specialty == task.RequiredRole;
             float baseOutput = member.DailyOutput > 0f ? member.DailyOutput : 1f;
             baseOutput *= task.IsParallelAssignment
@@ -382,6 +387,7 @@ namespace ProjectW.MilestonePrototype
         private void CompleteTask(WorkTask task, CrewMember member, DayReport report)
         {
             task.Progress = task.EffectiveRequiredWork;
+            task.CompletedDay = Day;
             task.State = TaskState.Complete;
             task.AssignedCharacter = -1;
             task.IsParallelAssignment = false;
@@ -469,7 +475,7 @@ namespace ProjectW.MilestonePrototype
                     group.State = WorkState.Locked;
                     continue;
                 }
-                group.State = workTasks.Any(task => task.Progress > 0f || task.AssignedCharacter >= 0)
+                group.State = workTasks.Any(task => task.StartedDay > 0 || task.Progress > 0f)
                     ? WorkState.InProgress
                     : WorkState.Available;
             }
@@ -486,7 +492,9 @@ namespace ProjectW.MilestonePrototype
                     task.State = TaskState.Locked;
                     continue;
                 }
-                task.State = task.AssignedCharacter >= 0 ? TaskState.Active : TaskState.Available;
+                task.State = task.AssignedCharacter >= 0 && task.StartedDay > 0
+                    ? TaskState.Active
+                    : TaskState.Available;
             }
         }
 
@@ -578,6 +586,18 @@ namespace ProjectW.MilestonePrototype
                     task.ScheduledDay = 0;
                     task.ScheduledWorker = -1;
                 }
+                if (task.Progress > 0f && task.StartedDay <= 0)
+                {
+                    int referenceDay = task.State == TaskState.Complete
+                        ? Math.Max(1, Day - 1)
+                        : Day;
+                    int elapsedDays = (int)task.Progress;
+                    if (task.Progress - elapsedDays > .001f) elapsedDays++;
+                    task.StartedDay = Math.Max(1,
+                        referenceDay - elapsedDays + 1);
+                }
+                if (task.State == TaskState.Complete && task.CompletedDay <= 0)
+                    task.CompletedDay = Math.Max(task.StartedDay, Day - 1);
                 task.Records = task.Records ?? new List<TaskRecord>();
                 WorkGroup group = ParentWork(task);
                 if (group != null) task.Deadline = group.HardDeadline;
