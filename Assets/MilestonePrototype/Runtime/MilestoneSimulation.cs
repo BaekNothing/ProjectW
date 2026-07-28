@@ -116,6 +116,34 @@ namespace ProjectW.MilestonePrototype
             return true;
         }
 
+        public bool Schedule(string taskId, int crewIndex, int day)
+        {
+            WorkTask task = Tasks.FirstOrDefault(candidate => candidate.Id == taskId);
+            if (task == null || task.State == TaskState.Complete || task.State == TaskState.Failed)
+                return false;
+            if (crewIndex < 0 || crewIndex >= Crew.Count || day < Day) return false;
+            if (Tasks.Any(candidate => candidate != task &&
+                                      candidate.ScheduledDay == day &&
+                                      candidate.ScheduledWorker == crewIndex))
+                return false;
+
+            task.ScheduledDay = day;
+            task.ScheduledWorker = crewIndex;
+            AddRecord(task, Crew[crewIndex].Name, RecordKind.Note, $"D{day:00} 작업 예약");
+            Log($"{task.Name} 예약: {Crew[crewIndex].Name}, DAY {day}");
+            return true;
+        }
+
+        public bool CancelSchedule(string taskId)
+        {
+            WorkTask task = Tasks.FirstOrDefault(candidate => candidate.Id == taskId);
+            if (task == null || task.ScheduledDay <= 0) return false;
+            task.ScheduledDay = 0;
+            task.ScheduledWorker = -1;
+            AddRecord(task, "SYSTEM", RecordKind.Note, "작업 예약 취소");
+            return true;
+        }
+
         public bool Rest(int crewIndex)
         {
             if (crewIndex < 0 || crewIndex >= Crew.Count ||
@@ -189,6 +217,7 @@ namespace ProjectW.MilestonePrototype
             var report = new DayReport();
             if (IsWon || IsLost) return report;
 
+            ApplyScheduledAssignments(report);
             foreach (CrewMember member in Crew)
             {
                 if (member.InjuryDays > 0) member.InjuryDays--;
@@ -356,6 +385,8 @@ namespace ProjectW.MilestonePrototype
             task.State = TaskState.Complete;
             task.AssignedCharacter = -1;
             task.IsParallelAssignment = false;
+            task.ScheduledDay = 0;
+            task.ScheduledWorker = -1;
             report.Lines.Add($"완료: {task.Name}");
             AddRecord(task, member.Name, RecordKind.Output, "작업 완료");
             RefreshStates();
@@ -410,6 +441,8 @@ namespace ProjectW.MilestonePrototype
                     task.State = TaskState.Failed;
                     task.AssignedCharacter = -1;
                     task.IsParallelAssignment = false;
+                    task.ScheduledDay = 0;
+                    task.ScheduledWorker = -1;
                 }
                 report.Lines.Add($"하드 마감 실패: {group.Name}");
             }
@@ -517,6 +550,21 @@ namespace ProjectW.MilestonePrototype
             report.Lines.Add($"보상: {group.Name} credit +{group.RewardCredits}");
         }
 
+        private void ApplyScheduledAssignments(DayReport report)
+        {
+            foreach (WorkTask task in Tasks.Where(candidate =>
+                         candidate.ScheduledDay > 0 && candidate.ScheduledDay <= Day).ToList())
+            {
+                int worker = task.ScheduledWorker;
+                bool assigned = worker >= 0 && worker < Crew.Count && Assign(task.Id, worker);
+                report.Lines.Add(assigned
+                    ? $"예약 시작: {Crew[worker].Name} → {task.Name}"
+                    : $"예약 불발: {task.Name}");
+                task.ScheduledDay = 0;
+                task.ScheduledWorker = -1;
+            }
+        }
+
         private void NormalizeLoadedData()
         {
             foreach (WorkGroup group in Groups)
@@ -524,6 +572,12 @@ namespace ProjectW.MilestonePrototype
             foreach (WorkTask task in Tasks)
             {
                 task.AssignedCharacter = task.AssignedCharacter < -1 ? -1 : task.AssignedCharacter;
+                task.ScheduledWorker = task.ScheduledWorker < -1 ? -1 : task.ScheduledWorker;
+                if (task.ScheduledDay <= 0 || task.ScheduledWorker < 0)
+                {
+                    task.ScheduledDay = 0;
+                    task.ScheduledWorker = -1;
+                }
                 task.Records = task.Records ?? new List<TaskRecord>();
                 WorkGroup group = ParentWork(task);
                 if (group != null) task.Deadline = group.HardDeadline;

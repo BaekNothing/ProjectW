@@ -16,6 +16,9 @@ namespace ProjectW.MilestonePrototype
             public Vector2 Scroll;
             public Vector2 TimelineScroll;
             public int Selected;
+            public int SelectedCrew;
+            public int ScheduleDay;
+            public string Notice;
             public string DragRegion;
             public Vector2 DragPointerOrigin;
             public Vector2 DragScrollOrigin;
@@ -28,7 +31,8 @@ namespace ProjectW.MilestonePrototype
             { "mail", "MAIL / 통신" }, { "gantt", "GANTT / 작업" }, { "milestone", "MILESTONE" },
             { "workers", "CREW / 대원" }, { "report", "REPORT" }, { "codex", "CODEX / 도감" },
             { "help", "HELP" }, { "profile", "MY INFO" }, { "log", "SYSTEM LOG" },
-            { "worker-detail", "CREW PROFILE / 대원 상세" }
+            { "worker-detail", "CREW PROFILE / 대원 상세" },
+            { "task-detail", "TASK DETAIL / 작업 상세" }
         };
 
         private MilestoneSimulation game;
@@ -138,6 +142,7 @@ namespace ProjectW.MilestonePrototype
                 case "milestone": DrawMilestones(window); break;
                 case "workers": DrawWorkers(window); break;
                 case "worker-detail": DrawWorkerDetail(window); break;
+                case "task-detail": DrawTaskDetail(window); break;
                 case "report": DrawReport(window); break;
                 case "codex": DrawCodex(window); break;
                 case "help": DrawHelp(); break;
@@ -244,7 +249,7 @@ namespace ProjectW.MilestonePrototype
                     float barX = (startDay - 1) * dayWidth + 3;
                     if (completedWidth > 0)
                         DrawSolid(new Rect(barX, y + 7, completedWidth, 14), GrayColor);
-                    float remainingX = (Mathf.Max(1, game.Day) - 1) * dayWidth + 3;
+                    float remainingX = (PlannedStartDay(task) - 1) * dayWidth + 3;
                     if (remainingWidth > 0)
                         DrawSolid(new Rect(remainingX, y + 7, remainingWidth, 14),
                             task.State == TaskState.Locked ? PaleColor : InkColor);
@@ -273,8 +278,10 @@ namespace ProjectW.MilestonePrototype
 
                 foreach (WorkTask task in tasks)
                 {
-                    GUI.Label(new Rect(6, y + 4, labelWidth - 10, rowHeight - 4),
-                        $"{StateName(task.State)}  {task.Name}", small);
+                    if (GUI.Button(new Rect(4, y + 2, labelWidth - 8, rowHeight - 3),
+                            $"{StateName(task.State)}  {task.Name}" +
+                            (task.ScheduledDay > 0 ? $"  [D{task.ScheduledDay:00}]" : ""), small))
+                        OpenTaskDetail(task.Id);
                     y += rowHeight;
                 }
                 DrawSolid(new Rect(0, y - 1, labelWidth, 1), GrayColor);
@@ -371,7 +378,7 @@ namespace ProjectW.MilestonePrototype
             int startDay = Mathf.Max(1, game.Day - completedDays);
             return task.Progress > 0
                 ? (startDay - 1) * dayWidth + 3f
-                : (Mathf.Max(1, game.Day) - 1) * dayWidth + 3f;
+                : (PlannedStartDay(task) - 1) * dayWidth + 3f;
         }
 
         private float TaskBarEndX(WorkTask task, float dayWidth)
@@ -379,10 +386,13 @@ namespace ProjectW.MilestonePrototype
             int completedDays = Mathf.CeilToInt(task.Progress);
             int startDay = Mathf.Max(1, game.Day - completedDays);
             float completedEnd = (startDay - 1) * dayWidth + 3f + completedDays * dayWidth;
-            float remainingEnd = (Mathf.Max(1, game.Day) - 1) * dayWidth + 3f +
+            float remainingEnd = (PlannedStartDay(task) - 1) * dayWidth + 3f +
                                  Mathf.Ceil(task.RemainingWork) * dayWidth;
             return Mathf.Max(completedEnd, remainingEnd);
         }
+
+        private int PlannedStartDay(WorkTask task) =>
+            Mathf.Max(1, task.ScheduledDay > game.Day ? task.ScheduledDay : game.Day);
 
         private static void DrawDeadlineLine(int day, float y, float height, float dayWidth, bool hard)
         {
@@ -401,12 +411,18 @@ namespace ProjectW.MilestonePrototype
             if (game.Tasks.Count == 0) return;
             WorkTask task = game.Tasks[Mathf.Clamp(window.Selected, 0, game.Tasks.Count - 1)];
             WorkGroup work = game.Groups.FirstOrDefault(group => group.Id == task.GroupId);
+            WorkTask predecessor = string.IsNullOrEmpty(task.PrerequisiteId)
+                ? null
+                : game.Tasks.FirstOrDefault(candidate => candidate.Id == task.PrerequisiteId);
+            List<WorkTask> successors = game.Tasks.Where(candidate =>
+                candidate.PrerequisiteId == task.Id).ToList();
             int matchingWorker = game.Crew.FindIndex(member => member.Specialty == task.RequiredRole);
             TaskCostPreview cost = game.BuildCostPreview(task, matchingWorker);
             string assignee = task.AssignedCharacter < 0
                 ? "미배정"
                 : $"{game.Crew[task.AssignedCharacter].Name} / {(task.IsParallelAssignment ? "병행" : "주 작업")}";
 
+            window.Scroll = GUILayout.BeginScrollView(window.Scroll);
             GUILayout.BeginVertical(GUI.skin.box);
             GUILayout.Label($"{task.Name}  ·  {(task.Required ? "필수" : "선택")}", section);
             GUILayout.Label(
@@ -416,6 +432,7 @@ namespace ProjectW.MilestonePrototype
             GUILayout.Label(
                 $"진행 {task.Progress:0.#}일 / 유효 {task.EffectiveRequiredWork:0.#}일   " +
                 $"잔여 {task.RemainingWork:0.#}일", small);
+            GUILayout.Label($"최근 하루 산출 {task.LastOutput:0.#}  /  중요도 {ImportanceName(task.Importance)}", small);
 
             GUILayout.BeginHorizontal();
             GUILayout.BeginVertical(GUI.skin.box);
@@ -437,6 +454,25 @@ namespace ProjectW.MilestonePrototype
             GUILayout.EndVertical();
             GUILayout.EndHorizontal();
 
+            GUILayout.Label("연결 관계", section);
+            GUILayout.BeginVertical(GUI.skin.box);
+            GUILayout.Label($"상위 일감: {work?.Name ?? "없음"}  ·  {WorkStateName(work?.State ?? WorkState.Locked)}");
+            if (predecessor == null)
+                GUILayout.Label("막고 있는 선행 작업: 없음", small);
+            else
+            {
+                GUILayout.Label($"막고 있는 선행 작업: {TaskRelationSummary(predecessor)}", small);
+                if (GUILayout.Button($"선행 상세 열기 · {predecessor.Name}"))
+                    OpenTaskDetail(predecessor.Id);
+            }
+            if (successors.Count == 0)
+                GUILayout.Label("이 작업에 막혀 있는 후행 작업: 없음", small);
+            else
+                foreach (WorkTask successor in successors)
+                    if (GUILayout.Button($"후행 · {TaskRelationSummary(successor)}"))
+                        OpenTaskDetail(successor.Id);
+            GUILayout.EndVertical();
+
             GUILayout.Label($"현재 담당: {assignee}", section);
             GUILayout.BeginHorizontal();
             GUI.enabled = task.State == TaskState.Available || task.State == TaskState.Active;
@@ -449,12 +485,55 @@ namespace ProjectW.MilestonePrototype
             GUI.enabled = true;
             GUILayout.EndHorizontal();
 
+            GUILayout.Label("작업 예약", section);
+            GUILayout.BeginVertical(GUI.skin.box);
+            if (task.ScheduledDay > 0 && task.ScheduledWorker >= 0 &&
+                task.ScheduledWorker < game.Crew.Count)
+                GUILayout.Label($"현재 예약: DAY {task.ScheduledDay:00} · {game.Crew[task.ScheduledWorker].Name}",
+                    success);
+            else
+                GUILayout.Label("현재 예약 없음", small);
+            window.ScheduleDay = Mathf.Clamp(window.ScheduleDay <= 0 ? game.Day : window.ScheduleDay,
+                game.Day, game.CampaignEndDay);
+            window.SelectedCrew = Mathf.Clamp(window.SelectedCrew, 0, Mathf.Max(0, game.Crew.Count - 1));
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("◀ DAY")) window.ScheduleDay = Mathf.Max(game.Day, window.ScheduleDay - 1);
+            GUILayout.Label($"DAY {window.ScheduleDay:00}", section);
+            if (GUILayout.Button("DAY ▶")) window.ScheduleDay = Mathf.Min(game.CampaignEndDay, window.ScheduleDay + 1);
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("◀ 작업자")) window.SelectedCrew =
+                (window.SelectedCrew - 1 + game.Crew.Count) % game.Crew.Count;
+            GUILayout.Label(game.Crew[window.SelectedCrew].Name, section);
+            if (GUILayout.Button("작업자 ▶")) window.SelectedCrew =
+                (window.SelectedCrew + 1) % game.Crew.Count;
+            GUILayout.EndHorizontal();
+            GUI.enabled = task.State != TaskState.Complete && task.State != TaskState.Failed;
+            if (GUILayout.Button("이 일정으로 예약"))
+            {
+                window.Notice = game.Schedule(task.Id, window.SelectedCrew, window.ScheduleDay)
+                    ? "예약을 등록했습니다."
+                    : "같은 작업자의 해당 날짜 예약과 충돌하거나 예약할 수 없는 작업입니다.";
+                SaveCampaign();
+            }
+            GUI.enabled = task.ScheduledDay > 0;
+            if (GUILayout.Button("예약 취소"))
+            {
+                game.CancelSchedule(task.Id);
+                window.Notice = "예약을 취소했습니다.";
+                SaveCampaign();
+            }
+            GUI.enabled = true;
+            if (!string.IsNullOrEmpty(window.Notice)) GUILayout.Label(window.Notice, small);
+            GUILayout.EndVertical();
+
             GUILayout.Label("최근 기록", section);
             if (task.Records == null || task.Records.Count == 0) GUILayout.Label("기록 없음", small);
             else
                 foreach (TaskRecord record in task.Records.Skip(Math.Max(0, task.Records.Count - 4)))
                     GUILayout.Label($"D{record.Day:00}  {record.Actor}  {record.Text}", small);
             GUILayout.EndVertical();
+            EndTouchScroll(window, "task-detail", ref window.Scroll);
         }
 
         private void DrawMilestones(DeskWindow window)
@@ -469,7 +548,9 @@ namespace ProjectW.MilestonePrototype
                 GUILayout.Label($"{group.Name}   {progress}%   HARD D{group.HardDeadline}", section);
                 GUILayout.HorizontalSlider(progress, 0, 100);
                 foreach (WorkTask task in tasks)
-                    GUILayout.Label($"{(task.Required ? "[필수]" : "[선택]")} {task.Name} — {StateName(task.State)} {task.Progress}/{task.RequiredWork}");
+                    if (GUILayout.Button(
+                            $"{(task.Required ? "[필수]" : "[선택]")} {task.Name} — {StateName(task.State)} {task.Progress}/{task.RequiredWork}"))
+                        OpenTaskDetail(task.Id);
                 GUILayout.EndVertical();
             }
             EndTouchScroll(window, "milestones", ref window.Scroll);
@@ -687,6 +768,22 @@ namespace ProjectW.MilestonePrototype
             if (detail == null) return;
             detail.Selected = Mathf.Clamp(crewIndex, 0, Mathf.Max(0, game.Crew.Count - 1));
             detail.Scroll = Vector2.zero;
+            Focus(detail);
+        }
+
+        private void OpenTaskDetail(string taskId)
+        {
+            int taskIndex = game.Tasks.FindIndex(task => task.Id == taskId);
+            if (taskIndex < 0) return;
+            Open("task-detail");
+            DeskWindow detail = windows.FirstOrDefault(window => window.Id == "task-detail");
+            if (detail == null) return;
+            WorkTask task = game.Tasks[taskIndex];
+            detail.Selected = taskIndex;
+            detail.SelectedCrew = task.AssignedCharacter >= 0 ? task.AssignedCharacter : 0;
+            detail.ScheduleDay = task.ScheduledDay > 0 ? task.ScheduledDay : game.Day;
+            detail.Scroll = Vector2.zero;
+            detail.Notice = null;
             Focus(detail);
         }
 
@@ -1008,6 +1105,13 @@ namespace ProjectW.MilestonePrototype
             if (work.State == WorkState.Locked) return "선행 일 미완료";
             if (!string.IsNullOrEmpty(task.PrerequisiteId)) return $"선행 Task {task.PrerequisiteId} 미완료";
             return "진입 조건 미충족";
+        }
+        private string TaskRelationSummary(WorkTask task)
+        {
+            string owner = task.AssignedCharacter >= 0 && task.AssignedCharacter < game.Crew.Count
+                ? game.Crew[task.AssignedCharacter].Name
+                : "미배정";
+            return $"{task.Name} · {task.Completion * 100:0}% · {owner} · HARD D{task.Deadline}";
         }
         private static string RiskName(RiskLevel risk) => risk == RiskLevel.High ? "높음" : risk == RiskLevel.Medium ? "보통" : "낮음";
         private static string ImportanceName(ImportanceLevel value) => value == ImportanceLevel.High ? "높음" : value == ImportanceLevel.Medium ? "보통" : "낮음";

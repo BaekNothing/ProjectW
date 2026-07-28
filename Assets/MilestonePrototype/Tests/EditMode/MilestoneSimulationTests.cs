@@ -138,6 +138,54 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void ScheduledTaskAutomaticallyAssignsAndStartsOnReservedDay()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.BaseSideMissionChance = 0;
+            data.Balance.HighFatigueAccidentChance = 0;
+            data.Balance.MediumFatigueAccidentChance = 0;
+            data.Balance.MismatchAccidentChance = 0;
+            var game = new MilestoneSimulation(data, 1);
+            WorkTask survey = game.Tasks.Find(task => task.Id == "survey");
+
+            Assert.That(game.Schedule(survey.Id, 1, 2), Is.True);
+            game.AdvanceDay();
+            Assert.That(survey.Progress, Is.Zero);
+            Assert.That(survey.ScheduledDay, Is.EqualTo(2));
+
+            game.AdvanceDay();
+
+            Assert.That(survey.AssignedCharacter, Is.EqualTo(1));
+            Assert.That(survey.Progress, Is.GreaterThan(0f));
+            Assert.That(survey.ScheduledDay, Is.Zero);
+            Assert.That(survey.ScheduledWorker, Is.EqualTo(-1));
+        }
+
+        [Test]
+        public void WorkerCannotHaveTwoPrimaryReservationsOnSameDay()
+        {
+            var game = new MilestoneSimulation(1);
+
+            Assert.That(game.Schedule("survey", 0, 3), Is.True);
+            Assert.That(game.Schedule("habitat", 0, 3), Is.False);
+            Assert.That(game.Schedule("habitat", 1, 3), Is.True);
+        }
+
+        [Test]
+        public void TaskScheduleSurvivesCampaignSnapshot()
+        {
+            var original = new MilestoneSimulation(1);
+            Assert.That(original.Schedule("survey", 1, 4), Is.True);
+
+            var restored = new MilestoneSimulation(99);
+            Assert.That(restored.Restore(original.CreateSnapshot()), Is.True);
+            WorkTask survey = restored.Tasks.Find(task => task.Id == "survey");
+
+            Assert.That(survey.ScheduledDay, Is.EqualTo(4));
+            Assert.That(survey.ScheduledWorker, Is.EqualTo(1));
+        }
+
+        [Test]
         public void CompletingPrerequisiteUnlocksFollowingTasks()
         {
             var game = new MilestoneSimulation(1);

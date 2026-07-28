@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Version: 0.3
+- Version: 0.4
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
@@ -79,6 +79,32 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 - Parallel work costs additional fatigue defined by gameplay balance data.
 - Parallel assignment does not interrupt the worker's primary Task.
 - Rest, injury, or reassignment removes assignments according to the interruption rules.
+
+## Task Scheduling
+
+- A player may reserve a Task for one worker on a calendar day from the current day through the
+  campaign end day.
+- A worker cannot hold two primary reservations on the same day.
+- At the beginning of the reserved day's daily cycle, the reservation attempts a normal primary
+  assignment. Existing assignment, interruption, availability, and handover rules still apply.
+- If the Task cannot be assigned because it has completed, failed, is locked, or the worker is
+  unavailable, the reservation is consumed and the day report records that it did not start.
+- A reservation can be replaced or cancelled before it is consumed.
+- Reservation day and worker are part of the campaign save snapshot.
+
+## Task Detail Page
+
+The task detail page must show:
+
+- parent Work and Work state
+- predecessor that blocks progress, if any
+- successor Tasks blocked by this Task
+- progress for the current Task and each displayed dependency
+- current assignee, role, workload, context cost, recent output, risk, importance, and deadlines
+- current reservation and controls for selecting a worker and start day
+- recent Task records
+
+Task rows in the Gantt and milestone views open this detail page.
 
 ## Interruption and Handover
 
