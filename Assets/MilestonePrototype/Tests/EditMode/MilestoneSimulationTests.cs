@@ -14,9 +14,43 @@ namespace ProjectW.MilestonePrototype.Tests
         {
             var game = new MilestoneSimulation(1);
 
+            Assert.That(game.Crew, Has.Count.EqualTo(MilestoneSimulation.TeamSize));
             Assert.That(game.Crew[0].PortraitLabel, Is.Not.Empty);
             Assert.That(game.Crew[0].Memo, Is.Not.Empty);
             Assert.That(game.Crew[0].Perks, Is.Not.Null.And.Not.Empty);
+            Assert.That(game.Crew[0].Trust, Is.InRange(0, 100));
+        }
+
+        [Test]
+        public void TrustDescriptionExplainsHowWorkerViewsResponsibleOfficer()
+        {
+            Assert.That(MilestoneSimulation.TrustDescription(80), Does.Contain("깊이 신뢰"));
+            Assert.That(MilestoneSimulation.TrustDescription(60), Does.Contain("협력"));
+            Assert.That(MilestoneSimulation.TrustDescription(45), Does.Contain("지켜보고"));
+            Assert.That(MilestoneSimulation.TrustDescription(20), Does.Contain("경계"));
+        }
+
+        [Test]
+        public void RestoreTrimsLegacyRosterAndClearsRemovedWorkerAssignments()
+        {
+            var original = new MilestoneSimulation(1);
+            CampaignSnapshot snapshot = original.CreateSnapshot();
+            var legacyCrew = new CrewMember[6];
+            for (int i = 0; i < snapshot.Crew.Length; i++) legacyCrew[i] = snapshot.Crew[i];
+            legacyCrew[4] = new CrewMember { Name = "legacy-4" };
+            legacyCrew[5] = new CrewMember { Name = "legacy-5" };
+            snapshot.Crew = legacyCrew;
+            snapshot.Tasks[0].AssignedCharacter = 5;
+            snapshot.Tasks[0].ScheduledDay = 3;
+            snapshot.Tasks[0].ScheduledWorker = 4;
+
+            var restored = new MilestoneSimulation(2);
+            Assert.That(restored.Restore(snapshot), Is.True);
+
+            Assert.That(restored.Crew, Has.Count.EqualTo(MilestoneSimulation.TeamSize));
+            Assert.That(restored.Tasks[0].AssignedCharacter, Is.EqualTo(-1));
+            Assert.That(restored.Tasks[0].ScheduledWorker, Is.EqualTo(-1));
+            Assert.That(restored.Tasks[0].ScheduledDay, Is.Zero);
         }
 
         [Test]
@@ -485,9 +519,9 @@ namespace ProjectW.MilestonePrototype.Tests
             game.Assign(habitat.Id, 0);
             game.AdvanceDay();
 
-            Assert.That(game.Assign(habitat.Id, 4), Is.True);
+            Assert.That(game.Assign(habitat.Id, 3), Is.True);
 
-            Assert.That(habitat.AssignedCharacter, Is.EqualTo(4));
+            Assert.That(habitat.AssignedCharacter, Is.EqualTo(3));
             Assert.That(habitat.ContextCostDays, Is.EqualTo(1f));
             Assert.That(habitat.SplitCount, Is.EqualTo(1));
         }
@@ -516,15 +550,19 @@ namespace ProjectW.MilestonePrototype.Tests
         [Test]
         public void TaskCostPreviewShowsHandoverBeforeReassignment()
         {
-            var game = new MilestoneSimulation(1);
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.HighFatigueAccidentChance = 0;
+            data.Balance.MediumFatigueAccidentChance = 0;
+            data.Balance.MismatchAccidentChance = 0;
+            var game = new MilestoneSimulation(data, 1);
             CompleteSurvey(game);
             WorkTask habitat = game.Tasks.Find(task => task.Id == "habitat");
-            game.Assign(habitat.Id, 0);
+            game.Assign(habitat.Id, 1);
             game.AdvanceDay();
 
-            TaskCostPreview preview = game.BuildCostPreview(habitat, 4);
+            TaskCostPreview preview = game.BuildCostPreview(habitat, 0);
 
-            Assert.That(preview.RemainingDays, Is.EqualTo(3f));
+            Assert.That(preview.RemainingDays, Is.EqualTo(habitat.RemainingWork));
             Assert.That(preview.AdditionalContextDays, Is.EqualTo(1f));
             Assert.That(preview.PrimaryFatigue, Is.EqualTo(9));
             Assert.That(preview.ParallelFatigue, Is.EqualTo(21));

@@ -591,6 +591,7 @@ namespace ProjectW.MilestonePrototype
                     OpenWorkerDetail(i);
                 GUILayout.Label($"상태 {member.Condition}   피로 {member.Fatigue}%   담당 {AssignedTask(i)}");
                 GUILayout.HorizontalSlider(member.Fatigue, 0, 100);
+                GUILayout.Label($"담당자 신뢰도 {member.Trust}% · {MilestoneSimulation.TrustDescription(member.Trust)}", small);
                 if (member.History.Count > 0) GUILayout.Label($"최근: {member.History[member.History.Count - 1]}", small);
                 GUILayout.BeginHorizontal();
                 GUI.enabled = member.InjuryDays <= 0 && !member.RestScheduled;
@@ -633,6 +634,9 @@ namespace ProjectW.MilestonePrototype
                 section);
             GUILayout.Label($"상태 {member.Condition}   피로 {member.Fatigue}%");
             GUILayout.Label($"현재 담당  {AssignedTask(window.Selected)}", small);
+            GUILayout.Label($"담당자 신뢰도  {member.Trust}%", section);
+            GUILayout.HorizontalSlider(member.Trust, 0, 100);
+            GUILayout.Label(MilestoneSimulation.TrustDescription(member.Trust), small);
             DrawSectionRule();
             GUILayout.Label("메모", section);
             GUILayout.Label(string.IsNullOrEmpty(member.Memo) ? "메모 없음" : member.Memo);
@@ -702,7 +706,10 @@ namespace ProjectW.MilestonePrototype
 
             GUILayout.BeginVertical(GUI.skin.box);
             GUILayout.Label(selected.Name, section);
-            GUILayout.Label($"{RoleName(selected.Specialty)} · {MessengerPresence(window.Selected)}", small);
+            GUILayout.Label(
+                $"{RoleName(selected.Specialty)} · {MessengerPresence(window.Selected)} · 담당자 신뢰 {selected.Trust}%",
+                small);
+            GUILayout.Label(MilestoneSimulation.TrustDescription(selected.Trust), small);
             DrawSectionRule();
 
             window.Scroll = GUILayout.BeginScrollView(window.Scroll);

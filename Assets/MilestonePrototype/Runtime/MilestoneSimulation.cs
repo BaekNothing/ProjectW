@@ -6,6 +6,7 @@ namespace ProjectW.MilestonePrototype
 {
     public sealed class MilestoneSimulation
     {
+        public const int TeamSize = 4;
         private readonly Random random;
         private readonly TaskSystemBalance balance;
         private readonly string[] crewPortraits;
@@ -244,15 +245,24 @@ namespace ProjectW.MilestonePrototype
         {
             if (crewIndex < 0 || crewIndex >= Crew.Count) return string.Empty;
             CrewMember member = Crew[crewIndex];
+            string relationship = $"담당자 신뢰도는 {member.Trust}%입니다. {TrustDescription(member.Trust)} ";
             if (member.InjuryDays > 0)
-                return $"지금은 부상 회복 중입니다. 복귀까지 {member.InjuryDays}일 남았습니다.";
+                return relationship + $"지금은 부상 회복 중입니다. 복귀까지 {member.InjuryDays}일 남았습니다.";
             if (member.RestScheduled)
-                return "오늘은 휴식이 예정되어 있습니다. 회복 후 다시 보고드리겠습니다.";
+                return relationship + "오늘은 휴식이 예정되어 있습니다. 회복 후 다시 보고드리겠습니다.";
             if (member.Fatigue >= 80)
-                return $"피로도가 {member.Fatigue}%라 많이 지쳤습니다. 휴식이 필요합니다.";
+                return relationship + $"피로도가 {member.Fatigue}%라 많이 지쳤습니다. 휴식이 필요합니다.";
             if (member.Fatigue >= 55)
-                return $"피로도 {member.Fatigue}%입니다. 계속할 수 있지만 무리가 쌓이고 있습니다.";
-            return $"괜찮습니다. 현재 피로도는 {member.Fatigue}%이고 바로 대응할 수 있습니다.";
+                return relationship + $"피로도 {member.Fatigue}%입니다. 계속할 수 있지만 무리가 쌓이고 있습니다.";
+            return relationship + $"괜찮습니다. 현재 피로도는 {member.Fatigue}%이고 바로 대응할 수 있습니다.";
+        }
+
+        public static string TrustDescription(int trust)
+        {
+            if (trust >= 75) return "당신의 판단을 깊이 신뢰하고 있습니다.";
+            if (trust >= 55) return "협력할 만한 담당자로 보고 있습니다.";
+            if (trust >= 35) return "아직 당신의 판단과 능력을 지켜보고 있습니다.";
+            return "당신의 판단을 경계하고 있습니다.";
         }
 
         public string BuildWorkerWorkReply(int crewIndex)
@@ -374,7 +384,11 @@ namespace ProjectW.MilestonePrototype
             Resources = Math.Max(0, snapshot.Resources);
             Tasks.Clear(); Tasks.AddRange(snapshot.Tasks);
             Groups.Clear(); Groups.AddRange(snapshot.Groups);
-            Crew.Clear(); Crew.AddRange(snapshot.Crew);
+            Crew.Clear();
+            int restoredCrewCount = Math.Min(snapshot.Crew.Length, TeamSize);
+            var restoredCrew = new CrewMember[restoredCrewCount];
+            for (int i = 0; i < restoredCrewCount; i++) restoredCrew[i] = snapshot.Crew[i];
+            Crew.AddRange(restoredCrew);
             Mail.Clear(); Mail.AddRange(snapshot.Mail);
             SystemLog.Clear();
             if (snapshot.Log != null) SystemLog.AddRange(snapshot.Log);
@@ -642,6 +656,16 @@ namespace ProjectW.MilestonePrototype
             {
                 task.AssignedCharacter = task.AssignedCharacter < -1 ? -1 : task.AssignedCharacter;
                 task.ScheduledWorker = task.ScheduledWorker < -1 ? -1 : task.ScheduledWorker;
+                if (task.AssignedCharacter >= Crew.Count)
+                {
+                    task.AssignedCharacter = -1;
+                    task.IsParallelAssignment = false;
+                }
+                if (task.ScheduledWorker >= Crew.Count)
+                {
+                    task.ScheduledDay = 0;
+                    task.ScheduledWorker = -1;
+                }
                 if (task.ScheduledDay <= 0 || task.ScheduledWorker < 0)
                 {
                     task.ScheduledDay = 0;

@@ -52,6 +52,9 @@ namespace ProjectW.MilestonePrototype
                 throw new InvalidOperationException($"Unsupported task-system schema {data?.SchemaVersion ?? 0}.");
             if (data.Balance == null || data.Works == null || data.Tasks == null || data.Crew == null)
                 throw new InvalidOperationException("Task-system data is missing a required section.");
+            if (data.Crew.Length != MilestoneSimulation.TeamSize)
+                throw new InvalidOperationException(
+                    $"A field team must contain exactly {MilestoneSimulation.TeamSize} crew members.");
             if (data.CampaignEndDay <= 0 || data.StartingResources < 0)
                 throw new InvalidOperationException("Task-system campaign values are invalid.");
             if (data.Balance.PrimaryProgressDays <= 0f ||

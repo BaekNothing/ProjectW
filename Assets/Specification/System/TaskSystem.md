@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Version: 0.4
+- Version: 0.5
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
@@ -174,6 +174,18 @@ Task execution exposes, but does not require every Task to use, these hooks:
 
 Version 0.1 retains deterministic progress and the prototype accident outcome while adding data fields needed by these hooks. Full social interaction and hidden-information resolution are separate specifications.
 
+## Field Team and Trust
+
+- The prototype operates one field team with exactly four crew members.
+- Each crew member owns a `Trust` value from 0 to 100 representing how that person regards the
+  player-character responsible for the team.
+- Trust and a readable interpretation must appear in the crew list, crew detail, and messenger.
+- Messenger status replies include the worker's current view of the responsible officer.
+- Trust changes and command acceptance effects remain extension points until their outcome rules are
+  specified. This version exposes and preserves the relationship value without changing it implicitly.
+- When an older campaign save contains more than four crew members, only the first four remain on
+  the active field team. Assignments and reservations owned by removed positions are cleared safely.
+
 ## External Data
 
 Gameplay content and balance values must not be authored as constructor literals or hard-coded creation methods.
@@ -184,6 +196,7 @@ External data includes:
 - Work definitions and predecessor IDs
 - Task definitions, durations, roles, difficulty, and prerequisite IDs
 - worker definitions and initial stats
+- the four-person field-team roster and each member's initial trust toward the responsible officer
 - assignment, interruption, parallel-work, fatigue, outcome, and perk balance values
 - mail and codex content
 
@@ -286,6 +299,8 @@ Every scrollable window region keeps its visible scrollbar and also supports dir
 
 - Selecting a crew member opens a separate crew-detail window.
 - The detail shows a portrait area, name, memo, perks, current assignment, and work history.
+- The crew list, detail, and messenger show trust toward the responsible officer on a 0–100 scale
+  with a readable relationship summary.
 - Crew profile metadata is owned by `task-system.json`.
 - Until remote image content delivery exists, the portrait area uses the data-defined text portrait;
   adding bitmap portraits remains a base APK or future Addressables content change.

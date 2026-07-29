@@ -189,30 +189,6 @@
       "Pride": 60,
       "Authority": 35,
       "DailyOutput": 1.0
-    },
-    {
-      "Name": "오정비관",
-      "PortraitLabel": "오\n정비",
-      "Memo": "반복 정비와 설비 복구에 능한 실무 기술관. 묵묵히 작업 기록을 남긴다.",
-      "Perks": ["반복 정비", "복구 숙련"],
-      "Specialty": 0,
-      "Skill": 3,
-      "Trust": 50,
-      "Pride": 50,
-      "Authority": 25,
-      "DailyOutput": 0.9
-    },
-    {
-      "Name": "문조정관",
-      "PortraitLabel": "문\n조정",
-      "Memo": "대원 사이의 충돌을 줄이고 업무를 재배치하는 조정관.",
-      "Perks": ["갈등 조정", "인력 배치"],
-      "Specialty": 2,
-      "Skill": 3,
-      "Trust": 65,
-      "Pride": 35,
-      "Authority": 40,
-      "DailyOutput": 0.9
     }
   ],
   "Mail": [
