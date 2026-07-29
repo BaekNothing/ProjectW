@@ -24,8 +24,7 @@ namespace ProjectW.MilestonePrototype
         public bool IsWon => Groups.Where(group => group.Required).All(group => group.State == WorkState.Complete);
         public bool IsLost => Groups.Any(group => group.Required && group.State == WorkState.Failed) ||
                               Day > CampaignEndDay ||
-                              (!Crew.Any(member => member.Available) &&
-                               Crew.All(member => member.InjuryDays > 0 || member.Fatigue >= 100));
+                              Crew.All(member => member.InjuryDays > 0);
         public List<WorkTask> Tasks { get; } = new List<WorkTask>();
         public List<CrewMember> Crew { get; } = new List<CrewMember>();
         public List<WorkGroup> Groups { get; } = new List<WorkGroup>();
@@ -509,14 +508,41 @@ namespace ProjectW.MilestonePrototype
 
         private float ExpectedDailyOutput(int crewIndex)
         {
-            float regularChance = 100 - balance.LowOutputChance - balance.HighOutputChance;
+            int lowChance;
+            int highChance;
+            OutputChances(Crew[crewIndex].Fatigue, out lowChance, out highChance);
+            float regularChance = 100 - lowChance - highChance;
             float expectedMultiplier =
-                balance.LowOutputChance * balance.LowOutputMultiplier / 100f +
+                lowChance * balance.LowOutputMultiplier / 100f +
                 regularChance / 100f +
-                balance.HighOutputChance * balance.HighOutputMultiplier / 100f;
+                highChance * balance.HighOutputMultiplier / 100f;
             float dailyOutput = Crew[crewIndex].DailyOutput > 0f ? Crew[crewIndex].DailyOutput : 1f;
             float output = dailyOutput * balance.PrimaryProgressDays * expectedMultiplier;
             return output > .001f ? output : .001f;
+        }
+
+        public void OutputChances(int fatigue, out int lowChance, out int highChance)
+        {
+            int clampedFatigue = Math.Max(0, Math.Min(100, fatigue));
+            if (clampedFatigue <= 50)
+            {
+                lowChance = InterpolateChance(
+                    balance.FreshLowOutputChance, balance.LowOutputChance, clampedFatigue, 50);
+                highChance = InterpolateChance(
+                    balance.FreshHighOutputChance, balance.HighOutputChance, clampedFatigue, 50);
+                return;
+            }
+
+            int exhaustedWeight = clampedFatigue - 50;
+            lowChance = InterpolateChance(
+                balance.LowOutputChance, balance.ExhaustedLowOutputChance, exhaustedWeight, 50);
+            highChance = InterpolateChance(
+                balance.HighOutputChance, balance.ExhaustedHighOutputChance, exhaustedWeight, 50);
+        }
+
+        private static int InterpolateChance(int start, int end, int weight, int range)
+        {
+            return (start * (range - weight) + end * weight + range / 2) / range;
         }
 
         private bool ApplyDependencyStart(WorkTask task, ref int startDay, ref bool rolling, int depth)
@@ -703,10 +729,13 @@ namespace ProjectW.MilestonePrototype
             baseOutput *= task.IsParallelAssignment
                 ? balance.ParallelProgressDays
                 : balance.PrimaryProgressDays;
+            int lowOutputChance;
+            int highOutputChance;
+            OutputChances(member.Fatigue, out lowOutputChance, out highOutputChance);
             int outputRoll = random.Next(100);
-            float outputMultiplier = outputRoll < balance.LowOutputChance
+            float outputMultiplier = outputRoll < lowOutputChance
                 ? balance.LowOutputMultiplier
-                : outputRoll >= 100 - balance.HighOutputChance
+                : outputRoll >= 100 - highOutputChance
                     ? balance.HighOutputMultiplier
                     : 1f;
             float progress = baseOutput * outputMultiplier;

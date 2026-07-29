@@ -65,6 +65,12 @@ namespace ProjectW.MilestonePrototype
                 data.Balance.LowOutputChance < 0 ||
                 data.Balance.HighOutputChance < 0 ||
                 data.Balance.LowOutputChance + data.Balance.HighOutputChance > 100 ||
+                data.Balance.FreshLowOutputChance < 0 ||
+                data.Balance.FreshHighOutputChance < 0 ||
+                data.Balance.FreshLowOutputChance + data.Balance.FreshHighOutputChance > 100 ||
+                data.Balance.ExhaustedLowOutputChance < 0 ||
+                data.Balance.ExhaustedHighOutputChance < 0 ||
+                data.Balance.ExhaustedLowOutputChance + data.Balance.ExhaustedHighOutputChance > 100 ||
                 data.Balance.LowOutputMultiplier <= 0f ||
                 data.Balance.HighOutputMultiplier <= 0f)
                 throw new InvalidOperationException("Task-system balance values are invalid.");

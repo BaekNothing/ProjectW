@@ -31,6 +31,10 @@
     "PrerequisiteProgressLimit": 0.3,
     "LowOutputChance": 20,
     "HighOutputChance": 20,
+    "FreshLowOutputChance": 5,
+    "FreshHighOutputChance": 35,
+    "ExhaustedLowOutputChance": 100,
+    "ExhaustedHighOutputChance": 0,
     "LowOutputMultiplier": 0.7,
     "HighOutputMultiplier": 1.3
   },

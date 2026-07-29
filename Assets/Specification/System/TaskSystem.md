@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Version: 0.8
+- Version: 0.9
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
@@ -76,8 +76,14 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 - A worker can hold at most one primary Task for that day.
 - Each worker owns a daily output value. A primary assignment contributes that output toward the
   Task workload before outcome modifiers.
-- Daily output lands in a low band 20% of the time, the expected band 60% of the time, and a high
-  band 20% of the time. Version 0.3 multipliers are data-driven and default to 0.7 / 1.0 / 1.3.
+- Daily output probability is derived from the worker's fatigue at the start of execution.
+  At fatigue 0, low / expected / high output chances are 5% / 60% / 35%. At fatigue 50 they are
+  20% / 60% / 20%, and at fatigue 100 they are 100% / 0% / 0%. Chances interpolate linearly
+  between those anchor points. Version 0.9 multipliers are data-driven and default to
+  0.7 / 1.0 / 1.3 for low / expected / high output.
+- Fatigue 100 does not make a worker unavailable, remove an assignment, or stop ongoing work.
+  The worker continues at the low output multiplier. Only explicit interruption causes such as
+  injury or scheduled rest stop work.
 - A worker may additionally hold at most one parallel Task when that Task has no more than one day of effective work remaining.
 - Parallel work costs additional fatigue defined by gameplay balance data.
 - Parallel assignment does not interrupt the worker's primary Task.
@@ -111,7 +117,7 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 
 - Selecting a worker produces an expected schedule before the reservation is confirmed.
 - Expected daily output is the worker's daily output multiplied by primary-work output and the
-  weighted average of the configured low, regular, and high output bands.
+  fatigue-derived weighted average of the configured low, regular, and high output bands.
 - Estimated duration is `ceil(estimated remaining work / expected daily output)`.
 - Estimated remaining work includes the handover/context cost that selecting a different worker
   would add.

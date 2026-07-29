@@ -66,7 +66,7 @@ namespace ProjectW.MilestonePrototype
         public bool RestScheduled;
         public List<string> History = new List<string>();
 
-        public bool Available => InjuryDays <= 0 && Fatigue < 100 && !RestScheduled;
+        public bool Available => InjuryDays <= 0 && !RestScheduled;
         public string Condition => InjuryDays > 0 ? $"부상 {InjuryDays}일" : Fatigue >= 80 ? "소진" : Fatigue >= 55 ? "과로" : Fatigue >= 30 ? "피로" : "정상";
     }
 
@@ -134,6 +134,10 @@ namespace ProjectW.MilestonePrototype
         public float PrerequisiteProgressLimit = .3f;
         public int LowOutputChance = 20;
         public int HighOutputChance = 20;
+        public int FreshLowOutputChance = 5;
+        public int FreshHighOutputChance = 35;
+        public int ExhaustedLowOutputChance = 100;
+        public int ExhaustedHighOutputChance = 0;
         public float LowOutputMultiplier = .7f;
         public float HighOutputMultiplier = 1.3f;
     }
