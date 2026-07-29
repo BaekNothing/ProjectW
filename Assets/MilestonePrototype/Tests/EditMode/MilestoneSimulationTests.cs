@@ -308,6 +308,32 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void MessengerStatusQuestionAddsQuestionAndWorkerReply()
+        {
+            var game = new MilestoneSimulation(1);
+            CrewMember worker = game.Crew[0];
+
+            Assert.That(game.AskWorker(0, "status"), Is.True);
+
+            Assert.That(worker.History[worker.History.Count - 2], Does.Contain("[나]"));
+            Assert.That(worker.History[worker.History.Count - 1], Does.Contain(worker.Name));
+            Assert.That(worker.History[worker.History.Count - 1], Does.Contain("피로도"));
+        }
+
+        [Test]
+        public void MessengerWorkQuestionReportsAssignedTaskProgress()
+        {
+            var game = new MilestoneSimulation(1);
+            WorkTask task = game.Tasks.Find(candidate => candidate.Id == "survey");
+            Assert.That(game.Assign(task.Id, 1), Is.True);
+
+            string reply = game.BuildWorkerWorkReply(1);
+
+            Assert.That(reply, Does.Contain(task.Name));
+            Assert.That(reply, Does.Contain("진척도"));
+        }
+
+        [Test]
         public void StatusTextUsesTerminalCampaignStateInsteadOfEventLines()
         {
             var report = new DayReport();

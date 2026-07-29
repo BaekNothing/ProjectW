@@ -212,6 +212,67 @@ namespace ProjectW.MilestonePrototype
             if (mail != null) mail.Read = true;
         }
 
+        public bool AskWorker(int crewIndex, string question)
+        {
+            if (crewIndex < 0 || crewIndex >= Crew.Count || string.IsNullOrWhiteSpace(question))
+                return false;
+
+            CrewMember member = Crew[crewIndex];
+            string answer;
+            if (question == "status")
+            {
+                answer = BuildWorkerStatusReply(crewIndex);
+                question = "현재 상태는 어때요?";
+            }
+            else if (question == "work")
+            {
+                answer = BuildWorkerWorkReply(crewIndex);
+                question = "작업 현황을 알려주세요.";
+            }
+            else
+            {
+                return false;
+            }
+
+            member.History.Add($"DAY {Day} [나] {question}");
+            member.History.Add($"DAY {Day} [{member.Name}] {answer}");
+            Log($"{member.Name}에게 메신저 질문");
+            return true;
+        }
+
+        public string BuildWorkerStatusReply(int crewIndex)
+        {
+            if (crewIndex < 0 || crewIndex >= Crew.Count) return string.Empty;
+            CrewMember member = Crew[crewIndex];
+            if (member.InjuryDays > 0)
+                return $"지금은 부상 회복 중입니다. 복귀까지 {member.InjuryDays}일 남았습니다.";
+            if (member.RestScheduled)
+                return "오늘은 휴식이 예정되어 있습니다. 회복 후 다시 보고드리겠습니다.";
+            if (member.Fatigue >= 80)
+                return $"피로도가 {member.Fatigue}%라 많이 지쳤습니다. 휴식이 필요합니다.";
+            if (member.Fatigue >= 55)
+                return $"피로도 {member.Fatigue}%입니다. 계속할 수 있지만 무리가 쌓이고 있습니다.";
+            return $"괜찮습니다. 현재 피로도는 {member.Fatigue}%이고 바로 대응할 수 있습니다.";
+        }
+
+        public string BuildWorkerWorkReply(int crewIndex)
+        {
+            if (crewIndex < 0 || crewIndex >= Crew.Count) return string.Empty;
+            WorkTask primary = Tasks.FirstOrDefault(task =>
+                task.AssignedCharacter == crewIndex && !task.IsParallelAssignment);
+            WorkTask parallel = Tasks.FirstOrDefault(task =>
+                task.AssignedCharacter == crewIndex && task.IsParallelAssignment);
+            if (primary == null && parallel == null)
+                return "현재 맡은 작업은 없습니다. 새 지시를 기다리고 있습니다.";
+
+            string reply = primary == null
+                ? "주 작업은 없습니다."
+                : $"{primary.Name} 작업을 진행 중입니다. 진척도는 {primary.Completion * 100:0}%입니다.";
+            if (parallel != null)
+                reply += $" 병행 작업은 {parallel.Name}, 진척도 {parallel.Completion * 100:0}%입니다.";
+            return reply;
+        }
+
         public DayReport AdvanceDay()
         {
             var report = new DayReport();

@@ -31,6 +31,7 @@ namespace ProjectW.MilestonePrototype
             { "mail", "MAIL / 통신" }, { "gantt", "GANTT / 작업" }, { "milestone", "MILESTONE" },
             { "workers", "CREW / 대원" }, { "report", "REPORT" }, { "codex", "CODEX / 도감" },
             { "help", "HELP" }, { "profile", "MY INFO" }, { "log", "SYSTEM LOG" },
+            { "messenger", "MESSENGER / 메신저" },
             { "worker-detail", "CREW PROFILE / 대원 상세" },
             { "task-detail", "TASK DETAIL / 작업 상세" },
             { "options", "OPTIONS / 옵션" }
@@ -91,7 +92,7 @@ namespace ProjectW.MilestonePrototype
             GUI.Label(new Rect(22, 15, Mathf.Max(220f, logicalWidth - 300f), 34),
                 "PROJECT W  /  OPERATIONS DESK", title);
             GUI.Label(new Rect(logicalWidth - 250, 18, 225, 25), $"DAY {game.Day:00}/{game.CampaignEndDay}   PATCH {patchVersion}", small);
-            string[] ids = { "mail", "gantt", "milestone", "workers", "report", "codex", "help", "profile", "options" };
+            string[] ids = { "mail", "gantt", "milestone", "workers", "report", "codex", "messenger", "help", "profile", "options" };
             for (int i = 0; i < ids.Length; i++)
             {
                 Rect rect = DesktopIconRect(i, logicalWidth);
@@ -144,6 +145,7 @@ namespace ProjectW.MilestonePrototype
                 case "gantt": DrawGantt(window); break;
                 case "milestone": DrawMilestones(window); break;
                 case "workers": DrawWorkers(window); break;
+                case "messenger": DrawMessenger(window); break;
                 case "worker-detail": DrawWorkerDetail(window); break;
                 case "task-detail": DrawTaskDetail(window); break;
                 case "report": DrawReport(window); break;
@@ -672,6 +674,98 @@ namespace ProjectW.MilestonePrototype
             EndTouchScroll(window, "worker-detail", ref window.Scroll);
         }
 
+        private void DrawMessenger(DeskWindow window)
+        {
+            if (game.Crew.Count == 0)
+            {
+                GUILayout.Label("등록된 작업자가 없습니다.");
+                return;
+            }
+
+            window.Selected = Mathf.Clamp(window.Selected, 0, game.Crew.Count - 1);
+            CrewMember selected = game.Crew[window.Selected];
+            GUILayout.BeginHorizontal();
+
+            GUILayout.BeginVertical(GUI.skin.box, GUILayout.Width(Mathf.Min(190f, window.Rect.width * .32f)));
+            GUILayout.Label("인원", section);
+            for (int i = 0; i < game.Crew.Count; i++)
+            {
+                CrewMember member = game.Crew[i];
+                string active = i == window.Selected ? "● " : "";
+                if (GUILayout.Button($"{active}{member.Name}\n{MessengerPresence(i)}", GUILayout.Height(52)))
+                {
+                    window.Selected = i;
+                    window.Scroll = Vector2.zero;
+                }
+            }
+            GUILayout.EndVertical();
+
+            GUILayout.BeginVertical(GUI.skin.box);
+            GUILayout.Label(selected.Name, section);
+            GUILayout.Label($"{RoleName(selected.Specialty)} · {MessengerPresence(window.Selected)}", small);
+            DrawSectionRule();
+
+            window.Scroll = GUILayout.BeginScrollView(window.Scroll);
+            bool hasMessages = false;
+            if (selected.History != null)
+            {
+                foreach (string history in selected.History)
+                {
+                    DrawMessengerBubble(history);
+                    hasMessages = true;
+                }
+            }
+            foreach (WorkTask task in game.Tasks)
+            {
+                if (task.Records == null) continue;
+                foreach (TaskRecord record in task.Records)
+                {
+                    if (record.Actor != selected.Name) continue;
+                    GUILayout.BeginVertical(GUI.skin.box);
+                    GUILayout.Label($"DAY {record.Day:00}  {selected.Name}", small);
+                    GUILayout.Label($"{task.Name}: {record.Text}");
+                    GUILayout.EndVertical();
+                    hasMessages = true;
+                }
+            }
+            if (!hasMessages)
+                GUILayout.Label("아직 대화나 작업 피드백이 없습니다.", small);
+            EndTouchScroll(window, "messenger-chat", ref window.Scroll);
+
+            GUILayout.Label("물어보기", small);
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("안부 묻기", GUILayout.Height(36)))
+            {
+                game.AskWorker(window.Selected, "status");
+                SaveCampaign();
+            }
+            if (GUILayout.Button("작업 현황 묻기", GUILayout.Height(36)))
+            {
+                game.AskWorker(window.Selected, "work");
+                SaveCampaign();
+            }
+            GUILayout.EndHorizontal();
+            GUILayout.EndVertical();
+            GUILayout.EndHorizontal();
+        }
+
+        private string MessengerPresence(int crewIndex)
+        {
+            CrewMember member = game.Crew[crewIndex];
+            if (member.InjuryDays > 0) return $"부상 · {member.InjuryDays}일";
+            if (member.RestScheduled) return "휴식 예정";
+            WorkTask task = game.Tasks.FirstOrDefault(candidate =>
+                candidate.AssignedCharacter == crewIndex && !candidate.IsParallelAssignment);
+            return task == null ? "대기 중" : $"작업 중 · {task.Name}";
+        }
+
+        private void DrawMessengerBubble(string message)
+        {
+            GUILayout.BeginVertical(GUI.skin.box);
+            GUILayout.Label(message, small);
+            GUILayout.EndVertical();
+        }
+
         private void DrawReport(DeskWindow window)
         {
             OperationsReport report = game.BuildReport();
@@ -1187,6 +1281,7 @@ namespace ProjectW.MilestonePrototype
                 case "workers": return "CREW\n대원";
                 case "report": return "REPORT\n보고서";
                 case "codex": return "CODEX\n도감";
+                case "messenger": return "CHAT\n메신저";
                 case "help": return "HELP\n도움말";
                 case "options": return "OPTIONS\n옵션";
                 default: return "INFO\n내정보";
