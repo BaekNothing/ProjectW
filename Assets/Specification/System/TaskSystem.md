@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Version: 0.7
+- Version: 0.8
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
@@ -125,6 +125,14 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
   today until the blocker becomes calculable.
 - The Task detail shows estimated work, expected daily output, duration, start day, completion day,
   and the reason for the selected start day.
+- A Task without an assigned or reserved worker still receives a planning preview using an assumed
+  output of `1.0 work/day`.
+- Unassigned predecessor Tasks use the same baseline preview, so their successors are placed after
+  the predecessor's estimated completion instead of all appearing on the current day.
+- Work-level predecessors use the latest estimated completion among their unfinished required Tasks.
+- Dependency order determines sequence. Tasks with no dependency between them may remain parallel
+  and start on the same day.
+- The Gantt view uses this shared preview for bar start, duration, end, and dependency arrows.
 
 ## Task Detail Page
 

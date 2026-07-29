@@ -337,7 +337,7 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void UnassignedBlockerUsesRollingTomorrowStart()
+        public void UnassignedBlockerUsesBaselinePreviewAndMovesWithCurrentDay()
         {
             var game = new MilestoneSimulation(1);
 
@@ -345,10 +345,10 @@ namespace ProjectW.MilestonePrototype.Tests
             game.AdvanceDay();
             TaskScheduleEstimate nextDay = game.EstimateSchedule("habitat", 0);
 
-            Assert.That(today.StartDay, Is.EqualTo(2));
-            Assert.That(today.RollingStart, Is.True);
-            Assert.That(nextDay.StartDay, Is.EqualTo(3));
-            Assert.That(nextDay.RollingStart, Is.True);
+            Assert.That(today.StartDay, Is.EqualTo(4));
+            Assert.That(today.RollingStart, Is.False);
+            Assert.That(nextDay.StartDay, Is.EqualTo(5));
+            Assert.That(nextDay.RollingStart, Is.False);
         }
 
         [Test]
@@ -363,6 +363,50 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(estimate.ExpectedDailyOutput, Is.EqualTo(2f).Within(.001f));
             Assert.That(estimate.DurationDays, Is.EqualTo(2));
             Assert.That(estimate.CompletionDay, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void UnassignedTasksPreviewAtOneWorkPerDayInDependencyOrder()
+        {
+            var game = new MilestoneSimulation(1);
+
+            TaskScheduleEstimate survey = game.EstimatePreviewSchedule("survey");
+            TaskScheduleEstimate power = game.EstimatePreviewSchedule("power");
+            TaskScheduleEstimate habitat = game.EstimatePreviewSchedule("habitat");
+            TaskScheduleEstimate safety = game.EstimatePreviewSchedule("safety");
+
+            Assert.That(survey.ExpectedDailyOutput, Is.EqualTo(1f));
+            Assert.That(survey.StartDay, Is.EqualTo(1));
+            Assert.That(survey.CompletionDay, Is.EqualTo(3));
+            Assert.That(power.StartDay, Is.EqualTo(4));
+            Assert.That(power.CompletionDay, Is.EqualTo(7));
+            Assert.That(habitat.StartDay, Is.EqualTo(4));
+            Assert.That(safety.StartDay, Is.EqualTo(8));
+        }
+
+        [Test]
+        public void WorkPredecessorPreviewStartsAfterLatestRequiredTask()
+        {
+            var game = new MilestoneSimulation(1);
+
+            TaskScheduleEstimate launch = game.EstimatePreviewSchedule("launch");
+
+            Assert.That(launch.StartDay, Is.EqualTo(8));
+            Assert.That(launch.CompletionDay, Is.EqualTo(10));
+        }
+
+        [Test]
+        public void AssignedPredecessorOutputMovesUnassignedSuccessorPreview()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Crew[1].DailyOutput = 2f;
+            var game = new MilestoneSimulation(data, 1);
+            game.Assign("survey", 1);
+
+            TaskScheduleEstimate habitat = game.EstimatePreviewSchedule("habitat");
+
+            Assert.That(habitat.StartDay, Is.EqualTo(3));
+            Assert.That(habitat.CompletionDay, Is.EqualTo(6));
         }
 
         [Test]

@@ -249,16 +249,19 @@ namespace ProjectW.MilestonePrototype
 
                 foreach (WorkTask task in tasks)
                 {
+                    TaskScheduleEstimate preview = game.EstimatePreviewSchedule(task.Id);
                     int actualDays = TaskActualDurationDays(task, game.Day);
-                    int startDay = task.StartedDay > 0 ? task.StartedDay : PlannedStartDay(task);
+                    int startDay = task.StartedDay > 0
+                        ? task.StartedDay
+                        : preview?.StartDay ?? game.Day;
                     float completedWidth = actualDays * dayWidth;
-                    float remainingWidth = Mathf.Ceil(task.RemainingWork) * dayWidth;
+                    float remainingWidth = (preview?.DurationDays ?? 0) * dayWidth;
                     float barX = (startDay - 1) * dayWidth + 3;
                     if (completedWidth > 0)
                         DrawSolid(new Rect(barX, y + 7, completedWidth, 14), GrayColor);
                     int projectedStartDay = task.StartedDay > 0
-                        ? Mathf.Max(game.Day, task.StartedDay + actualDays)
-                        : PlannedStartDay(task);
+                        ? preview?.StartDay ?? Mathf.Max(game.Day, task.StartedDay + actualDays)
+                        : preview?.StartDay ?? game.Day;
                     float remainingX = (projectedStartDay - 1) * dayWidth + 3;
                     if (remainingWidth > 0)
                         DrawSolid(new Rect(remainingX, y + 7, remainingWidth, 14),
@@ -384,25 +387,28 @@ namespace ProjectW.MilestonePrototype
 
         private float TaskBarStartX(WorkTask task, float dayWidth)
         {
-            int startDay = task.StartedDay > 0 ? task.StartedDay : PlannedStartDay(task);
+            TaskScheduleEstimate preview = game.EstimatePreviewSchedule(task.Id);
+            int startDay = task.StartedDay > 0
+                ? task.StartedDay
+                : preview?.StartDay ?? game.Day;
             return (startDay - 1) * dayWidth + 3f;
         }
 
         private float TaskBarEndX(WorkTask task, float dayWidth)
         {
             int actualDays = TaskActualDurationDays(task, game.Day);
-            int startDay = task.StartedDay > 0 ? task.StartedDay : PlannedStartDay(task);
+            TaskScheduleEstimate preview = game.EstimatePreviewSchedule(task.Id);
+            int startDay = task.StartedDay > 0
+                ? task.StartedDay
+                : preview?.StartDay ?? game.Day;
             float completedEnd = (startDay - 1) * dayWidth + 3f + actualDays * dayWidth;
             int projectedStartDay = task.StartedDay > 0
-                ? Mathf.Max(game.Day, task.StartedDay + actualDays)
-                : PlannedStartDay(task);
+                ? preview?.StartDay ?? Mathf.Max(game.Day, task.StartedDay + actualDays)
+                : preview?.StartDay ?? game.Day;
             float remainingEnd = (projectedStartDay - 1) * dayWidth + 3f +
-                                 Mathf.Ceil(task.RemainingWork) * dayWidth;
+                                 (preview?.DurationDays ?? 0) * dayWidth;
             return Mathf.Max(completedEnd, remainingEnd);
         }
-
-        private int PlannedStartDay(WorkTask task) =>
-            Mathf.Max(1, task.ScheduledDay > game.Day ? task.ScheduledDay : game.Day);
 
         public static int TaskActualDurationDays(WorkTask task, int currentDay)
         {
