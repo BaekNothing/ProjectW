@@ -267,6 +267,62 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void IdleWorkerScheduleStartsTodayAndDividesWorkByExpectedOutput()
+        {
+            var game = new MilestoneSimulation(1);
+
+            TaskScheduleEstimate estimate = game.EstimateSchedule("survey", 1);
+
+            Assert.That(estimate.StartDay, Is.EqualTo(game.Day));
+            Assert.That(estimate.ExpectedDailyOutput, Is.EqualTo(1f).Within(.001f));
+            Assert.That(estimate.DurationDays, Is.EqualTo(3));
+            Assert.That(estimate.CompletionDay, Is.EqualTo(3));
+            Assert.That(estimate.RollingStart, Is.False);
+        }
+
+        [Test]
+        public void AssignedBlockerAndBusyWorkerPushSuccessorAfterExpectedCompletion()
+        {
+            var game = new MilestoneSimulation(1);
+            Assert.That(game.Assign("survey", 1), Is.True);
+
+            TaskScheduleEstimate estimate = game.EstimateSchedule("habitat", 1);
+
+            Assert.That(estimate.StartDay, Is.EqualTo(4));
+            Assert.That(estimate.CompletionDay, Is.EqualTo(7));
+            Assert.That(estimate.RollingStart, Is.False);
+        }
+
+        [Test]
+        public void UnassignedBlockerUsesRollingTomorrowStart()
+        {
+            var game = new MilestoneSimulation(1);
+
+            TaskScheduleEstimate today = game.EstimateSchedule("habitat", 0);
+            game.AdvanceDay();
+            TaskScheduleEstimate nextDay = game.EstimateSchedule("habitat", 0);
+
+            Assert.That(today.StartDay, Is.EqualTo(2));
+            Assert.That(today.RollingStart, Is.True);
+            Assert.That(nextDay.StartDay, Is.EqualTo(3));
+            Assert.That(nextDay.RollingStart, Is.True);
+        }
+
+        [Test]
+        public void FasterWorkerProducesShorterExpectedDuration()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Crew[1].DailyOutput = 2f;
+            var game = new MilestoneSimulation(data, 1);
+
+            TaskScheduleEstimate estimate = game.EstimateSchedule("survey", 1);
+
+            Assert.That(estimate.ExpectedDailyOutput, Is.EqualTo(2f).Within(.001f));
+            Assert.That(estimate.DurationDays, Is.EqualTo(2));
+            Assert.That(estimate.CompletionDay, Is.EqualTo(2));
+        }
+
+        [Test]
         public void WorkerCannotHaveTwoPrimaryReservationsOnSameDay()
         {
             var game = new MilestoneSimulation(1);

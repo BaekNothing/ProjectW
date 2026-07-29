@@ -147,6 +147,18 @@ namespace ProjectW.MilestonePrototype
         public bool CanRunInParallel;
     }
 
+    public sealed class TaskScheduleEstimate
+    {
+        public int WorkerIndex;
+        public float ExpectedDailyOutput;
+        public float EstimatedWork;
+        public int DurationDays;
+        public int StartDay;
+        public int CompletionDay;
+        public bool RollingStart;
+        public string StartReason;
+    }
+
     [Serializable]
     public sealed class TaskSystemData
     {

@@ -517,17 +517,37 @@ namespace ProjectW.MilestonePrototype
             window.ScheduleDay = Mathf.Clamp(window.ScheduleDay <= 0 ? game.Day : window.ScheduleDay,
                 game.Day, game.CampaignEndDay);
             window.SelectedCrew = Mathf.Clamp(window.SelectedCrew, 0, Mathf.Max(0, game.Crew.Count - 1));
+            TaskScheduleEstimate estimate = game.EstimateSchedule(task.Id, window.SelectedCrew);
+            if (estimate != null)
+            {
+                GUILayout.BeginVertical(GUI.skin.box);
+                GUILayout.Label($"자동 일정 산정 · {game.Crew[window.SelectedCrew].Name}", section);
+                GUILayout.Label(
+                    $"잔여 산정 작업량 {estimate.EstimatedWork:0.##} ÷ 기대 산출 {estimate.ExpectedDailyOutput:0.##}/일 " +
+                    $"= {estimate.DurationDays}일", small);
+                GUILayout.Label(
+                    $"예상 시작 DAY {estimate.StartDay:00}  →  예상 완료 DAY {estimate.CompletionDay:00}",
+                    estimate.RollingStart ? warning : success);
+                GUILayout.Label(estimate.StartReason, small);
+                GUILayout.EndVertical();
+            }
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("◀ DAY")) window.ScheduleDay = Mathf.Max(game.Day, window.ScheduleDay - 1);
             GUILayout.Label($"DAY {window.ScheduleDay:00}", section);
             if (GUILayout.Button("DAY ▶")) window.ScheduleDay = Mathf.Min(game.CampaignEndDay, window.ScheduleDay + 1);
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("◀ 작업자")) window.SelectedCrew =
-                (window.SelectedCrew - 1 + game.Crew.Count) % game.Crew.Count;
+            if (GUILayout.Button("◀ 작업자"))
+            {
+                window.SelectedCrew = (window.SelectedCrew - 1 + game.Crew.Count) % game.Crew.Count;
+                SetEstimatedScheduleDay(window, task);
+            }
             GUILayout.Label(game.Crew[window.SelectedCrew].Name, section);
-            if (GUILayout.Button("작업자 ▶")) window.SelectedCrew =
-                (window.SelectedCrew + 1) % game.Crew.Count;
+            if (GUILayout.Button("작업자 ▶"))
+            {
+                window.SelectedCrew = (window.SelectedCrew + 1) % game.Crew.Count;
+                SetEstimatedScheduleDay(window, task);
+            }
             GUILayout.EndHorizontal();
             GUI.enabled = task.State != TaskState.Complete && task.State != TaskState.Failed;
             if (GUILayout.Button("이 일정으로 예약"))
@@ -979,10 +999,19 @@ namespace ProjectW.MilestonePrototype
             WorkTask task = game.Tasks[taskIndex];
             detail.Selected = taskIndex;
             detail.SelectedCrew = task.AssignedCharacter >= 0 ? task.AssignedCharacter : 0;
-            detail.ScheduleDay = task.ScheduledDay > 0 ? task.ScheduledDay : game.Day;
+            TaskScheduleEstimate estimate = game.EstimateSchedule(task.Id, detail.SelectedCrew);
+            detail.ScheduleDay = task.ScheduledDay > 0
+                ? task.ScheduledDay
+                : estimate?.StartDay ?? game.Day;
             detail.Scroll = Vector2.zero;
             detail.Notice = null;
             Focus(detail);
+        }
+
+        private void SetEstimatedScheduleDay(DeskWindow window, WorkTask task)
+        {
+            TaskScheduleEstimate estimate = game.EstimateSchedule(task.Id, window.SelectedCrew);
+            window.ScheduleDay = Mathf.Clamp(estimate?.StartDay ?? game.Day, game.Day, game.CampaignEndDay);
         }
 
         private void Close(string id)

@@ -363,6 +363,158 @@ namespace ProjectW.MilestonePrototype
             };
         }
 
+        public TaskScheduleEstimate EstimateSchedule(string taskId, int crewIndex)
+        {
+            WorkTask task = Tasks.FirstOrDefault(candidate => candidate.Id == taskId);
+            if (task == null || crewIndex < 0 || crewIndex >= Crew.Count) return null;
+
+            float expectedOutput = ExpectedDailyOutput(crewIndex);
+            float handoverWork = task.AssignedCharacter >= 0 &&
+                                 task.AssignedCharacter != crewIndex &&
+                                 task.Progress > 0f &&
+                                 task.State != TaskState.Complete
+                ? InterruptionAndResumptionCostDays
+                : 0f;
+            float estimatedWork = task.RemainingWork + handoverWork;
+            int duration = task.State == TaskState.Complete
+                ? 0
+                : CeilPositive(estimatedWork / expectedOutput);
+            int startDay = Day;
+            bool rolling = false;
+            bool dependencyDelay = ApplyDependencyStart(task, ref startDay, ref rolling, 0);
+
+            bool workerDelay = false;
+            WorkTask current = Tasks.FirstOrDefault(candidate =>
+                candidate != task &&
+                candidate.AssignedCharacter == crewIndex &&
+                !candidate.IsParallelAssignment &&
+                candidate.State != TaskState.Complete &&
+                candidate.State != TaskState.Failed);
+            if (current != null)
+            {
+                workerDelay = true;
+                int currentCompletion = EstimateAssignedCompletion(current, 0);
+                if (currentCompletion > 0)
+                    startDay = Math.Max(startDay, currentCompletion + 1);
+                else
+                {
+                    startDay = Math.Max(startDay, Day + 1);
+                    rolling = true;
+                }
+            }
+
+            CrewMember worker = Crew[crewIndex];
+            if (worker.InjuryDays > 0)
+            {
+                workerDelay = true;
+                startDay = Math.Max(startDay, Day + worker.InjuryDays);
+            }
+            if (worker.RestScheduled)
+            {
+                workerDelay = true;
+                startDay = Math.Max(startDay, Day + 1);
+            }
+
+            string reason = rolling
+                ? "막고 있는 일정의 담당자 또는 예상 완료일이 없어 내일로 순연"
+                : dependencyDelay && workerDelay
+                    ? "선행 일정과 담당자 기존 작업이 모두 끝난 뒤 시작"
+                    : dependencyDelay
+                        ? "선행 일정이 끝난 뒤 시작"
+                        : workerDelay
+                            ? "담당자의 기존 일정이 끝난 뒤 시작"
+                            : "담당자가 비어 있어 즉시 시작";
+            return new TaskScheduleEstimate
+            {
+                WorkerIndex = crewIndex,
+                ExpectedDailyOutput = expectedOutput,
+                EstimatedWork = estimatedWork,
+                DurationDays = duration,
+                StartDay = task.State == TaskState.Complete ? task.CompletedDay : startDay,
+                CompletionDay = task.State == TaskState.Complete
+                    ? task.CompletedDay
+                    : startDay + Math.Max(0, duration - 1),
+                RollingStart = rolling,
+                StartReason = reason
+            };
+        }
+
+        private float ExpectedDailyOutput(int crewIndex)
+        {
+            float regularChance = 100 - balance.LowOutputChance - balance.HighOutputChance;
+            float expectedMultiplier =
+                balance.LowOutputChance * balance.LowOutputMultiplier / 100f +
+                regularChance / 100f +
+                balance.HighOutputChance * balance.HighOutputMultiplier / 100f;
+            float dailyOutput = Crew[crewIndex].DailyOutput > 0f ? Crew[crewIndex].DailyOutput : 1f;
+            float output = dailyOutput * balance.PrimaryProgressDays * expectedMultiplier;
+            return output > .001f ? output : .001f;
+        }
+
+        private bool ApplyDependencyStart(WorkTask task, ref int startDay, ref bool rolling, int depth)
+        {
+            if (depth > Tasks.Count) return false;
+            bool delayed = false;
+            if (!string.IsNullOrEmpty(task.PrerequisiteId))
+            {
+                WorkTask blocker = Tasks.FirstOrDefault(candidate => candidate.Id == task.PrerequisiteId);
+                if (blocker != null && blocker.State != TaskState.Complete)
+                {
+                    delayed = true;
+                    ApplyBlockerCompletion(blocker, ref startDay, ref rolling, depth + 1);
+                }
+            }
+
+            WorkGroup group = ParentWork(task);
+            if (group?.PredecessorIds == null) return delayed;
+            foreach (string predecessorId in group.PredecessorIds)
+            {
+                WorkGroup predecessorGroup = Groups.FirstOrDefault(candidate => candidate.Id == predecessorId);
+                if (predecessorGroup == null || predecessorGroup.State == WorkState.Complete) continue;
+                delayed = true;
+                foreach (WorkTask blocker in Tasks.Where(candidate =>
+                             candidate.GroupId == predecessorId && candidate.Required &&
+                             candidate.State != TaskState.Complete))
+                    ApplyBlockerCompletion(blocker, ref startDay, ref rolling, depth + 1);
+            }
+            return delayed;
+        }
+
+        private void ApplyBlockerCompletion(WorkTask blocker, ref int startDay, ref bool rolling, int depth)
+        {
+            int completion = EstimateAssignedCompletion(blocker, depth);
+            if (completion > 0)
+                startDay = Math.Max(startDay, completion + 1);
+            else
+            {
+                startDay = Math.Max(startDay, Day + 1);
+                rolling = true;
+            }
+        }
+
+        private int EstimateAssignedCompletion(WorkTask task, int depth)
+        {
+            if (task.State == TaskState.Complete) return task.CompletedDay;
+            if (task.AssignedCharacter < 0 || task.AssignedCharacter >= Crew.Count ||
+                depth > Tasks.Count)
+                return 0;
+
+            int startDay = Day;
+            bool rolling = false;
+            ApplyDependencyStart(task, ref startDay, ref rolling, depth + 1);
+            if (rolling) return 0;
+            float output = ExpectedDailyOutput(task.AssignedCharacter);
+            int duration = CeilPositive(task.RemainingWork / output);
+            return startDay + Math.Max(0, duration - 1);
+        }
+
+        private static int CeilPositive(float value)
+        {
+            if (value <= 0f) return 0;
+            int whole = (int)value;
+            return value - whole > .001f ? whole + 1 : Math.Max(1, whole);
+        }
+
         public CampaignSnapshot CreateSnapshot() => new CampaignSnapshot
         {
             SchemaVersion = ProjectWSaveStore.CampaignSchema,

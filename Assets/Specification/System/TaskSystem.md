@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Version: 0.5
+- Version: 0.6
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
@@ -100,6 +100,25 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
   unavailable, the reservation is consumed and the day report records that it did not start.
 - A reservation can be replaced or cancelled before it is consumed.
 - Reservation day and worker are part of the campaign save snapshot.
+
+### Expected Schedule
+
+- Selecting a worker produces an expected schedule before the reservation is confirmed.
+- Expected daily output is the worker's daily output multiplied by primary-work output and the
+  weighted average of the configured low, regular, and high output bands.
+- Estimated duration is `ceil(estimated remaining work / expected daily output)`.
+- Estimated remaining work includes the handover/context cost that selecting a different worker
+  would add.
+- An idle, available worker can start immediately when no dependency blocks entry.
+- A busy worker starts the day after their current primary Task's estimated completion.
+- A Task blocked by another Task or predecessor Work starts the day after the latest calculable
+  blocker completion.
+- Worker availability and dependency readiness combine by taking the later start.
+- If a blocker has no assigned worker or no calculable completion, the estimate uses tomorrow as a
+  rolling start. Recalculation on the next day uses that new tomorrow, so it never silently becomes
+  today until the blocker becomes calculable.
+- The Task detail shows estimated work, expected daily output, duration, start day, completion day,
+  and the reason for the selected start day.
 
 ## Task Detail Page
 
