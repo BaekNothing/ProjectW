@@ -37,15 +37,15 @@ native plugins, Android settings, Unity, or HybridCLR change.
 
 ### Current base APK
 
-- Base version: `3`
+- Base version: `4`
 - Artifact: `APK/ProjectW-HybridCLR.apk`
-- Size: `50,283,444` bytes
-- SHA-256: `c409fba68ff76f38fe92d178bf3a483b367091646b26583f9313981d2309e1fa`
-- Required for: direct-content drag and horizontal Gantt patches using the explicitly preserved
-  `GUILayoutUtility` and `GUIUtility` AOT surface
+- Size: `50,310,056` bytes
+- SHA-256: `96248aa1065ab37c853887d6a6ac29cfc59c3d0ecbabc69d35ee8eca612a9dcd`
+- Required for: the v3 direct-content drag surface plus doubled vertical scrollbars using the
+  explicitly preserved `GUISkin` and `GUIStyle.fixedWidth` AOT surface
 
-Base APK v2 devices remain compatible with `dev-20260727-007`, but reject v3-only manifests.
-Install base APK v3 once before consuming patches whose `minBaseVersion` is `3`.
+Base APK v3 devices remain compatible with `dev-20260729-003`, but reject v4-only manifests.
+Install base APK v4 once before consuming patches whose `minBaseVersion` is `4`.
 
 ## Routine code patch workflow
 

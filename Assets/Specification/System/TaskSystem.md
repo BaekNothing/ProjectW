@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Version: 0.6
+- Version: 0.7
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
@@ -91,8 +91,14 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 
 ## Task Scheduling
 
-- A player may reserve a Task for one worker on a calendar day from the current day through the
-  campaign end day.
+- A player may reserve a Task start day for one worker from the current day through the campaign
+  end day.
+- The reserved day is a start or resume day, not a one-day assignment.
+- Once started, the same worker remains assigned and contributes output every daily cycle without
+  repeated player input until the Task completes, fails, is held, or is reassigned.
+- Rescheduling an active Task to a future day immediately holds it. The normal interruption and
+  resumption context cost applies, and the selected worker resumes it on the new start day.
+- Changing the reserved worker is a handover and follows the same interruption/handover rules.
 - A worker cannot hold two primary reservations on the same day.
 - At the beginning of the reserved day's daily cycle, the reservation attempts a normal primary
   assignment. Existing assignment, interruption, availability, and handover rules still apply.
@@ -300,6 +306,8 @@ Every scrollable window region keeps its visible scrollbar and also supports dir
   magnification so text does not outgrow its layout.
 - The selected magnification is saved in desktop settings and restored on the next launch. Older
   desktop saves without a value use the `1.8x` default.
+- The right-side vertical scrollbar track, thumb, and buttons use twice the default skin width for
+  touch accessibility.
 - When magnification reduces the logical desktop below the compact breakpoint, application windows
   use the existing near-full-screen compact layout and retain scrollable content.
 
@@ -343,3 +351,12 @@ Base APK v3 explicitly preserves the IMGUI layout, pointer, and control surface 
 - The full horizontal Gantt scroll view and content dragging are restored only in patches with `minBaseVersion = 3`.
 - The base v3 embedded HotUpdate DLL contains the same restored behavior for offline fallback.
 - Base v2 continues to use the safe paged/scrollbar UI from `dev-20260727-007`.
+
+### Base APK v4 Activation
+
+Base APK v4 explicitly preserves `UnityEngine.GUISkin` and `UnityEngine.GUIStyle`, including the
+vertical scrollbar styles and `fixedWidth` accessors used to double the right-side scrollbar width.
+
+- Scrollbar-width patches require `minBaseVersion = 4`.
+- Base APK v4 embeds the same doubled-scrollbar and start/resume reservation behavior for offline
+  fallback.

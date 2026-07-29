@@ -52,6 +52,7 @@ namespace ProjectW.MilestonePrototype
         private static readonly Color PaleColor = new Color(.88f, .88f, .88f, 1f);
         private const float TouchDragThreshold = 8f;
         public const float DefaultUiMagnification = 1.8f;
+        public const float DefaultScrollbarWidth = 16f;
         private float uiMagnification = DefaultUiMagnification;
         private float logicalWidth;
         private float logicalHeight;
@@ -506,14 +507,14 @@ namespace ProjectW.MilestonePrototype
             GUI.enabled = true;
             GUILayout.EndHorizontal();
 
-            GUILayout.Label("작업 예약", section);
+            GUILayout.Label("작업 시작 예약", section);
             GUILayout.BeginVertical(GUI.skin.box);
             if (task.ScheduledDay > 0 && task.ScheduledWorker >= 0 &&
                 task.ScheduledWorker < game.Crew.Count)
-                GUILayout.Label($"현재 예약: DAY {task.ScheduledDay:00} · {game.Crew[task.ScheduledWorker].Name}",
+                GUILayout.Label($"예약 시작일: DAY {task.ScheduledDay:00} · {game.Crew[task.ScheduledWorker].Name}",
                     success);
             else
-                GUILayout.Label("현재 예약 없음", small);
+                GUILayout.Label("예약된 시작일 없음", small);
             window.ScheduleDay = Mathf.Clamp(window.ScheduleDay <= 0 ? game.Day : window.ScheduleDay,
                 game.Day, game.CampaignEndDay);
             window.SelectedCrew = Mathf.Clamp(window.SelectedCrew, 0, Mathf.Max(0, game.Crew.Count - 1));
@@ -533,7 +534,7 @@ namespace ProjectW.MilestonePrototype
             }
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("◀ DAY")) window.ScheduleDay = Mathf.Max(game.Day, window.ScheduleDay - 1);
-            GUILayout.Label($"DAY {window.ScheduleDay:00}", section);
+            GUILayout.Label($"시작 DAY {window.ScheduleDay:00}", section);
             if (GUILayout.Button("DAY ▶")) window.ScheduleDay = Mathf.Min(game.CampaignEndDay, window.ScheduleDay + 1);
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
@@ -550,10 +551,10 @@ namespace ProjectW.MilestonePrototype
             }
             GUILayout.EndHorizontal();
             GUI.enabled = task.State != TaskState.Complete && task.State != TaskState.Failed;
-            if (GUILayout.Button("이 일정으로 예약"))
+            if (GUILayout.Button("이 시작일로 예약"))
             {
                 window.Notice = game.Schedule(task.Id, window.SelectedCrew, window.ScheduleDay)
-                    ? "예약을 등록했습니다."
+                    ? "작업 시작일을 예약했습니다. 시작 후에는 완료하거나 다시 조정할 때까지 계속 작업합니다."
                     : "같은 작업자의 해당 날짜 예약과 충돌하거나 예약할 수 없는 작업입니다.";
                 SaveCampaign();
             }
@@ -1259,6 +1260,11 @@ namespace ProjectW.MilestonePrototype
             GUI.skin.box.normal.textColor = ink;
             GUI.skin.box.border = new RectOffset();
             GUI.skin.scrollView.normal.background = whiteFill;
+            float verticalWidth = DoubledScrollbarWidth(GUI.skin.verticalScrollbar.fixedWidth);
+            GUI.skin.verticalScrollbar.fixedWidth = verticalWidth;
+            GUI.skin.verticalScrollbarThumb.fixedWidth = verticalWidth;
+            GUI.skin.verticalScrollbarUpButton.fixedWidth = verticalWidth;
+            GUI.skin.verticalScrollbarDownButton.fixedWidth = verticalWidth;
 
             title = new GUIStyle(GUI.skin.label) { fontSize = 23, fontStyle = FontStyle.Bold };
             section = new GUIStyle(GUI.skin.label)
@@ -1277,6 +1283,9 @@ namespace ProjectW.MilestonePrototype
             success = new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold, wordWrap = true };
             success.normal.textColor = ink;
         }
+
+        public static float DoubledScrollbarWidth(float currentWidth) =>
+            (currentWidth > 0f ? currentWidth : DefaultScrollbarWidth) * 2f;
 
         private static void DrawSolid(Rect rect, Color color)
         {

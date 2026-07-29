@@ -83,10 +83,12 @@ public class AOTGenericReferences : UnityEngine.MonoBehaviour
 	// System.Linq.Enumerable.WhereSelectListIterator<object,object>
 	// System.Linq.EnumerableSorter<object,byte>
 	// System.Linq.EnumerableSorter<object,int>
+	// System.Linq.EnumerableSorter<object,object>
 	// System.Linq.EnumerableSorter<object>
 	// System.Linq.OrderedEnumerable.<GetEnumerator>d__1<object>
 	// System.Linq.OrderedEnumerable<object,byte>
 	// System.Linq.OrderedEnumerable<object,int>
+	// System.Linq.OrderedEnumerable<object,object>
 	// System.Linq.OrderedEnumerable<object>
 	// System.Predicate<object>
 	// }}
@@ -101,9 +103,11 @@ public class AOTGenericReferences : UnityEngine.MonoBehaviour
 		// int System.Linq.Enumerable.Count<object>(System.Collections.Generic.IEnumerable<object>,System.Func<object,bool>)
 		// System.Collections.Generic.IEnumerable<int> System.Linq.Enumerable.DefaultIfEmpty<int>(System.Collections.Generic.IEnumerable<int>,int)
 		// System.Collections.Generic.IEnumerable<int> System.Linq.Enumerable.DefaultIfEmptyIterator<int>(System.Collections.Generic.IEnumerable<int>,int)
+		// object System.Linq.Enumerable.FirstOrDefault<object>(System.Collections.Generic.IEnumerable<object>)
 		// object System.Linq.Enumerable.FirstOrDefault<object>(System.Collections.Generic.IEnumerable<object>,System.Func<object,bool>)
 		// System.Linq.IOrderedEnumerable<object> System.Linq.Enumerable.OrderBy<object,byte>(System.Collections.Generic.IEnumerable<object>,System.Func<object,byte>)
 		// System.Linq.IOrderedEnumerable<object> System.Linq.Enumerable.OrderBy<object,int>(System.Collections.Generic.IEnumerable<object>,System.Func<object,int>)
+		// System.Linq.IOrderedEnumerable<object> System.Linq.Enumerable.OrderBy<object,object>(System.Collections.Generic.IEnumerable<object>,System.Func<object,object>)
 		// System.Collections.Generic.IEnumerable<object> System.Linq.Enumerable.Reverse<object>(System.Collections.Generic.IEnumerable<object>)
 		// System.Collections.Generic.IEnumerable<object> System.Linq.Enumerable.ReverseIterator<object>(System.Collections.Generic.IEnumerable<object>)
 		// System.Collections.Generic.IEnumerable<float> System.Linq.Enumerable.Select<object,float>(System.Collections.Generic.IEnumerable<object>,System.Func<object,float>)

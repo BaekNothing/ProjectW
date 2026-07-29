@@ -5,6 +5,8 @@
     <type fullname="UnityEngine.GUI" preserve="all" />
     <type fullname="UnityEngine.GUILayout" preserve="all" />
     <type fullname="UnityEngine.GUILayoutUtility" preserve="all" />
+    <type fullname="UnityEngine.GUISkin" preserve="all" />
+    <type fullname="UnityEngine.GUIStyle" preserve="all" />
     <type fullname="UnityEngine.GUIUtility" preserve="all" />
   </assembly>
 </linker>

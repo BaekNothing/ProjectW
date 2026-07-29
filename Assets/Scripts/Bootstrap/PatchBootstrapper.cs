@@ -14,7 +14,7 @@ namespace ProjectW.Bootstrap
 {
     public sealed class PatchBootstrapper : MonoBehaviour
     {
-        public const int BaseVersion = 3;
+        public const int BaseVersion = 4;
         private readonly PlayerPrefsStringStorage storage = new PlayerPrefsStringStorage();
         public const string DefaultChannelUrl =
             "https://raw.githubusercontent.com/BaekNothing/ProjectW/ai-integration/PatchChannels/dev.json";

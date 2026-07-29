@@ -112,6 +112,21 @@ Patches that rely on the restored direct-drag surface must declare `minBaseVersi
 
 This baseline does not authorize unrelated new Unity or platform APIs. Every later external member still follows the default-deny policy.
 
+## Base APK v4 AOT Baseline
+
+Base APK v4 adds the exact IMGUI style surface required for wider right-side scrollbars.
+
+It must bundle:
+
+- `BaseVersion = 4`
+- the latest embedded `ProjectW.HotUpdate.dll.bytes` and `task-system.json`
+- regenerated Android AOT metadata
+- stable linker preservation for `UnityEngine.GUISkin` and `UnityEngine.GUIStyle`
+- the v3 IMGUI preservation surface
+
+The approved new members are the vertical scrollbar style getters on `GUISkin` and the
+`GUIStyle.fixedWidth` getter/setter. This does not authorize unrelated Unity APIs.
+
 ## Impact Matrix
 
 | Area | Impact |

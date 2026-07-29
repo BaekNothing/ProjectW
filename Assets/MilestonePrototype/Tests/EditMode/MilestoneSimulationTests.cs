@@ -267,6 +267,49 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void StartedTaskContinuesWithoutRepeatedAssignment()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.HighFatigueAccidentChance = 0;
+            data.Balance.MediumFatigueAccidentChance = 0;
+            data.Balance.MismatchAccidentChance = 0;
+            var game = new MilestoneSimulation(data, 1);
+            WorkTask survey = game.Tasks.Find(task => task.Id == "survey");
+            Assert.That(game.Assign(survey.Id, 1), Is.True);
+
+            game.AdvanceDay();
+            float firstDayProgress = survey.Progress;
+            game.AdvanceDay();
+
+            Assert.That(survey.Progress, Is.GreaterThan(firstDayProgress));
+            Assert.That(survey.AssignedCharacter, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void ReschedulingActiveTaskHoldsItUntilNewStartDay()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.HighFatigueAccidentChance = 0;
+            data.Balance.MediumFatigueAccidentChance = 0;
+            data.Balance.MismatchAccidentChance = 0;
+            var game = new MilestoneSimulation(data, 1);
+            WorkTask survey = game.Tasks.Find(task => task.Id == "survey");
+            game.Assign(survey.Id, 1);
+            game.AdvanceDay();
+            float heldProgress = survey.Progress;
+
+            Assert.That(game.Schedule(survey.Id, 1, 3), Is.True);
+            Assert.That(survey.AssignedCharacter, Is.EqualTo(-1));
+            Assert.That(survey.ContextCostDays, Is.EqualTo(1f));
+            game.AdvanceDay();
+            Assert.That(survey.Progress, Is.EqualTo(heldProgress));
+            game.AdvanceDay();
+
+            Assert.That(survey.AssignedCharacter, Is.EqualTo(1));
+            Assert.That(survey.Progress, Is.GreaterThan(heldProgress));
+        }
+
+        [Test]
         public void IdleWorkerScheduleStartsTodayAndDividesWorkByExpectedOutput()
         {
             var game = new MilestoneSimulation(1);
@@ -461,9 +504,17 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void BaseVersionMatchesDirectDragAotBaseline()
+        public void BaseVersionMatchesScrollbarAotBaseline()
         {
-            Assert.That(PatchBootstrapper.BaseVersion, Is.EqualTo(3));
+            Assert.That(PatchBootstrapper.BaseVersion, Is.EqualTo(4));
+        }
+
+        [Test]
+        public void ScrollbarWidthIsTwiceTheCurrentSkinWidth()
+        {
+            Assert.That(MilestonePrototypeController.DoubledScrollbarWidth(16f), Is.EqualTo(32f));
+            Assert.That(MilestonePrototypeController.DoubledScrollbarWidth(0f),
+                Is.EqualTo(MilestonePrototypeController.DefaultScrollbarWidth * 2f));
         }
 
         [Test]

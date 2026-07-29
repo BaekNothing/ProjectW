@@ -128,10 +128,14 @@ namespace ProjectW.MilestonePrototype
                                       candidate.ScheduledWorker == crewIndex))
                 return false;
 
+            if (task.AssignedCharacter >= 0 &&
+                (task.AssignedCharacter != crewIndex || day > Day))
+                Detach(task, true);
             task.ScheduledDay = day;
             task.ScheduledWorker = crewIndex;
-            AddRecord(task, Crew[crewIndex].Name, RecordKind.Note, $"D{day:00} 작업 예약");
-            Log($"{task.Name} 예약: {Crew[crewIndex].Name}, DAY {day}");
+            AddRecord(task, Crew[crewIndex].Name, RecordKind.Note, $"D{day:00} 작업 시작 예약");
+            Log($"{task.Name} 시작 예약: {Crew[crewIndex].Name}, DAY {day}");
+            RefreshStates();
             return true;
         }
 
@@ -793,8 +797,8 @@ namespace ProjectW.MilestonePrototype
                 int worker = task.ScheduledWorker;
                 bool assigned = worker >= 0 && worker < Crew.Count && Assign(task.Id, worker);
                 report.Lines.Add(assigned
-                    ? $"예약 시작: {Crew[worker].Name} → {task.Name}"
-                    : $"예약 불발: {task.Name}");
+                    ? $"작업 시작: {Crew[worker].Name} → {task.Name}"
+                    : $"시작 예약 불발: {task.Name}");
                 task.ScheduledDay = 0;
                 task.ScheduledWorker = -1;
             }
