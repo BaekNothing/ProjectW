@@ -54,6 +54,8 @@ namespace ProjectW.MilestonePrototype
         public const float DefaultUiMagnification = 1.8f;
         public const float DefaultScrollbarWidth = 16f;
         private float uiMagnification = DefaultUiMagnification;
+        private bool rightScrollbarsEnabled = true;
+        private float enabledScrollbarWidth;
         private float logicalWidth;
         private float logicalHeight;
 
@@ -80,6 +82,7 @@ namespace ProjectW.MilestonePrototype
             GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1));
             logicalWidth = Screen.width / scale;
             logicalHeight = Screen.height / scale;
+            ApplyScrollbarVisibility();
             HandleWindowInput();
             DrawDesktop();
             DrawWindows();
@@ -275,7 +278,9 @@ namespace ProjectW.MilestonePrototype
             }
             DrawDependencyArrows(dayWidth, rowHeight);
             GUI.EndScrollView();
-            HandleTouchScroll(window, "gantt-timeline", timelineViewport, ref window.TimelineScroll);
+            HandleTouchScroll(window, "gantt-timeline",
+                ContentDragViewport(timelineViewport, rightScrollbarsEnabled, enabledScrollbarWidth),
+                ref window.TimelineScroll);
 
             GUI.BeginGroup(labelViewport);
             DrawSolid(new Rect(0, 0, labelWidth, labelViewport.height), Color.white);
@@ -839,26 +844,13 @@ namespace ProjectW.MilestonePrototype
         private void DrawHelp()
         {
             GUILayout.Label("OPS DESK 사용법", section);
-            GUILayout.Label("• 바탕화면 아이콘을 한 번 탭해 앱을 엽니다.\n• 창 제목을 드래그해 이동합니다.\n• 창 내용은 스크롤바 또는 빈 곳을 밀어서 이동합니다.\n• Gantt에서는 왼쪽 일감 열이 고정되고 날짜 영역만 움직입니다.\n• 주 작업은 하루 하나, 잔여 1일 이하 작업은 피로를 더 써서 병행할 수 있습니다.\n• 통신 지시를 수락하면 마감·중요도·자원이 실제 게임에 반영됩니다.\n• 내정보에서 캠페인 또는 창 배치를 각각 초기화할 수 있습니다.");
+            GUILayout.Label("• 바탕화면 아이콘을 한 번 탭해 앱을 엽니다.\n• 창 제목을 드래그해 이동합니다.\n• 창 내용은 스크롤바 또는 빈 곳을 밀어서 이동합니다.\n• Gantt에서는 왼쪽 일감 열이 고정되고 날짜 영역만 움직입니다.\n• 주 작업은 하루 하나, 잔여 1일 이하 작업은 피로를 더 써서 병행할 수 있습니다.\n• 통신 지시를 수락하면 마감·중요도·자원이 실제 게임에 반영됩니다.\n• 옵션에서 우측 스크롤바 사용 여부와 초기화 기능을 설정할 수 있습니다.");
         }
 
         private void DrawProfile()
         {
             GUILayout.Label("내 정보 / 캠페인 관리", section);
             GUILayout.Label($"PROJECT W 운영 담당자\nDAY {game.Day}/{game.CampaignEndDay}\n자원 {game.Resources}\n패치 {patchVersion}");
-            GUILayout.Space(12);
-            if (GUILayout.Button("창 위치 및 열린 상태 초기화", GUILayout.Height(38)))
-            {
-                ProjectWSaveStore.Delete(DesktopSaveKey);
-                windows.Clear();
-                SaveDesktop();
-            }
-            if (GUILayout.Button("새 캠페인 시작", GUILayout.Height(38)))
-            {
-                ProjectWSaveStore.Delete(CampaignSaveKey);
-                game = new MilestoneSimulation();
-                SaveCampaign();
-            }
         }
 
         private void DrawOptions()
@@ -876,6 +868,34 @@ namespace ProjectW.MilestonePrototype
             DrawScaleOption(2.2f, "2.2×  최대");
             GUILayout.Space(8);
             GUILayout.Label($"현재 화면 배율: {uiMagnification:0.0}×", success);
+            GUILayout.Space(16);
+            GUILayout.Label("스크롤", section);
+            if (GUILayout.Button(
+                    $"{(rightScrollbarsEnabled ? "☑" : "☐")}  우측 스크롤바 사용",
+                    GUILayout.Height(48f)))
+            {
+                rightScrollbarsEnabled = !rightScrollbarsEnabled;
+                SaveDesktop();
+            }
+            GUILayout.Label(
+                rightScrollbarsEnabled
+                    ? "우측 스크롤바와 화면 터치 스크롤을 함께 사용합니다."
+                    : "우측 스크롤바를 숨기고 화면 터치 스크롤만 사용합니다.",
+                small);
+            GUILayout.Space(16);
+            GUILayout.Label("초기화", section);
+            if (GUILayout.Button("창 위치 및 열린 상태 초기화", GUILayout.Height(38)))
+            {
+                ProjectWSaveStore.Delete(DesktopSaveKey);
+                windows.Clear();
+                SaveDesktop();
+            }
+            if (GUILayout.Button("새 캠페인 시작", GUILayout.Height(38)))
+            {
+                ProjectWSaveStore.Delete(CampaignSaveKey);
+                game = new MilestoneSimulation();
+                SaveCampaign();
+            }
         }
 
         private void DrawScaleOption(float value, string label)
@@ -1125,7 +1145,10 @@ namespace ProjectW.MilestonePrototype
         private void EndTouchScroll(DeskWindow window, string region, ref Vector2 scroll)
         {
             GUILayout.EndScrollView();
-            HandleTouchScroll(window, region, GUILayoutUtility.GetLastRect(), ref scroll);
+            Rect viewport = GUILayoutUtility.GetLastRect();
+            HandleTouchScroll(window, region,
+                ContentDragViewport(viewport, rightScrollbarsEnabled, enabledScrollbarWidth),
+                ref scroll);
         }
 
         private static void HandleTouchScroll(DeskWindow window, string region, Rect viewport,
@@ -1177,6 +1200,14 @@ namespace ProjectW.MilestonePrototype
                 Mathf.Max(0f, originalScroll.y - delta.y));
         }
 
+        public static Rect ContentDragViewport(Rect viewport, bool scrollbarEnabled,
+            float scrollbarWidth)
+        {
+            if (!scrollbarEnabled) return viewport;
+            viewport.width = Mathf.Max(0f, viewport.width - Mathf.Max(0f, scrollbarWidth));
+            return viewport;
+        }
+
         private void SaveCampaign() => ProjectWSaveStore.SaveCampaign(CampaignSaveKey, game.CreateSnapshot());
 
         private void SaveDesktop()
@@ -1185,6 +1216,7 @@ namespace ProjectW.MilestonePrototype
             {
                 SchemaVersion = ProjectWSaveStore.DesktopSchema,
                 UiMagnification = uiMagnification,
+                RightScrollbarMode = rightScrollbarsEnabled ? 1 : 2,
                 Windows = windows.Select((w, i) => new WindowSnapshot
                 {
                     Id = w.Id, X = w.Rect.x, Y = w.Rect.y, Open = true, Minimized = w.Minimized, Order = i
@@ -1197,6 +1229,7 @@ namespace ProjectW.MilestonePrototype
         {
             if (!ProjectWSaveStore.TryLoadDesktop(DesktopSaveKey, out DesktopSnapshot snapshot)) return;
             uiMagnification = NormalizeUiMagnification(snapshot.UiMagnification);
+            rightScrollbarsEnabled = snapshot.RightScrollbarMode != 2;
             foreach (WindowSnapshot saved in snapshot.Windows.Where(w => w.Open).OrderBy(w => w.Order))
             {
                 if (!appTitles.ContainsKey(saved.Id)) continue;
@@ -1267,6 +1300,7 @@ namespace ProjectW.MilestonePrototype
             GUI.skin.box.border = new RectOffset();
             GUI.skin.scrollView.normal.background = whiteFill;
             float verticalWidth = DoubledScrollbarWidth(GUI.skin.verticalScrollbar.fixedWidth);
+            enabledScrollbarWidth = verticalWidth;
             GUI.skin.verticalScrollbar.fixedWidth = verticalWidth;
             GUI.skin.verticalScrollbarThumb.fixedWidth = verticalWidth;
             GUI.skin.verticalScrollbarUpButton.fixedWidth = verticalWidth;
@@ -1292,6 +1326,15 @@ namespace ProjectW.MilestonePrototype
 
         public static float DoubledScrollbarWidth(float currentWidth) =>
             (currentWidth > 0f ? currentWidth : DefaultScrollbarWidth) * 2f;
+
+        private void ApplyScrollbarVisibility()
+        {
+            float width = rightScrollbarsEnabled ? enabledScrollbarWidth : 0f;
+            GUI.skin.verticalScrollbar.fixedWidth = width;
+            GUI.skin.verticalScrollbarThumb.fixedWidth = width;
+            GUI.skin.verticalScrollbarUpButton.fixedWidth = width;
+            GUI.skin.verticalScrollbarDownButton.fixedWidth = width;
+        }
 
         private static void DrawSolid(Rect rect, Color color)
         {

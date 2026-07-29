@@ -777,6 +777,27 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void ContentDragViewportExcludesEnabledRightScrollbar()
+        {
+            Rect viewport = new Rect(10, 20, 300, 200);
+
+            Rect result = MilestonePrototypeController.ContentDragViewport(viewport, true, 32);
+
+            Assert.That(result, Is.EqualTo(new Rect(10, 20, 268, 200)));
+            Assert.That(result.Contains(new Vector2(300, 100)), Is.False);
+        }
+
+        [Test]
+        public void ContentDragViewportUsesFullWidthWhenRightScrollbarIsDisabled()
+        {
+            Rect viewport = new Rect(10, 20, 300, 200);
+
+            Rect result = MilestonePrototypeController.ContentDragViewport(viewport, false, 32);
+
+            Assert.That(result, Is.EqualTo(viewport));
+        }
+
+        [Test]
         public void OperationsReportCountsDynamicRiskAndLoad()
         {
             var game = new MilestoneSimulation(1);
@@ -861,12 +882,14 @@ namespace ProjectW.MilestonePrototype.Tests
                 {
                     SchemaVersion = ProjectWSaveStore.DesktopSchema,
                     UiMagnification = 1.4f,
+                    RightScrollbarMode = 2,
                     Windows = Array.Empty<WindowSnapshot>()
                 };
 
                 Assert.That(ProjectWSaveStore.SaveDesktop(key, snapshot), Is.True);
                 Assert.That(ProjectWSaveStore.TryLoadDesktop(key, out DesktopSnapshot loaded), Is.True);
                 Assert.That(loaded.UiMagnification, Is.EqualTo(1.4f));
+                Assert.That(loaded.RightScrollbarMode, Is.EqualTo(2));
             }
             finally
             {
