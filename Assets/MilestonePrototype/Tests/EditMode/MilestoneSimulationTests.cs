@@ -838,6 +838,22 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void StickyScrollContentIsWiderThanResizablePanel()
+        {
+            float result = MilestonePrototypeController.StickyScrollContentWidth(420f);
+
+            Assert.That(result, Is.EqualTo(420f + MilestonePrototypeController.StickyScrollRange));
+        }
+
+        [Test]
+        public void StickyScrollReserveExceedsPanelViewport()
+        {
+            float result = MilestonePrototypeController.StickyScrollVerticalReserve(280f);
+
+            Assert.That(result, Is.EqualTo(280f - 40f + MilestonePrototypeController.StickyScrollRange));
+        }
+
+        [Test]
         public void OperationsReportCountsDynamicRiskAndLoad()
         {
             var game = new MilestoneSimulation(1);

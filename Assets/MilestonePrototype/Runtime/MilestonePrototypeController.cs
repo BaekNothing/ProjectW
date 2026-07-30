@@ -58,6 +58,7 @@ namespace ProjectW.MilestonePrototype
         private static readonly Color InkColor = new Color(.267f, .267f, .267f, 1f);
         private static readonly Color PaleColor = new Color(.88f, .88f, .88f, 1f);
         private const float TouchDragThreshold = 8f;
+        public const float StickyScrollRange = 96f;
         private const float ResizeHandleReach = 40f;
         private const float MinimumWindowWidth = 420f;
         private const float MinimumWindowHeight = 280f;
@@ -163,9 +164,8 @@ namespace ProjectW.MilestonePrototype
             if (ExpandedHitButton(closeRect, "X")) { Close(window.Id); return; }
             GUILayout.Space(6);
             string scrollRegion = $"panel-{window.Id}";
-            window.Scroll = window.Id == "gantt"
-                ? GUILayout.BeginScrollView(window.Scroll)
-                : BeginTouchScroll(window, scrollRegion, window.Scroll);
+            window.Scroll = BeginTouchScroll(window, scrollRegion, window.Scroll);
+            GUILayout.BeginVertical(GUILayout.Width(StickyScrollContentWidth(window.Rect.width)));
             switch (window.Id)
             {
                 case "mail": DrawMail(window); break;
@@ -182,6 +182,8 @@ namespace ProjectW.MilestonePrototype
                 case "options": DrawOptions(window); break;
                 case "log": DrawLog(window); break;
             }
+            GUILayout.Space(StickyScrollVerticalReserve(window.Rect.height));
+            GUILayout.EndVertical();
             EndTouchScroll(window, scrollRegion, ref window.Scroll);
             GUI.DragWindow(WindowDragHitRect(window.Rect.width));
         }
@@ -1368,6 +1370,12 @@ namespace ProjectW.MilestonePrototype
                 Mathf.Max(0f, originalScroll.x - delta.x),
                 Mathf.Max(0f, originalScroll.y - delta.y));
         }
+
+        public static float StickyScrollContentWidth(float panelWidth) =>
+            Mathf.Max(1f, panelWidth + StickyScrollRange);
+
+        public static float StickyScrollVerticalReserve(float panelHeight) =>
+            Mathf.Max(StickyScrollRange, panelHeight - 40f + StickyScrollRange);
 
         private static bool Button(Rect rect, string label)
         {
