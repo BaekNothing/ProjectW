@@ -1,6 +1,7 @@
 {
   "SchemaVersion": 1,
-  "CampaignEndDay": 30,
+  "CampaignEndDay": 90,
+  "MidpointReviewDay": 45,
   "StartingResources": 12,
   "Balance": {
     "PrimaryProgressDays": 1.0,
@@ -42,8 +43,8 @@
     {
       "Id": "foundation",
       "Name": "정착 기반",
-      "SoftDeadline": 15,
-      "HardDeadline": 20,
+      "SoftDeadline": 45,
+      "HardDeadline": 60,
       "Required": true,
       "RewardCredits": 5,
       "SoftPenaltyCredits": 2,
@@ -53,8 +54,8 @@
     {
       "Id": "launch",
       "Name": "최종 가동",
-      "SoftDeadline": 27,
-      "HardDeadline": 30,
+      "SoftDeadline": 81,
+      "HardDeadline": 90,
       "Required": true,
       "RewardCredits": 8,
       "SoftPenaltyCredits": 3,
@@ -64,8 +65,8 @@
     {
       "Id": "incident",
       "Name": "돌발 대응",
-      "SoftDeadline": 30,
-      "HardDeadline": 30,
+      "SoftDeadline": 90,
+      "HardDeadline": 90,
       "Required": false,
       "RewardCredits": 2,
       "SoftPenaltyCredits": 1,

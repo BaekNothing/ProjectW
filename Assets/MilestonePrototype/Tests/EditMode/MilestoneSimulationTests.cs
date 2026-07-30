@@ -15,10 +15,78 @@ namespace ProjectW.MilestonePrototype.Tests
             var game = new MilestoneSimulation(1);
 
             Assert.That(game.Crew, Has.Count.EqualTo(MilestoneSimulation.TeamSize));
+            Assert.That(game.CampaignEndDay, Is.EqualTo(90));
+            Assert.That(game.MidpointReviewDay, Is.EqualTo(45));
             Assert.That(game.Crew[0].PortraitLabel, Is.Not.Empty);
             Assert.That(game.Crew[0].Memo, Is.Not.Empty);
             Assert.That(game.Crew[0].Perks, Is.Not.Null.And.Not.Empty);
             Assert.That(game.Crew[0].Trust, Is.InRange(0, 100));
+        }
+
+        [Test]
+        public void ManualAssignmentCreatesAndUpdatesLearnedRule()
+        {
+            var game = new MilestoneSimulation(1);
+
+            Assert.That(game.Assign("survey", 1), Is.True);
+            Assert.That(game.AssignmentRules, Has.Count.EqualTo(1));
+            Assert.That(game.AssignmentRules[0].CrewName, Is.EqualTo(game.Crew[1].Name));
+            Assert.That(game.AssignmentRules[0].UpdateCount, Is.EqualTo(1));
+
+            Assert.That(game.Assign("survey", 0), Is.True);
+            Assert.That(game.AssignmentRules, Has.Count.EqualTo(1));
+            Assert.That(game.AssignmentRules[0].CrewName, Is.EqualTo(game.Crew[0].Name));
+            Assert.That(game.AssignmentRules[0].UpdateCount, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void LearnedRuleAutomaticallyAssignsMatchingAvailableTask()
+        {
+            var game = new MilestoneSimulation(1);
+            WorkTask source = game.Tasks.Find(task => task.Id == "survey");
+            Assert.That(game.Assign(source.Id, 1), Is.True);
+            Assert.That(game.Assign(source.Id, -1), Is.True);
+            source.Progress = source.EffectiveRequiredWork;
+            source.State = TaskState.Complete;
+            var repeated = new WorkTask
+            {
+                Id = "survey-repeat",
+                Name = "repeat",
+                Kind = source.Kind,
+                RequiredRole = source.RequiredRole,
+                Difficulty = source.Difficulty,
+                Risk = source.Risk,
+                Importance = source.Importance,
+                RequiredWork = 3f,
+                Required = true,
+                GroupId = source.GroupId,
+                State = TaskState.Available
+            };
+            game.Tasks.Add(repeated);
+
+            DayReport report = game.AdvanceDay();
+
+            Assert.That(repeated.AssignedCharacter, Is.EqualTo(1));
+            Assert.That(report.Lines, Has.Some.Contains("자동 배정"));
+            Assert.That(game.AssignmentRules[0].UpdateCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void LearnedRulesAndMidpointReviewSurviveSnapshot()
+        {
+            var original = new MilestoneSimulation(1);
+            Assert.That(original.Assign("survey", 1), Is.True);
+            CampaignSnapshot snapshot = original.CreateSnapshot();
+            snapshot.Day = 44;
+
+            var restored = new MilestoneSimulation(2);
+            Assert.That(restored.Restore(snapshot), Is.True);
+            DayReport report = restored.AdvanceDay();
+
+            Assert.That(restored.AssignmentRules, Has.Count.EqualTo(1));
+            Assert.That(restored.MidpointReviewIssued, Is.True);
+            Assert.That(report.Lines, Has.Some.Contains("중간평가"));
+            Assert.That(restored.CreateSnapshot().MidpointReviewIssued, Is.True);
         }
 
         [Test]
@@ -719,7 +787,8 @@ namespace ProjectW.MilestonePrototype.Tests
         public void MissingHardDeadlineFailsRequiredWork()
         {
             var game = new MilestoneSimulation(1);
-            while (game.Day <= 20) game.AdvanceDay();
+            int hardDeadline = game.Groups.Find(group => group.Id == "foundation").HardDeadline;
+            while (game.Day <= hardDeadline) game.AdvanceDay();
 
             Assert.That(game.Groups.Find(group => group.Id == "foundation").State, Is.EqualTo(WorkState.Failed));
             Assert.That(game.IsLost, Is.True);

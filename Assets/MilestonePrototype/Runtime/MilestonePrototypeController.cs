@@ -866,8 +866,20 @@ namespace ProjectW.MilestonePrototype
 
         private void DrawProfile()
         {
-            GUILayout.Label("내 정보 / 캠페인 관리", section);
-            GUILayout.Label($"PROJECT W 운영 담당자\nDAY {game.Day}/{game.CampaignEndDay}\n자원 {game.Resources}\n패치 {patchVersion}");
+            GUILayout.Label("내정보 / 캠페인 관리", section);
+            GUILayout.Label(
+                $"PROJECT W 운영 담당자\nDAY {game.Day}/{game.CampaignEndDay}\n" +
+                $"중간평가 DAY {game.MidpointReviewDay} ({(game.MidpointReviewIssued ? "완료" : "예정")})\n" +
+                $"자원 {game.Resources}\n패치 {patchVersion}");
+            GUILayout.Space(12);
+            GUILayout.Label($"자동지정 규칙 {game.AssignmentRules.Count}개", section);
+            if (game.AssignmentRules.Count == 0)
+                GUILayout.Label("아직 학습된 규칙이 없습니다. 작업자를 손으로 지정하면 기록됩니다.", small);
+            foreach (AssignmentRule rule in game.AssignmentRules)
+                GUILayout.Label(
+                    $"{RoleName(rule.RequiredRole)} / {rule.Kind} / 난이도 {rule.Difficulty} / " +
+                    $"{rule.Risk} 위험 / {rule.Importance} 중요 → {rule.CrewName} " +
+                    $"(갱신 {rule.UpdateCount}회)", small);
         }
 
         private void DrawOptions()

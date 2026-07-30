@@ -16,6 +16,7 @@ namespace ProjectW.MilestonePrototype
 
         public int Day { get; private set; } = 1;
         public int CampaignEndDay { get; }
+        public int MidpointReviewDay { get; }
         public int Resources { get; private set; }
         public float ParallelMaximumRemainingDays => balance.ParallelMaximumRemainingDays;
         public int RegenerationResourceCost => balance.RegenerationResourceCost;
@@ -30,8 +31,10 @@ namespace ProjectW.MilestonePrototype
         public List<WorkGroup> Groups { get; } = new List<WorkGroup>();
         public List<MailEvent> Mail { get; } = new List<MailEvent>();
         public List<CodexEntry> Codex { get; } = new List<CodexEntry>();
+        public List<AssignmentRule> AssignmentRules { get; } = new List<AssignmentRule>();
         public List<string> SystemLog { get; } = new List<string>();
         public DayReport LastReport { get; private set; } = new DayReport();
+        public bool MidpointReviewIssued { get; private set; }
 
         public MilestoneSimulation(int seed = 731) : this(TaskSystemDataLoader.Load(), seed)
         {
@@ -52,6 +55,7 @@ namespace ProjectW.MilestonePrototype
                 crewPerks[i] = data.Crew[i].Perks;
             }
             CampaignEndDay = data.CampaignEndDay;
+            MidpointReviewDay = data.MidpointReviewDay;
             Resources = data.StartingResources;
             Groups.AddRange(data.Works);
             Tasks.AddRange(data.Tasks);
@@ -67,6 +71,13 @@ namespace ProjectW.MilestonePrototype
         public bool Assign(string taskId, int crewIndex)
         {
             WorkTask task = Tasks.FirstOrDefault(candidate => candidate.Id == taskId);
+            bool assigned = AssignPrimary(task, crewIndex);
+            if (assigned && crewIndex >= 0) LearnAssignmentRule(task, crewIndex);
+            return assigned;
+        }
+
+        private bool AssignPrimary(WorkTask task, int crewIndex)
+        {
             if (task == null || task.State != TaskState.Available && task.State != TaskState.Active) return false;
             if (crewIndex < -1 || crewIndex >= Crew.Count) return false;
 
@@ -292,6 +303,7 @@ namespace ProjectW.MilestonePrototype
             if (IsWon || IsLost) return report;
 
             ApplyScheduledAssignments(report);
+            ApplyLearnedAssignments(report);
             foreach (CrewMember member in Crew)
             {
                 if (member.InjuryDays > 0) member.InjuryDays--;
@@ -312,6 +324,7 @@ namespace ProjectW.MilestonePrototype
             Day++;
             RefreshStates();
             ApplyDeadlineResults(report);
+            ApplyMidpointReview(report);
             RefreshStates();
             LastReport = report;
             if (report.Lines.Count == 0) report.Lines.Add("특이사항 없이 하루가 지났습니다.");
@@ -687,7 +700,9 @@ namespace ProjectW.MilestonePrototype
             Groups = Groups.ToArray(),
             Crew = Crew.ToArray(),
             Mail = Mail.ToArray(),
-            Log = SystemLog.ToArray()
+            Log = SystemLog.ToArray(),
+            AssignmentRules = AssignmentRules.ToArray(),
+            MidpointReviewIssued = MidpointReviewIssued
         };
 
         public bool Restore(CampaignSnapshot snapshot)
@@ -705,6 +720,9 @@ namespace ProjectW.MilestonePrototype
             for (int i = 0; i < restoredCrewCount; i++) restoredCrew[i] = snapshot.Crew[i];
             Crew.AddRange(restoredCrew);
             Mail.Clear(); Mail.AddRange(snapshot.Mail);
+            AssignmentRules.Clear();
+            if (snapshot.AssignmentRules != null) AssignmentRules.AddRange(snapshot.AssignmentRules);
+            MidpointReviewIssued = snapshot.MidpointReviewIssued;
             SystemLog.Clear();
             if (snapshot.Log != null) SystemLog.AddRange(snapshot.Log);
             NormalizeLoadedData();
@@ -957,13 +975,66 @@ namespace ProjectW.MilestonePrototype
                          candidate.ScheduledDay > 0 && candidate.ScheduledDay <= Day).ToList())
             {
                 int worker = task.ScheduledWorker;
-                bool assigned = worker >= 0 && worker < Crew.Count && Assign(task.Id, worker);
+                bool assigned = worker >= 0 && worker < Crew.Count && AssignPrimary(task, worker);
                 report.Lines.Add(assigned
                     ? $"작업 시작: {Crew[worker].Name} → {task.Name}"
                     : $"시작 예약 불발: {task.Name}");
                 task.ScheduledDay = 0;
                 task.ScheduledWorker = -1;
             }
+        }
+
+        private void LearnAssignmentRule(WorkTask task, int crewIndex)
+        {
+            AssignmentRule rule = AssignmentRules.FirstOrDefault(candidate => candidate.Matches(task));
+            if (rule == null)
+            {
+                AssignmentRules.Add(new AssignmentRule
+                {
+                    Kind = task.Kind,
+                    RequiredRole = task.RequiredRole,
+                    Difficulty = task.Difficulty,
+                    Risk = task.Risk,
+                    Importance = task.Importance,
+                    CrewName = Crew[crewIndex].Name,
+                    UpdateCount = 1
+                });
+                return;
+            }
+
+            rule.CrewName = Crew[crewIndex].Name;
+            rule.UpdateCount++;
+        }
+
+        private void ApplyLearnedAssignments(DayReport report)
+        {
+            foreach (WorkTask task in Tasks.Where(candidate =>
+                         candidate.AssignedCharacter < 0 &&
+                         candidate.ScheduledDay <= 0 &&
+                         candidate.State == TaskState.Available).ToList())
+            {
+                AssignmentRule rule = AssignmentRules.FirstOrDefault(candidate => candidate.Matches(task));
+                if (rule == null) continue;
+                int worker = Crew.FindIndex(member => member.Name == rule.CrewName);
+                if (worker < 0 || !Crew[worker].Available ||
+                    Tasks.Any(candidate => candidate.AssignedCharacter == worker &&
+                                           !candidate.IsParallelAssignment))
+                    continue;
+                if (!AssignPrimary(task, worker)) continue;
+                report.Lines.Add($"자동 배정: {Crew[worker].Name} → {task.Name}");
+            }
+        }
+
+        private void ApplyMidpointReview(DayReport report)
+        {
+            if (MidpointReviewIssued || Day < MidpointReviewDay) return;
+            MidpointReviewIssued = true;
+            int completed = Groups.Count(group => group.State == WorkState.Complete);
+            int overdue = Groups.Count(group => group.SoftDeadlineMissed &&
+                                                group.State != WorkState.Complete);
+            int failed = Groups.Count(group => group.State == WorkState.Failed);
+            report.Lines.Add(
+                $"중간평가 (DAY {MidpointReviewDay}): 완료 {completed}/{Groups.Count}, 지연 {overdue}, 실패 {failed}");
         }
 
         private void NormalizeLoadedData()

@@ -164,10 +164,31 @@ namespace ProjectW.MilestonePrototype
     }
 
     [Serializable]
+    public sealed class AssignmentRule
+    {
+        public TaskKind Kind;
+        public WorkRole RequiredRole;
+        public int Difficulty;
+        public RiskLevel Risk;
+        public ImportanceLevel Importance;
+        public string CrewName;
+        public int UpdateCount;
+
+        public bool Matches(WorkTask task) =>
+            task != null &&
+            Kind == task.Kind &&
+            RequiredRole == task.RequiredRole &&
+            Difficulty == task.Difficulty &&
+            Risk == task.Risk &&
+            Importance == task.Importance;
+    }
+
+    [Serializable]
     public sealed class TaskSystemData
     {
         public int SchemaVersion;
         public int CampaignEndDay;
+        public int MidpointReviewDay;
         public int StartingResources;
         public TaskSystemBalance Balance;
         public WorkGroup[] Works;
@@ -226,6 +247,8 @@ namespace ProjectW.MilestonePrototype
         public CrewMember[] Crew;
         public MailEvent[] Mail;
         public string[] Log;
+        public AssignmentRule[] AssignmentRules;
+        public bool MidpointReviewIssued;
     }
 
     [Serializable]
