@@ -867,12 +867,13 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void ResizeHandleOccupiesBottomRightTouchArea()
+        public void ResizeHandleExtendsInsideAndOutsideBottomRightCorner()
         {
             Rect result = MilestonePrototypeController.ResizeHandleRect(
                 new Rect(100, 80, 710, 500));
 
-            Assert.That(result, Is.EqualTo(new Rect(762, 532, 48, 48)));
+            Assert.That(result, Is.EqualTo(new Rect(770, 540, 80, 80)));
+            Assert.That(result.Contains(new Vector2(825, 595)), Is.True);
         }
 
         [Test]
@@ -931,6 +932,15 @@ namespace ProjectW.MilestonePrototype.Tests
                 Is.EqualTo(2.2f).Within(.001f));
             Assert.That(MilestonePrototypeController.NormalizeUiMagnification(0f),
                 Is.EqualTo(1.8f));
+        }
+
+        [Test]
+        public void RightScrollbarDefaultsAndLegacyEnabledModeMigrateToDisabled()
+        {
+            Assert.That(MilestonePrototypeController.RightScrollbarsEnabledForMode(0), Is.False);
+            Assert.That(MilestonePrototypeController.RightScrollbarsEnabledForMode(1), Is.False);
+            Assert.That(MilestonePrototypeController.RightScrollbarsEnabledForMode(2), Is.False);
+            Assert.That(MilestonePrototypeController.RightScrollbarsEnabledForMode(3), Is.True);
         }
 
         [Test]

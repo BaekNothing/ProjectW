@@ -54,13 +54,13 @@ namespace ProjectW.MilestonePrototype
         private static readonly Color InkColor = new Color(.267f, .267f, .267f, 1f);
         private static readonly Color PaleColor = new Color(.88f, .88f, .88f, 1f);
         private const float TouchDragThreshold = 8f;
-        private const float ResizeHandleSize = 48f;
+        private const float ResizeHandleReach = 40f;
         private const float MinimumWindowWidth = 420f;
         private const float MinimumWindowHeight = 280f;
         public const float DefaultUiMagnification = 1.8f;
         public const float DefaultScrollbarWidth = 16f;
         private float uiMagnification = DefaultUiMagnification;
-        private bool rightScrollbarsEnabled = true;
+        private bool rightScrollbarsEnabled;
         private float enabledScrollbarWidth;
         private bool inputLayerBlocked;
         private float logicalWidth;
@@ -176,17 +176,7 @@ namespace ProjectW.MilestonePrototype
                 case "options": DrawOptions(); break;
                 case "log": DrawLog(window); break;
             }
-            if (logicalWidth >= 900f) DrawResizeHandle(window);
             GUI.DragWindow(WindowDragHitRect(window.Rect.width));
-        }
-
-        private static void DrawResizeHandle(DeskWindow window)
-        {
-            float right = window.Rect.width - 8f;
-            float bottom = window.Rect.height - 8f;
-            DrawSolid(new Rect(right - 24f, bottom, 24f, 2f), InkColor);
-            DrawSolid(new Rect(right - 16f, bottom - 8f, 16f, 2f), InkColor);
-            DrawSolid(new Rect(right - 8f, bottom - 16f, 8f, 2f), InkColor);
         }
 
         private void DrawMail(DeskWindow window)
@@ -1120,24 +1110,26 @@ namespace ProjectW.MilestonePrototype
             for (int i = windows.Count - 1; i >= 0; i--)
             {
                 DeskWindow window = windows[i];
-                if (window.Minimized || !window.Rect.Contains(current.mousePosition)) continue;
-                Focus(window);
-                if (logicalWidth >= 900f &&
-                    ResizeHandleRect(window.Rect).Contains(current.mousePosition))
+                if (window.Minimized) continue;
+                if (logicalWidth >= 900f && ResizeHandleRect(window.Rect).Contains(current.mousePosition))
                 {
+                    Focus(window);
                     window.Resizing = true;
                     window.ResizePointerOrigin = current.mousePosition;
                     window.ResizeRectOrigin = window.Rect;
                     current.Use();
+                    return;
                 }
+                if (!window.Rect.Contains(current.mousePosition)) continue;
+                Focus(window);
                 return;
             }
         }
 
         public static Rect ResizeHandleRect(Rect windowRect) =>
-            new Rect(windowRect.xMax - ResizeHandleSize,
-                windowRect.yMax - ResizeHandleSize,
-                ResizeHandleSize, ResizeHandleSize);
+            new Rect(windowRect.xMax - ResizeHandleReach,
+                windowRect.yMax - ResizeHandleReach,
+                ResizeHandleReach * 2f, ResizeHandleReach * 2f);
 
         public static Rect CalculateResizedWindowRect(Rect original, Vector2 pointerOrigin,
             Vector2 pointerCurrent, float desktopWidth, float desktopHeight)
@@ -1311,7 +1303,7 @@ namespace ProjectW.MilestonePrototype
             {
                 SchemaVersion = ProjectWSaveStore.DesktopSchema,
                 UiMagnification = uiMagnification,
-                RightScrollbarMode = rightScrollbarsEnabled ? 1 : 2,
+                RightScrollbarMode = rightScrollbarsEnabled ? 3 : 2,
                 Windows = windows.Select((w, i) => new WindowSnapshot
                 {
                     Id = w.Id, X = w.Rect.x, Y = w.Rect.y,
@@ -1326,7 +1318,7 @@ namespace ProjectW.MilestonePrototype
         {
             if (!ProjectWSaveStore.TryLoadDesktop(DesktopSaveKey, out DesktopSnapshot snapshot)) return;
             uiMagnification = NormalizeUiMagnification(snapshot.UiMagnification);
-            rightScrollbarsEnabled = snapshot.RightScrollbarMode != 2;
+            rightScrollbarsEnabled = RightScrollbarsEnabledForMode(snapshot.RightScrollbarMode);
             foreach (WindowSnapshot saved in snapshot.Windows.Where(w => w.Open).OrderBy(w => w.Order))
             {
                 if (!appTitles.ContainsKey(saved.Id)) continue;
@@ -1426,6 +1418,8 @@ namespace ProjectW.MilestonePrototype
 
         public static float DoubledScrollbarWidth(float currentWidth) =>
             (currentWidth > 0f ? currentWidth : DefaultScrollbarWidth) * 2f;
+
+        public static bool RightScrollbarsEnabledForMode(int mode) => mode == 3;
 
         private void ApplyScrollbarVisibility()
         {
