@@ -654,17 +654,9 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void BaseVersionMatchesScrollbarAotBaseline()
+        public void BaseVersionMatchesCurrentAotBaseline()
         {
             Assert.That(PatchBootstrapper.BaseVersion, Is.EqualTo(4));
-        }
-
-        [Test]
-        public void ScrollbarWidthIsTwiceTheCurrentSkinWidth()
-        {
-            Assert.That(MilestonePrototypeController.DoubledScrollbarWidth(16f), Is.EqualTo(32f));
-            Assert.That(MilestonePrototypeController.DoubledScrollbarWidth(0f),
-                Is.EqualTo(MilestonePrototypeController.DefaultScrollbarWidth * 2f));
         }
 
         [Test]
@@ -846,27 +838,6 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void ContentDragViewportExcludesEnabledRightScrollbar()
-        {
-            Rect viewport = new Rect(10, 20, 300, 200);
-
-            Rect result = MilestonePrototypeController.ContentDragViewport(viewport, true, 32);
-
-            Assert.That(result, Is.EqualTo(new Rect(10, 20, 268, 200)));
-            Assert.That(result.Contains(new Vector2(300, 100)), Is.False);
-        }
-
-        [Test]
-        public void ContentDragViewportUsesFullWidthWhenRightScrollbarIsDisabled()
-        {
-            Rect viewport = new Rect(10, 20, 300, 200);
-
-            Rect result = MilestonePrototypeController.ContentDragViewport(viewport, false, 32);
-
-            Assert.That(result, Is.EqualTo(viewport));
-        }
-
-        [Test]
         public void OperationsReportCountsDynamicRiskAndLoad()
         {
             var game = new MilestoneSimulation(1);
@@ -1004,15 +975,6 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void RightScrollbarDefaultsAndLegacyEnabledModeMigrateToDisabled()
-        {
-            Assert.That(MilestonePrototypeController.RightScrollbarsEnabledForMode(0), Is.False);
-            Assert.That(MilestonePrototypeController.RightScrollbarsEnabledForMode(1), Is.False);
-            Assert.That(MilestonePrototypeController.RightScrollbarsEnabledForMode(2), Is.False);
-            Assert.That(MilestonePrototypeController.RightScrollbarsEnabledForMode(3), Is.True);
-        }
-
-        [Test]
         public void DesktopSettingsRoundTripSelectedUiMagnification()
         {
             string key = $"projectw.desktop.test.{Guid.NewGuid():N}";
@@ -1024,7 +986,6 @@ namespace ProjectW.MilestonePrototype.Tests
                 {
                     SchemaVersion = ProjectWSaveStore.DesktopSchema,
                     UiMagnification = 1.4f,
-                    RightScrollbarMode = 2,
                     Windows = new[]
                     {
                         new WindowSnapshot { Id = "mail", Width = 640f, Height = 420f, Open = true }
@@ -1034,7 +995,6 @@ namespace ProjectW.MilestonePrototype.Tests
                 Assert.That(ProjectWSaveStore.SaveDesktop(key, snapshot), Is.True);
                 Assert.That(ProjectWSaveStore.TryLoadDesktop(key, out DesktopSnapshot loaded), Is.True);
                 Assert.That(loaded.UiMagnification, Is.EqualTo(1.4f));
-                Assert.That(loaded.RightScrollbarMode, Is.EqualTo(2));
                 Assert.That(loaded.Windows[0].Width, Is.EqualTo(640f));
                 Assert.That(loaded.Windows[0].Height, Is.EqualTo(420f));
             }

@@ -343,7 +343,8 @@ Costs must be shown before the player confirms a reassignment. The UI must not r
 
 ## Scroll and Touch Interaction
 
-Every scrollable window region keeps its visible scrollbar and also supports direct-content dragging.
+Scrollable window regions do not show a right-side scrollbar. Movement uses direct-content dragging
+or the mouse wheel.
 
 - The Options application lets the player select `1.0x`, `1.4x`, `1.8x`, or `2.2x` accessibility
   magnification over the responsive screen scale. `1.8x` is the default.
@@ -351,12 +352,12 @@ Every scrollable window region keeps its visible scrollbar and also supports dir
   magnification so text does not outgrow its layout.
 - The selected magnification is saved in desktop settings and restored on the next launch. Older
   desktop saves without a value use the `1.8x` default.
-- The right-side vertical scrollbar track, thumb, and buttons use twice the default skin width for
-  touch accessibility.
 - When magnification reduces the logical desktop below the compact breakpoint, application windows
   use the existing near-full-screen compact layout and retain scrollable content.
 
 - Mouse drag and single-finger touch drag pan the content in the opposite direction of pointer movement.
+- The Options application uses the same direct-content dragging and mouse-wheel scrolling as other
+  scrollable windows.
 - Both horizontal and vertical scroll axes are supported when the content exceeds the viewport.
 - A press remains a normal button press until movement exceeds the drag threshold.
 - Crossing the drag threshold cancels click intent for that gesture and begins scrolling.

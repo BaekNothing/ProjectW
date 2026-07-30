@@ -256,7 +256,6 @@ namespace ProjectW.MilestonePrototype
     {
         public int SchemaVersion = 1;
         public float UiMagnification;
-        public int RightScrollbarMode;
         public WindowSnapshot[] Windows;
     }
 
