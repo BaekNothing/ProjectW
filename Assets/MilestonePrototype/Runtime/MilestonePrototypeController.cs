@@ -21,12 +21,6 @@ namespace ProjectW.MilestonePrototype
             public int SelectedCrew;
             public int ScheduleDay;
             public string Notice;
-            public string DragRegion;
-            public Vector2 DragPointerOrigin;
-            public Vector2 DragScrollOrigin;
-            public bool DraggingContent;
-            public string ScrollViewportRegion;
-            public Rect ScrollViewport;
             public bool Resizing;
             public Vector2 ResizePointerOrigin;
             public Rect ResizeRectOrigin;
@@ -57,8 +51,7 @@ namespace ProjectW.MilestonePrototype
         private static readonly Color GrayColor = new Color(.6f, .6f, .6f, 1f);
         private static readonly Color InkColor = new Color(.267f, .267f, .267f, 1f);
         private static readonly Color PaleColor = new Color(.88f, .88f, .88f, 1f);
-        private const float TouchDragThreshold = 8f;
-        public const float StickyScrollRange = 96f;
+        public const float DefaultScrollbarWidth = 16f;
         private const float ResizeHandleReach = 40f;
         private const float MinimumWindowWidth = 420f;
         private const float MinimumWindowHeight = 280f;
@@ -163,9 +156,7 @@ namespace ProjectW.MilestonePrototype
             }
             if (ExpandedHitButton(closeRect, "X")) { Close(window.Id); return; }
             GUILayout.Space(6);
-            string scrollRegion = $"panel-{window.Id}";
-            window.Scroll = BeginTouchScroll(window, scrollRegion, window.Scroll);
-            GUILayout.BeginVertical(GUILayout.Width(StickyScrollContentWidth(window.Rect.width)));
+            window.Scroll = GUILayout.BeginScrollView(window.Scroll);
             switch (window.Id)
             {
                 case "mail": DrawMail(window); break;
@@ -182,9 +173,7 @@ namespace ProjectW.MilestonePrototype
                 case "options": DrawOptions(window); break;
                 case "log": DrawLog(window); break;
             }
-            GUILayout.Space(StickyScrollVerticalReserve(window.Rect.height));
-            GUILayout.EndVertical();
-            EndTouchScroll(window, scrollRegion, ref window.Scroll);
+            GUILayout.EndScrollView();
             GUI.DragWindow(WindowDragHitRect(window.Rect.width));
         }
 
@@ -253,7 +242,6 @@ namespace ProjectW.MilestonePrototype
             Rect timelineViewport = new Rect(viewport.x + labelWidth, viewport.y,
                 Mathf.Max(1f, viewport.width - labelWidth), viewport.height);
 
-            HandleTouchScroll(window, "gantt-timeline", timelineViewport, ref window.TimelineScroll);
             window.TimelineScroll = GUI.BeginScrollView(timelineViewport, window.TimelineScroll, content);
             DrawSolid(new Rect(0, 0, contentWidth, contentHeight), Color.white);
             for (int day = 1; day <= game.CampaignEndDay; day++)
@@ -1123,8 +1111,6 @@ namespace ProjectW.MilestonePrototype
             {
                 if (pinchWindow != null)
                 {
-                    pinchWindow.DragRegion = null;
-                    pinchWindow.DraggingContent = false;
                     pinchWindow = null;
                     SaveDesktop();
                 }
@@ -1148,8 +1134,6 @@ namespace ProjectW.MilestonePrototype
                     pinchRectOrigin = candidate.Rect;
                     pinchCenterOrigin = center;
                     pinchDistanceOrigin = Mathf.Max(1f, distance);
-                    candidate.DragRegion = null;
-                    candidate.DraggingContent = false;
                     candidate.Resizing = false;
                     Focus(candidate);
                     break;
@@ -1308,74 +1292,8 @@ namespace ProjectW.MilestonePrototype
             return tasks.Length == 0 ? "없음" : string.Join(", ", tasks);
         }
 
-        private static Vector2 BeginTouchScroll(DeskWindow window, string region, Vector2 scroll)
-        {
-            if (window.ScrollViewportRegion == region)
-                HandleTouchScroll(window, region, window.ScrollViewport, ref scroll);
-            return GUILayout.BeginScrollView(scroll);
-        }
-
-        private void EndTouchScroll(DeskWindow window, string region, ref Vector2 scroll)
-        {
-            GUILayout.EndScrollView();
-            window.ScrollViewportRegion = region;
-            window.ScrollViewport = GUILayoutUtility.GetLastRect();
-        }
-
-        private static void HandleTouchScroll(DeskWindow window, string region, Rect viewport,
-            ref Vector2 scroll)
-        {
-            Event current = Event.current;
-            if (current == null) return;
-
-            if (current.type == EventType.MouseDown && current.button == 0 &&
-                viewport.Contains(current.mousePosition) && string.IsNullOrEmpty(window.DragRegion))
-            {
-                window.DragRegion = region;
-                window.DragPointerOrigin = current.mousePosition;
-                window.DragScrollOrigin = scroll;
-                window.DraggingContent = false;
-                return;
-            }
-
-            if (window.DragRegion != region) return;
-            if (current.type == EventType.MouseDrag && current.button == 0)
-            {
-                if (!window.DraggingContent &&
-                    Vector2.Distance(window.DragPointerOrigin, current.mousePosition) >= TouchDragThreshold)
-                {
-                    window.DraggingContent = true;
-                    GUIUtility.hotControl = 0;
-                    GUIUtility.keyboardControl = 0;
-                }
-                if (!window.DraggingContent) return;
-                scroll = CalculateDragScroll(window.DragScrollOrigin, window.DragPointerOrigin,
-                    current.mousePosition);
-                current.Use();
-            }
-            else if (current.type == EventType.MouseUp && current.button == 0)
-            {
-                bool consumed = window.DraggingContent;
-                window.DragRegion = null;
-                window.DraggingContent = false;
-                if (consumed) current.Use();
-            }
-        }
-
-        public static Vector2 CalculateDragScroll(Vector2 originalScroll, Vector2 pointerOrigin,
-            Vector2 pointerCurrent)
-        {
-            Vector2 delta = pointerCurrent - pointerOrigin;
-            return new Vector2(
-                Mathf.Max(0f, originalScroll.x - delta.x),
-                Mathf.Max(0f, originalScroll.y - delta.y));
-        }
-
-        public static float StickyScrollContentWidth(float panelWidth) =>
-            Mathf.Max(1f, panelWidth + StickyScrollRange);
-
-        public static float StickyScrollVerticalReserve(float panelHeight) =>
-            Mathf.Max(StickyScrollRange, panelHeight - 40f + StickyScrollRange);
+        public static float RestoredScrollbarWidth(float currentWidth) =>
+            Mathf.Max(DefaultScrollbarWidth, currentWidth) * 2f;
 
         private static bool Button(Rect rect, string label)
         {
@@ -1507,7 +1425,11 @@ namespace ProjectW.MilestonePrototype
             GUI.skin.box.normal.textColor = ink;
             GUI.skin.box.border = new RectOffset();
             GUI.skin.scrollView.normal.background = whiteFill;
-            GUI.skin.verticalScrollbar = GUIStyle.none;
+            float scrollbarWidth = RestoredScrollbarWidth(GUI.skin.verticalScrollbar.fixedWidth);
+            GUI.skin.verticalScrollbar.fixedWidth = scrollbarWidth;
+            GUI.skin.verticalScrollbarThumb.fixedWidth = scrollbarWidth;
+            GUI.skin.verticalScrollbarUpButton.fixedWidth = scrollbarWidth;
+            GUI.skin.verticalScrollbarDownButton.fixedWidth = scrollbarWidth;
 
             title = new GUIStyle(GUI.skin.label) { fontSize = 23, fontStyle = FontStyle.Bold };
             section = new GUIStyle(GUI.skin.label)

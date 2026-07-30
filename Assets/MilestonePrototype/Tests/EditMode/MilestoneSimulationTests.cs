@@ -820,37 +820,11 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void ContentDragMovesScrollOppositeToPointer()
+        public void RestoredScrollbarIsAtLeastTwiceTheDefaultWidth()
         {
-            Vector2 result = MilestonePrototypeController.CalculateDragScroll(
-                new Vector2(100, 80), new Vector2(50, 50), new Vector2(20, 10));
-
-            Assert.That(result, Is.EqualTo(new Vector2(130, 120)));
-        }
-
-        [Test]
-        public void ContentDragDoesNotCreateNegativeScroll()
-        {
-            Vector2 result = MilestonePrototypeController.CalculateDragScroll(
-                new Vector2(5, 7), Vector2.zero, new Vector2(30, 40));
-
-            Assert.That(result, Is.EqualTo(Vector2.zero));
-        }
-
-        [Test]
-        public void StickyScrollContentIsWiderThanResizablePanel()
-        {
-            float result = MilestonePrototypeController.StickyScrollContentWidth(420f);
-
-            Assert.That(result, Is.EqualTo(420f + MilestonePrototypeController.StickyScrollRange));
-        }
-
-        [Test]
-        public void StickyScrollReserveExceedsPanelViewport()
-        {
-            float result = MilestonePrototypeController.StickyScrollVerticalReserve(280f);
-
-            Assert.That(result, Is.EqualTo(280f - 40f + MilestonePrototypeController.StickyScrollRange));
+            Assert.That(MilestonePrototypeController.RestoredScrollbarWidth(0f),
+                Is.EqualTo(MilestonePrototypeController.DefaultScrollbarWidth * 2f));
+            Assert.That(MilestonePrototypeController.RestoredScrollbarWidth(20f), Is.EqualTo(40f));
         }
 
         [Test]
