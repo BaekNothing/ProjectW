@@ -23,6 +23,9 @@ namespace ProjectW.MilestonePrototype
             public Vector2 DragPointerOrigin;
             public Vector2 DragScrollOrigin;
             public bool DraggingContent;
+            public bool Resizing;
+            public Vector2 ResizePointerOrigin;
+            public Rect ResizeRectOrigin;
         }
 
         private readonly List<DeskWindow> windows = new List<DeskWindow>();
@@ -51,6 +54,9 @@ namespace ProjectW.MilestonePrototype
         private static readonly Color InkColor = new Color(.267f, .267f, .267f, 1f);
         private static readonly Color PaleColor = new Color(.88f, .88f, .88f, 1f);
         private const float TouchDragThreshold = 8f;
+        private const float ResizeHandleSize = 48f;
+        private const float MinimumWindowWidth = 420f;
+        private const float MinimumWindowHeight = 280f;
         public const float DefaultUiMagnification = 1.8f;
         public const float DefaultScrollbarWidth = 16f;
         private float uiMagnification = DefaultUiMagnification;
@@ -170,7 +176,17 @@ namespace ProjectW.MilestonePrototype
                 case "options": DrawOptions(); break;
                 case "log": DrawLog(window); break;
             }
+            if (logicalWidth >= 900f) DrawResizeHandle(window);
             GUI.DragWindow(WindowDragHitRect(window.Rect.width));
+        }
+
+        private static void DrawResizeHandle(DeskWindow window)
+        {
+            float right = window.Rect.width - 8f;
+            float bottom = window.Rect.height - 8f;
+            DrawSolid(new Rect(right - 24f, bottom, 24f, 2f), InkColor);
+            DrawSolid(new Rect(right - 16f, bottom - 8f, 16f, 2f), InkColor);
+            DrawSolid(new Rect(right - 8f, bottom - 16f, 8f, 2f), InkColor);
         }
 
         private void DrawMail(DeskWindow window)
@@ -1080,14 +1096,58 @@ namespace ProjectW.MilestonePrototype
                 }
             }
 
+            DeskWindow resizing = windows.FirstOrDefault(window => window.Resizing);
+            if (resizing != null && current.button == 0)
+            {
+                if (current.type == EventType.MouseDrag)
+                {
+                    resizing.Rect = CalculateResizedWindowRect(resizing.ResizeRectOrigin,
+                        resizing.ResizePointerOrigin, current.mousePosition,
+                        logicalWidth, logicalHeight);
+                    current.Use();
+                    return;
+                }
+                if (current.type == EventType.MouseUp)
+                {
+                    resizing.Resizing = false;
+                    SaveDesktop();
+                    current.Use();
+                    return;
+                }
+            }
+
             if (current.type != EventType.MouseDown || current.button != 0) return;
             for (int i = windows.Count - 1; i >= 0; i--)
             {
                 DeskWindow window = windows[i];
                 if (window.Minimized || !window.Rect.Contains(current.mousePosition)) continue;
                 Focus(window);
+                if (logicalWidth >= 900f &&
+                    ResizeHandleRect(window.Rect).Contains(current.mousePosition))
+                {
+                    window.Resizing = true;
+                    window.ResizePointerOrigin = current.mousePosition;
+                    window.ResizeRectOrigin = window.Rect;
+                    current.Use();
+                }
                 return;
             }
+        }
+
+        public static Rect ResizeHandleRect(Rect windowRect) =>
+            new Rect(windowRect.xMax - ResizeHandleSize,
+                windowRect.yMax - ResizeHandleSize,
+                ResizeHandleSize, ResizeHandleSize);
+
+        public static Rect CalculateResizedWindowRect(Rect original, Vector2 pointerOrigin,
+            Vector2 pointerCurrent, float desktopWidth, float desktopHeight)
+        {
+            Vector2 delta = pointerCurrent - pointerOrigin;
+            float maxWidth = Mathf.Max(MinimumWindowWidth, desktopWidth - original.x - 6f);
+            float maxHeight = Mathf.Max(MinimumWindowHeight, desktopHeight - original.y - 50f);
+            original.width = Mathf.Clamp(original.width + delta.x, MinimumWindowWidth, maxWidth);
+            original.height = Mathf.Clamp(original.height + delta.y, MinimumWindowHeight, maxHeight);
+            return original;
         }
 
         private bool IsPointerBlockedBelowWindow(int windowIndex)
@@ -1254,7 +1314,9 @@ namespace ProjectW.MilestonePrototype
                 RightScrollbarMode = rightScrollbarsEnabled ? 1 : 2,
                 Windows = windows.Select((w, i) => new WindowSnapshot
                 {
-                    Id = w.Id, X = w.Rect.x, Y = w.Rect.y, Open = true, Minimized = w.Minimized, Order = i
+                    Id = w.Id, X = w.Rect.x, Y = w.Rect.y,
+                    Width = w.Rect.width, Height = w.Rect.height,
+                    Open = true, Minimized = w.Minimized, Order = i
                 }).ToArray()
             };
             ProjectWSaveStore.SaveDesktop(DesktopSaveKey, snapshot);
@@ -1271,7 +1333,10 @@ namespace ProjectW.MilestonePrototype
                 windows.Add(new DeskWindow
                 {
                     Id = saved.Id, Title = appTitles[saved.Id],
-                    Rect = new Rect(saved.X, saved.Y, 710, 500), Minimized = saved.Minimized
+                    Rect = new Rect(saved.X, saved.Y,
+                        saved.Width > 0f ? saved.Width : 710f,
+                        saved.Height > 0f ? saved.Height : 500f),
+                    Minimized = saved.Minimized
                 });
             }
         }

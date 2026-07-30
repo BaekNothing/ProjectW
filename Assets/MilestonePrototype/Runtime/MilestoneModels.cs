@@ -243,6 +243,8 @@ namespace ProjectW.MilestonePrototype
         public string Id;
         public float X;
         public float Y;
+        public float Width;
+        public float Height;
         public bool Open;
         public bool Minimized;
         public int Order;

@@ -867,6 +867,41 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void ResizeHandleOccupiesBottomRightTouchArea()
+        {
+            Rect result = MilestonePrototypeController.ResizeHandleRect(
+                new Rect(100, 80, 710, 500));
+
+            Assert.That(result, Is.EqualTo(new Rect(762, 532, 48, 48)));
+        }
+
+        [Test]
+        public void WindowResizeTracksPointerAndStaysInsideDesktop()
+        {
+            Rect original = new Rect(100, 80, 500, 350);
+
+            Rect enlarged = MilestonePrototypeController.CalculateResizedWindowRect(
+                original, new Vector2(600, 430), new Vector2(750, 520), 1280, 720);
+            Rect clamped = MilestonePrototypeController.CalculateResizedWindowRect(
+                original, new Vector2(600, 430), new Vector2(2000, 2000), 1280, 720);
+
+            Assert.That(enlarged, Is.EqualTo(new Rect(100, 80, 650, 440)));
+            Assert.That(clamped.xMax, Is.EqualTo(1274));
+            Assert.That(clamped.yMax, Is.EqualTo(670));
+        }
+
+        [Test]
+        public void WindowResizeHonorsMinimumSize()
+        {
+            Rect result = MilestonePrototypeController.CalculateResizedWindowRect(
+                new Rect(100, 80, 710, 500), new Vector2(810, 580), Vector2.zero,
+                1280, 720);
+
+            Assert.That(result.width, Is.EqualTo(420));
+            Assert.That(result.height, Is.EqualTo(280));
+        }
+
+        [Test]
         public void NextDayButtonStaysAtBottomRightAboveTaskbar()
         {
             Rect result = MilestonePrototypeController.NextDayButtonRect(1280, 720);
@@ -911,13 +946,18 @@ namespace ProjectW.MilestonePrototype.Tests
                     SchemaVersion = ProjectWSaveStore.DesktopSchema,
                     UiMagnification = 1.4f,
                     RightScrollbarMode = 2,
-                    Windows = Array.Empty<WindowSnapshot>()
+                    Windows = new[]
+                    {
+                        new WindowSnapshot { Id = "mail", Width = 640f, Height = 420f, Open = true }
+                    }
                 };
 
                 Assert.That(ProjectWSaveStore.SaveDesktop(key, snapshot), Is.True);
                 Assert.That(ProjectWSaveStore.TryLoadDesktop(key, out DesktopSnapshot loaded), Is.True);
                 Assert.That(loaded.UiMagnification, Is.EqualTo(1.4f));
                 Assert.That(loaded.RightScrollbarMode, Is.EqualTo(2));
+                Assert.That(loaded.Windows[0].Width, Is.EqualTo(640f));
+                Assert.That(loaded.Windows[0].Height, Is.EqualTo(420f));
             }
             finally
             {
