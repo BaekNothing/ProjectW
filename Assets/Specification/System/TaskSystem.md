@@ -2,11 +2,12 @@
 
 ## Document Control
 
-- Version: 0.9
+- Version: 1.0
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
-- Rationale: Replace the prototype's code-defined milestone data with a schedulable work system whose scarce resource is each worker's day.
+- Rationale: Extend the operating period to a three-month cycle with a midpoint review, and let repeated
+  manual assignment decisions become inspectable automation rules.
 - Idea references: `IDEA.md` items 1, 2, 4, and 8
 
 ## Scope
@@ -71,6 +72,9 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 ## Day and Assignment Rules
 
 - One turn advances the calendar by one day.
+- One month is always 30 days. The campaign covers three months (`90 days`).
+- The midpoint review occurs on day 45. It summarizes current Work completion and deadline state
+  without ending the campaign or introducing an unstated pass/fail condition.
 - The operations desktop exposes an always-visible `다음날로` button at the bottom-right above the
   taskbar. It is disabled after campaign victory or loss.
 - A worker can hold at most one primary Task for that day.
@@ -94,6 +98,27 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
   output.
 - When accumulated output reaches effective required work, the Task records that cycle's day as
   its completion day, enters `Complete`, and releases its assignee.
+
+## Learned Assignment Rules
+
+- The first assignment for a work situation is always made manually by the player.
+- A confirmed manual primary assignment records the player's choice as an assignment rule.
+- A work situation is identified by the Task's kind, required role, difficulty, risk, and
+  importance. Task and Work IDs are not part of the key, so the decision can apply to later work
+  with the same nature.
+- A rule maps one situation to one crew member. A later manual primary assignment for the same
+  situation replaces the recorded crew member and increments the rule's update count.
+- At the beginning of each daily cycle, an unassigned, unscheduled, available Task matching a
+  learned rule is assigned to that rule's crew member when that member is available and has no
+  other primary Task.
+- Automatic assignment never chooses a substitute worker, interrupts current work, consumes a
+  future reservation, or creates/updates another rule. If the recorded worker cannot take the Task,
+  the Task remains unassigned.
+- Rules and their update counts are part of the campaign save snapshot.
+- `My Info` lists the current rules in readable form so the player can inspect how their judgments
+  are being learned.
+- The optimization goal is that repeated situations eventually continue correctly through daily
+  advancement alone, while novel situations still require player judgment.
 
 ## Task Scheduling
 
@@ -232,11 +257,13 @@ Gameplay content and balance values must not be authored as constructor literals
 External data includes:
 
 - campaign duration and starting resources
+- midpoint review day
 - Work definitions and predecessor IDs
 - Task definitions, durations, roles, difficulty, and prerequisite IDs
 - worker definitions and initial stats
 - the four-person field-team roster and each member's initial trust toward the responsible officer
 - assignment, interruption, parallel-work, fatigue, outcome, and perk balance values
+- learned assignment situation fields and player-created rule state
 - mail and codex content
 
 The authoritative runtime data file for this prototype is:
@@ -265,6 +292,10 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 - No initial Work, Task, worker, mail, codex, or balance values are created in runtime code.
 - The gameplay JSON is emitted as a manifest-listed patch file.
 - EditMode tests cover assignment capacity, prerequisites, parallel work, interruption cost, handover cost, and deadlines.
+- The campaign lasts 90 days and produces one midpoint review on day 45.
+- A manual primary assignment creates or updates a learned rule.
+- A matching available Task is automatically assigned only when the recorded worker is eligible.
+- Learned rules survive campaign save/restore and are visible in `My Info`.
 
 ## Gantt and Task Detail UI
 
