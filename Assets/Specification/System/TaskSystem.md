@@ -367,6 +367,10 @@ or the mouse wheel.
 - Minimize and close keep their visual size but use hit areas twice their width and height.
 - Escape closes the active non-minimized window, then the next active window on another press.
 - Nested scroll regions use the region where the gesture began and do not transfer the gesture mid-drag.
+- A two-finger pinch on a window changes that window's width and height around the gesture center.
+- Moving the two-finger gesture center moves the same window while the pinch remains active.
+- The window selected when the second finger begins remains the gesture target until fewer than two
+  touches remain. The gesture cancels content dragging and saves the resulting window geometry.
 
 ## Crew Detail UI
 
@@ -406,3 +410,11 @@ vertical scrollbar styles and `fixedWidth` accessors used to double the right-si
 - Scrollbar-width patches require `minBaseVersion = 4`.
 - Base APK v4 embeds the same doubled-scrollbar and start/resume reservation behavior for offline
   fallback.
+
+### Base APK v5 Activation
+
+Base APK v5 explicitly preserves the legacy multi-touch surface required for two-finger window
+gestures: `UnityEngine.Input` and `UnityEngine.Touch`.
+
+- Pinch-window patches require `minBaseVersion = 5`.
+- Base APK v5 embeds the same pinch resize and two-finger drag behavior for offline fallback.

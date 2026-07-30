@@ -656,7 +656,7 @@ namespace ProjectW.MilestonePrototype.Tests
         [Test]
         public void BaseVersionMatchesCurrentAotBaseline()
         {
-            Assert.That(PatchBootstrapper.BaseVersion, Is.EqualTo(4));
+            Assert.That(PatchBootstrapper.BaseVersion, Is.EqualTo(5));
         }
 
         [Test]
@@ -940,6 +940,39 @@ namespace ProjectW.MilestonePrototype.Tests
 
             Assert.That(result.width, Is.EqualTo(420));
             Assert.That(result.height, Is.EqualTo(280));
+        }
+
+        [Test]
+        public void PinchResizesAroundCenterAndDragMovesWindow()
+        {
+            Rect result = MilestonePrototypeController.CalculatePinchedWindowRect(
+                new Rect(100, 80, 500, 350), new Vector2(350, 255),
+                new Vector2(400, 285), 1.2f, 1280, 720);
+
+            Assert.That(result.x, Is.EqualTo(100).Within(.001f));
+            Assert.That(result.y, Is.EqualTo(75).Within(.001f));
+            Assert.That(result.width, Is.EqualTo(600).Within(.001f));
+            Assert.That(result.height, Is.EqualTo(420).Within(.001f));
+        }
+
+        [Test]
+        public void PinchRespectsMinimumWindowSize()
+        {
+            Rect result = MilestonePrototypeController.CalculatePinchedWindowRect(
+                new Rect(100, 80, 710, 500), new Vector2(455, 330),
+                new Vector2(455, 330), .1f, 1280, 720);
+
+            Assert.That(result.width, Is.EqualTo(420));
+            Assert.That(result.height, Is.EqualTo(280));
+        }
+
+        [Test]
+        public void TouchCoordinatesConvertFromScreenBottomLeftToLogicalTopLeft()
+        {
+            Vector2 result = MilestonePrototypeController.TouchToLogicalPosition(
+                new Vector2(360, 200), 1280, 2f);
+
+            Assert.That(result, Is.EqualTo(new Vector2(180, 540)));
         }
 
         [Test]

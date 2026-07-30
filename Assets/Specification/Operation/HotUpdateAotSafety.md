@@ -135,3 +135,19 @@ The approved new members are the vertical scrollbar style getters on `GUISkin` a
 | Outgame | None |
 | Metadata | Supplemental metadata is not considered native implementation proof |
 | Operation | Mandatory diff audit and escalation before every patch publication |
+
+## Base APK v5 AOT Baseline
+
+Base APK v5 adds the exact legacy multi-touch surface required for window pinch gestures.
+
+It must bundle:
+
+- `BaseVersion = 5`
+- the latest embedded `ProjectW.HotUpdate.dll.bytes` and `task-system.json`
+- regenerated Android AOT metadata
+- stable linker preservation for `UnityEngine.Input` and `UnityEngine.Touch`
+- the v4 preservation surface
+
+The approved new members are `Input.touchCount`, `Input.GetTouch(int)`, `Touch.position`, and the
+touch value types needed to read two simultaneous pointers. This does not authorize unrelated
+Unity input APIs.

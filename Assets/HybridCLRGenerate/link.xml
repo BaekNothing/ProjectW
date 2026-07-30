@@ -45,6 +45,10 @@
     <type fullname="UnityEngine.GUIStyleState" preserve="all" />
     <type fullname="UnityEngine.GUIUtility" preserve="all" />
   </assembly>
+  <assembly fullname="UnityEngine.InputLegacyModule">
+    <type fullname="UnityEngine.Input" preserve="all" />
+    <type fullname="UnityEngine.Touch" preserve="all" />
+  </assembly>
   <assembly fullname="UnityEngine.JSONSerializeModule">
     <type fullname="UnityEngine.JsonUtility" preserve="all" />
   </assembly>

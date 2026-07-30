@@ -62,6 +62,10 @@ namespace ProjectW.MilestonePrototype
         private bool inputLayerBlocked;
         private float logicalWidth;
         private float logicalHeight;
+        private DeskWindow pinchWindow;
+        private Rect pinchRectOrigin;
+        private Vector2 pinchCenterOrigin;
+        private float pinchDistanceOrigin;
 
         private void Awake()
         {
@@ -129,12 +133,10 @@ namespace ProjectW.MilestonePrototype
 
         private void DrawWindows()
         {
-            bool compact = logicalWidth < 900;
             for (int i = 0; i < windows.Count; i++)
             {
                 DeskWindow window = windows[i];
                 if (window.Minimized) continue;
-                if (compact) window.Rect = new Rect(6, 6, logicalWidth - 12, logicalHeight - 56);
                 window.Rect = ClampRect(window.Rect);
                 inputLayerBlocked = IsPointerBlockedBelowWindow(i);
                 GUI.enabled = !inputLayerBlocked;
@@ -1066,6 +1068,8 @@ namespace ProjectW.MilestonePrototype
 
         private void HandleWindowInput()
         {
+            if (HandlePinchWindowInput()) return;
+
             Event current = Event.current;
             if (current == null) return;
 
@@ -1118,6 +1122,73 @@ namespace ProjectW.MilestonePrototype
                 Focus(window);
                 return;
             }
+        }
+
+        private bool HandlePinchWindowInput()
+        {
+            if (Input.touchCount < 2)
+            {
+                if (pinchWindow != null)
+                {
+                    pinchWindow.DragRegion = null;
+                    pinchWindow.DraggingContent = false;
+                    pinchWindow = null;
+                    SaveDesktop();
+                }
+                return false;
+            }
+
+            Touch first = Input.GetTouch(0);
+            Touch second = Input.GetTouch(1);
+            Vector2 firstPosition = TouchToLogicalPosition(first.position, Screen.height,
+                CalculateUiScale(Screen.width, uiMagnification));
+            Vector2 secondPosition = TouchToLogicalPosition(second.position, Screen.height,
+                CalculateUiScale(Screen.width, uiMagnification));
+            Vector2 center = (firstPosition + secondPosition) * .5f;
+            float distance = Vector2.Distance(firstPosition, secondPosition);
+
+            if (pinchWindow == null)
+            {
+                for (int i = windows.Count - 1; i >= 0; i--)
+                {
+                    DeskWindow candidate = windows[i];
+                    if (candidate.Minimized || !candidate.Rect.Contains(center)) continue;
+                    pinchWindow = candidate;
+                    pinchRectOrigin = candidate.Rect;
+                    pinchCenterOrigin = center;
+                    pinchDistanceOrigin = Mathf.Max(1f, distance);
+                    candidate.DragRegion = null;
+                    candidate.DraggingContent = false;
+                    candidate.Resizing = false;
+                    Focus(candidate);
+                    break;
+                }
+            }
+
+            if (pinchWindow == null) return true;
+            pinchWindow.Rect = CalculatePinchedWindowRect(pinchRectOrigin, pinchCenterOrigin,
+                center, distance / pinchDistanceOrigin, logicalWidth, logicalHeight);
+            return true;
+        }
+
+        public static Vector2 TouchToLogicalPosition(Vector2 screenPosition, float screenHeight,
+            float uiScale)
+        {
+            float scale = Mathf.Max(.01f, uiScale);
+            return new Vector2(screenPosition.x / scale, (screenHeight - screenPosition.y) / scale);
+        }
+
+        public static Rect CalculatePinchedWindowRect(Rect original, Vector2 centerOrigin,
+            Vector2 centerCurrent, float pinchScale, float desktopWidth, float desktopHeight)
+        {
+            float scale = Mathf.Max(.01f, pinchScale);
+            Vector2 topLeft = centerCurrent + (original.position - centerOrigin) * scale;
+            float width = Mathf.Clamp(original.width * scale, MinimumWindowWidth,
+                Mathf.Max(MinimumWindowWidth, desktopWidth - 12f));
+            float height = Mathf.Clamp(original.height * scale, MinimumWindowHeight,
+                Mathf.Max(MinimumWindowHeight, desktopHeight - 56f));
+            return ClampWindowRect(new Rect(topLeft.x, topLeft.y, width, height),
+                desktopWidth, desktopHeight);
         }
 
         public static Rect ResizeHandleRect(Rect windowRect) =>
