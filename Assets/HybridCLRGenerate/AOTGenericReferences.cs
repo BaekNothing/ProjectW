@@ -6,6 +6,7 @@ public class AOTGenericReferences : UnityEngine.MonoBehaviour
 	public static readonly IReadOnlyList<string> PatchedAOTAssemblyList = new List<string>
 	{
 		"System.Core.dll",
+		"Unity.InputSystem.dll",
 		"UnityEngine.CoreModule.dll",
 		"UnityEngine.JSONSerializeModule.dll",
 		"mscorlib.dll",
@@ -91,6 +92,11 @@ public class AOTGenericReferences : UnityEngine.MonoBehaviour
 	// System.Linq.OrderedEnumerable<object,object>
 	// System.Linq.OrderedEnumerable<object>
 	// System.Predicate<object>
+	// UnityEngine.InputSystem.InputControl<UnityEngine.Vector2>
+	// UnityEngine.InputSystem.InputProcessor<UnityEngine.Vector2>
+	// UnityEngine.InputSystem.Utilities.InlinedArray<object>
+	// UnityEngine.InputSystem.Utilities.ReadOnlyArray.Enumerator<object>
+	// UnityEngine.InputSystem.Utilities.ReadOnlyArray<object>
 	// }}
 
 	public void RefMethods()

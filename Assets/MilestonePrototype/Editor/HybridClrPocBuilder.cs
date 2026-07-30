@@ -27,10 +27,12 @@ namespace ProjectW.MilestonePrototype.Editor
         private const string GameplayDataName = "task-system.json";
         private const string HotUpdateRuntimeRoot = "Assets/MilestonePrototype/Runtime";
         private static readonly string[] AotMetadataAssemblies = { "mscorlib", "System", "System.Core" };
-        private static readonly string[] BaseV5RequiredAotTokens =
+        private static readonly string[] BaseV6RequiredAotTokens =
         {
-            "Input.touchCount",
-            "Input.GetTouch("
+            "Touchscreen.current",
+            "touchscreen.touches",
+            "touch.press.isPressed",
+            "touch.position.ReadValue()"
         };
 
         [MenuItem("ProjectW/Hot Update/1. Configure HybridCLR")]
@@ -113,17 +115,17 @@ namespace ProjectW.MilestonePrototype.Editor
 
         public static void ValidateAotSurface()
         {
-            if (PatchBootstrapper.BaseVersion >= 5) return;
+            if (PatchBootstrapper.BaseVersion >= 6) return;
             foreach (string path in Directory.GetFiles(HotUpdateRuntimeRoot, "*.cs", SearchOption.AllDirectories))
             {
                 string source = File.ReadAllText(path);
-                foreach (string token in BaseV5RequiredAotTokens)
+                foreach (string token in BaseV6RequiredAotTokens)
                 {
                     if (!source.Contains(token)) continue;
                     throw new BuildFailedException(
                         $"HotUpdate AOT safety blocked '{token}' in {path}. " +
-                        "This member requires the preserved multi-touch surface in base APK v5. " +
-                        "Install or build base v5 before publishing this patch.");
+                        "This member requires the preserved Input System touch surface in base APK v6. " +
+                        "Install or build base v6 before publishing this patch.");
                 }
             }
         }

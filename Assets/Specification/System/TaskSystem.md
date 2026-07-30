@@ -418,3 +418,14 @@ gestures: `UnityEngine.Input` and `UnityEngine.Touch`.
 
 - Pinch-window patches require `minBaseVersion = 5`.
 - Base APK v5 embeds the same pinch resize and two-finger drag behavior for offline fallback.
+
+### Base APK v6 Activation
+
+Base APK v6 uses the project's active Input System package rather than the disabled legacy
+`UnityEngine.Input` touch path.
+
+- Input System pinch-window patches require `minBaseVersion = 6`.
+- The gesture reads the first two actively pressed `Touchscreen` contacts and ignores inactive
+  touch-control slots.
+- Base APK v6 preserves the required `Unity.InputSystem` types and embeds the same behavior for
+  offline fallback.

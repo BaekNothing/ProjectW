@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
 
 namespace ProjectW.MilestonePrototype
 {
@@ -1126,7 +1128,8 @@ namespace ProjectW.MilestonePrototype
 
         private bool HandlePinchWindowInput()
         {
-            if (Input.touchCount < 2)
+            if (!TryGetTwoTouchPositions(out Vector2 firstScreenPosition,
+                    out Vector2 secondScreenPosition))
             {
                 if (pinchWindow != null)
                 {
@@ -1138,11 +1141,9 @@ namespace ProjectW.MilestonePrototype
                 return false;
             }
 
-            Touch first = Input.GetTouch(0);
-            Touch second = Input.GetTouch(1);
-            Vector2 firstPosition = TouchToLogicalPosition(first.position, Screen.height,
+            Vector2 firstPosition = TouchToLogicalPosition(firstScreenPosition, Screen.height,
                 CalculateUiScale(Screen.width, uiMagnification));
-            Vector2 secondPosition = TouchToLogicalPosition(second.position, Screen.height,
+            Vector2 secondPosition = TouchToLogicalPosition(secondScreenPosition, Screen.height,
                 CalculateUiScale(Screen.width, uiMagnification));
             Vector2 center = (firstPosition + secondPosition) * .5f;
             float distance = Vector2.Distance(firstPosition, secondPosition);
@@ -1169,6 +1170,29 @@ namespace ProjectW.MilestonePrototype
             pinchWindow.Rect = CalculatePinchedWindowRect(pinchRectOrigin, pinchCenterOrigin,
                 center, distance / pinchDistanceOrigin, logicalWidth, logicalHeight);
             return true;
+        }
+
+        private static bool TryGetTwoTouchPositions(out Vector2 first, out Vector2 second)
+        {
+            first = Vector2.zero;
+            second = Vector2.zero;
+            Touchscreen touchscreen = Touchscreen.current;
+            if (touchscreen == null) return false;
+
+            int found = 0;
+            for (int i = 0; i < touchscreen.touches.Count; i++)
+            {
+                TouchControl touch = touchscreen.touches[i];
+                if (!touch.press.isPressed) continue;
+                if (found == 0) first = touch.position.ReadValue();
+                else
+                {
+                    second = touch.position.ReadValue();
+                    return true;
+                }
+                found++;
+            }
+            return false;
         }
 
         public static Vector2 TouchToLogicalPosition(Vector2 screenPosition, float screenHeight,

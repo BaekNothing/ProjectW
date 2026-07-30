@@ -151,3 +151,20 @@ It must bundle:
 The approved new members are `Input.touchCount`, `Input.GetTouch(int)`, `Touch.position`, and the
 touch value types needed to read two simultaneous pointers. This does not authorize unrelated
 Unity input APIs.
+
+## Base APK v6 AOT Baseline
+
+Base APK v6 replaces the incompatible legacy touch path with the installed Input System package.
+
+It must bundle:
+
+- `BaseVersion = 6`
+- the latest embedded `ProjectW.HotUpdate.dll.bytes` and `task-system.json`
+- regenerated Android AOT metadata
+- stable linker preservation for the required `Unity.InputSystem` touch and control types
+- the v5 preservation surface
+
+The approved new members are `Touchscreen.current`, `Touchscreen.touches`,
+`TouchControl.press`, `ButtonControl.isPressed`, `TouchControl.position`, and
+`Vector2Control.ReadValue()`, including their required package-owned closed generic shapes. This
+does not authorize unrelated Input System APIs.
