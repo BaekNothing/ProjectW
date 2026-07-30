@@ -162,6 +162,10 @@ namespace ProjectW.MilestonePrototype
             }
             if (ExpandedHitButton(closeRect, "X")) { Close(window.Id); return; }
             GUILayout.Space(6);
+            string scrollRegion = $"panel-{window.Id}";
+            window.Scroll = window.Id == "gantt"
+                ? GUILayout.BeginScrollView(window.Scroll)
+                : BeginTouchScroll(window, scrollRegion, window.Scroll);
             switch (window.Id)
             {
                 case "mail": DrawMail(window); break;
@@ -178,6 +182,7 @@ namespace ProjectW.MilestonePrototype
                 case "options": DrawOptions(window); break;
                 case "log": DrawLog(window); break;
             }
+            EndTouchScroll(window, scrollRegion, ref window.Scroll);
             GUI.DragWindow(WindowDragHitRect(window.Rect.width));
         }
 
@@ -186,7 +191,6 @@ namespace ProjectW.MilestonePrototype
             List<MailEvent> arrived = game.Mail.Where(m => m.ArrivalDay <= game.Day).ToList();
             GUILayout.BeginHorizontal();
             GUILayout.BeginVertical(GUILayout.Width(Mathf.Min(230, window.Rect.width * .36f)));
-            window.Scroll = BeginTouchScroll(window, "mail-list", window.Scroll);
             for (int i = 0; i < arrived.Count; i++)
             {
                 MailEvent mail = arrived[i];
@@ -198,7 +202,6 @@ namespace ProjectW.MilestonePrototype
                     SaveCampaign();
                 }
             }
-            EndTouchScroll(window, "mail-list", ref window.Scroll);
             GUILayout.EndVertical();
             GUILayout.BeginVertical(GUI.skin.box);
             if (arrived.Count == 0) GUILayout.Label("도착한 통신이 없습니다.");
@@ -469,7 +472,6 @@ namespace ProjectW.MilestonePrototype
                 ? "미배정"
                 : $"{game.Crew[task.AssignedCharacter].Name} / {(task.IsParallelAssignment ? "병행" : "주 작업")}";
 
-            window.Scroll = BeginTouchScroll(window, "task-detail", window.Scroll);
             GUILayout.BeginVertical(GUI.skin.box);
             GUILayout.Label($"{task.Name}  ·  {(task.Required ? "필수" : "선택")}", section);
             GUILayout.Label(
@@ -603,13 +605,11 @@ namespace ProjectW.MilestonePrototype
                 foreach (TaskRecord record in task.Records.Skip(Math.Max(0, task.Records.Count - 4)))
                     GUILayout.Label($"D{record.Day:00}  {record.Actor}  {record.Text}", small);
             GUILayout.EndVertical();
-            EndTouchScroll(window, "task-detail", ref window.Scroll);
         }
 
         private void DrawMilestones(DeskWindow window)
         {
             GUILayout.Label("마일스톤", section);
-            window.Scroll = BeginTouchScroll(window, "milestones", window.Scroll);
             foreach (WorkGroup group in game.Groups.Where(g => g.Id != "incident"))
             {
                 List<WorkTask> tasks = game.Tasks.Where(t => t.GroupId == group.Id).ToList();
@@ -623,13 +623,11 @@ namespace ProjectW.MilestonePrototype
                         OpenTaskDetail(task.Id);
                 GUILayout.EndVertical();
             }
-            EndTouchScroll(window, "milestones", ref window.Scroll);
         }
 
         private void DrawWorkers(DeskWindow window)
         {
             GUILayout.Label("대원 파일", section);
-            window.Scroll = BeginTouchScroll(window, "workers", window.Scroll);
             for (int i = 0; i < game.Crew.Count; i++)
             {
                 CrewMember member = game.Crew[i];
@@ -651,7 +649,6 @@ namespace ProjectW.MilestonePrototype
                 GUILayout.EndHorizontal();
                 GUILayout.EndVertical();
             }
-            EndTouchScroll(window, "workers", ref window.Scroll);
         }
 
         private void DrawWorkerDetail(DeskWindow window)
@@ -665,7 +662,6 @@ namespace ProjectW.MilestonePrototype
 
             window.Selected = Mathf.Clamp(window.Selected, 0, game.Crew.Count - 1);
             CrewMember member = game.Crew[window.Selected];
-            window.Scroll = BeginTouchScroll(window, "worker-detail", window.Scroll);
 
             GUILayout.BeginHorizontal();
             GUILayout.BeginVertical(GUI.skin.box, GUILayout.Width(155), GUILayout.Height(185));
@@ -724,7 +720,6 @@ namespace ProjectW.MilestonePrototype
             }
             if (!hasHistory) GUILayout.Label("아직 작업 기록이 없습니다.", small);
 
-            EndTouchScroll(window, "worker-detail", ref window.Scroll);
         }
 
         private void DrawMessenger(DeskWindow window)
@@ -761,7 +756,6 @@ namespace ProjectW.MilestonePrototype
             GUILayout.Label(MilestoneSimulation.TrustDescription(selected.Trust), small);
             DrawSectionRule();
 
-            window.Scroll = BeginTouchScroll(window, "messenger-chat", window.Scroll);
             bool hasMessages = false;
             if (selected.History != null)
             {
@@ -786,8 +780,6 @@ namespace ProjectW.MilestonePrototype
             }
             if (!hasMessages)
                 GUILayout.Label("아직 대화나 작업 피드백이 없습니다.", small);
-            EndTouchScroll(window, "messenger-chat", ref window.Scroll);
-
             GUILayout.Label("물어보기", small);
             GUILayout.BeginHorizontal();
             if (LayoutButton("안부 묻기", GUILayout.Height(36)))
@@ -832,13 +824,11 @@ namespace ProjectW.MilestonePrototype
                 report.Delayed + report.HighRisk > 0 ? warning : success);
             GUILayout.Space(8);
             GUILayout.Label("주의 작업", section);
-            window.Scroll = BeginTouchScroll(window, "report", window.Scroll);
             foreach (WorkTask task in game.Tasks.Where(t => game.EffectiveRisk(t) == RiskLevel.High && t.State != TaskState.Complete))
                 GUILayout.Label($"[고위험] {task.Name} / D{task.Deadline} / {StateName(task.State)}", warning);
             GUILayout.Space(8);
             GUILayout.Label("최근 결과", section);
             foreach (string line in game.LastReport.Lines) GUILayout.Label(line);
-            EndTouchScroll(window, "report", ref window.Scroll);
         }
 
         private void DrawCodex(DeskWindow window)
@@ -884,7 +874,6 @@ namespace ProjectW.MilestonePrototype
 
         private void DrawOptions(DeskWindow window)
         {
-            window.Scroll = BeginTouchScroll(window, "options", window.Scroll);
             GUILayout.Label("화면 설정", title);
             GUILayout.Space(8);
             GUILayout.Label("화면 배율", section);
@@ -912,7 +901,6 @@ namespace ProjectW.MilestonePrototype
                 game = new MilestoneSimulation();
                 SaveCampaign();
             }
-            EndTouchScroll(window, "options", ref window.Scroll);
         }
 
         private void DrawScaleOption(float value, string label)
@@ -927,9 +915,7 @@ namespace ProjectW.MilestonePrototype
 
         private void DrawLog(DeskWindow window)
         {
-            window.Scroll = BeginTouchScroll(window, "system-log", window.Scroll);
             foreach (string line in game.SystemLog.AsEnumerable().Reverse()) GUILayout.Label(line, small);
-            EndTouchScroll(window, "system-log", ref window.Scroll);
         }
 
         private void DrawTaskbar()
