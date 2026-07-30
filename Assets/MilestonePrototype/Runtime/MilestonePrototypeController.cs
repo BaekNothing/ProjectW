@@ -56,6 +56,7 @@ namespace ProjectW.MilestonePrototype
         private float uiMagnification = DefaultUiMagnification;
         private bool rightScrollbarsEnabled = true;
         private float enabledScrollbarWidth;
+        private bool inputLayerBlocked;
         private float logicalWidth;
         private float logicalHeight;
 
@@ -84,9 +85,15 @@ namespace ProjectW.MilestonePrototype
             logicalHeight = Screen.height / scale;
             ApplyScrollbarVisibility();
             HandleWindowInput();
+            inputLayerBlocked = IsPointerBlockedBelowWindow(-1);
+            GUI.enabled = !inputLayerBlocked;
             DrawDesktop();
             DrawWindows();
+            inputLayerBlocked = IsPointerBlockedBelowWindow(-1);
+            GUI.enabled = !inputLayerBlocked;
             DrawTaskbar();
+            inputLayerBlocked = false;
+            GUI.enabled = true;
             if (Event.current.type == EventType.MouseUp) SaveDesktop();
         }
 
@@ -108,10 +115,10 @@ namespace ProjectW.MilestonePrototype
                 $"가용 대원 {game.Crew.Count(c => c.Available)}/{game.Crew.Count}  |  자원 {game.Resources}", section);
             if (logicalHeight >= 520f)
             {
-                GUI.enabled = !game.IsWon && !game.IsLost;
+                SetControlEnabled(!game.IsWon && !game.IsLost);
                 if (GUI.Button(new Rect(25, 365, 210, 48), "하루 진행"))
                     AdvanceToNextDay();
-                GUI.enabled = true;
+                SetControlEnabled(true);
             }
             GUI.Label(DesktopStatusRect(logicalWidth, logicalHeight),
                 FormatStatus(game.LastReport, game.IsWon, game.IsLost),
@@ -127,8 +134,12 @@ namespace ProjectW.MilestonePrototype
                 if (window.Minimized) continue;
                 if (compact) window.Rect = new Rect(6, 6, logicalWidth - 12, logicalHeight - 56);
                 window.Rect = ClampRect(window.Rect);
+                inputLayerBlocked = IsPointerBlockedBelowWindow(i);
+                GUI.enabled = !inputLayerBlocked;
                 window.Rect = GUI.Window(100 + i, window.Rect, _ => DrawWindow(window), window.Title);
             }
+            inputLayerBlocked = false;
+            GUI.enabled = true;
         }
 
         private void DrawWindow(DeskWindow window)
@@ -193,13 +204,13 @@ namespace ProjectW.MilestonePrototype
                 GUILayout.Label(mail.Body);
                 GUILayout.Space(8);
                 GUILayout.Label($"지시: {mail.Instruction}", warning);
-                GUI.enabled = !mail.Resolved;
+                SetControlEnabled(!mail.Resolved);
                 if (GUILayout.Button(mail.Resolved ? "처리 완료" : "지시 수락 및 반영", GUILayout.Height(38)))
                 {
                     game.ResolveMail(mail.Id);
                     SaveCampaign();
                 }
-                GUI.enabled = true;
+                SetControlEnabled(true);
             }
             GUILayout.EndVertical();
             GUILayout.EndHorizontal();
@@ -508,14 +519,14 @@ namespace ProjectW.MilestonePrototype
 
             GUILayout.Label($"현재 담당: {assignee}", section);
             GUILayout.BeginHorizontal();
-            GUI.enabled = task.State == TaskState.Available || task.State == TaskState.Active;
+            SetControlEnabled(task.State == TaskState.Available || task.State == TaskState.Active);
             if (GUILayout.Button("주 작업 담당 순환")) { AssignNext(task); SaveCampaign(); }
-            GUI.enabled = (task.State == TaskState.Available || task.State == TaskState.Active) &&
-                          cost.CanRunInParallel;
+            SetControlEnabled((task.State == TaskState.Available || task.State == TaskState.Active) &&
+                              cost.CanRunInParallel);
             if (GUILayout.Button("병행 담당 순환")) { AssignNextParallel(task); SaveCampaign(); }
-            GUI.enabled = task.AssignedCharacter >= 0;
+            SetControlEnabled(task.AssignedCharacter >= 0);
             if (GUILayout.Button("배정 해제")) { game.Assign(task.Id, -1); SaveCampaign(); }
-            GUI.enabled = true;
+            SetControlEnabled(true);
             GUILayout.EndHorizontal();
 
             GUILayout.Label("작업 시작 예약", section);
@@ -561,7 +572,7 @@ namespace ProjectW.MilestonePrototype
                 SetEstimatedScheduleDay(window, task);
             }
             GUILayout.EndHorizontal();
-            GUI.enabled = task.State != TaskState.Complete && task.State != TaskState.Failed;
+            SetControlEnabled(task.State != TaskState.Complete && task.State != TaskState.Failed);
             if (GUILayout.Button("이 시작일로 예약"))
             {
                 window.Notice = game.Schedule(task.Id, window.SelectedCrew, window.ScheduleDay)
@@ -569,14 +580,14 @@ namespace ProjectW.MilestonePrototype
                     : "같은 작업자의 해당 날짜 예약과 충돌하거나 예약할 수 없는 작업입니다.";
                 SaveCampaign();
             }
-            GUI.enabled = task.ScheduledDay > 0;
+            SetControlEnabled(task.ScheduledDay > 0);
             if (GUILayout.Button("예약 취소"))
             {
                 game.CancelSchedule(task.Id);
                 window.Notice = "예약을 취소했습니다.";
                 SaveCampaign();
             }
-            GUI.enabled = true;
+            SetControlEnabled(true);
             if (!string.IsNullOrEmpty(window.Notice)) GUILayout.Label(window.Notice, small);
             GUILayout.EndVertical();
 
@@ -626,11 +637,11 @@ namespace ProjectW.MilestonePrototype
                 GUILayout.Label($"담당자 신뢰도 {member.Trust}% · {MilestoneSimulation.TrustDescription(member.Trust)}", small);
                 if (member.History.Count > 0) GUILayout.Label($"최근: {member.History[member.History.Count - 1]}", small);
                 GUILayout.BeginHorizontal();
-                GUI.enabled = member.InjuryDays <= 0 && !member.RestScheduled;
+                SetControlEnabled(member.InjuryDays <= 0 && !member.RestScheduled);
                 if (GUILayout.Button(member.RestScheduled ? "휴식 예약됨" : "휴식 예약")) { game.Rest(i); SaveCampaign(); }
-                GUI.enabled = game.Resources >= 3;
+                SetControlEnabled(game.Resources >= 3);
                 if (GUILayout.Button($"재생 시술 {game.RegenerationResourceCost}자원 ({member.RegenerationCount})")) { game.Regenerate(i); SaveCampaign(); }
-                GUI.enabled = true;
+                SetControlEnabled(true);
                 GUILayout.EndHorizontal();
                 GUILayout.EndVertical();
             }
@@ -919,10 +930,10 @@ namespace ProjectW.MilestonePrototype
         {
             Rect bar = new Rect(0, logicalHeight - 44, logicalWidth, 44);
             DrawSolid(bar, GrayColor);
-            GUI.enabled = !game.IsWon && !game.IsLost;
+            SetControlEnabled(!game.IsWon && !game.IsLost);
             if (GUI.Button(NextDayButtonRect(logicalWidth, logicalHeight), "다음날로 →"))
                 AdvanceToNextDay();
-            GUI.enabled = true;
+            SetControlEnabled(true);
             float x = 8;
             foreach (DeskWindow window in windows.ToArray())
             {
@@ -1078,6 +1089,30 @@ namespace ProjectW.MilestonePrototype
                 return;
             }
         }
+
+        private bool IsPointerBlockedBelowWindow(int windowIndex)
+        {
+            Event current = Event.current;
+            if (current == null || !CanActivateControl(current.type)) return false;
+            for (int i = windows.Count - 1; i > windowIndex; i--)
+            {
+                DeskWindow window = windows[i];
+                if (IsPointInsideVisiblePanel(window.Rect, window.Minimized, current.mousePosition))
+                    return true;
+            }
+            return false;
+        }
+
+        public static bool CanActivateControl(EventType eventType) =>
+            eventType == EventType.MouseDown ||
+            eventType == EventType.MouseDrag ||
+            eventType == EventType.MouseUp;
+
+        public static bool IsPointInsideVisiblePanel(Rect panel, bool minimized, Vector2 point) =>
+            !minimized && panel.Contains(point);
+
+        private void SetControlEnabled(bool enabled) =>
+            GUI.enabled = !inputLayerBlocked && enabled;
 
         private static bool ExpandedHitButton(Rect visualRect, string label)
         {

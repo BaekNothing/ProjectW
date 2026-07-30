@@ -820,6 +820,34 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void VisiblePanelBlocksPointerInsideItsEmptyArea()
+        {
+            Rect panel = new Rect(100, 80, 400, 300);
+
+            Assert.That(MilestonePrototypeController.IsPointInsideVisiblePanel(
+                panel, false, new Vector2(250, 200)), Is.True);
+            Assert.That(MilestonePrototypeController.IsPointInsideVisiblePanel(
+                panel, false, new Vector2(50, 50)), Is.False);
+        }
+
+        [Test]
+        public void MinimizedPanelDoesNotBlockPointer()
+        {
+            Assert.That(MilestonePrototypeController.IsPointInsideVisiblePanel(
+                new Rect(100, 80, 400, 300), true, new Vector2(250, 200)), Is.False);
+        }
+
+        [Test]
+        public void PointerControlEventsAreBlockedWithoutChangingRepaintState()
+        {
+            Assert.That(MilestonePrototypeController.CanActivateControl(EventType.MouseDown), Is.True);
+            Assert.That(MilestonePrototypeController.CanActivateControl(EventType.MouseDrag), Is.True);
+            Assert.That(MilestonePrototypeController.CanActivateControl(EventType.MouseUp), Is.True);
+            Assert.That(MilestonePrototypeController.CanActivateControl(EventType.Repaint), Is.False);
+            Assert.That(MilestonePrototypeController.CanActivateControl(EventType.Layout), Is.False);
+        }
+
+        [Test]
         public void ExpandedHitRectDoublesButtonHitAreaWithoutMovingCenter()
         {
             Rect visual = new Rect(100, 20, 25, 20);
