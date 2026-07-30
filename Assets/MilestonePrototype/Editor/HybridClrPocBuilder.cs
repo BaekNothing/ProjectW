@@ -27,7 +27,7 @@ namespace ProjectW.MilestonePrototype.Editor
         private const string GameplayDataName = "task-system.json";
         private const string HotUpdateRuntimeRoot = "Assets/MilestonePrototype/Runtime";
         private static readonly string[] AotMetadataAssemblies = { "mscorlib", "System", "System.Core" };
-        private static readonly string[] BaseV3ForbiddenAotTokens =
+        private static readonly string[] BaseV5RequiredAotTokens =
         {
             "Input.touchCount",
             "Input.GetTouch("
@@ -73,7 +73,7 @@ namespace ProjectW.MilestonePrototype.Editor
         {
             if (string.IsNullOrWhiteSpace(patchVersion) || !Regex.IsMatch(patchVersion, @"^\d{8}-\d{3}$"))
                 throw new ArgumentException("Patch version must use YYYYMMDD-NNN.", nameof(patchVersion));
-            ValidateBaseV3AotSurface();
+            ValidateAotSurface();
             EnsureAndroidTarget();
             Configure();
             EnsureInstalled();
@@ -111,18 +111,19 @@ namespace ProjectW.MilestonePrototype.Editor
             return output;
         }
 
-        public static void ValidateBaseV3AotSurface()
+        public static void ValidateAotSurface()
         {
+            if (PatchBootstrapper.BaseVersion >= 5) return;
             foreach (string path in Directory.GetFiles(HotUpdateRuntimeRoot, "*.cs", SearchOption.AllDirectories))
             {
                 string source = File.ReadAllText(path);
-                foreach (string token in BaseV3ForbiddenAotTokens)
+                foreach (string token in BaseV5RequiredAotTokens)
                 {
                     if (!source.Contains(token)) continue;
                     throw new BuildFailedException(
                         $"HotUpdate AOT safety blocked '{token}' in {path}. " +
-                        "Base APK v3 does not prove this member is preserved. " +
-                        "Use a normal base-v3-safe implementation or notify the user and rebuild the base APK.");
+                        "This member requires the preserved multi-touch surface in base APK v5. " +
+                        "Install or build base v5 before publishing this patch.");
                 }
             }
         }
