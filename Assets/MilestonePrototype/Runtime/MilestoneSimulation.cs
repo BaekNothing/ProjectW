@@ -12,6 +12,7 @@ namespace ProjectW.MilestonePrototype
         private readonly string[] crewPortraits;
         private readonly string[] crewMemos;
         private readonly string[][] crewPerks;
+        private readonly RandomTaskWordPool randomTaskWords;
         private int nextRandomWorkId;
 
         public int Day { get; private set; } = 1;
@@ -45,6 +46,7 @@ namespace ProjectW.MilestonePrototype
             TaskSystemDataLoader.Validate(data);
             random = new Random(seed);
             balance = data.Balance;
+            randomTaskWords = data.RandomTaskWords;
             crewPortraits = new string[data.Crew.Length];
             crewMemos = new string[data.Crew.Length];
             crewPerks = new string[data.Crew.Length][];
@@ -914,19 +916,25 @@ namespace ProjectW.MilestonePrototype
             int overdue = Groups.Count(group => group.SoftDeadlineMissed &&
                                                 group.State != WorkState.Complete);
             int exhausted = Crew.Count(member => member.Fatigue >= 55);
-            int chance = balance.BaseSideMissionChance + overdue * 16 + exhausted * 8;
+            int rawChance = balance.BaseSideMissionChance + overdue * 16 + exhausted * 8;
+            int scaledChanceBasisPoints = Math.Min(100, rawChance) *
+                                          balance.RandomWorkChanceScalePercent;
             if (Groups.Count(group => group.Id != null && group.Id.StartsWith("random-work-") &&
                                       group.State != WorkState.Complete && group.State != WorkState.Failed) >=
                     balance.RandomWorkLimit ||
-                random.Next(100) >= chance) return;
+                random.Next(10000) >= scaledChanceBasisPoints) return;
 
             int id = ++nextRandomWorkId;
             int softDays = random.Next(balance.RandomWorkMinSoftDays, balance.RandomWorkMaxSoftDays + 1);
             int reward = random.Next(balance.RandomWorkMinReward, balance.RandomWorkMaxReward + 1);
+            RandomTaskTarget target = randomTaskWords.Targets[random.Next(randomTaskWords.Targets.Length)];
+            RandomTaskAction action = SelectRandomAction(target.Role);
+            RandomTaskAdjective adjective =
+                randomTaskWords.Adjectives[random.Next(randomTaskWords.Adjectives.Length)];
             var work = new WorkGroup
             {
                 Id = $"random-work-{id}",
-                Name = $"긴급 업무 {id}",
+                Name = $"{adjective.Text} {target.Text} {action.Text}",
                 SoftDeadline = Day + softDays,
                 HardDeadline = Day + softDays + balance.RandomWorkHardDeadlineDays,
                 Required = false,
@@ -943,22 +951,45 @@ namespace ProjectW.MilestonePrototype
             var mission = new WorkTask
             {
                 Id = $"random-task-{id}",
-                Name = exhausted > 0 ? "과로 인력 건강 점검" :
-                    overdue > 0 ? "지연 일정 해명 보고" : "예고 없는 장비 점검",
+                Name = $"{adjective.Text} {target.Text} {action.Text}",
                 Kind = TaskKind.SideMission,
-                RequiredRole = overdue > 0 || exhausted > 0 ? WorkRole.Management : WorkRole.Tech,
-                RequiredWork = random.Next(2, 6),
+                RequiredRole = action.Role,
+                RequiredWork = random.Next(
+                    balance.RandomWorkMinRequiredDays,
+                    balance.RandomWorkMaxRequiredDays + 1),
                 Required = true,
                 PrerequisiteId = predecessor?.Id,
                 Deadline = work.HardDeadline,
                 State = TaskState.Available,
                 GroupId = work.Id,
-                Risk = RiskLevel.High,
-                Importance = ImportanceLevel.Medium
+                Risk = adjective.Risk,
+                Importance = adjective.Risk == RiskLevel.High
+                    ? ImportanceLevel.High
+                    : ImportanceLevel.Medium,
+                Difficulty = Math.Max(1, Math.Min(5,
+                    adjective.Difficulty + target.Difficulty + action.Difficulty))
             };
             Groups.Add(work);
             Tasks.Add(mission);
             report.Lines.Add($"사이드 업무 발생: {mission.Name}");
+        }
+
+        private RandomTaskAction SelectRandomAction(WorkRole role)
+        {
+            int compatibleCount = 0;
+            foreach (RandomTaskAction candidate in randomTaskWords.Actions)
+            {
+                if (candidate.Role == role) compatibleCount++;
+            }
+
+            int selectedIndex = random.Next(compatibleCount);
+            foreach (RandomTaskAction candidate in randomTaskWords.Actions)
+            {
+                if (candidate.Role != role) continue;
+                if (selectedIndex-- == 0) return candidate;
+            }
+
+            throw new InvalidOperationException("Validated random task action was not found.");
         }
 
         private void TryGrantWorkReward(WorkGroup group, DayReport report)

@@ -131,6 +131,9 @@ namespace ProjectW.MilestonePrototype
         public int RandomWorkSoftPenalty = 1;
         public int RandomWorkHardPenalty = 4;
         public int RandomWorkDependencyChance = 15;
+        public int RandomWorkChanceScalePercent = 80;
+        public int RandomWorkMinRequiredDays = 1;
+        public int RandomWorkMaxRequiredDays = 2;
         public float PrerequisiteProgressLimit = .3f;
         public int LowOutputChance = 20;
         public int HighOutputChance = 20;
@@ -140,6 +143,38 @@ namespace ProjectW.MilestonePrototype
         public int ExhaustedHighOutputChance = 0;
         public float LowOutputMultiplier = .7f;
         public float HighOutputMultiplier = 1.3f;
+    }
+
+    [Serializable]
+    public sealed class RandomTaskAdjective
+    {
+        public string Text;
+        public RiskLevel Risk;
+        public int Difficulty;
+    }
+
+    [Serializable]
+    public sealed class RandomTaskTarget
+    {
+        public string Text;
+        public WorkRole Role;
+        public int Difficulty;
+    }
+
+    [Serializable]
+    public sealed class RandomTaskAction
+    {
+        public string Text;
+        public WorkRole Role;
+        public int Difficulty;
+    }
+
+    [Serializable]
+    public sealed class RandomTaskWordPool
+    {
+        public RandomTaskAdjective[] Adjectives;
+        public RandomTaskTarget[] Targets;
+        public RandomTaskAction[] Actions;
     }
 
     public sealed class TaskCostPreview
@@ -194,6 +229,7 @@ namespace ProjectW.MilestonePrototype
         public WorkGroup[] Works;
         public WorkTask[] Tasks;
         public CrewMember[] Crew;
+        public RandomTaskWordPool RandomTaskWords;
         public MailEvent[] Mail;
         public CodexEntry[] Codex;
     }

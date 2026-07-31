@@ -50,7 +50,11 @@ namespace ProjectW.MilestonePrototype
         {
             if (data == null || data.SchemaVersion != SupportedSchema)
                 throw new InvalidOperationException($"Unsupported task-system schema {data?.SchemaVersion ?? 0}.");
-            if (data.Balance == null || data.Works == null || data.Tasks == null || data.Crew == null)
+            if (data.Balance == null || data.Works == null || data.Tasks == null || data.Crew == null ||
+                data.RandomTaskWords == null ||
+                data.RandomTaskWords.Adjectives == null || data.RandomTaskWords.Adjectives.Length == 0 ||
+                data.RandomTaskWords.Targets == null || data.RandomTaskWords.Targets.Length == 0 ||
+                data.RandomTaskWords.Actions == null || data.RandomTaskWords.Actions.Length == 0)
                 throw new InvalidOperationException("Task-system data is missing a required section.");
             if (data.Crew.Length != MilestoneSimulation.TeamSize)
                 throw new InvalidOperationException(
@@ -75,6 +79,34 @@ namespace ProjectW.MilestonePrototype
                 data.Balance.LowOutputMultiplier <= 0f ||
                 data.Balance.HighOutputMultiplier <= 0f)
                 throw new InvalidOperationException("Task-system balance values are invalid.");
+            if (data.Balance.RandomWorkChanceScalePercent < 0 ||
+                data.Balance.RandomWorkChanceScalePercent > 100 ||
+                data.Balance.RandomWorkMinRequiredDays <= 0 ||
+                data.Balance.RandomWorkMaxRequiredDays <
+                data.Balance.RandomWorkMinRequiredDays)
+                throw new InvalidOperationException("Random work balance values are invalid.");
+            foreach (RandomTaskTarget target in data.RandomTaskWords.Targets)
+            {
+                bool hasCompatibleAction = false;
+                foreach (RandomTaskAction action in data.RandomTaskWords.Actions)
+                {
+                    if (action != null && target != null && action.Role == target.Role)
+                        hasCompatibleAction = true;
+                }
+                if (target == null || string.IsNullOrWhiteSpace(target.Text) || !hasCompatibleAction)
+                    throw new InvalidOperationException(
+                        "Every random task target requires at least one compatible action.");
+            }
+            foreach (RandomTaskAdjective adjective in data.RandomTaskWords.Adjectives)
+            {
+                if (adjective == null || string.IsNullOrWhiteSpace(adjective.Text))
+                    throw new InvalidOperationException("Random task words cannot be empty.");
+            }
+            foreach (RandomTaskAction action in data.RandomTaskWords.Actions)
+            {
+                if (action == null || string.IsNullOrWhiteSpace(action.Text))
+                    throw new InvalidOperationException("Random task words cannot be empty.");
+            }
         }
     }
 }

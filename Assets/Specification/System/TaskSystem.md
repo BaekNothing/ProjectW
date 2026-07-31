@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Version: 1.0
+- Version: 1.1
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
@@ -220,9 +220,19 @@ through data without redefining Task ownership.
 ## Random Work Generation
 
 - The daily cycle may generate optional Works up to the configured active limit.
+- The final generation chance applies a data-driven percentage scale after overdue and exhausted
+  crew modifiers. The default scale is `80%`, reducing the previous emergency frequency to
+  four-fifths without changing the relative pressure from those modifiers.
 - Every generated Work receives a soft deadline, later hard deadline, credit reward, soft penalty,
   and larger hard penalty.
-- Generated Tasks receive a workload and required role.
+- Generated Tasks receive a workload of one or two days and a required role.
+- Generated Task names combine one adjective, one target noun, and one action from external data.
+  The adjective determines risk and contributes difficulty. The target and action contribute
+  difficulty and share a role, so combinations remain semantically coherent and point to the
+  matching crew specialty (for example, `불안정한 암반 탐사` is high-risk analysis work, while
+  `안정적인 골재 운반` is low-risk technical work).
+- Word pools and their role, risk, and difficulty metadata are owned by `task-system.json`; runtime
+  code must not contain fallback mission vocabulary.
 - A data-driven rare roll may connect a generated Task to an existing predecessor Task; the normal
   30% progress cap applies until that predecessor completes.
 
@@ -263,6 +273,7 @@ External data includes:
 - worker definitions and initial stats
 - the four-person field-team roster and each member's initial trust toward the responsible officer
 - assignment, interruption, parallel-work, fatigue, outcome, and perk balance values
+- random Task adjective, target, and action pools with their role, risk, and difficulty metadata
 - learned assignment situation fields and player-created rule state
 - mail and codex content
 

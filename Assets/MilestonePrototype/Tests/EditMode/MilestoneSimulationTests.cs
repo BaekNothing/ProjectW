@@ -335,17 +335,54 @@ namespace ProjectW.MilestonePrototype.Tests
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
             data.Balance.BaseSideMissionChance = 100;
+            data.Balance.RandomWorkChanceScalePercent = 100;
             data.Balance.RandomWorkDependencyChance = 0;
+            data.RandomTaskWords = new RandomTaskWordPool
+            {
+                Adjectives = new[]
+                {
+                    new RandomTaskAdjective
+                        { Text = "불안정한", Risk = RiskLevel.High, Difficulty = 2 }
+                },
+                Targets = new[]
+                {
+                    new RandomTaskTarget
+                        { Text = "암반", Role = WorkRole.Analysis, Difficulty = 1 }
+                },
+                Actions = new[]
+                {
+                    new RandomTaskAction
+                        { Text = "탐사", Role = WorkRole.Analysis, Difficulty = 1 }
+                }
+            };
             var game = new MilestoneSimulation(data, 1);
 
             game.AdvanceDay();
 
             WorkGroup generated = game.Groups.Find(work => work.Id.StartsWith("random-work-"));
+            WorkTask generatedTask = game.Tasks.Find(task => task.GroupId == generated.Id);
             Assert.That(generated, Is.Not.Null);
             Assert.That(generated.SoftDeadline, Is.LessThan(generated.HardDeadline));
             Assert.That(generated.RewardCredits, Is.GreaterThan(0));
             Assert.That(generated.HardPenaltyCredits, Is.GreaterThan(generated.SoftPenaltyCredits));
-            Assert.That(game.Tasks.Exists(task => task.GroupId == generated.Id), Is.True);
+            Assert.That(generatedTask.Name, Is.EqualTo("불안정한 암반 탐사"));
+            Assert.That(generatedTask.RequiredRole, Is.EqualTo(WorkRole.Analysis));
+            Assert.That(generatedTask.Risk, Is.EqualTo(RiskLevel.High));
+            Assert.That(generatedTask.Difficulty, Is.EqualTo(4));
+            Assert.That(generatedTask.RequiredWork, Is.InRange(1f, 2f));
+        }
+
+        [Test]
+        public void RandomWorkChanceScaleCanSuppressOtherwiseGuaranteedMission()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.BaseSideMissionChance = 100;
+            data.Balance.RandomWorkChanceScalePercent = 0;
+            var game = new MilestoneSimulation(data, 1);
+
+            game.AdvanceDay();
+
+            Assert.That(game.Groups.Exists(work => work.Id.StartsWith("random-work-")), Is.False);
         }
 
         [Test]
