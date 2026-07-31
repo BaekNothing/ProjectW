@@ -42,6 +42,7 @@ namespace ProjectW.MilestonePrototype
         private MilestoneSimulation game;
         private GUIStyle title;
         private GUIStyle desktopIcon;
+        private GUIStyle desktopIconLabel;
         private GUIStyle section;
         private GUIStyle small;
         private GUIStyle warning;
@@ -116,8 +117,9 @@ namespace ProjectW.MilestonePrototype
             string[] ids = { "mail", "gantt", "milestone", "workers", "report", "codex", "messenger", "help", "profile", "options" };
             for (int i = 0; i < ids.Length; i++)
             {
-                Rect rect = DesktopIconRect(i, logicalWidth);
-                if (Button(rect, DesktopIconName(ids[i]), desktopIcon)) Open(ids[i]);
+                Rect iconRect = DesktopIconRect(i, logicalWidth);
+                if (Button(iconRect, DesktopIconGlyph(ids[i]), desktopIcon)) Open(ids[i]);
+                GUI.Label(DesktopIconLabelRect(i, logicalWidth), DesktopIconName(ids[i]), desktopIconLabel);
             }
             OperationsReport report = game.BuildReport();
             GUI.Label(DesktopReportRect(logicalWidth, logicalHeight),
@@ -1035,7 +1037,8 @@ namespace ProjectW.MilestonePrototype
         public static Rect DesktopIconRect(int index, float width)
         {
             const int columns = 5;
-            const float maximumSize = 72f;
+            const float maximumSize = 58f;
+            const float labelHeight = 18f;
             float availableWidth = Mathf.Max(0f, width - 40f);
             float iconSize = Mathf.Min(maximumSize, availableWidth * 3f / 19f);
             float gap = iconSize / 3f;
@@ -1043,9 +1046,15 @@ namespace ProjectW.MilestonePrototype
             int row = index / columns;
             return new Rect(
                 20f + column * (iconSize + gap),
-                70f + row * (iconSize + gap),
+                70f + row * (iconSize + labelHeight + gap),
                 iconSize,
                 iconSize);
+        }
+
+        public static Rect DesktopIconLabelRect(int index, float width)
+        {
+            Rect icon = DesktopIconRect(index, width);
+            return new Rect(icon.x, icon.yMax, icon.width, 18f);
         }
 
         private void Open(string id)
@@ -1514,7 +1523,14 @@ namespace ProjectW.MilestonePrototype
             {
                 fontSize = 14,
                 fontStyle = FontStyle.Bold,
-                alignment = TextAnchor.LowerCenter,
+                alignment = TextAnchor.MiddleCenter,
+                wordWrap = false
+            };
+            desktopIconLabel = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 12,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.UpperCenter,
                 wordWrap = false
             };
             warning = new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold, wordWrap = true };
@@ -1566,6 +1582,23 @@ namespace ProjectW.MilestonePrototype
                 case "help": return "도움말";
                 case "options": return "옵션";
                 default: return "내정보";
+            }
+        }
+
+        private static string DesktopIconGlyph(string id)
+        {
+            switch (id)
+            {
+                case "mail": return "MAIL";
+                case "gantt": return "TASK";
+                case "milestone": return "MILE";
+                case "workers": return "CREW";
+                case "report": return "RPT";
+                case "codex": return "CODEX";
+                case "messenger": return "CHAT";
+                case "help": return "HELP";
+                case "options": return "OPT";
+                default: return "INFO";
             }
         }
 

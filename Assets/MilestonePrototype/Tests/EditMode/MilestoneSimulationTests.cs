@@ -1130,10 +1130,11 @@ namespace ProjectW.MilestonePrototype.Tests
         {
             float width = 1280 / MilestonePrototypeController.CalculateUiScale(1280, 2.2f);
             Rect options = MilestonePrototypeController.DesktopIconRect(9, width);
+            Rect optionsLabel = MilestonePrototypeController.DesktopIconLabelRect(9, width);
             Rect report = MilestonePrototypeController.DesktopReportRect(width, 720 / 2.2f);
 
             Assert.That(options.xMax, Is.LessThanOrEqualTo(width));
-            Assert.That(options.yMax, Is.LessThan(report.y));
+            Assert.That(optionsLabel.yMax, Is.LessThan(report.y));
         }
 
         [Test]
@@ -1142,10 +1143,12 @@ namespace ProjectW.MilestonePrototype.Tests
             Rect first = MilestonePrototypeController.DesktopIconRect(0, 1280);
             Rect second = MilestonePrototypeController.DesktopIconRect(1, 1280);
             Rect nextRow = MilestonePrototypeController.DesktopIconRect(5, 1280);
+            Rect firstLabel = MilestonePrototypeController.DesktopIconLabelRect(0, 1280);
 
             Assert.That(first.width, Is.EqualTo(first.height));
             Assert.That(second.x - first.xMax, Is.EqualTo(first.width / 3f).Within(.001f));
-            Assert.That(nextRow.y - first.yMax, Is.EqualTo(first.height / 3f).Within(.001f));
+            Assert.That(firstLabel.y, Is.EqualTo(first.yMax));
+            Assert.That(nextRow.y - firstLabel.yMax, Is.EqualTo(first.height / 3f).Within(.001f));
         }
 
         [Test]
