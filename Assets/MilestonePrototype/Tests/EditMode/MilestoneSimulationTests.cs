@@ -386,24 +386,35 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(generatedTask.Difficulty, Is.EqualTo(4));
             Assert.That(generatedTask.RequiredWork, Is.InRange(1f, 2f));
 
-            data.Balance.BaseSideMissionChance = 0;
-            game.Crew[1].DailyOutput = 5f;
-            Assert.That(game.Assign(generatedTask.Id, 1), Is.True);
-            game.AdvanceDay();
+            CampaignSnapshot legacySnapshot = game.CreateSnapshot();
+            generatedTask.GeneratedAdjectiveId = null;
+            generatedTask.GeneratedTargetId = null;
+            generatedTask.GeneratedActionId = null;
+            var migrated = new MilestoneSimulation(data, 98);
+            Assert.That(migrated.Restore(legacySnapshot), Is.True);
+            WorkTask migratedTask = migrated.Tasks.Find(task => task.Id == generatedTask.Id);
+            Assert.That(migratedTask.GeneratedAdjectiveId, Is.EqualTo("adjective-unstable"));
+            Assert.That(migratedTask.GeneratedTargetId, Is.EqualTo("target-bedrock"));
+            Assert.That(migratedTask.GeneratedActionId, Is.EqualTo("action-survey"));
 
-            Assert.That(generatedTask.State, Is.EqualTo(TaskState.Complete));
-            Assert.That(game.DiscoveredTaskWordIds, Is.EquivalentTo(new[]
+            data.Balance.BaseSideMissionChance = 0;
+            migrated.Crew[1].DailyOutput = 5f;
+            Assert.That(migrated.Assign(migratedTask.Id, 1), Is.True);
+            migrated.AdvanceDay();
+
+            Assert.That(migratedTask.State, Is.EqualTo(TaskState.Complete));
+            Assert.That(migrated.DiscoveredTaskWordIds, Is.EquivalentTo(new[]
             {
                 "adjective-unstable", "target-bedrock", "action-survey"
             }));
-            Assert.That(game.Codex.Exists(entry =>
+            Assert.That(migrated.Codex.Exists(entry =>
                 entry.Name == "암반" && entry.Description.Contains("추천 적성 역할: 분석")), Is.True);
-            Assert.That(game.Codex.Exists(entry =>
+            Assert.That(migrated.Codex.Exists(entry =>
                 entry.Name == "불안정한" && entry.Description.Contains("역할: 위험도와 난이도 결정")), Is.True);
 
             var restored = new MilestoneSimulation(data, 99);
-            Assert.That(restored.Restore(game.CreateSnapshot()), Is.True);
-            Assert.That(restored.DiscoveredTaskWordIds, Is.EquivalentTo(game.DiscoveredTaskWordIds));
+            Assert.That(restored.Restore(migrated.CreateSnapshot()), Is.True);
+            Assert.That(restored.DiscoveredTaskWordIds, Is.EquivalentTo(migrated.DiscoveredTaskWordIds));
             Assert.That(restored.Codex.Exists(entry => entry.Name == "탐사"), Is.True);
         }
 

@@ -237,6 +237,8 @@ through data without redefining Task ownership.
   entry explains its risk and difficulty role; target and action entries explain their recommended
   crew specialty and difficulty contribution. A word is unlocked only once, and discovered word
   IDs persist in the campaign snapshot.
+- When loading a campaign containing generated Tasks from before word IDs were saved, the exact
+  adjective-target-action name is matched against the current word pool to restore those IDs.
 - A data-driven rare roll may connect a generated Task to an existing predecessor Task; the normal
   30% progress cap applies until that predecessor completes.
 

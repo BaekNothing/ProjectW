@@ -1192,6 +1192,7 @@ namespace ProjectW.MilestonePrototype
                 }
                 if (task.State == TaskState.Complete && task.CompletedDay <= 0)
                     task.CompletedDay = Math.Max(task.StartedDay, Day - 1);
+                BackfillGeneratedWordIds(task);
                 task.Records = task.Records ?? new List<TaskRecord>();
                 WorkGroup group = ParentWork(task);
                 if (group != null) task.Deadline = group.HardDeadline;
@@ -1215,6 +1216,29 @@ namespace ProjectW.MilestonePrototype
                 .Select(group => int.TryParse(group.Id.Substring(12), out int value) ? value : 0)
                 .DefaultIfEmpty(0).Max();
             nextRandomWorkId = highestRandomWorkId;
+        }
+
+        private void BackfillGeneratedWordIds(WorkTask task)
+        {
+            if (task == null || task.Kind != TaskKind.SideMission ||
+                !string.IsNullOrEmpty(task.GeneratedAdjectiveId) ||
+                string.IsNullOrEmpty(task.Name)) return;
+
+            foreach (RandomTaskAdjective adjective in randomTaskWords.Adjectives)
+            {
+                foreach (RandomTaskTarget target in randomTaskWords.Targets)
+                {
+                    foreach (RandomTaskAction action in randomTaskWords.Actions)
+                    {
+                        if (target.Role != action.Role ||
+                            task.Name != $"{adjective.Text} {target.Text} {action.Text}") continue;
+                        task.GeneratedAdjectiveId = adjective.Id;
+                        task.GeneratedTargetId = target.Id;
+                        task.GeneratedActionId = action.Id;
+                        return;
+                    }
+                }
+            }
         }
 
         private WorkGroup ParentWork(WorkTask task) =>
