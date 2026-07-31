@@ -76,6 +76,7 @@ namespace ProjectW.MilestonePrototype
         private float pinchDistanceOrigin;
         private int messengerSeenUpdateCount;
         public const float WindowTitleBarHeight = 25f;
+        public const float WindowContentTopSpacing = 6f;
 
         private void Awake()
         {
@@ -177,7 +178,7 @@ namespace ProjectW.MilestonePrototype
                 SaveDesktop();
             }
             if (ExpandedHitButton(closeRect, "X")) { Close(window.Id); return; }
-            GUILayout.Space(12);
+            GUILayout.Space(WindowContentTopSpacing);
             window.Scroll = GUILayout.BeginScrollView(window.Scroll);
             switch (window.Id)
             {

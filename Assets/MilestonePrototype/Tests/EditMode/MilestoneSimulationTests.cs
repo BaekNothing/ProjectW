@@ -980,6 +980,7 @@ namespace ProjectW.MilestonePrototype.Tests
 
             Assert.That(result, Is.EqualTo(new Rect(0, 0, 600, 65)));
             Assert.That(MilestonePrototypeController.WindowTitleBarHeight, Is.EqualTo(25f));
+            Assert.That(MilestonePrototypeController.WindowContentTopSpacing, Is.EqualTo(6f));
             Assert.That(minimize.height, Is.EqualTo(25f));
             Assert.That(close, Is.EqualTo(new Rect(674f, 1f, 31f, 25f)));
         }
