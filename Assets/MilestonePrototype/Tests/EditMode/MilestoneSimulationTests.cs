@@ -1046,11 +1046,40 @@ namespace ProjectW.MilestonePrototype.Tests
         public void OptionsIconRemainsInTwoRowGridAtMaximumScale()
         {
             float width = 1280 / MilestonePrototypeController.CalculateUiScale(1280, 2.2f);
-            Rect options = MilestonePrototypeController.DesktopIconRect(8, width);
+            Rect options = MilestonePrototypeController.DesktopIconRect(9, width);
             Rect report = MilestonePrototypeController.DesktopReportRect(width, 720 / 2.2f);
 
             Assert.That(options.xMax, Is.LessThanOrEqualTo(width));
             Assert.That(options.yMax, Is.LessThan(report.y));
+        }
+
+        [Test]
+        public void DesktopIconsUseOneThirdSizeGapsAndSquareButtons()
+        {
+            Rect first = MilestonePrototypeController.DesktopIconRect(0, 1280);
+            Rect second = MilestonePrototypeController.DesktopIconRect(1, 1280);
+            Rect nextRow = MilestonePrototypeController.DesktopIconRect(5, 1280);
+
+            Assert.That(first.width, Is.EqualTo(first.height));
+            Assert.That(second.x - first.xMax, Is.EqualTo(first.width / 3f).Within(.001f));
+            Assert.That(nextRow.y - first.yMax, Is.EqualTo(first.height / 3f).Within(.001f));
+        }
+
+        [Test]
+        public void DesktopIconNamesStayOnOneLineAndWithinSevenCharacters()
+        {
+            string[] ids =
+            {
+                "mail", "gantt", "milestone", "workers", "report",
+                "codex", "messenger", "help", "profile", "options"
+            };
+
+            foreach (string id in ids)
+            {
+                string name = MilestonePrototypeController.DesktopIconName(id);
+                Assert.That(name, Does.Not.Contain("\n"), id);
+                Assert.That(name.Length, Is.LessThanOrEqualTo(7), id);
+            }
         }
 
         [Test]
