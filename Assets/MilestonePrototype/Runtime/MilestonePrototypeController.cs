@@ -38,11 +38,18 @@ namespace ProjectW.MilestonePrototype
             { "task-detail", "TASK DETAIL / 작업 상세" },
             { "options", "OPTIONS / 옵션" }
         };
+        private readonly string[] desktopBadgeAppIds =
+        {
+            "mail", "gantt", "milestone", "workers", "report",
+            "codex", "messenger", "help", "profile", "options"
+        };
+        private readonly int[] desktopBadgeCounts = new int[10];
 
         private MilestoneSimulation game;
         private GUIStyle title;
         private GUIStyle desktopIcon;
         private GUIStyle desktopIconLabel;
+        private GUIStyle desktopBadge;
         private GUIStyle section;
         private GUIStyle small;
         private GUIStyle warning;
@@ -67,6 +74,8 @@ namespace ProjectW.MilestonePrototype
         private Rect pinchRectOrigin;
         private Vector2 pinchCenterOrigin;
         private float pinchDistanceOrigin;
+        private int messengerSeenUpdateCount;
+        public const float WindowTitleBarHeight = 25f;
 
         private void Awake()
         {
@@ -115,11 +124,15 @@ namespace ProjectW.MilestonePrototype
                 "PROJECT W  /  OPERATIONS DESK", title);
             GUI.Label(new Rect(logicalWidth - 250, 18, 225, 25), $"DAY {game.Day:00}/{game.CampaignEndDay}", small);
             string[] ids = { "mail", "gantt", "milestone", "workers", "report", "codex", "messenger", "help", "profile", "options" };
+            RefreshDesktopBadges();
             for (int i = 0; i < ids.Length; i++)
             {
                 Rect iconRect = DesktopIconRect(i, logicalWidth);
                 if (Button(iconRect, DesktopIconGlyph(ids[i]), desktopIcon)) Open(ids[i]);
                 GUI.Label(DesktopIconLabelRect(i, logicalWidth), DesktopIconName(ids[i]), desktopIconLabel);
+                int badgeCount = DesktopBadgeCount(ids[i]);
+                if (badgeCount > 0)
+                    GUI.Label(DesktopIconBadgeRect(i, logicalWidth), $"({badgeCount})", desktopBadge);
             }
             OperationsReport report = game.BuildReport();
             GUI.Label(DesktopReportRect(logicalWidth, logicalHeight),
@@ -155,15 +168,16 @@ namespace ProjectW.MilestonePrototype
         private void DrawWindow(DeskWindow window)
         {
             DrawBorder(new Rect(0, 0, window.Rect.width, window.Rect.height), InkColor);
-            Rect minimizeRect = new Rect(window.Rect.width - 83, 2, 25, 20);
-            Rect closeRect = new Rect(window.Rect.width - 30, 2, 25, 20);
+            DrawSolid(new Rect(1, WindowTitleBarHeight, window.Rect.width - 2, 1), InkColor);
+            Rect minimizeRect = WindowMinimizeButtonRect(window.Rect.width);
+            Rect closeRect = WindowCloseButtonRect(window.Rect.width);
             if (ExpandedHitButton(minimizeRect, "—"))
             {
                 window.Minimized = true;
                 SaveDesktop();
             }
             if (ExpandedHitButton(closeRect, "X")) { Close(window.Id); return; }
-            GUILayout.Space(6);
+            GUILayout.Space(12);
             window.Scroll = GUILayout.BeginScrollView(window.Scroll);
             switch (window.Id)
             {
@@ -793,6 +807,7 @@ namespace ProjectW.MilestonePrototype
             GUILayout.EndHorizontal();
             GUILayout.EndVertical();
             GUILayout.EndHorizontal();
+            MarkMessengerSeen();
         }
 
         private string MessengerPresence(int crewIndex)
@@ -1057,8 +1072,21 @@ namespace ProjectW.MilestonePrototype
             return new Rect(icon.x, icon.yMax, icon.width, 18f);
         }
 
+        public static Rect DesktopIconBadgeRect(int index, float width)
+        {
+            Rect icon = DesktopIconRect(index, width);
+            return new Rect(icon.xMax - 15f, icon.y - 7f, 30f, 21f);
+        }
+
+        public static Rect WindowMinimizeButtonRect(float windowWidth) =>
+            new Rect(windowWidth - 75f, 1f, 31f, WindowTitleBarHeight);
+
+        public static Rect WindowCloseButtonRect(float windowWidth) =>
+            new Rect(windowWidth - 36f, 1f, 31f, WindowTitleBarHeight);
+
         private void Open(string id)
         {
+            if (id == "messenger") MarkMessengerSeen();
             DeskWindow existing = windows.FirstOrDefault(w => w.Id == id);
             if (existing != null)
             {
@@ -1329,7 +1357,50 @@ namespace ProjectW.MilestonePrototype
 
         public static Rect WindowDragHitRect(float windowWidth)
         {
-            return new Rect(0, 0, Mathf.Max(0, windowWidth - 95f), 52f);
+            return new Rect(0, 0, Mathf.Max(0, windowWidth - 110f), 65f);
+        }
+
+        private void RefreshDesktopBadges()
+        {
+            SetDesktopBadgeCount("mail", game.Mail.Count(mail => mail.ArrivalDay <= game.Day && !mail.Read));
+            SetDesktopBadgeCount("messenger", Mathf.Max(0, MessengerUpdateCount() - messengerSeenUpdateCount));
+        }
+
+        public void SetDesktopBadgeCount(string appId, int count)
+        {
+            if (string.IsNullOrEmpty(appId) || !appTitles.ContainsKey(appId)) return;
+            for (int i = 0; i < desktopBadgeAppIds.Length; i++)
+            {
+                if (desktopBadgeAppIds[i] != appId) continue;
+                desktopBadgeCounts[i] = Mathf.Max(0, count);
+                return;
+            }
+        }
+
+        public int DesktopBadgeCount(string appId)
+        {
+            if (string.IsNullOrEmpty(appId)) return 0;
+            for (int i = 0; i < desktopBadgeAppIds.Length; i++)
+                if (desktopBadgeAppIds[i] == appId) return desktopBadgeCounts[i];
+            return 0;
+        }
+
+        private int MessengerUpdateCount()
+        {
+            int count = 0;
+            foreach (CrewMember member in game.Crew)
+                if (member.History != null) count += member.History.Count;
+            foreach (WorkTask task in game.Tasks)
+                if (task.Records != null) count += task.Records.Count;
+            return count;
+        }
+
+        private void MarkMessengerSeen()
+        {
+            int current = MessengerUpdateCount();
+            if (current == messengerSeenUpdateCount) return;
+            messengerSeenUpdateCount = current;
+            SaveDesktop();
         }
 
         private Rect ClampRect(Rect rect)
@@ -1416,6 +1487,7 @@ namespace ProjectW.MilestonePrototype
             {
                 SchemaVersion = ProjectWSaveStore.DesktopSchema,
                 UiMagnification = uiMagnification,
+                MessengerSeenUpdateCount = messengerSeenUpdateCount,
                 Windows = windows.Select((w, i) => new WindowSnapshot
                 {
                     Id = w.Id, X = w.Rect.x, Y = w.Rect.y,
@@ -1430,6 +1502,7 @@ namespace ProjectW.MilestonePrototype
         {
             if (!ProjectWSaveStore.TryLoadDesktop(DesktopSaveKey, out DesktopSnapshot snapshot)) return;
             uiMagnification = NormalizeUiMagnification(snapshot.UiMagnification);
+            messengerSeenUpdateCount = Mathf.Max(0, snapshot.MessengerSeenUpdateCount);
             foreach (WindowSnapshot saved in snapshot.Windows.Where(w => w.Open).OrderBy(w => w.Order))
             {
                 if (!appTitles.ContainsKey(saved.Id)) continue;
@@ -1531,6 +1604,13 @@ namespace ProjectW.MilestonePrototype
                 fontSize = 12,
                 fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.UpperCenter,
+                wordWrap = false
+            };
+            desktopBadge = new GUIStyle(GUI.skin.box)
+            {
+                fontSize = 11,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter,
                 wordWrap = false
             };
             warning = new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold, wordWrap = true };

@@ -972,11 +972,16 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void WindowDragHitAreaUsesDoubleTitleHeight()
+        public void WindowTitleBarAndControlsAreTwentyFivePercentThicker()
         {
             Rect result = MilestonePrototypeController.WindowDragHitRect(710);
+            Rect minimize = MilestonePrototypeController.WindowMinimizeButtonRect(710);
+            Rect close = MilestonePrototypeController.WindowCloseButtonRect(710);
 
-            Assert.That(result, Is.EqualTo(new Rect(0, 0, 615, 52)));
+            Assert.That(result, Is.EqualTo(new Rect(0, 0, 600, 65)));
+            Assert.That(MilestonePrototypeController.WindowTitleBarHeight, Is.EqualTo(25f));
+            Assert.That(minimize.height, Is.EqualTo(25f));
+            Assert.That(close, Is.EqualTo(new Rect(674f, 1f, 31f, 25f)));
         }
 
         [Test]
@@ -1092,6 +1097,7 @@ namespace ProjectW.MilestonePrototype.Tests
                 {
                     SchemaVersion = ProjectWSaveStore.DesktopSchema,
                     UiMagnification = 1.4f,
+                    MessengerSeenUpdateCount = 12,
                     Windows = new[]
                     {
                         new WindowSnapshot { Id = "mail", Width = 640f, Height = 420f, Open = true }
@@ -1101,6 +1107,7 @@ namespace ProjectW.MilestonePrototype.Tests
                 Assert.That(ProjectWSaveStore.SaveDesktop(key, snapshot), Is.True);
                 Assert.That(ProjectWSaveStore.TryLoadDesktop(key, out DesktopSnapshot loaded), Is.True);
                 Assert.That(loaded.UiMagnification, Is.EqualTo(1.4f));
+                Assert.That(loaded.MessengerSeenUpdateCount, Is.EqualTo(12));
                 Assert.That(loaded.Windows[0].Width, Is.EqualTo(640f));
                 Assert.That(loaded.Windows[0].Height, Is.EqualTo(420f));
             }
@@ -1149,6 +1156,37 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(second.x - first.xMax, Is.EqualTo(first.width / 3f).Within(.001f));
             Assert.That(firstLabel.y, Is.EqualTo(first.yMax));
             Assert.That(nextRow.y - firstLabel.yMax, Is.EqualTo(first.height / 3f).Within(.001f));
+        }
+
+        [Test]
+        public void DesktopBadgeOverlapsIconTopRightCorner()
+        {
+            Rect icon = MilestonePrototypeController.DesktopIconRect(0, 1280);
+            Rect badge = MilestonePrototypeController.DesktopIconBadgeRect(0, 1280);
+
+            Assert.That(badge.center.x, Is.EqualTo(icon.xMax));
+            Assert.That(badge.y, Is.LessThan(icon.y));
+            Assert.That(badge.Overlaps(icon), Is.True);
+        }
+
+        [Test]
+        public void DesktopBadgeCountCanBeUsedByAnyDesktopApp()
+        {
+            var host = new GameObject("desktop-badge-test");
+            try
+            {
+                var controller = host.AddComponent<MilestonePrototypeController>();
+                controller.SetDesktopBadgeCount("report", 3);
+                controller.SetDesktopBadgeCount("options", 7);
+
+                Assert.That(controller.DesktopBadgeCount("report"), Is.EqualTo(3));
+                Assert.That(controller.DesktopBadgeCount("options"), Is.EqualTo(7));
+                Assert.That(controller.DesktopBadgeCount("mail"), Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(host);
+            }
         }
 
         [Test]
