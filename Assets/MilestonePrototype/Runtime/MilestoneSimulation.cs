@@ -13,6 +13,7 @@ namespace ProjectW.MilestonePrototype
         private readonly string[] crewMemos;
         private readonly string[][] crewPerks;
         private readonly RandomTaskWordPool randomTaskWords;
+        private readonly CodexEntry[] baseCodex;
         private int nextRandomWorkId;
 
         public int Day { get; private set; } = 1;
@@ -32,6 +33,7 @@ namespace ProjectW.MilestonePrototype
         public List<WorkGroup> Groups { get; } = new List<WorkGroup>();
         public List<MailEvent> Mail { get; } = new List<MailEvent>();
         public List<CodexEntry> Codex { get; } = new List<CodexEntry>();
+        public List<string> DiscoveredTaskWordIds { get; } = new List<string>();
         public List<AssignmentRule> AssignmentRules { get; } = new List<AssignmentRule>();
         public List<string> SystemLog { get; } = new List<string>();
         public DayReport LastReport { get; private set; } = new DayReport();
@@ -47,6 +49,7 @@ namespace ProjectW.MilestonePrototype
             random = new Random(seed);
             balance = data.Balance;
             randomTaskWords = data.RandomTaskWords;
+            baseCodex = data.Codex ?? new CodexEntry[0];
             crewPortraits = new string[data.Crew.Length];
             crewMemos = new string[data.Crew.Length];
             crewPerks = new string[data.Crew.Length][];
@@ -63,7 +66,7 @@ namespace ProjectW.MilestonePrototype
             Tasks.AddRange(data.Tasks);
             Crew.AddRange(data.Crew);
             if (data.Mail != null) Mail.AddRange(data.Mail);
-            if (data.Codex != null) Codex.AddRange(data.Codex);
+            Codex.AddRange(baseCodex);
             NormalizeLoadedData();
             RefreshStates();
             LastReport.Lines.Add("첫 번째 개척 기지가 가동되었습니다.");
@@ -704,6 +707,7 @@ namespace ProjectW.MilestonePrototype
             Mail = Mail.ToArray(),
             Log = SystemLog.ToArray(),
             AssignmentRules = AssignmentRules.ToArray(),
+            DiscoveredTaskWordIds = DiscoveredTaskWordIds.ToArray(),
             MidpointReviewIssued = MidpointReviewIssued
         };
 
@@ -724,6 +728,12 @@ namespace ProjectW.MilestonePrototype
             Mail.Clear(); Mail.AddRange(snapshot.Mail);
             AssignmentRules.Clear();
             if (snapshot.AssignmentRules != null) AssignmentRules.AddRange(snapshot.AssignmentRules);
+            DiscoveredTaskWordIds.Clear();
+            if (snapshot.DiscoveredTaskWordIds != null)
+            {
+                foreach (string wordId in snapshot.DiscoveredTaskWordIds)
+                    UnlockTaskWord(wordId, null);
+            }
             MidpointReviewIssued = snapshot.MidpointReviewIssued;
             SystemLog.Clear();
             if (snapshot.Log != null) SystemLog.AddRange(snapshot.Log);
@@ -808,11 +818,87 @@ namespace ProjectW.MilestonePrototype
             task.ScheduledWorker = -1;
             report.Lines.Add($"완료: {task.Name}");
             AddRecord(task, member.Name, RecordKind.Output, "작업 완료");
+            UnlockTaskWords(task, report);
             RefreshStates();
             WorkGroup group = ParentWork(task);
             if (group != null)
                 TryGrantWorkReward(group, report);
         }
+
+        private void UnlockTaskWords(WorkTask task, DayReport report)
+        {
+            UnlockTaskWord(task.GeneratedAdjectiveId, report);
+            UnlockTaskWord(task.GeneratedTargetId, report);
+            UnlockTaskWord(task.GeneratedActionId, report);
+        }
+
+        private void UnlockTaskWord(string wordId, DayReport report)
+        {
+            if (string.IsNullOrEmpty(wordId)) return;
+            for (int i = 0; i < DiscoveredTaskWordIds.Count; i++)
+            {
+                if (DiscoveredTaskWordIds[i] == wordId) return;
+            }
+
+            CodexEntry entry = CreateTaskWordCodexEntry(wordId);
+            if (entry == null) return;
+            DiscoveredTaskWordIds.Add(wordId);
+            for (int i = 0; i < Codex.Count; i++)
+            {
+                if (Codex[i].Id == entry.Id) return;
+            }
+            Codex.AddRange(new[] { entry });
+            if (report != null) report.Lines.Add($"도감 해금: {entry.Name}");
+        }
+
+        private CodexEntry CreateTaskWordCodexEntry(string wordId)
+        {
+            foreach (RandomTaskAdjective word in randomTaskWords.Adjectives)
+            {
+                if (word.Id != wordId) continue;
+                return new CodexEntry
+                {
+                    Id = $"task-word-{word.Id}",
+                    Category = "임무 단어 · 형용사",
+                    Name = word.Text,
+                    Description = $"역할: 위험도와 난이도 결정\n위험도: {RiskDescription(word.Risk)}\n" +
+                                  $"난이도 기여: +{word.Difficulty}\n담당 적성은 대상과 행동의 조합으로 결정됩니다."
+                };
+            }
+            foreach (RandomTaskTarget word in randomTaskWords.Targets)
+            {
+                if (word.Id != wordId) continue;
+                return new CodexEntry
+                {
+                    Id = $"task-word-{word.Id}",
+                    Category = "임무 단어 · 대상",
+                    Name = word.Text,
+                    Description = $"추천 적성 역할: {RoleDescription(word.Role)}\n" +
+                                  $"난이도 기여: +{word.Difficulty}\n같은 적성 역할의 행동과 조합됩니다."
+                };
+            }
+            foreach (RandomTaskAction word in randomTaskWords.Actions)
+            {
+                if (word.Id != wordId) continue;
+                return new CodexEntry
+                {
+                    Id = $"task-word-{word.Id}",
+                    Category = "임무 단어 · 행동",
+                    Name = word.Text,
+                    Description = $"추천 적성 역할: {RoleDescription(word.Role)}\n" +
+                                  $"난이도 기여: +{word.Difficulty}\n임무 담당자의 핵심 적성을 결정합니다."
+                };
+            }
+            return null;
+        }
+
+        private static string RoleDescription(WorkRole role) =>
+            role == WorkRole.Tech ? "기술" :
+            role == WorkRole.Analysis ? "분석" :
+            role == WorkRole.Management ? "관리" : "적응";
+
+        private static string RiskDescription(RiskLevel risk) =>
+            risk == RiskLevel.High ? "높음" : risk == RiskLevel.Medium ? "보통" : "낮음";
 
         private void Detach(WorkTask task, bool interrupted)
         {
@@ -967,7 +1053,10 @@ namespace ProjectW.MilestonePrototype
                     ? ImportanceLevel.High
                     : ImportanceLevel.Medium,
                 Difficulty = Math.Max(1, Math.Min(5,
-                    adjective.Difficulty + target.Difficulty + action.Difficulty))
+                    adjective.Difficulty + target.Difficulty + action.Difficulty)),
+                GeneratedAdjectiveId = adjective.Id,
+                GeneratedTargetId = target.Id,
+                GeneratedActionId = action.Id
             };
             Groups.Add(work);
             Tasks.Add(mission);

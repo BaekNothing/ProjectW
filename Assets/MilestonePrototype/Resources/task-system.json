@@ -44,30 +44,30 @@
   },
   "RandomTaskWords": {
     "Adjectives": [
-      { "Text": "안정적인", "Risk": 0, "Difficulty": 0 },
-      { "Text": "불안정한", "Risk": 1, "Difficulty": 1 },
-      { "Text": "위험한", "Risk": 2, "Difficulty": 2 },
-      { "Text": "매우 불안정한", "Risk": 2, "Difficulty": 3 }
+      { "Id": "adjective-stable", "Text": "안정적인", "Risk": 0, "Difficulty": 0 },
+      { "Id": "adjective-unstable", "Text": "불안정한", "Risk": 1, "Difficulty": 1 },
+      { "Id": "adjective-dangerous", "Text": "위험한", "Risk": 2, "Difficulty": 2 },
+      { "Id": "adjective-very-unstable", "Text": "매우 불안정한", "Risk": 2, "Difficulty": 3 }
     ],
     "Targets": [
-      { "Text": "암반", "Role": 1, "Difficulty": 1 },
-      { "Text": "지층", "Role": 1, "Difficulty": 1 },
-      { "Text": "골재", "Role": 0, "Difficulty": 0 },
-      { "Text": "장비", "Role": 0, "Difficulty": 1 },
-      { "Text": "보급 일정", "Role": 2, "Difficulty": 1 },
-      { "Text": "현장 인력", "Role": 2, "Difficulty": 0 },
-      { "Text": "미지 구역", "Role": 3, "Difficulty": 2 },
-      { "Text": "기상 변화", "Role": 3, "Difficulty": 1 }
+      { "Id": "target-bedrock", "Text": "암반", "Role": 1, "Difficulty": 1 },
+      { "Id": "target-strata", "Text": "지층", "Role": 1, "Difficulty": 1 },
+      { "Id": "target-aggregate", "Text": "골재", "Role": 0, "Difficulty": 0 },
+      { "Id": "target-equipment", "Text": "장비", "Role": 0, "Difficulty": 1 },
+      { "Id": "target-supply-schedule", "Text": "보급 일정", "Role": 2, "Difficulty": 1 },
+      { "Id": "target-field-crew", "Text": "현장 인력", "Role": 2, "Difficulty": 0 },
+      { "Id": "target-unknown-zone", "Text": "미지 구역", "Role": 3, "Difficulty": 2 },
+      { "Id": "target-weather-change", "Text": "기상 변화", "Role": 3, "Difficulty": 1 }
     ],
     "Actions": [
-      { "Text": "탐사", "Role": 1, "Difficulty": 1 },
-      { "Text": "분석", "Role": 1, "Difficulty": 0 },
-      { "Text": "운반", "Role": 0, "Difficulty": 0 },
-      { "Text": "정비", "Role": 0, "Difficulty": 1 },
-      { "Text": "조정", "Role": 2, "Difficulty": 1 },
-      { "Text": "점검", "Role": 2, "Difficulty": 0 },
-      { "Text": "대응", "Role": 3, "Difficulty": 1 },
-      { "Text": "개척", "Role": 3, "Difficulty": 2 }
+      { "Id": "action-survey", "Text": "탐사", "Role": 1, "Difficulty": 1 },
+      { "Id": "action-analysis", "Text": "분석", "Role": 1, "Difficulty": 0 },
+      { "Id": "action-transport", "Text": "운반", "Role": 0, "Difficulty": 0 },
+      { "Id": "action-maintenance", "Text": "정비", "Role": 0, "Difficulty": 1 },
+      { "Id": "action-coordinate", "Text": "조정", "Role": 2, "Difficulty": 1 },
+      { "Id": "action-inspection", "Text": "점검", "Role": 2, "Difficulty": 0 },
+      { "Id": "action-response", "Text": "대응", "Role": 3, "Difficulty": 1 },
+      { "Id": "action-pioneer", "Text": "개척", "Role": 3, "Difficulty": 2 }
     ]
   },
   "Works": [

@@ -93,18 +93,21 @@ namespace ProjectW.MilestonePrototype
                     if (action != null && target != null && action.Role == target.Role)
                         hasCompatibleAction = true;
                 }
-                if (target == null || string.IsNullOrWhiteSpace(target.Text) || !hasCompatibleAction)
+                if (target == null || string.IsNullOrWhiteSpace(target.Id) ||
+                    string.IsNullOrWhiteSpace(target.Text) || !hasCompatibleAction)
                     throw new InvalidOperationException(
                         "Every random task target requires at least one compatible action.");
             }
             foreach (RandomTaskAdjective adjective in data.RandomTaskWords.Adjectives)
             {
-                if (adjective == null || string.IsNullOrWhiteSpace(adjective.Text))
+                if (adjective == null || string.IsNullOrWhiteSpace(adjective.Id) ||
+                    string.IsNullOrWhiteSpace(adjective.Text))
                     throw new InvalidOperationException("Random task words cannot be empty.");
             }
             foreach (RandomTaskAction action in data.RandomTaskWords.Actions)
             {
-                if (action == null || string.IsNullOrWhiteSpace(action.Text))
+                if (action == null || string.IsNullOrWhiteSpace(action.Id) ||
+                    string.IsNullOrWhiteSpace(action.Text))
                     throw new InvalidOperationException("Random task words cannot be empty.");
             }
         }

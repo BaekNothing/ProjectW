@@ -342,17 +342,32 @@ namespace ProjectW.MilestonePrototype.Tests
                 Adjectives = new[]
                 {
                     new RandomTaskAdjective
-                        { Text = "불안정한", Risk = RiskLevel.High, Difficulty = 2 }
+                    {
+                        Id = "adjective-unstable",
+                        Text = "불안정한",
+                        Risk = RiskLevel.High,
+                        Difficulty = 2
+                    }
                 },
                 Targets = new[]
                 {
                     new RandomTaskTarget
-                        { Text = "암반", Role = WorkRole.Analysis, Difficulty = 1 }
+                    {
+                        Id = "target-bedrock",
+                        Text = "암반",
+                        Role = WorkRole.Analysis,
+                        Difficulty = 1
+                    }
                 },
                 Actions = new[]
                 {
                     new RandomTaskAction
-                        { Text = "탐사", Role = WorkRole.Analysis, Difficulty = 1 }
+                    {
+                        Id = "action-survey",
+                        Text = "탐사",
+                        Role = WorkRole.Analysis,
+                        Difficulty = 1
+                    }
                 }
             };
             var game = new MilestoneSimulation(data, 1);
@@ -370,6 +385,26 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(generatedTask.Risk, Is.EqualTo(RiskLevel.High));
             Assert.That(generatedTask.Difficulty, Is.EqualTo(4));
             Assert.That(generatedTask.RequiredWork, Is.InRange(1f, 2f));
+
+            data.Balance.BaseSideMissionChance = 0;
+            game.Crew[1].DailyOutput = 5f;
+            Assert.That(game.Assign(generatedTask.Id, 1), Is.True);
+            game.AdvanceDay();
+
+            Assert.That(generatedTask.State, Is.EqualTo(TaskState.Complete));
+            Assert.That(game.DiscoveredTaskWordIds, Is.EquivalentTo(new[]
+            {
+                "adjective-unstable", "target-bedrock", "action-survey"
+            }));
+            Assert.That(game.Codex.Exists(entry =>
+                entry.Name == "암반" && entry.Description.Contains("추천 적성 역할: 분석")), Is.True);
+            Assert.That(game.Codex.Exists(entry =>
+                entry.Name == "불안정한" && entry.Description.Contains("역할: 위험도와 난이도 결정")), Is.True);
+
+            var restored = new MilestoneSimulation(data, 99);
+            Assert.That(restored.Restore(game.CreateSnapshot()), Is.True);
+            Assert.That(restored.DiscoveredTaskWordIds, Is.EquivalentTo(game.DiscoveredTaskWordIds));
+            Assert.That(restored.Codex.Exists(entry => entry.Name == "탐사"), Is.True);
         }
 
         [Test]

@@ -39,6 +39,9 @@ namespace ProjectW.MilestonePrototype
         public int ScheduledWorker = -1;
         public int StartedDay;
         public int CompletedDay;
+        public string GeneratedAdjectiveId;
+        public string GeneratedTargetId;
+        public string GeneratedActionId;
         public List<TaskRecord> Records = new List<TaskRecord>();
 
         public float EffectiveRequiredWork => RequiredWork + ContextCostDays;
@@ -148,6 +151,7 @@ namespace ProjectW.MilestonePrototype
     [Serializable]
     public sealed class RandomTaskAdjective
     {
+        public string Id;
         public string Text;
         public RiskLevel Risk;
         public int Difficulty;
@@ -156,6 +160,7 @@ namespace ProjectW.MilestonePrototype
     [Serializable]
     public sealed class RandomTaskTarget
     {
+        public string Id;
         public string Text;
         public WorkRole Role;
         public int Difficulty;
@@ -164,6 +169,7 @@ namespace ProjectW.MilestonePrototype
     [Serializable]
     public sealed class RandomTaskAction
     {
+        public string Id;
         public string Text;
         public WorkRole Role;
         public int Difficulty;
@@ -284,6 +290,7 @@ namespace ProjectW.MilestonePrototype
         public MailEvent[] Mail;
         public string[] Log;
         public AssignmentRule[] AssignmentRules;
+        public string[] DiscoveredTaskWordIds;
         public bool MidpointReviewIssued;
     }
 

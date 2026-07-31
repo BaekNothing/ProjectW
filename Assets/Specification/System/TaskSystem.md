@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Version: 1.1
+- Version: 1.2
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
@@ -233,6 +233,10 @@ through data without redefining Task ownership.
   `안정적인 골재 운반` is low-risk technical work).
 - Word pools and their role, risk, and difficulty metadata are owned by `task-system.json`; runtime
   code must not contain fallback mission vocabulary.
+- Completing a generated Task unlocks its adjective, target, and action in the Codex. An adjective
+  entry explains its risk and difficulty role; target and action entries explain their recommended
+  crew specialty and difficulty contribution. A word is unlocked only once, and discovered word
+  IDs persist in the campaign snapshot.
 - A data-driven rare roll may connect a generated Task to an existing predecessor Task; the normal
   30% progress cap applies until that predecessor completes.
 
