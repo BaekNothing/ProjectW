@@ -77,6 +77,7 @@ namespace ProjectW.MilestonePrototype
         private int messengerSeenUpdateCount;
         public const float WindowTitleBarHeight = 25f;
         public const float WindowContentTopSpacing = 6f;
+        public const float GanttWindowChromeReserve = 110f;
 
         private void Awake()
         {
@@ -179,7 +180,9 @@ namespace ProjectW.MilestonePrototype
             }
             if (ExpandedHitButton(closeRect, "X")) { Close(window.Id); return; }
             GUILayout.Space(WindowContentTopSpacing);
-            window.Scroll = GUILayout.BeginScrollView(window.Scroll);
+            bool usesIndependentScroll = UsesIndependentWindowScroll(window.Id);
+            if (!usesIndependentScroll)
+                window.Scroll = GUILayout.BeginScrollView(window.Scroll);
             switch (window.Id)
             {
                 case "mail": DrawMail(window); break;
@@ -196,9 +199,12 @@ namespace ProjectW.MilestonePrototype
                 case "options": DrawOptions(window); break;
                 case "log": DrawLog(window); break;
             }
-            GUILayout.EndScrollView();
+            if (!usesIndependentScroll)
+                GUILayout.EndScrollView();
             GUI.DragWindow(WindowDragHitRect(window.Rect.width));
         }
+
+        public static bool UsesIndependentWindowScroll(string windowId) => windowId == "gantt";
 
         private void DrawMail(DeskWindow window)
         {
@@ -245,11 +251,14 @@ namespace ProjectW.MilestonePrototype
         {
             GUILayout.Label("GANTT / 일감 계획", section);
             GUILayout.Label($"DAY {game.Day:00}  │  회색=완료  진회색=예상 잔여  ┆ SOFT  │ HARD", small);
-            float availableHeight = Mathf.Max(120f, window.Rect.height - 82f);
+            float availableHeight = GanttViewportHeight(window.Rect.height);
             Rect viewport = GUILayoutUtility.GetRect(100f, availableHeight,
                 GUILayout.ExpandWidth(true));
             DrawGanttTimeline(window, viewport);
         }
+
+        public static float GanttViewportHeight(float windowHeight) =>
+            Mathf.Max(120f, windowHeight - GanttWindowChromeReserve);
 
         private void DrawGanttTimeline(DeskWindow window, Rect viewport)
         {

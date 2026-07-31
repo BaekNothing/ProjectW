@@ -911,6 +911,15 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void GanttOwnsAnInsetScrollViewportSoItsHorizontalBarStaysFixed()
+        {
+            Assert.That(MilestonePrototypeController.UsesIndependentWindowScroll("gantt"), Is.True);
+            Assert.That(MilestonePrototypeController.UsesIndependentWindowScroll("mail"), Is.False);
+            Assert.That(MilestonePrototypeController.GanttViewportHeight(500f), Is.EqualTo(390f));
+            Assert.That(MilestonePrototypeController.GanttViewportHeight(200f), Is.EqualTo(120f));
+        }
+
+        [Test]
         public void OperationsReportCountsDynamicRiskAndLoad()
         {
             var game = new MilestoneSimulation(1);
