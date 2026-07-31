@@ -168,3 +168,20 @@ The approved new members are `Touchscreen.current`, `Touchscreen.touches`,
 `TouchControl.press`, `ButtonControl.isPressed`, `TouchControl.position`, and
 `Vector2Control.ReadValue()`, including their required package-owned closed generic shapes. This
 does not authorize unrelated Input System APIs.
+
+## Base APK v7 AOT Baseline
+
+Base APK v7 adds the fixed-to-HotUpdate diagnostics contract used to move patch download status,
+version information, and logs into the Options-owned tabbed log popup.
+
+It must bundle:
+
+- `BaseVersion = 7`
+- the latest embedded `ProjectW.HotUpdate.dll.bytes` and `task-system.json`
+- regenerated Android AOT metadata
+- `IPatchDiagnostics` and `PatchDiagnosticEntry` in `ProjectW.Contracts`
+- a `PatchBootstrapper` implementation of the diagnostics contract
+- the v6 Input System preservation surface
+
+The approved new Contracts calls are the diagnostics property getters, `GetLogs()`, and
+`ClearLogs()`. This does not authorize unrelated Contracts or Unity APIs.

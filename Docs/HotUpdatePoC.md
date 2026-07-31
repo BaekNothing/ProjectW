@@ -37,15 +37,15 @@ native plugins, Android settings, Unity, or HybridCLR change.
 
 ### Current base APK
 
-- Base version: `6`
+- Base version: `7`
 - Artifact: `APK/ProjectW-HybridCLR.apk`
-- Size: `50,320,980` bytes
-- SHA-256: `5cad0e3fd3fa2b6e1050e273608a5db5040c5498c734dbd23f249b56cc60a8fd`
-- Required for: two-finger window pinch resizing and pinch dragging using the project's active
-  Input System `Touchscreen` surface
+- Size: `50,322,160` bytes
+- SHA-256: `1b9dae0ed22a0e3c5488779a18c9b80d30eddd62dfe3eadb0f5df378c12c4d39`
+- Required for: the v6 Input System touch surface plus the patch diagnostics contract used by the
+  Options log popup
 
-Older base APKs reject manifests whose `minBaseVersion` is `6`. Install base APK v6 once before
-consuming pinch-window patches.
+Older base APKs reject manifests whose `minBaseVersion` is `7`. Install base APK v7 once before
+consuming patches that use the Options log popup.
 
 ## Routine code patch workflow
 

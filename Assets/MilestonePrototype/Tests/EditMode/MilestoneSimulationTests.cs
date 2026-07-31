@@ -656,7 +656,7 @@ namespace ProjectW.MilestonePrototype.Tests
         [Test]
         public void BaseVersionMatchesCurrentAotBaseline()
         {
-            Assert.That(PatchBootstrapper.BaseVersion, Is.EqualTo(6));
+            Assert.That(PatchBootstrapper.BaseVersion, Is.EqualTo(7));
         }
 
         [Test]

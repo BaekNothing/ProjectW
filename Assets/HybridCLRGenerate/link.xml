@@ -3,7 +3,9 @@
   <assembly fullname="ProjectW.Contracts">
     <type fullname="ProjectW.Contracts.GameStartupContext" preserve="all" />
     <type fullname="ProjectW.Contracts.IGameEntry" preserve="all" />
+    <type fullname="ProjectW.Contracts.IPatchDiagnostics" preserve="all" />
     <type fullname="ProjectW.Contracts.IStringStorage" preserve="all" />
+    <type fullname="ProjectW.Contracts.PatchDiagnosticEntry" preserve="all" />
   </assembly>
   <assembly fullname="System">
     <type fullname="System.CodeDom.Compiler.GeneratedCodeAttribute" preserve="all" />
@@ -52,7 +54,6 @@
     <type fullname="UnityEngine.GUISkin" preserve="all" />
     <type fullname="UnityEngine.GUIStyle" preserve="all" />
     <type fullname="UnityEngine.GUIStyleState" preserve="all" />
-    <type fullname="UnityEngine.GUIUtility" preserve="all" />
   </assembly>
   <assembly fullname="UnityEngine.JSONSerializeModule">
     <type fullname="UnityEngine.JsonUtility" preserve="all" />
@@ -87,6 +88,7 @@
     <type fullname="System.InvalidOperationException" preserve="all" />
     <type fullname="System.Math" preserve="all" />
     <type fullname="System.Object" preserve="all" />
+    <type fullname="System.ParamArrayAttribute" preserve="all" />
     <type fullname="System.Predicate`1" preserve="all" />
     <type fullname="System.Random" preserve="all" />
     <type fullname="System.Runtime.CompilerServices.CompilationRelaxationsAttribute" preserve="all" />

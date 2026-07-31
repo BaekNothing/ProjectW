@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using ProjectW.Contracts;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
@@ -46,6 +47,7 @@ namespace ProjectW.MilestonePrototype
         private GUIStyle warning;
         private GUIStyle success;
         private string patchVersion = "embedded";
+        private IPatchDiagnostics patchDiagnostics;
         private const string CampaignSaveKey = "projectw.campaign.v1";
         private const string DesktopSaveKey = "projectw.desktop.v1";
         private static readonly Color GrayColor = new Color(.6f, .6f, .6f, 1f);
@@ -72,7 +74,11 @@ namespace ProjectW.MilestonePrototype
             RestoreDesktop();
         }
 
-        public void Initialize(string version) => patchVersion = string.IsNullOrWhiteSpace(version) ? "unknown" : version.Trim();
+        public void Initialize(string version, IPatchDiagnostics diagnostics)
+        {
+            patchVersion = string.IsNullOrWhiteSpace(version) ? "unknown" : version.Trim();
+            patchDiagnostics = diagnostics;
+        }
 
         private void OnApplicationPause(bool paused)
         {
@@ -106,7 +112,7 @@ namespace ProjectW.MilestonePrototype
             GUI.DrawTexture(new Rect(0, 0, logicalWidth, logicalHeight), Texture2D.whiteTexture);
             GUI.Label(new Rect(22, 15, Mathf.Max(220f, logicalWidth - 300f), 34),
                 "PROJECT W  /  OPERATIONS DESK", title);
-            GUI.Label(new Rect(logicalWidth - 250, 18, 225, 25), $"DAY {game.Day:00}/{game.CampaignEndDay}   PATCH {patchVersion}", small);
+            GUI.Label(new Rect(logicalWidth - 250, 18, 225, 25), $"DAY {game.Day:00}/{game.CampaignEndDay}", small);
             string[] ids = { "mail", "gantt", "milestone", "workers", "report", "codex", "messenger", "help", "profile", "options" };
             for (int i = 0; i < ids.Length; i++)
             {
@@ -878,6 +884,19 @@ namespace ProjectW.MilestonePrototype
             GUILayout.Space(8);
             GUILayout.Label($"현재 화면 배율: {uiMagnification:0.0}×", success);
             GUILayout.Space(16);
+            GUILayout.Label("버전 및 진단", section);
+            GUILayout.Label($"실행 버전: {patchVersion}", small);
+            if (patchDiagnostics != null)
+            {
+                GUILayout.Label(
+                    $"설치 버전: {patchDiagnostics.InstalledVersion}\n" +
+                    $"패치 상태: {patchDiagnostics.Status}\n" +
+                    $"최근 다운로드 결과: {patchDiagnostics.LastPatchResult}",
+                    small);
+            }
+            if (LayoutButton("로그 열기", GUILayout.Height(38)))
+                Open("log");
+            GUILayout.Space(16);
             GUILayout.Label("초기화", section);
             if (LayoutButton("창 위치 및 열린 상태 초기화", GUILayout.Height(38)))
             {
@@ -905,7 +924,51 @@ namespace ProjectW.MilestonePrototype
 
         private void DrawLog(DeskWindow window)
         {
+            GUILayout.BeginHorizontal();
+            if (LayoutButton(window.Selected == 0 ? "● 다운로드 / 패치" : "다운로드 / 패치",
+                    GUILayout.Height(36)))
+                window.Selected = 0;
+            if (LayoutButton(window.Selected == 1 ? "● 게임 로그" : "게임 로그",
+                    GUILayout.Height(36)))
+                window.Selected = 1;
+            GUILayout.EndHorizontal();
+            GUILayout.Space(8);
+
+            if (window.Selected == 0)
+            {
+                DrawPatchLog();
+                return;
+            }
+
+            GUILayout.Label("게임 로그", section);
             foreach (string line in game.SystemLog.AsEnumerable().Reverse()) GUILayout.Label(line, small);
+        }
+
+        private void DrawPatchLog()
+        {
+            GUILayout.Label("다운로드 / 패치 로그", section);
+            if (patchDiagnostics == null)
+            {
+                GUILayout.Label("패치 진단 정보를 사용할 수 없습니다.", warning);
+                return;
+            }
+
+            GUILayout.Label(
+                $"실행: {patchDiagnostics.ActiveVersion}  설치: {patchDiagnostics.InstalledVersion}\n" +
+                $"상태: {patchDiagnostics.Status}\n최근 결과: {patchDiagnostics.LastPatchResult}",
+                small);
+            GUILayout.Space(8);
+            PatchDiagnosticEntry[] logs = patchDiagnostics.GetLogs();
+            for (int i = logs.Length - 1; i >= 0; i--)
+            {
+                PatchDiagnosticEntry log = logs[i];
+                GUIStyle style = log.Type == "Error" || log.Type == "Exception" || log.Type == "Assert"
+                    ? warning : small;
+                GUILayout.Label($"[{log.Type}] {log.Message}\n{log.StackTrace}", style);
+            }
+            if (logs.Length == 0) GUILayout.Label("기록된 다운로드 로그가 없습니다.", small);
+            if (LayoutButton("다운로드 로그 지우기", GUILayout.Height(34)))
+                patchDiagnostics.ClearLogs();
         }
 
         private void DrawTaskbar()
@@ -930,7 +993,6 @@ namespace ProjectW.MilestonePrototype
             }
             int unread = game.Mail.Count(m => m.ArrivalDay <= game.Day && !m.Read);
             if (Button(new Rect(logicalWidth - 310, logicalHeight - 38, 95, 31), unread > 0 ? $"MAIL ({unread})" : "MAIL")) Open("mail");
-            if (Button(new Rect(logicalWidth - 210, logicalHeight - 38, 95, 31), "LOG")) Open("log");
             GUI.Label(new Rect(logicalWidth - 108, logicalHeight - 34, 100, 25), $"DAY {game.Day:00}", small);
         }
 

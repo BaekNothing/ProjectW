@@ -12,9 +12,9 @@ using UnityEngine.Networking;
 
 namespace ProjectW.Bootstrap
 {
-    public sealed class PatchBootstrapper : MonoBehaviour
+    public sealed class PatchBootstrapper : MonoBehaviour, IPatchDiagnostics
     {
-        public const int BaseVersion = 6;
+        public const int BaseVersion = 7;
         private readonly PlayerPrefsStringStorage storage = new PlayerPrefsStringStorage();
         public const string DefaultChannelUrl =
             "https://raw.githubusercontent.com/BaekNothing/ProjectW/ai-integration/PatchChannels/dev.json";
@@ -43,6 +43,11 @@ namespace ProjectW.Bootstrap
         private GUIStyle diagnosticHeader;
         private GUIStyle diagnosticBody;
         private GUIStyle diagnosticError;
+
+        public string ActiveVersion => activeVersion;
+        public string InstalledVersion => ReadManifest(currentPath)?.patchVersion ?? "none";
+        public string Status => status;
+        public string LastPatchResult => patchResult;
 
         private void Awake()
         {
@@ -315,7 +320,7 @@ namespace ProjectW.Bootstrap
 
             activeVersion = version;
             File.WriteAllText(pendingMarkerPath, version);
-            entry.Start(new GameStartupContext(gameObject, version, dataPath, storage, MarkHealthy));
+            entry.Start(new GameStartupContext(gameObject, version, dataPath, storage, this, MarkHealthy));
         }
 
         private void MarkHealthy()
@@ -405,6 +410,8 @@ namespace ProjectW.Bootstrap
 
         private void OnGUI()
         {
+            if (gameStarted) return;
+
             EnsureDiagnosticStyles();
             GUI.depth = -1000;
             GUI.matrix = Matrix4x4.identity;
@@ -468,6 +475,26 @@ namespace ProjectW.Bootstrap
             }
             if (type == LogType.Error || type == LogType.Exception || type == LogType.Assert)
                 diagnosticsExpanded = true;
+        }
+
+        public PatchDiagnosticEntry[] GetLogs()
+        {
+            lock (logLock)
+            {
+                var result = new PatchDiagnosticEntry[diagnosticLogs.Count];
+                for (int i = 0; i < diagnosticLogs.Count; i++)
+                {
+                    DiagnosticLog log = diagnosticLogs[i];
+                    result[i] = new PatchDiagnosticEntry(log.Type.ToString(), log.Message, log.StackTrace);
+                }
+                return result;
+            }
+        }
+
+        public void ClearLogs()
+        {
+            lock (logLock) diagnosticLogs.Clear();
+            diagnosticsExpanded = false;
         }
 
         private void EnsureDiagnosticStyles()
