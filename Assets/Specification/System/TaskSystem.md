@@ -2,12 +2,12 @@
 
 ## Document Control
 
-- Version: 1.3
+- Version: 1.4
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
-- Rationale: Add multi-competency Task requirements so crew selection directly changes daily output,
-  while fatigue continues to determine failure, success, and great-success outcomes.
+- Rationale: Let the player opt into competency-based automatic assignment and expose current Task
+  ownership directly in the Gantt view.
 - Idea references: `IDEA.md` items 1, 2, 4, and 8
 
 ## Scope
@@ -132,6 +132,23 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
   are being learned.
 - The optimization goal is that repeated situations eventually continue correctly through daily
   advancement alone, while novel situations still require player judgment.
+
+## Competency Automatic Assignment
+
+- The Gantt header owns a campaign-level `자동배정` checkbox. It is off by default and its value is
+  preserved in the campaign save.
+- At the beginning of a daily cycle, start reservations are applied first, learned assignment rules
+  second, and competency automatic assignment third.
+- When enabled, competency automatic assignment considers each unassigned, unscheduled `Available`
+  Task in external data order. It never interrupts an existing assignment or consumes a future
+  reservation.
+- For each considered Task, choose among available workers without another primary Task. The worker
+  with the highest competency output multiplier for that Task is selected. Equal multipliers prefer
+  lower fatigue, then the earlier field-team position for deterministic behavior.
+- The resulting primary assignment starts and produces output in the same daily cycle. A Task that
+  becomes available only after that cycle's completion/state refresh waits until the next daily cycle.
+- Competency automatic assignments do not create or update learned assignment rules.
+- Turning the checkbox off stops future competency assignments but does not remove existing assignments.
 
 ## Task Scheduling
 
@@ -330,6 +347,8 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 - A manual primary assignment creates or updates a learned rule.
 - A matching available Task is automatically assigned only when the recorded worker is eligible.
 - Learned rules survive campaign save/restore and are visible in `My Info`.
+- Competency automatic assignment respects reservations, learned rules, worker capacity, and
+  competency/fatigue tie-breaking; its toggle survives campaign save/restore.
 
 ## Gantt and Task Detail UI
 
@@ -350,6 +369,8 @@ The Task application must present schedule information as a time-based Gantt vie
 - Work predecessors and Task prerequisites are shown as arrowed dependency connectors.
 - Work sections are divided with `#999999` separator lines on the white background.
 - Work rows expose Work state, completion, and deadline status.
+- Every Task row shows its current primary or parallel assignee. Unassigned rows show `미배정`, and
+  future reservations show the reserved worker and start day.
 
 The projected segment is operational guidance, not an immutable reservation. It is recalculated from current progress, context cost, prerequisites, assignments, and today whenever state changes.
 
