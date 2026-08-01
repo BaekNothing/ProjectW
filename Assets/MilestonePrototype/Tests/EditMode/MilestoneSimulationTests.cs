@@ -539,8 +539,13 @@ namespace ProjectW.MilestonePrototype.Tests
             game.AdvanceDay();
 
             WorkGroup generated = game.Groups.Find(work => work.Id.StartsWith("random-work-"));
-            WorkTask generatedTask = game.Tasks.Find(task => task.GroupId == generated.Id);
+            List<WorkTask> generatedTasks = game.Tasks.FindAll(task => task.GroupId == generated.Id);
+            WorkTask generatedTask = generatedTasks[0];
             Assert.That(generated, Is.Not.Null);
+            Assert.That(generatedTasks, Has.Count.InRange(2, 4));
+            for (int taskIndex = 1; taskIndex < generatedTasks.Count; taskIndex++)
+                Assert.That(generatedTasks[taskIndex].PrerequisiteId,
+                    Is.EqualTo(generatedTasks[taskIndex - 1].Id));
             Assert.That(generated.AwaitingAcceptance, Is.True);
             Assert.That(game.IsWorkVisible(generated), Is.False);
             Assert.That(generatedTask.State, Is.EqualTo(TaskState.Locked));
@@ -609,6 +614,36 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void RestoreExpandsLegacySingleTaskSideMissionIntoHierarchy()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.BaseSideMissionChance = 100;
+            data.Balance.RandomWorkChanceScalePercent = 100;
+            var original = new MilestoneSimulation(data, 1);
+            original.AdvanceDay();
+            WorkGroup legacyWork = original.Groups.Find(group => group.Id.StartsWith("random-work-"));
+            WorkTask legacyTask = original.Tasks.Find(task => task.GroupId == legacyWork.Id);
+            int oldSoftDeadline = legacyWork.SoftDeadline;
+            int oldHardDeadline = legacyWork.HardDeadline;
+            CampaignSnapshot snapshot = original.CreateSnapshot();
+            snapshot.Tasks = System.Array.FindAll(snapshot.Tasks, task =>
+                task.GroupId != legacyWork.Id || task.Id == legacyTask.Id);
+            var restored = new MilestoneSimulation(data, 2);
+
+            Assert.That(restored.Restore(snapshot), Is.True);
+
+            WorkGroup migratedWork = restored.Groups.Find(group => group.Id == legacyWork.Id);
+            List<WorkTask> migratedTasks = restored.Tasks.FindAll(task => task.GroupId == legacyWork.Id);
+            Assert.That(migratedTasks, Has.Count.EqualTo(3));
+            Assert.That(migratedTasks[1].PrerequisiteId, Is.EqualTo(migratedTasks[0].Id));
+            Assert.That(migratedTasks[2].PrerequisiteId, Is.EqualTo(migratedTasks[1].Id));
+            Assert.That(migratedWork.SoftDeadline, Is.EqualTo(oldSoftDeadline + 2));
+            Assert.That(migratedWork.HardDeadline, Is.EqualTo(oldHardDeadline + 2));
+            Assert.That(restored.Mail.Find(mail => mail.TargetWorkId == legacyWork.Id).Body,
+                Does.Contain("3개 하위 일감"));
+        }
+
+        [Test]
         public void CompletedTaskRetainsAssigneeWithoutConsumingWorkerCapacity()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
@@ -639,11 +674,18 @@ namespace ProjectW.MilestonePrototype.Tests
 
             game.AdvanceDay();
 
-            int generatedCount = game.Tasks.FindAll(task => task.Kind == TaskKind.SideMission).Count;
+            List<WorkGroup> generatedWorks = game.Groups.FindAll(group =>
+                group.Id.StartsWith("random-work-"));
             int offerCount = game.Mail.FindAll(mail => mail.ActivatesWork &&
                 mail.ArrivalDay == game.Day).Count;
-            Assert.That(generatedCount, Is.InRange(1, 3));
-            Assert.That(offerCount, Is.EqualTo(generatedCount));
+            Assert.That(generatedWorks, Has.Count.InRange(1, 3));
+            Assert.That(offerCount, Is.EqualTo(generatedWorks.Count));
+            foreach (WorkGroup work in generatedWorks)
+            {
+                List<WorkTask> childTasks = game.Tasks.FindAll(task => task.GroupId == work.Id);
+                Assert.That(childTasks, Has.Count.InRange(2, 4));
+                Assert.That(game.Mail.FindAll(mail => mail.TargetWorkId == work.Id), Has.Count.EqualTo(1));
+            }
             Assert.That(game.Groups.Find(group => group.Id == "incident").Required, Is.False);
         }
 

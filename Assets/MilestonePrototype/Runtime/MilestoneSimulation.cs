@@ -786,6 +786,7 @@ namespace ProjectW.MilestonePrototype
             CompetencyAutoAssignment = snapshot.CompetencyAutoAssignment;
             SystemLog.Clear();
             if (snapshot.Log != null) SystemLog.AddRange(snapshot.Log);
+            MigrateLegacyGeneratedSideMissions();
             NormalizeLoadedData();
             RefreshStates();
             return true;
@@ -1086,12 +1087,12 @@ namespace ProjectW.MilestonePrototype
             }
             else
             {
-            int overdue = Groups.Count(group => group.SoftDeadlineMissed &&
-                                                group.State != WorkState.Complete);
-            int exhausted = Crew.Count(member => member.Fatigue >= 55);
-            int rawChance = balance.BaseSideMissionChance + overdue * 16 + exhausted * 8;
-            int scaledChanceBasisPoints = Math.Min(100, rawChance) *
-                                          balance.RandomWorkChanceScalePercent;
+                int overdue = Groups.Count(group => group.SoftDeadlineMissed &&
+                                                    group.State != WorkState.Complete);
+                int exhausted = Crew.Count(member => member.Fatigue >= 55);
+                int rawChance = balance.BaseSideMissionChance + overdue * 16 + exhausted * 8;
+                int scaledChanceBasisPoints = Math.Min(100, rawChance) *
+                                              balance.RandomWorkChanceScalePercent;
                 if (random.Next(10000) >= scaledChanceBasisPoints) return;
                 batchSize = 1;
             }
@@ -1102,16 +1103,18 @@ namespace ProjectW.MilestonePrototype
         private void CreateRandomWork(DayReport report)
         {
             int id = ++nextRandomWorkId;
-            int softDays = random.Next(balance.RandomWorkMinSoftDays, balance.RandomWorkMaxSoftDays + 1);
+            int taskCount = random.Next(2, 5);
+            int softDays = random.Next(balance.RandomWorkMinSoftDays,
+                balance.RandomWorkMaxSoftDays + 1) + taskCount - 1;
             int reward = random.Next(balance.RandomWorkMinReward, balance.RandomWorkMaxReward + 1);
-            RandomTaskTarget target = randomTaskWords.Targets[random.Next(randomTaskWords.Targets.Length)];
-            RandomTaskAction action = SelectRandomAction(target.Role);
-            RandomTaskAdjective adjective =
+            RandomTaskTarget missionTarget =
+                randomTaskWords.Targets[random.Next(randomTaskWords.Targets.Length)];
+            RandomTaskAdjective missionAdjective =
                 randomTaskWords.Adjectives[random.Next(randomTaskWords.Adjectives.Length)];
             var work = new WorkGroup
             {
                 Id = $"random-work-{id}",
-                Name = $"{adjective.Text} {target.Text} {action.Text}",
+                Name = $"{missionAdjective.Text} {missionTarget.Text} 개척 임무",
                 SoftDeadline = Day + softDays,
                 HardDeadline = Day + softDays + balance.RandomWorkHardDeadlineDays,
                 Required = false,
@@ -1126,48 +1129,62 @@ namespace ProjectW.MilestonePrototype
                 ? Tasks.Where(candidate => candidate.State != TaskState.Failed)
                     .OrderBy(candidate => candidate.Id).FirstOrDefault()
                 : null;
-            var mission = new WorkTask
+            string previousTaskId = predecessor?.Id;
+            WorkTask firstTask = null;
+            RiskLevel missionRisk = RiskLevel.Low;
+            for (int taskIndex = 1; taskIndex <= taskCount; taskIndex++)
             {
-                Id = $"random-task-{id}",
-                Name = $"{adjective.Text} {target.Text} {action.Text}",
-                Kind = TaskKind.SideMission,
-                RequiredRole = action.Role,
-                RequiredCompetencies = MergeCompetencies(
-                    target.RequiredCompetencies, action.RequiredCompetencies),
-                RequiredWork = random.Next(
-                    balance.RandomWorkMinRequiredDays,
-                    balance.RandomWorkMaxRequiredDays + 1),
-                Required = true,
-                PrerequisiteId = predecessor?.Id,
-                Deadline = work.HardDeadline,
-                State = TaskState.Available,
-                GroupId = work.Id,
-                Risk = adjective.Risk,
-                Importance = adjective.Risk == RiskLevel.High
-                    ? ImportanceLevel.High
-                    : ImportanceLevel.Medium,
-                Difficulty = Math.Max(1, Math.Min(5,
-                    adjective.Difficulty + target.Difficulty + action.Difficulty)),
-                GeneratedAdjectiveId = adjective.Id,
-                GeneratedTargetId = target.Id,
-                GeneratedActionId = action.Id
-            };
+                RandomTaskTarget target =
+                    randomTaskWords.Targets[random.Next(randomTaskWords.Targets.Length)];
+                RandomTaskAction action = SelectRandomAction(target.Role);
+                RandomTaskAdjective adjective =
+                    randomTaskWords.Adjectives[random.Next(randomTaskWords.Adjectives.Length)];
+                var task = new WorkTask
+                {
+                    Id = $"random-task-{id}-{taskIndex}",
+                    Name = $"{adjective.Text} {target.Text} {action.Text}",
+                    Kind = TaskKind.SideMission,
+                    RequiredRole = action.Role,
+                    RequiredCompetencies = MergeCompetencies(
+                        target.RequiredCompetencies, action.RequiredCompetencies),
+                    RequiredWork = random.Next(
+                        balance.RandomWorkMinRequiredDays,
+                        balance.RandomWorkMaxRequiredDays + 1),
+                    Required = true,
+                    PrerequisiteId = previousTaskId,
+                    Deadline = work.HardDeadline,
+                    State = TaskState.Locked,
+                    GroupId = work.Id,
+                    Risk = adjective.Risk,
+                    Importance = adjective.Risk == RiskLevel.High
+                        ? ImportanceLevel.High
+                        : ImportanceLevel.Medium,
+                    Difficulty = Math.Max(1, Math.Min(5,
+                        adjective.Difficulty + target.Difficulty + action.Difficulty)),
+                    GeneratedAdjectiveId = adjective.Id,
+                    GeneratedTargetId = target.Id,
+                    GeneratedActionId = action.Id
+                };
+                if (firstTask == null) firstTask = task;
+                if ((int)task.Risk > (int)missionRisk) missionRisk = task.Risk;
+                Tasks.Add(task);
+                previousTaskId = task.Id;
+            }
             Groups.Add(work);
-            Tasks.Add(mission);
             Mail.Add(new MailEvent
             {
                 Id = $"side-mission-offer-{id}",
                 ArrivalDay = Day + 1,
                 From = "외행성 개척 관제국",
-                Subject = $"사이드 미션 제안: {mission.Name}",
-                Body = $"추가 개척 임무가 접수되었습니다. 성공 보상은 자원 {reward}입니다.",
+                Subject = $"사이드 미션 제안: {work.Name}",
+                Body = $"{taskCount}개 하위 일감으로 구성된 개척 임무입니다. 성공 보상은 자원 {reward}입니다.",
                 Instruction = $"수락 시 작업이 활성화됩니다. 실패 페널티: 자원 {work.HardPenaltyCredits}",
-                TargetTaskId = mission.Id,
+                TargetTaskId = firstTask.Id,
                 TargetWorkId = work.Id,
-                Risk = mission.Risk,
+                Risk = missionRisk,
                 ActivatesWork = true
             });
-            report.Lines.Add($"다음 날 아침 사이드 미션 제안 메일 예정: {mission.Name}");
+            report.Lines.Add($"다음 날 아침 사이드 미션 제안 메일 예정: {work.Name} ({taskCount}개 일감)");
         }
 
         private RandomTaskAction SelectRandomAction(WorkRole role)
@@ -1401,6 +1418,68 @@ namespace ProjectW.MilestonePrototype
                 .Select(group => int.TryParse(group.Id.Substring(12), out int value) ? value : 0)
                 .DefaultIfEmpty(0).Max();
             nextRandomWorkId = highestRandomWorkId;
+        }
+
+        private void MigrateLegacyGeneratedSideMissions()
+        {
+            foreach (WorkGroup group in Groups)
+            {
+                if (group.Id == null || !group.Id.StartsWith("random-work-") ||
+                    group.State == WorkState.Complete || group.State == WorkState.Failed) continue;
+                List<WorkTask> children = Tasks.Where(task => task.GroupId == group.Id).ToList();
+                if (children.Count != 1 || children[0].Kind != TaskKind.SideMission) continue;
+
+                WorkTask previous = children[0];
+                group.SoftDeadline += 2;
+                group.HardDeadline += 2;
+                previous.Deadline = group.HardDeadline;
+                RiskLevel missionRisk = previous.Risk;
+                string idSuffix = group.Id.Substring(12);
+                for (int taskIndex = 2; taskIndex <= 3; taskIndex++)
+                {
+                    RandomTaskTarget target =
+                        randomTaskWords.Targets[random.Next(randomTaskWords.Targets.Length)];
+                    RandomTaskAction action = SelectRandomAction(target.Role);
+                    RandomTaskAdjective adjective =
+                        randomTaskWords.Adjectives[random.Next(randomTaskWords.Adjectives.Length)];
+                    var task = new WorkTask
+                    {
+                        Id = $"random-task-{idSuffix}-{taskIndex}",
+                        Name = $"{adjective.Text} {target.Text} {action.Text}",
+                        Kind = TaskKind.SideMission,
+                        RequiredRole = action.Role,
+                        RequiredCompetencies = MergeCompetencies(
+                            target.RequiredCompetencies, action.RequiredCompetencies),
+                        RequiredWork = random.Next(balance.RandomWorkMinRequiredDays,
+                            balance.RandomWorkMaxRequiredDays + 1),
+                        Required = true,
+                        PrerequisiteId = previous.Id,
+                        Deadline = group.HardDeadline,
+                        State = TaskState.Locked,
+                        GroupId = group.Id,
+                        Risk = adjective.Risk,
+                        Importance = adjective.Risk == RiskLevel.High
+                            ? ImportanceLevel.High
+                            : ImportanceLevel.Medium,
+                        Difficulty = Math.Max(1, Math.Min(5,
+                            adjective.Difficulty + target.Difficulty + action.Difficulty)),
+                        GeneratedAdjectiveId = adjective.Id,
+                        GeneratedTargetId = target.Id,
+                        GeneratedActionId = action.Id
+                    };
+                    if ((int)task.Risk > (int)missionRisk) missionRisk = task.Risk;
+                    Tasks.Add(task);
+                    previous = task;
+                }
+
+                MailEvent offer = Mail.FirstOrDefault(mail => mail.TargetWorkId == group.Id &&
+                                                              mail.ActivatesWork);
+                if (offer == null) continue;
+                offer.Subject = $"사이드 미션 제안: {group.Name}";
+                offer.Body = $"3개 하위 일감으로 재구성된 개척 임무입니다. 성공 보상은 자원 {group.RewardCredits}입니다.";
+                offer.TargetTaskId = children[0].Id;
+                offer.Risk = missionRisk;
+            }
         }
 
         private void BackfillGeneratedWordIds(WorkTask task)
