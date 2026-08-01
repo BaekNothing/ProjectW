@@ -212,7 +212,15 @@ namespace ProjectW.MilestonePrototype
 
         private void DrawMail(DeskWindow window)
         {
-            List<MailEvent> arrived = game.Mail.Where(m => m.ArrivalDay <= game.Day).ToList();
+            List<MailEvent> arrived = game.Mail.Where(m => m.ArrivalDay <= game.Day)
+                .OrderBy(m => m.Read ? 1 : 0)
+                .ThenByDescending(m => m.ArrivalDay)
+                .ToList();
+            if (!string.IsNullOrEmpty(window.Notice))
+            {
+                int selectedMail = arrived.FindIndex(mail => mail.Id == window.Notice);
+                if (selectedMail >= 0) window.Selected = selectedMail;
+            }
             GUILayout.BeginHorizontal();
             GUILayout.BeginVertical(GUILayout.Width(Mathf.Min(230, window.Rect.width * .36f)));
             for (int i = 0; i < arrived.Count; i++)
@@ -222,6 +230,7 @@ namespace ProjectW.MilestonePrototype
                 if (LayoutButton($"{prefix}{mail.Subject}\n{mail.From}", GUILayout.Height(55)))
                 {
                     window.Selected = i;
+                    window.Notice = mail.Id;
                     game.MarkMailRead(mail.Id);
                     SaveCampaign();
                 }
@@ -922,25 +931,27 @@ namespace ProjectW.MilestonePrototype
             DrawSectionRule();
 
             bool hasMessages = false;
-            if (selected.History != null)
+            for (int messageDay = 1; messageDay <= game.Day; messageDay++)
             {
-                foreach (string history in selected.History)
+                if (selected.History != null)
                 {
-                    DrawMessengerBubble(history);
-                    hasMessages = true;
+                    foreach (string history in selected.History)
+                    {
+                        if (!HistoryOccursOnDay(history, messageDay)) continue;
+                        DrawMessengerBubble(history);
+                        hasMessages = true;
+                    }
                 }
-            }
-            foreach (WorkTask task in game.Tasks)
-            {
-                if (task.Records == null) continue;
-                foreach (TaskRecord record in task.Records)
+                foreach (WorkTask task in game.Tasks)
                 {
-                    if (record.Actor != selected.Name) continue;
-                    GUILayout.BeginVertical(GUI.skin.box);
-                    GUILayout.Label($"DAY {record.Day:00}  {selected.Name}", small);
-                    GUILayout.Label($"{task.Name}: {record.Text}");
-                    GUILayout.EndVertical();
-                    hasMessages = true;
+                    if (task.Records == null) continue;
+                    foreach (TaskRecord record in task.Records)
+                    {
+                        if (record.Day != messageDay || record.Actor != selected.Name) continue;
+                        DrawMessengerBubble(
+                            $"DAY {record.Day:00} [{selected.Name}]\n{task.Name}: {record.Text}");
+                        hasMessages = true;
+                    }
                 }
             }
             if (!hasMessages)
@@ -979,6 +990,13 @@ namespace ProjectW.MilestonePrototype
             GUILayout.BeginVertical(GUI.skin.box);
             GUILayout.Label(message, small);
             GUILayout.EndVertical();
+        }
+
+        private static bool HistoryOccursOnDay(string history, int day)
+        {
+            if (string.IsNullOrEmpty(history)) return false;
+            return history.StartsWith($"DAY {day}:") || history.StartsWith($"DAY {day} [") ||
+                   history.StartsWith($"DAY {day}\n");
         }
 
         private void DrawReport(DeskWindow window)

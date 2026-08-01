@@ -274,8 +274,7 @@ namespace ProjectW.MilestonePrototype
                 return false;
             }
 
-            member.History.Add($"DAY {Day} [나] {question}");
-            member.History.Add($"DAY {Day} [{member.Name}] {answer}");
+            member.History.Add($"DAY {Day}\n[나] {question}\n[{member.Name}] {answer}");
             Log($"{member.Name}에게 메신저 질문");
             return true;
         }
@@ -352,12 +351,12 @@ namespace ProjectW.MilestonePrototype
                 ProcessTask(task, report, pausedCrew[task.AssignedCharacter],
                     pausedConditions[task.AssignedCharacter]);
 
-            TriggerRandomWork(report);
             Day++;
             RefreshStates();
             ApplyDeadlineResults(report);
             ApplyMidpointReview(report);
             RefreshStates();
+            TriggerRandomWork(report);
             LastReport = report;
             if (report.Lines.Count == 0) report.Lines.Add("특이사항 없이 하루가 지났습니다.");
             foreach (string line in report.Lines) Log(line);
@@ -1174,7 +1173,7 @@ namespace ProjectW.MilestonePrototype
             Mail.Add(new MailEvent
             {
                 Id = $"side-mission-offer-{id}",
-                ArrivalDay = Day + 1,
+                ArrivalDay = Day,
                 From = "외행성 개척 관제국",
                 Subject = $"사이드 미션 제안: {work.Name}",
                 Body = $"{taskCount}개 하위 일감으로 구성된 개척 임무입니다. 성공 보상은 자원 {reward}입니다.",
@@ -1184,7 +1183,7 @@ namespace ProjectW.MilestonePrototype
                 Risk = missionRisk,
                 ActivatesWork = true
             });
-            report.Lines.Add($"다음 날 아침 사이드 미션 제안 메일 예정: {work.Name} ({taskCount}개 일감)");
+            report.Lines.Add($"아침 사이드 미션 제안 메일 도착: {work.Name} ({taskCount}개 일감)");
         }
 
         private RandomTaskAction SelectRandomAction(WorkRole role)

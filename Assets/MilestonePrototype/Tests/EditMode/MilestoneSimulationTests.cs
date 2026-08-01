@@ -969,15 +969,17 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void MessengerStatusQuestionAddsQuestionAndWorkerReply()
+        public void MessengerStatusQuestionAddsOneCombinedConversationItem()
         {
             var game = new MilestoneSimulation(1);
             CrewMember worker = game.Crew[0];
+            int historyCount = worker.History.Count;
 
             Assert.That(game.AskWorker(0, "status"), Is.True);
 
-            Assert.That(worker.History[worker.History.Count - 2], Does.Contain("[나]"));
+            Assert.That(worker.History, Has.Count.EqualTo(historyCount + 1));
             Assert.That(worker.History[worker.History.Count - 1], Does.Contain(worker.Name));
+            Assert.That(worker.History[worker.History.Count - 1], Does.Contain("[나]"));
             Assert.That(worker.History[worker.History.Count - 1], Does.Contain("피로도"));
         }
 
@@ -1136,6 +1138,7 @@ namespace ProjectW.MilestonePrototype.Tests
             TaskSystemData data = TaskSystemDataLoader.Load();
             data.Balance.BaseSideMissionChance = 100;
             data.Balance.RandomWorkChanceScalePercent = 100;
+            data.Balance.RandomWorkLimit = 1;
             var game = new MilestoneSimulation(data, 1);
             game.AdvanceDay();
             WorkGroup sideMission = game.Groups.Find(group => group.Id.StartsWith("random-work-"));
@@ -1145,6 +1148,7 @@ namespace ProjectW.MilestonePrototype.Tests
             sideMission.SoftDeadline = game.Day;
             sideMission.HardDeadline = game.Day;
             int resourcesBeforeFailure = game.Resources;
+            int offersBeforeFailure = game.Mail.FindAll(mail => mail.ActivatesWork).Count;
 
             game.AdvanceDay();
 
@@ -1152,6 +1156,13 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(game.Resources, Is.EqualTo(resourcesBeforeFailure -
                 sideMission.SoftPenaltyCredits - sideMission.HardPenaltyCredits));
             Assert.That(game.IsLost, Is.False);
+            List<MailEvent> replacementOffers = game.Mail.FindAll(mail =>
+                mail.ActivatesWork && mail.TargetWorkId != sideMission.Id);
+            Assert.That(game.Mail.FindAll(mail => mail.ActivatesWork),
+                Has.Count.EqualTo(offersBeforeFailure + 1));
+            Assert.That(replacementOffers, Has.Count.EqualTo(1));
+            Assert.That(replacementOffers[0].ArrivalDay, Is.EqualTo(game.Day));
+            Assert.That(replacementOffers[0].Read, Is.False);
         }
 
         [Test]
