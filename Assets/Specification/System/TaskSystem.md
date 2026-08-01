@@ -2,12 +2,12 @@
 
 ## Document Control
 
-- Version: 1.5
+- Version: 1.6
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
-- Rationale: Preserve visible Task ownership through temporary worker conditions and add current-day
-  worker status slots to the Gantt view.
+- Rationale: Prevent every automatic assignment path from starting successor Tasks before their
+  Work and Task predecessors complete.
 - Idea references: `IDEA.md` items 1, 2, 4, and 8
 
 ## Scope
@@ -150,6 +150,12 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 - When enabled, competency automatic assignment considers each unassigned, unscheduled `Available`
   Task in external data order. It never interrupts an existing assignment or consumes a future
   reservation.
+- `Available` alone is not sufficient for automatic assignment because manual planning may preassign
+  a successor under the 30% prerequisite cap. Learned and competency automatic assignment both
+  require every predecessor Work and the Task's direct predecessor Task to be `Complete`.
+- A blocked successor remains unassigned during automatic operation and is reconsidered at the next
+  daily cycle after its final predecessor completes. Automatic execution never uses the 30% early
+  progress allowance; that allowance remains available only through explicit player assignment.
 - For each considered Task, choose among available workers without another primary Task. The worker
   with the highest competency output multiplier for that Task is selected. Equal multipliers prefer
   lower fatigue, then the earlier field-team position for deterministic behavior.
@@ -357,6 +363,8 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 - Learned rules survive campaign save/restore and are visible in `My Info`.
 - Competency automatic assignment respects reservations, learned rules, worker capacity, and
   competency/fatigue tie-breaking; its toggle survives campaign save/restore.
+- Learned and competency automatic assignment leave every predecessor-blocked successor unassigned
+  until its Work and Task predecessors are complete.
 
 ## Gantt and Task Detail UI
 
