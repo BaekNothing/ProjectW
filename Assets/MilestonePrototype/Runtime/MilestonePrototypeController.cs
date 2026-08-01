@@ -275,12 +275,12 @@ namespace ProjectW.MilestonePrototype
 
         private void DrawGanttTimeline(DeskWindow window, Rect viewport)
         {
-            const float labelWidth = 240f;
+            const float labelWidth = 285f;
             const float dayWidth = 28f;
-            const float rowHeight = 38f;
+            const float rowHeight = 48f;
             int rowCount = game.Groups.Sum(group =>
                 1 + game.Tasks.Count(task => task.GroupId == group.Id));
-            float contentWidth = game.CampaignEndDay * dayWidth + 16f;
+            float contentWidth = game.CampaignEndDay * dayWidth + 180f;
             float contentHeight = Math.Max(120f, rowCount * rowHeight + 28f);
             Rect content = new Rect(0, 0, contentWidth, contentHeight);
             Rect labelViewport = new Rect(viewport.x, viewport.y, labelWidth, viewport.height);
@@ -330,6 +330,7 @@ namespace ProjectW.MilestonePrototype
                     GUI.Label(new Rect(Math.Max(barX, remainingX) + 3, y + 4,
                             Math.Max(54, remainingWidth - 4), 21),
                         $"{task.RemainingWork:0.#}d", small);
+                    DrawCurrentWorkerSlot(task, y, rowHeight, dayWidth);
                     y += rowHeight;
                 }
                 DrawSolid(new Rect(0, y - 1, contentWidth, 1), GrayColor);
@@ -353,13 +354,48 @@ namespace ProjectW.MilestonePrototype
                 {
                     string owner = GanttTaskOwner(task);
                     if (Button(new Rect(4, y + 2, labelWidth - 8, rowHeight - 3),
-                            $"{StateName(task.State)}  {task.Name}\n담당 {owner}", small))
+                            $"{task.Name} · {StateName(task.State)} · {GanttTaskCondition(task)}\n" +
+                            $"담당 {owner}", small))
                         OpenTaskDetail(task.Id);
                     y += rowHeight;
                 }
                 DrawSolid(new Rect(0, y - 1, labelWidth, 1), GrayColor);
             }
             GUI.EndGroup();
+        }
+
+        private void DrawCurrentWorkerSlot(WorkTask task, float y, float rowHeight, float dayWidth)
+        {
+            if (task.AssignedCharacter < 0 || task.AssignedCharacter >= game.Crew.Count) return;
+            CrewMember member = game.Crew[task.AssignedCharacter];
+            float currentX = (game.Day - 1) * dayWidth + 2f;
+            var slot = new Rect(currentX, y + 3f, 172f, rowHeight - 6f);
+            DrawSolid(slot, Color.white);
+            DrawBorder(slot, InkColor);
+
+            var portraitSlot = new Rect(slot.x + 3f, slot.y + 3f, 34f, slot.height - 6f);
+            DrawSolid(portraitSlot, PaleColor);
+            DrawBorder(portraitSlot, GrayColor);
+            GUI.Label(portraitSlot, "초상", small);
+
+            var statusIconSlot = new Rect(slot.x + 40f, slot.y + 4f, 13f, 13f);
+            DrawSolid(statusIconSlot, member.Available ? PaleColor : GrayColor);
+            DrawBorder(statusIconSlot, InkColor);
+            GUI.Label(statusIconSlot, "I", small);
+
+            GUI.Label(new Rect(slot.x + 57f, slot.y + 2f, slot.width - 60f, 19f),
+                $"{member.Name} · {member.Condition}", small);
+            GUI.Label(new Rect(slot.x + 42f, slot.y + 20f, slot.width - 45f, 19f),
+                task.Name, small);
+        }
+
+        private string GanttTaskCondition(WorkTask task)
+        {
+            if (task.AssignedCharacter >= 0 && task.AssignedCharacter < game.Crew.Count)
+                return game.Crew[task.AssignedCharacter].Condition;
+            if (task.ScheduledWorker >= 0 && task.ScheduledWorker < game.Crew.Count)
+                return game.Crew[task.ScheduledWorker].Condition;
+            return "담당 없음";
         }
 
         private string GanttTaskOwner(WorkTask task)

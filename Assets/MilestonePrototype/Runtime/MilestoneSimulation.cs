@@ -177,8 +177,6 @@ namespace ProjectW.MilestonePrototype
         {
             if (crewIndex < 0 || crewIndex >= Crew.Count ||
                 Crew[crewIndex].InjuryDays > 0 || Crew[crewIndex].RestScheduled) return false;
-            foreach (WorkTask task in Tasks.Where(candidate => candidate.AssignedCharacter == crewIndex).ToList())
-                Detach(task, true);
             Crew[crewIndex].RestScheduled = true;
             Crew[crewIndex].History.Add($"DAY {Day}: 휴식 예약");
             Log($"{Crew[crewIndex].Name} 휴식 예약");
@@ -197,8 +195,6 @@ namespace ProjectW.MilestonePrototype
             member.RestScheduled = false;
             member.Experience = Math.Max(0, member.Experience - 2);
             member.RegenerationCount++;
-            foreach (WorkTask task in Tasks.Where(candidate => candidate.AssignedCharacter == crewIndex).ToList())
-                Detach(task, true);
             member.History.Add($"DAY {Day}: 재생 시술");
             Log($"{member.Name} 재생 시술, 자원 -{balance.RegenerationResourceCost}");
             RefreshStates();
@@ -319,8 +315,13 @@ namespace ProjectW.MilestonePrototype
             ApplyScheduledAssignments(report);
             ApplyLearnedAssignments(report);
             ApplyCompetencyAssignments(report);
-            foreach (CrewMember member in Crew)
+            var pausedCrew = new bool[Crew.Count];
+            var pausedConditions = new string[Crew.Count];
+            for (int crewIndex = 0; crewIndex < Crew.Count; crewIndex++)
             {
+                CrewMember member = Crew[crewIndex];
+                pausedCrew[crewIndex] = member.InjuryDays > 0 || member.RestScheduled;
+                pausedConditions[crewIndex] = member.Condition;
                 if (member.InjuryDays > 0) member.InjuryDays--;
                 if (!member.RestScheduled) continue;
                 member.Fatigue = Math.Max(0, member.Fatigue - balance.RestRecovery);
@@ -333,7 +334,8 @@ namespace ProjectW.MilestonePrototype
                          candidate.State != TaskState.Complete &&
                          candidate.State != TaskState.Failed)
                          .OrderBy(candidate => candidate.IsParallelAssignment).ToList())
-                ProcessTask(task, report);
+                ProcessTask(task, report, pausedCrew[task.AssignedCharacter],
+                    pausedConditions[task.AssignedCharacter]);
 
             TriggerRandomWork(report);
             Day++;
@@ -774,13 +776,16 @@ namespace ProjectW.MilestonePrototype
             return true;
         }
 
-        private void ProcessTask(WorkTask task, DayReport report)
+        private void ProcessTask(WorkTask task, DayReport report, bool pausedByCondition,
+            string pausedCondition)
         {
             if (task.AssignedCharacter < 0) return;
             CrewMember member = Crew[task.AssignedCharacter];
-            if (!member.Available)
+            if (pausedByCondition)
             {
-                Detach(task, true);
+                task.LastOutput = 0f;
+                task.LastOutcome = TaskOutcome.None;
+                report.Lines.Add($"{member.Name}: {task.Name} 보류 · {pausedCondition}");
                 return;
             }
 
@@ -835,8 +840,8 @@ namespace ProjectW.MilestonePrototype
             {
                 member.InjuryDays = random.Next(2, 5);
                 task.Progress = Math.Max(0f, task.Progress - .5f);
-                Detach(task, true);
-                report.Lines.Add($"사고: {member.Name}가 {member.InjuryDays}일 부상, 작업 일부 손실.");
+                report.Lines.Add(
+                    $"사고: {member.Name}가 {member.InjuryDays}일 부상, 담당 유지 · 작업 일부 손실.");
                 AddRecord(task, member.Name, RecordKind.Issue, $"{member.InjuryDays}일 부상");
             }
             else if (task.Progress + .001f >= task.EffectiveRequiredWork)

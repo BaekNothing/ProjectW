@@ -749,9 +749,12 @@ namespace ProjectW.MilestonePrototype.Tests
             game.Assign("survey", 1);
             game.AdvanceDay();
             int before = game.Resources;
+            WorkTask survey = game.Tasks.Find(task => task.Id == "survey");
             Assert.That(game.Regenerate(1), Is.True);
             Assert.That(game.Crew[1].Fatigue, Is.Zero);
             Assert.That(game.Resources, Is.EqualTo(before - 3));
+            Assert.That(survey.AssignedCharacter, Is.EqualTo(1));
+            Assert.That(survey.ContextCostDays, Is.Zero);
         }
 
         [Test]
@@ -760,12 +763,45 @@ namespace ProjectW.MilestonePrototype.Tests
             var game = new MilestoneSimulation(1);
             game.Assign("survey", 1);
             game.AdvanceDay();
+            WorkTask survey = game.Tasks.Find(task => task.Id == "survey");
+            float progress = survey.Progress;
             int fatigue = game.Crew[1].Fatigue;
             Assert.That(game.Rest(1), Is.True);
+            Assert.That(survey.AssignedCharacter, Is.EqualTo(1));
             Assert.That(game.Crew[1].Fatigue, Is.EqualTo(fatigue));
             Assert.That(game.Rest(1), Is.False);
             game.AdvanceDay();
             Assert.That(game.Crew[1].Fatigue, Is.EqualTo(0));
+            Assert.That(survey.Progress, Is.EqualTo(progress));
+            Assert.That(survey.AssignedCharacter, Is.EqualTo(1));
+            Assert.That(survey.ContextCostDays, Is.Zero);
+        }
+
+        [Test]
+        public void InjuryPausesWorkWithoutRemovingItsOwner()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.HighFatigueAccidentChance = 100;
+            data.Balance.MediumFatigueAccidentChance = 100;
+            data.Balance.MismatchAccidentChance = 0;
+            data.Balance.BaseSideMissionChance = 0;
+            data.Crew[1].Fatigue = 80;
+            var game = new MilestoneSimulation(data, 1);
+            Assert.That(game.Assign("survey", 1), Is.True);
+
+            game.AdvanceDay();
+            WorkTask survey = game.Tasks.Find(task => task.Id == "survey");
+            float accidentProgress = survey.Progress;
+            Assert.That(game.Crew[1].InjuryDays, Is.GreaterThan(0));
+            Assert.That(survey.AssignedCharacter, Is.EqualTo(1));
+            Assert.That(survey.ContextCostDays, Is.Zero);
+
+            game.AdvanceDay();
+
+            Assert.That(survey.Progress, Is.EqualTo(accidentProgress));
+            Assert.That(survey.AssignedCharacter, Is.EqualTo(1));
+            Assert.That(survey.ContextCostDays, Is.Zero);
+            Assert.That(game.LastReport.Lines, Has.Some.Contains("보류"));
         }
 
         [Test]
