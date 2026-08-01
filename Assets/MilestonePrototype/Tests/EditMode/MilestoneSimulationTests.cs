@@ -337,7 +337,7 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(survey.State, Is.EqualTo(TaskState.Complete));
             Assert.That(survey.StartedDay, Is.EqualTo(1));
             Assert.That(survey.CompletedDay, Is.EqualTo(2));
-            Assert.That(survey.AssignedCharacter, Is.EqualTo(-1));
+            Assert.That(survey.AssignedCharacter, Is.EqualTo(1));
         }
 
         [Test]
@@ -601,10 +601,50 @@ namespace ProjectW.MilestonePrototype.Tests
             data.Balance.BaseSideMissionChance = 100;
             data.Balance.RandomWorkChanceScalePercent = 0;
             var game = new MilestoneSimulation(data, 1);
+            game.Tasks.Find(task => task.Id == "survey").Kind = TaskKind.SideMission;
 
             game.AdvanceDay();
 
             Assert.That(game.Groups.Exists(work => work.Id.StartsWith("random-work-")), Is.False);
+        }
+
+        [Test]
+        public void CompletedTaskRetainsAssigneeWithoutConsumingWorkerCapacity()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.RandomWorkLimit = 0;
+            DisableAccidents(data);
+            var game = new MilestoneSimulation(data, 1);
+            WorkTask survey = game.Tasks.Find(task => task.Id == "survey");
+            Assert.That(game.Assign(survey.Id, 1), Is.True);
+
+            while (survey.State != TaskState.Complete) game.AdvanceDay();
+
+            Assert.That(survey.State, Is.EqualTo(TaskState.Complete));
+            Assert.That(survey.AssignedCharacter, Is.EqualTo(1));
+            Assert.That(game.Assign("habitat", 1), Is.True);
+            Assert.That(survey.AssignedCharacter, Is.EqualTo(1));
+            Assert.That(game.Tasks.Find(task => task.Id == "habitat").AssignedCharacter,
+                Is.EqualTo(1));
+        }
+
+        [Test]
+        public void ZeroRemainingSideMissionsGenerateOneToThreeMorningOffers()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.BaseSideMissionChance = 0;
+            data.Balance.RandomWorkChanceScalePercent = 0;
+            data.Balance.RandomWorkLimit = 3;
+            var game = new MilestoneSimulation(data, 1);
+
+            game.AdvanceDay();
+
+            int generatedCount = game.Tasks.FindAll(task => task.Kind == TaskKind.SideMission).Count;
+            int offerCount = game.Mail.FindAll(mail => mail.ActivatesWork &&
+                mail.ArrivalDay == game.Day).Count;
+            Assert.That(generatedCount, Is.InRange(1, 3));
+            Assert.That(offerCount, Is.EqualTo(generatedCount));
+            Assert.That(game.Groups.Find(group => group.Id == "incident").Required, Is.False);
         }
 
         [Test]
@@ -1087,7 +1127,11 @@ namespace ProjectW.MilestonePrototype.Tests
         [Test]
         public void SmallTaskCanRunInParallelForAdditionalFatigue()
         {
-            var game = new MilestoneSimulation(1);
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.RandomWorkLimit = 0;
+            foreach (CrewMember member in data.Crew) member.DailyOutput = 1f;
+            ForceSuccessOutcome(data);
+            var game = new MilestoneSimulation(data, 1);
             CompleteSurvey(game);
             Assert.That(game.Assign("power", 0), Is.True);
             WorkTask safety = game.Tasks.Find(task => task.Id == "safety");
@@ -1105,7 +1149,11 @@ namespace ProjectW.MilestonePrototype.Tests
         [Test]
         public void InterruptingFourDayTaskAddsOneDayContextCost()
         {
-            var game = new MilestoneSimulation(1);
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.RandomWorkLimit = 0;
+            foreach (CrewMember member in data.Crew) member.DailyOutput = 1f;
+            ForceSuccessOutcome(data);
+            var game = new MilestoneSimulation(data, 1);
             CompleteSurvey(game);
             WorkTask habitat = game.Tasks.Find(task => task.Id == "habitat");
             Assert.That(game.Assign(habitat.Id, 0), Is.True);
@@ -1537,6 +1585,16 @@ namespace ProjectW.MilestonePrototype.Tests
             data.Balance.HighFatigueAccidentChance = 0;
             data.Balance.MediumFatigueAccidentChance = 0;
             data.Balance.MismatchAccidentChance = 0;
+        }
+
+        private static void ForceSuccessOutcome(TaskSystemData data)
+        {
+            data.Balance.FreshLowOutputChance = 0;
+            data.Balance.LowOutputChance = 0;
+            data.Balance.ExhaustedLowOutputChance = 0;
+            data.Balance.FreshHighOutputChance = 0;
+            data.Balance.HighOutputChance = 0;
+            data.Balance.ExhaustedHighOutputChance = 0;
         }
     }
 }

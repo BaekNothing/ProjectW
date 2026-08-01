@@ -370,6 +370,7 @@ namespace ProjectW.MilestonePrototype
 
         private void DrawCurrentWorkerSlot(WorkTask task, float y, float rowHeight, float dayWidth)
         {
+            if (task.State == TaskState.Complete || task.State == TaskState.Failed) return;
             if (task.AssignedCharacter < 0 || task.AssignedCharacter >= game.Crew.Count) return;
             CrewMember member = game.Crew[task.AssignedCharacter];
             float currentX = (game.Day - 1) * dayWidth + 2f;
@@ -968,7 +969,8 @@ namespace ProjectW.MilestonePrototype
             if (member.InjuryDays > 0) return $"부상 · {member.InjuryDays}일";
             if (member.RestScheduled) return "휴식 예정";
             WorkTask task = game.Tasks.FirstOrDefault(candidate =>
-                candidate.AssignedCharacter == crewIndex && !candidate.IsParallelAssignment);
+                candidate.AssignedCharacter == crewIndex && !candidate.IsParallelAssignment &&
+                candidate.State != TaskState.Complete && candidate.State != TaskState.Failed);
             return task == null ? "대기 중" : $"작업 중 · {task.Name}";
         }
 
@@ -1587,7 +1589,8 @@ namespace ProjectW.MilestonePrototype
 
         private string AssignedTask(int crewIndex)
         {
-            string[] tasks = game.Tasks.Where(t => t.AssignedCharacter == crewIndex)
+            string[] tasks = game.Tasks.Where(t => t.AssignedCharacter == crewIndex &&
+                    t.State != TaskState.Complete && t.State != TaskState.Failed)
                 .Select(t => t.IsParallelAssignment ? $"{t.Name}(병행)" : t.Name).ToArray();
             return tasks.Length == 0 ? "없음" : string.Join(", ", tasks);
         }

@@ -109,6 +109,7 @@ namespace ProjectW.MilestonePrototype
             if (task.AssignedCharacter == crewIndex && !task.IsParallelAssignment) return true;
 
             WorkTask current = Tasks.FirstOrDefault(candidate =>
+                IsOngoingAssignment(candidate) &&
                 candidate.AssignedCharacter == crewIndex && !candidate.IsParallelAssignment);
             if (current != null && current != task) Detach(current, true);
             if (task.AssignedCharacter >= 0) Detach(task, true);
@@ -128,10 +129,11 @@ namespace ProjectW.MilestonePrototype
             if (task == null || task.State != TaskState.Available && task.State != TaskState.Active) return false;
             if (crewIndex < 0 || crewIndex >= Crew.Count || !Crew[crewIndex].Available) return false;
             if (task.RemainingWork > balance.ParallelMaximumRemainingDays + .001f) return false;
-            if (!Tasks.Any(candidate => candidate.AssignedCharacter == crewIndex && !candidate.IsParallelAssignment))
+            if (!Tasks.Any(candidate => IsOngoingAssignment(candidate) &&
+                                       candidate.AssignedCharacter == crewIndex && !candidate.IsParallelAssignment))
                 return false;
             if (Tasks.Any(candidate => candidate != task && candidate.AssignedCharacter == crewIndex &&
-                                       candidate.IsParallelAssignment))
+                                       candidate.IsParallelAssignment && IsOngoingAssignment(candidate)))
                 return false;
             if (task.AssignedCharacter == crewIndex && !task.IsParallelAssignment) return false;
             if (task.AssignedCharacter >= 0) Detach(task, true);
@@ -306,9 +308,9 @@ namespace ProjectW.MilestonePrototype
         {
             if (crewIndex < 0 || crewIndex >= Crew.Count) return string.Empty;
             WorkTask primary = Tasks.FirstOrDefault(task =>
-                task.AssignedCharacter == crewIndex && !task.IsParallelAssignment);
+                IsOngoingAssignment(task) && task.AssignedCharacter == crewIndex && !task.IsParallelAssignment);
             WorkTask parallel = Tasks.FirstOrDefault(task =>
-                task.AssignedCharacter == crewIndex && task.IsParallelAssignment);
+                IsOngoingAssignment(task) && task.AssignedCharacter == crewIndex && task.IsParallelAssignment);
             if (primary == null && parallel == null)
                 return "현재 맡은 작업은 없습니다. 새 지시를 기다리고 있습니다.";
 
@@ -868,8 +870,6 @@ namespace ProjectW.MilestonePrototype
             task.Progress = task.EffectiveRequiredWork;
             task.CompletedDay = Day;
             task.State = TaskState.Complete;
-            task.AssignedCharacter = -1;
-            task.IsParallelAssignment = false;
             task.ScheduledDay = 0;
             task.ScheduledWorker = -1;
             report.Lines.Add($"완료: {task.Name}");
@@ -1065,17 +1065,42 @@ namespace ProjectW.MilestonePrototype
 
         private void TriggerRandomWork(DayReport report)
         {
+            int generatedWorkCount = Groups.Count(group => group.Id != null &&
+                group.Id.StartsWith("random-work-") && group.State != WorkState.Complete &&
+                group.State != WorkState.Failed);
+            int availableSlots = Math.Max(0, balance.RandomWorkLimit - generatedWorkCount);
+            if (availableSlots <= 0) return;
+
+            int remainingSideMissions = Tasks.Count(task =>
+            {
+                if (task.Kind != TaskKind.SideMission || task.State == TaskState.Complete ||
+                    task.State == TaskState.Failed) return false;
+                WorkGroup parent = ParentWork(task);
+                return parent != null && parent.State != WorkState.Complete &&
+                       parent.State != WorkState.Failed;
+            });
+            int batchSize;
+            if (remainingSideMissions == 0)
+            {
+                batchSize = Math.Min(availableSlots, random.Next(1, 4));
+            }
+            else
+            {
             int overdue = Groups.Count(group => group.SoftDeadlineMissed &&
                                                 group.State != WorkState.Complete);
             int exhausted = Crew.Count(member => member.Fatigue >= 55);
             int rawChance = balance.BaseSideMissionChance + overdue * 16 + exhausted * 8;
             int scaledChanceBasisPoints = Math.Min(100, rawChance) *
                                           balance.RandomWorkChanceScalePercent;
-            if (Groups.Count(group => group.Id != null && group.Id.StartsWith("random-work-") &&
-                                      group.State != WorkState.Complete && group.State != WorkState.Failed) >=
-                    balance.RandomWorkLimit ||
-                random.Next(10000) >= scaledChanceBasisPoints) return;
+                if (random.Next(10000) >= scaledChanceBasisPoints) return;
+                batchSize = 1;
+            }
 
+            for (int i = 0; i < batchSize; i++) CreateRandomWork(report);
+        }
+
+        private void CreateRandomWork(DayReport report)
+        {
             int id = ++nextRandomWorkId;
             int softDays = random.Next(balance.RandomWorkMinSoftDays, balance.RandomWorkMaxSoftDays + 1);
             int reward = random.Next(balance.RandomWorkMinReward, balance.RandomWorkMaxReward + 1);
@@ -1243,7 +1268,8 @@ namespace ProjectW.MilestonePrototype
                 int worker = Crew.FindIndex(member => member.Name == rule.CrewName);
                 if (worker < 0 || !Crew[worker].Available ||
                     Tasks.Any(candidate => candidate.AssignedCharacter == worker &&
-                                           !candidate.IsParallelAssignment))
+                                           !candidate.IsParallelAssignment &&
+                                           IsOngoingAssignment(candidate)))
                     continue;
                 if (!AssignPrimary(task, worker)) continue;
                 report.Lines.Add($"자동 배정: {Crew[worker].Name} → {task.Name}");
@@ -1264,7 +1290,8 @@ namespace ProjectW.MilestonePrototype
                 {
                     CrewMember member = Crew[worker];
                     if (!member.Available || Tasks.Any(candidate =>
-                            candidate.AssignedCharacter == worker && !candidate.IsParallelAssignment))
+                            candidate.AssignedCharacter == worker && !candidate.IsParallelAssignment &&
+                            IsOngoingAssignment(candidate)))
                         continue;
                     float multiplier = CompetencyOutputMultiplier(member, task);
                     if (multiplier < bestMultiplier ||
@@ -1421,6 +1448,9 @@ namespace ProjectW.MilestonePrototype
 
         private WorkGroup ParentWork(WorkTask task) =>
             Groups.FirstOrDefault(group => group.Id == task.GroupId);
+
+        private static bool IsOngoingAssignment(WorkTask task) => task != null &&
+            task.State != TaskState.Complete && task.State != TaskState.Failed;
 
         private void AddAssignmentRecord(WorkTask task, int crewIndex, string text)
         {
