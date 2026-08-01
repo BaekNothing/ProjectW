@@ -2,12 +2,12 @@
 
 ## Document Control
 
-- Version: 1.2
+- Version: 1.3
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
-- Rationale: Extend the operating period to a three-month cycle with a midpoint review, and let repeated
-  manual assignment decisions become inspectable automation rules.
+- Rationale: Add multi-competency Task requirements so crew selection directly changes daily output,
+  while fatigue continues to determine failure, success, and great-success outcomes.
 - Idea references: `IDEA.md` items 1, 2, 4, and 8
 
 ## Scope
@@ -80,11 +80,24 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 - A worker can hold at most one primary Task for that day.
 - Each worker owns a daily output value. A primary assignment contributes that output toward the
   Task workload before outcome modifiers.
+- Every Task requires one to three of the six colony competencies: base engineering, science
+  exploration, resource operations, environmental adaptation, life support, and command/diplomacy.
+  Requirements are stored as competency indices in external gameplay data and shown on Task detail.
+- Competency `4` is the standard threshold. For a worker and Task, average the worker's scores only
+  across that Task's required competencies. The competency output multiplier is
+  `required competency average / 4`, within the natural score range of `0.5` to `1.75`.
+- If every required score is below `4`, override that calculation to `0.5`. Otherwise scores above
+  `4` offset below-standard required scores through the average. Thus an excellent `7` may cover
+  another required competency's shortfall, and an average of `4` produces the standard `1.0` work
+  per day before condition and other existing modifiers.
 - Daily output probability is derived from the worker's fatigue at the start of execution.
-  At fatigue 0, low / expected / high output chances are 5% / 60% / 35%. At fatigue 50 they are
+  The three outcomes are `Failure`, `Success`, and `GreatSuccess`. At fatigue 0 their chances are
+  5% / 60% / 35%. At fatigue 50 they are
   20% / 60% / 20%, and at fatigue 100 they are 100% / 0% / 0%. Chances interpolate linearly
-  between those anchor points. Version 0.9 multipliers are data-driven and default to
-  0.7 / 1.0 / 1.3 for low / expected / high output.
+  between those anchor points. Their output multipliers are data-driven and default to
+  0.5 / 1.0 / 1.5 for failure / success / great success.
+- Final daily progress is `worker daily output × primary or parallel output × competency multiplier
+  × condition outcome multiplier`, then the existing prerequisite progress cap is applied.
 - Fatigue 100 does not make a worker unavailable, remove an assignment, or stop ongoing work.
   The worker continues at the low output multiplier. Only explicit interruption causes such as
   injury or scheduled rest stop work.
@@ -141,8 +154,9 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 ### Expected Schedule
 
 - Selecting a worker produces an expected schedule before the reservation is confirmed.
-- Expected daily output is the worker's daily output multiplied by primary-work output and the
-  fatigue-derived weighted average of the configured low, regular, and high output bands.
+- Expected daily output is the worker's daily output multiplied by primary-work output, the selected
+  Task's competency multiplier, and the fatigue-derived weighted average of failure, success, and
+  great-success output bands.
 - Estimated duration is `ceil(estimated remaining work / expected daily output)`.
 - Estimated remaining work includes the handover/context cost that selecting a different worker
   would add.
@@ -225,7 +239,8 @@ through data without redefining Task ownership.
   four-fifths without changing the relative pressure from those modifiers.
 - Every generated Work receives a soft deadline, later hard deadline, credit reward, soft penalty,
   and larger hard penalty.
-- Generated Tasks receive a workload of one or two days and a required role.
+- Generated Tasks receive a workload of one or two days, a required role, and the union of one to
+  three competency requirements supplied by their external target and action words.
 - Generated Task names combine one adjective, one target noun, and one action from external data.
   The adjective determines risk and contributes difficulty. The target and action contribute
   difficulty and share a role, so combinations remain semantically coherent and point to the
@@ -275,7 +290,7 @@ External data includes:
 - campaign duration and starting resources
 - midpoint review day
 - Work definitions and predecessor IDs
-- Task definitions, durations, roles, difficulty, and prerequisite IDs
+- Task definitions, durations, roles, one-to-three competency requirements, difficulty, and prerequisite IDs
 - worker definitions and initial stats
 - the four-person field-team roster and each member's initial trust toward the responsible officer
 - assignment, interruption, parallel-work, fatigue, outcome, and perk balance values
@@ -309,6 +324,8 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 - No initial Work, Task, worker, mail, codex, or balance values are created in runtime code.
 - The gameplay JSON is emitted as a manifest-listed patch file.
 - EditMode tests cover assignment capacity, prerequisites, parallel work, interruption cost, handover cost, and deadlines.
+- EditMode tests cover below-standard output, competency averaging, excellent-score coverage, and
+  fatigue-driven failure/success/great-success output.
 - The campaign lasts 90 days and produces one midpoint review on day 45.
 - A manual primary assignment creates or updates a learned rule.
 - A matching available Task is automatically assigned only when the recorded worker is eligible.
