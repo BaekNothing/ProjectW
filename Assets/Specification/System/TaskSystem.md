@@ -2,12 +2,12 @@
 
 ## Document Control
 
-- Version: 1.8
+- Version: 1.9
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
-- Rationale: Preserve completed Task ownership and keep the side-mission queue supplied with
-  structured morning-mail offers without classifying urgent missions as side missions.
+- Rationale: Correct generated side missions from repeated single-action incidents into
+  mission-level Works with a visible hierarchy of structured child Tasks.
 - Idea references: `IDEA.md` items 1, 2, 4, and 8
 
 ## Scope
@@ -382,6 +382,7 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 - Task completion retains the completing assignee while leaving that worker free for new work.
 - Zero remaining side missions generate one to three next-morning structured offers; urgent
   missions do not prevent that refill.
+- Each generated offer has one Work row, two to four chained Task rows, and one acceptance mail.
 
 ## Morning Side-Mission Offers
 
@@ -404,6 +405,17 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 - At the end of a day with zero remaining side missions, the system generates a random batch of one
   to three structured side-mission Works, bounded by the random-Work limit. Each generated Work uses
   the existing adjective/target/action structure and arrives as its own next-morning acceptance mail.
+- Every generated side-mission Work contains two to four required child Tasks. The Work is the
+  mission/table-of-contents row, while its Tasks are separately assignable structured work items.
+- Generated child Tasks use the existing adjective/target/action word pool independently and form a
+  prerequisite chain inside the Work. Completing one child unlocks the next; completing all children
+  completes the mission Work.
+- A generated mission sends exactly one acceptance mail, regardless of its child Task count. The
+  mail names the mission and summarizes the number of child work items and total reward.
+- Urgent/incident generation remains a separate concept. It must not use the side-mission batch,
+  side-mission mail, or `TaskKind.SideMission` merely to represent a small random action.
+- The generated Work deadline includes additional schedule allowance for its child count so the
+  hierarchy is not balanced as though it were a single Task.
 - The zero-inventory batch is guaranteed; ordinary chance-based generation is used only while at
   least one side mission remains.
 
