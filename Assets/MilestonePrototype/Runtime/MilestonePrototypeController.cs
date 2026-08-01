@@ -492,7 +492,7 @@ namespace ProjectW.MilestonePrototype
                 : game.Tasks.FirstOrDefault(candidate => candidate.Id == task.PrerequisiteId);
             List<WorkTask> successors = game.Tasks.Where(candidate =>
                 candidate.PrerequisiteId == task.Id).ToList();
-            int matchingWorker = game.Crew.FindIndex(member => member.Specialty == task.RequiredRole);
+            int matchingWorker = BestCompetencyWorker(task);
             TaskCostPreview cost = game.BuildCostPreview(task, matchingWorker);
             string assignee = task.AssignedCharacter < 0
                 ? "미배정"
@@ -503,6 +503,7 @@ namespace ProjectW.MilestonePrototype
             GUILayout.Label(
                 $"{work?.Name ?? "소속 없음"} / {WorkStateName(work?.State ?? WorkState.Locked)}   " +
                 $"역할 {RoleName(task.RequiredRole)}   위험 {RiskName(game.EffectiveRisk(task))}", small);
+            GUILayout.Label($"요구 역량  {RequiredCompetencySummary(task)}", section);
             GUILayout.HorizontalSlider(task.Completion, 0, 1);
             GUILayout.Label(
                 $"진행 {task.Progress:0.#}일 / 유효 {task.EffectiveRequiredWork:0.#}일   " +
@@ -510,7 +511,9 @@ namespace ProjectW.MilestonePrototype
             GUILayout.Label(
                 $"시작일 {(task.StartedDay > 0 ? $"DAY {task.StartedDay:00}" : "미시작")}  /  " +
                 $"완료일 {(task.CompletedDay > 0 ? $"DAY {task.CompletedDay:00}" : "미완료")}", small);
-            GUILayout.Label($"최근 하루 산출 {task.LastOutput:0.#}  /  중요도 {ImportanceName(task.Importance)}", small);
+            GUILayout.Label(
+                $"최근 결과 {MilestoneSimulation.OutcomeName(task.LastOutcome)} · 산출 {task.LastOutput:0.##}  /  " +
+                $"중요도 {ImportanceName(task.Importance)}", small);
 
             GUILayout.BeginHorizontal();
             GUILayout.BeginVertical(GUI.skin.box);
@@ -529,6 +532,10 @@ namespace ProjectW.MilestonePrototype
                 ? $"지금 담당 변경 시 +{game.InterruptionAndResumptionCostDays:0.#}일"
                 : "지금 담당 변경 비용 없음", warning);
             GUILayout.Label($"적합 인력 피로: 주 {cost.PrimaryFatigue} / 병행 {cost.ParallelFatigue}", small);
+            if (matchingWorker >= 0)
+                GUILayout.Label(
+                    $"역량 추천: {game.Crew[matchingWorker].Name} · {RequiredCompetencySummary(task, game.Crew[matchingWorker])} " +
+                    $"· 산출 ×{cost.CompetencyMultiplier:0.##}", small);
             GUILayout.EndVertical();
             GUILayout.EndHorizontal();
 
@@ -1519,6 +1526,38 @@ namespace ProjectW.MilestonePrototype
             string[] tasks = game.Tasks.Where(t => t.AssignedCharacter == crewIndex)
                 .Select(t => t.IsParallelAssignment ? $"{t.Name}(병행)" : t.Name).ToArray();
             return tasks.Length == 0 ? "없음" : string.Join(", ", tasks);
+        }
+
+        private int BestCompetencyWorker(WorkTask task)
+        {
+            int bestIndex = -1;
+            float bestMultiplier = -1f;
+            for (int i = 0; i < game.Crew.Count; i++)
+            {
+                float multiplier = MilestoneSimulation.CompetencyOutputMultiplier(game.Crew[i], task);
+                if (multiplier <= bestMultiplier) continue;
+                bestMultiplier = multiplier;
+                bestIndex = i;
+            }
+            return bestIndex;
+        }
+
+        private static string RequiredCompetencySummary(WorkTask task, CrewMember member = null)
+        {
+            if (task?.RequiredCompetencies == null || task.RequiredCompetencies.Length == 0)
+                return "없음";
+            var labels = new string[task.RequiredCompetencies.Length];
+            for (int i = 0; i < task.RequiredCompetencies.Length; i++)
+            {
+                int competency = task.RequiredCompetencies[i];
+                string name = competency >= 0 && competency < CompetencyNames.Length
+                    ? CompetencyNames[competency]
+                    : $"역량 {competency}";
+                labels[i] = member?.Competencies != null && competency < member.Competencies.Length
+                    ? $"{name} {member.Competencies[competency]}"
+                    : name;
+            }
+            return string.Join(" · ", labels);
         }
 
         public static float RestoredScrollbarWidth(float currentWidth) =>

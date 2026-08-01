@@ -10,6 +10,7 @@ namespace ProjectW.MilestonePrototype
     public enum RiskLevel { Low, Medium, High }
     public enum ImportanceLevel { Low, Medium, High }
     public enum RecordKind { Output, Note, Issue }
+    public enum TaskOutcome { None, Failure, Success, GreatSuccess }
 
     [Serializable]
     public sealed class WorkTask
@@ -18,6 +19,7 @@ namespace ProjectW.MilestonePrototype
         public string Name;
         public TaskKind Kind;
         public WorkRole RequiredRole;
+        public int[] RequiredCompetencies;
         public float RequiredWork;
         public float Progress;
         public int Deadline;
@@ -35,6 +37,7 @@ namespace ProjectW.MilestonePrototype
         public int LastWorker = -1;
         public int Difficulty;
         public float LastOutput;
+        public TaskOutcome LastOutcome;
         public int ScheduledDay;
         public int ScheduledWorker = -1;
         public int StartedDay;
@@ -167,6 +170,7 @@ namespace ProjectW.MilestonePrototype
         public string Id;
         public string Text;
         public WorkRole Role;
+        public int[] RequiredCompetencies;
         public int Difficulty;
     }
 
@@ -176,6 +180,7 @@ namespace ProjectW.MilestonePrototype
         public string Id;
         public string Text;
         public WorkRole Role;
+        public int[] RequiredCompetencies;
         public int Difficulty;
     }
 
@@ -194,6 +199,7 @@ namespace ProjectW.MilestonePrototype
         public int PrimaryFatigue;
         public int ParallelFatigue;
         public bool CanRunInParallel;
+        public float CompetencyMultiplier;
     }
 
     public sealed class TaskScheduleEstimate

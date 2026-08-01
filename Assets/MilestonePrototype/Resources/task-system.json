@@ -39,8 +39,8 @@
     "FreshHighOutputChance": 35,
     "ExhaustedLowOutputChance": 100,
     "ExhaustedHighOutputChance": 0,
-    "LowOutputMultiplier": 0.7,
-    "HighOutputMultiplier": 1.3
+    "LowOutputMultiplier": 0.5,
+    "HighOutputMultiplier": 1.5
   },
   "RandomTaskWords": {
     "Adjectives": [
@@ -50,24 +50,24 @@
       { "Id": "adjective-very-unstable", "Text": "매우 불안정한", "Risk": 2, "Difficulty": 3 }
     ],
     "Targets": [
-      { "Id": "target-bedrock", "Text": "암반", "Role": 1, "Difficulty": 1 },
-      { "Id": "target-strata", "Text": "지층", "Role": 1, "Difficulty": 1 },
-      { "Id": "target-aggregate", "Text": "골재", "Role": 0, "Difficulty": 0 },
-      { "Id": "target-equipment", "Text": "장비", "Role": 0, "Difficulty": 1 },
-      { "Id": "target-supply-schedule", "Text": "보급 일정", "Role": 2, "Difficulty": 1 },
-      { "Id": "target-field-crew", "Text": "현장 인력", "Role": 2, "Difficulty": 0 },
-      { "Id": "target-unknown-zone", "Text": "미지 구역", "Role": 3, "Difficulty": 2 },
-      { "Id": "target-weather-change", "Text": "기상 변화", "Role": 3, "Difficulty": 1 }
+      { "Id": "target-bedrock", "Text": "암반", "Role": 1, "RequiredCompetencies": [1], "Difficulty": 1 },
+      { "Id": "target-strata", "Text": "지층", "Role": 1, "RequiredCompetencies": [1], "Difficulty": 1 },
+      { "Id": "target-aggregate", "Text": "골재", "Role": 0, "RequiredCompetencies": [2], "Difficulty": 0 },
+      { "Id": "target-equipment", "Text": "장비", "Role": 0, "RequiredCompetencies": [0], "Difficulty": 1 },
+      { "Id": "target-supply-schedule", "Text": "보급 일정", "Role": 2, "RequiredCompetencies": [2], "Difficulty": 1 },
+      { "Id": "target-field-crew", "Text": "현장 인력", "Role": 2, "RequiredCompetencies": [5], "Difficulty": 0 },
+      { "Id": "target-unknown-zone", "Text": "미지 구역", "Role": 3, "RequiredCompetencies": [3, 1], "Difficulty": 2 },
+      { "Id": "target-weather-change", "Text": "기상 변화", "Role": 3, "RequiredCompetencies": [3], "Difficulty": 1 }
     ],
     "Actions": [
-      { "Id": "action-survey", "Text": "탐사", "Role": 1, "Difficulty": 1 },
-      { "Id": "action-analysis", "Text": "분석", "Role": 1, "Difficulty": 0 },
-      { "Id": "action-transport", "Text": "운반", "Role": 0, "Difficulty": 0 },
-      { "Id": "action-maintenance", "Text": "정비", "Role": 0, "Difficulty": 1 },
-      { "Id": "action-coordinate", "Text": "조정", "Role": 2, "Difficulty": 1 },
-      { "Id": "action-inspection", "Text": "점검", "Role": 2, "Difficulty": 0 },
-      { "Id": "action-response", "Text": "대응", "Role": 3, "Difficulty": 1 },
-      { "Id": "action-pioneer", "Text": "개척", "Role": 3, "Difficulty": 2 }
+      { "Id": "action-survey", "Text": "탐사", "Role": 1, "RequiredCompetencies": [1], "Difficulty": 1 },
+      { "Id": "action-analysis", "Text": "분석", "Role": 1, "RequiredCompetencies": [1], "Difficulty": 0 },
+      { "Id": "action-transport", "Text": "운반", "Role": 0, "RequiredCompetencies": [2, 3], "Difficulty": 0 },
+      { "Id": "action-maintenance", "Text": "정비", "Role": 0, "RequiredCompetencies": [0], "Difficulty": 1 },
+      { "Id": "action-coordinate", "Text": "조정", "Role": 2, "RequiredCompetencies": [5, 2], "Difficulty": 1 },
+      { "Id": "action-inspection", "Text": "점검", "Role": 2, "RequiredCompetencies": [4], "Difficulty": 0 },
+      { "Id": "action-response", "Text": "대응", "Role": 3, "RequiredCompetencies": [3, 4], "Difficulty": 1 },
+      { "Id": "action-pioneer", "Text": "개척", "Role": 3, "RequiredCompetencies": [3, 0], "Difficulty": 2 }
     ]
   },
   "Works": [
@@ -111,6 +111,7 @@
       "Name": "착륙 지점 조사",
       "Kind": 0,
       "RequiredRole": 1,
+      "RequiredCompetencies": [1, 3],
       "RequiredWork": 3.0,
       "Required": true,
       "PrerequisiteId": "",
@@ -125,6 +126,7 @@
       "Name": "발전 설비 설치",
       "Kind": 0,
       "RequiredRole": 0,
+      "RequiredCompetencies": [0, 2],
       "RequiredWork": 4.0,
       "Required": true,
       "PrerequisiteId": "survey",
@@ -139,6 +141,7 @@
       "Name": "거주 구역 건설",
       "Kind": 0,
       "RequiredRole": 0,
+      "RequiredCompetencies": [0, 4, 2],
       "RequiredWork": 4.0,
       "Required": true,
       "PrerequisiteId": "survey",
@@ -153,6 +156,7 @@
       "Name": "안전 검증",
       "Kind": 0,
       "RequiredRole": 1,
+      "RequiredCompetencies": [0, 4, 1],
       "RequiredWork": 1.0,
       "Required": false,
       "PrerequisiteId": "power",
@@ -167,6 +171,7 @@
       "Name": "최종 가동 시험",
       "Kind": 0,
       "RequiredRole": 3,
+      "RequiredCompetencies": [0, 3, 5],
       "RequiredWork": 3.0,
       "Required": true,
       "PrerequisiteId": "",

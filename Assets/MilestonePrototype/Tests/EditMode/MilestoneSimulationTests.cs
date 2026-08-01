@@ -129,8 +129,52 @@ namespace ProjectW.MilestonePrototype.Tests
             var game = new MilestoneSimulation(1);
             Assert.That(game.Assign("survey", 1), Is.True);
             game.AdvanceDay();
-            Assert.That(game.Tasks[0].Progress, Is.InRange(.7f, 1.3f));
+            Assert.That(game.Tasks[0].Progress, Is.EqualTo(1.5f).Within(.001f));
             Assert.That(game.Crew[1].Fatigue, Is.EqualTo(9));
+        }
+
+        [Test]
+        public void AllRequiredCompetenciesBelowStandardProduceHalfOutput()
+        {
+            var member = new CrewMember { Competencies = new[] { 3, 2, 1, 3, 2, 1 } };
+            var task = new WorkTask { RequiredCompetencies = new[] { 0, 1, 3 } };
+
+            Assert.That(MilestoneSimulation.CompetencyOutputMultiplier(member, task), Is.EqualTo(.5f));
+        }
+
+        [Test]
+        public void ExcellentCompetencyCoversAnotherRequiredCompetencyShortfall()
+        {
+            var member = new CrewMember { Competencies = new[] { 7, 1, 4, 4, 4, 4 } };
+            var task = new WorkTask { RequiredCompetencies = new[] { 0, 1 } };
+
+            Assert.That(MilestoneSimulation.CompetencyOutputMultiplier(member, task), Is.EqualTo(1f));
+        }
+
+        [TestCase(100, 0, TaskOutcome.Failure, .75f)]
+        [TestCase(0, 0, TaskOutcome.Success, 1.5f)]
+        [TestCase(0, 100, TaskOutcome.GreatSuccess, 2.25f)]
+        public void ConditionOutcomeMultipliesCompetencyBasedOutput(
+            int lowChance, int highChance, TaskOutcome expectedOutcome, float expectedOutput)
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.FreshLowOutputChance = lowChance;
+            data.Balance.LowOutputChance = lowChance;
+            data.Balance.ExhaustedLowOutputChance = lowChance;
+            data.Balance.FreshHighOutputChance = highChance;
+            data.Balance.HighOutputChance = highChance;
+            data.Balance.ExhaustedHighOutputChance = highChance;
+            data.Balance.HighFatigueAccidentChance = 0;
+            data.Balance.MediumFatigueAccidentChance = 0;
+            data.Balance.MismatchAccidentChance = 0;
+            var game = new MilestoneSimulation(data, 1);
+
+            game.Assign("survey", 1);
+            game.AdvanceDay();
+
+            WorkTask task = game.Tasks.Find(candidate => candidate.Id == "survey");
+            Assert.That(task.LastOutcome, Is.EqualTo(expectedOutcome));
+            Assert.That(task.LastOutput, Is.EqualTo(expectedOutput).Within(.001f));
         }
 
         [Test]
@@ -167,16 +211,15 @@ namespace ProjectW.MilestonePrototype.Tests
 
             game.Assign(survey.Id, 1);
             game.AdvanceDay();
-            game.AdvanceDay();
             Assert.That(survey.State, Is.EqualTo(TaskState.Active));
-            Assert.That(survey.Progress, Is.EqualTo(2f));
+            Assert.That(survey.Progress, Is.EqualTo(1.5f));
 
             game.AdvanceDay();
 
             Assert.That(survey.Progress, Is.EqualTo(survey.EffectiveRequiredWork));
             Assert.That(survey.State, Is.EqualTo(TaskState.Complete));
             Assert.That(survey.StartedDay, Is.EqualTo(1));
-            Assert.That(survey.CompletedDay, Is.EqualTo(3));
+            Assert.That(survey.CompletedDay, Is.EqualTo(2));
             Assert.That(survey.AssignedCharacter, Is.EqualTo(-1));
         }
 
@@ -244,7 +287,7 @@ namespace ProjectW.MilestonePrototype.Tests
             game.Assign("survey", 1);
             game.AdvanceDay();
 
-            Assert.That(game.Tasks.Find(task => task.Id == "survey").LastOutput, Is.EqualTo(1.4f).Within(.001f));
+            Assert.That(game.Tasks.Find(task => task.Id == "survey").LastOutput, Is.EqualTo(1.5f).Within(.001f));
         }
 
         [Test]
@@ -276,7 +319,7 @@ namespace ProjectW.MilestonePrototype.Tests
             game.AdvanceDay();
 
             Assert.That(survey.AssignedCharacter, Is.EqualTo(1));
-            Assert.That(survey.LastOutput, Is.EqualTo(.7f).Within(.001f));
+            Assert.That(survey.LastOutput, Is.EqualTo(.75f).Within(.001f));
             Assert.That(game.Crew[1].Fatigue, Is.EqualTo(100));
         }
 
@@ -358,6 +401,7 @@ namespace ProjectW.MilestonePrototype.Tests
                         Id = "target-bedrock",
                         Text = "암반",
                         Role = WorkRole.Analysis,
+                        RequiredCompetencies = new[] { 1 },
                         Difficulty = 1
                     }
                 },
@@ -368,6 +412,7 @@ namespace ProjectW.MilestonePrototype.Tests
                         Id = "action-survey",
                         Text = "탐사",
                         Role = WorkRole.Analysis,
+                        RequiredCompetencies = new[] { 1 },
                         Difficulty = 1
                     }
                 }
@@ -384,6 +429,7 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(generated.HardPenaltyCredits, Is.GreaterThan(generated.SoftPenaltyCredits));
             Assert.That(generatedTask.Name, Is.EqualTo("불안정한 암반 탐사"));
             Assert.That(generatedTask.RequiredRole, Is.EqualTo(WorkRole.Analysis));
+            Assert.That(generatedTask.RequiredCompetencies, Is.EqualTo(new[] { 1 }));
             Assert.That(generatedTask.Risk, Is.EqualTo(RiskLevel.High));
             Assert.That(generatedTask.Difficulty, Is.EqualTo(4));
             Assert.That(generatedTask.RequiredWork, Is.InRange(1f, 2f));
@@ -464,6 +510,7 @@ namespace ProjectW.MilestonePrototype.Tests
             data.Balance.HighFatigueAccidentChance = 0;
             data.Balance.MediumFatigueAccidentChance = 0;
             data.Balance.MismatchAccidentChance = 0;
+            Array.Find(data.Tasks, task => task.Id == "survey").RequiredWork = 4f;
             var game = new MilestoneSimulation(data, 1);
             WorkTask survey = game.Tasks.Find(task => task.Id == "survey");
             Assert.That(game.Assign(survey.Id, 1), Is.True);
@@ -508,9 +555,9 @@ namespace ProjectW.MilestonePrototype.Tests
             TaskScheduleEstimate estimate = game.EstimateSchedule("survey", 1);
 
             Assert.That(estimate.StartDay, Is.EqualTo(game.Day));
-            Assert.That(estimate.ExpectedDailyOutput, Is.EqualTo(1.09f).Within(.001f));
-            Assert.That(estimate.DurationDays, Is.EqualTo(3));
-            Assert.That(estimate.CompletionDay, Is.EqualTo(3));
+            Assert.That(estimate.ExpectedDailyOutput, Is.EqualTo(1.725f).Within(.001f));
+            Assert.That(estimate.DurationDays, Is.EqualTo(2));
+            Assert.That(estimate.CompletionDay, Is.EqualTo(2));
             Assert.That(estimate.RollingStart, Is.False);
         }
 
@@ -522,7 +569,7 @@ namespace ProjectW.MilestonePrototype.Tests
 
             TaskScheduleEstimate estimate = game.EstimateSchedule("habitat", 1);
 
-            Assert.That(estimate.StartDay, Is.EqualTo(4));
+            Assert.That(estimate.StartDay, Is.EqualTo(3));
             Assert.That(estimate.CompletionDay, Is.EqualTo(7));
             Assert.That(estimate.RollingStart, Is.False);
         }
@@ -551,9 +598,9 @@ namespace ProjectW.MilestonePrototype.Tests
 
             TaskScheduleEstimate estimate = game.EstimateSchedule("survey", 1);
 
-            Assert.That(estimate.ExpectedDailyOutput, Is.EqualTo(2.18f).Within(.001f));
-            Assert.That(estimate.DurationDays, Is.EqualTo(2));
-            Assert.That(estimate.CompletionDay, Is.EqualTo(2));
+            Assert.That(estimate.ExpectedDailyOutput, Is.EqualTo(3.45f).Within(.001f));
+            Assert.That(estimate.DurationDays, Is.EqualTo(1));
+            Assert.That(estimate.CompletionDay, Is.EqualTo(1));
         }
 
         [Test]
@@ -596,8 +643,8 @@ namespace ProjectW.MilestonePrototype.Tests
 
             TaskScheduleEstimate habitat = game.EstimatePreviewSchedule("habitat");
 
-            Assert.That(habitat.StartDay, Is.EqualTo(3));
-            Assert.That(habitat.CompletionDay, Is.EqualTo(6));
+            Assert.That(habitat.StartDay, Is.EqualTo(2));
+            Assert.That(habitat.CompletionDay, Is.EqualTo(5));
         }
 
         [Test]
@@ -789,6 +836,19 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void LegacySnapshotBackfillsTaskCompetencyRequirements()
+        {
+            var original = new MilestoneSimulation(1);
+            CampaignSnapshot snapshot = original.CreateSnapshot();
+            foreach (WorkTask task in snapshot.Tasks) task.RequiredCompetencies = null;
+            var restored = new MilestoneSimulation(2);
+
+            Assert.That(restored.Restore(snapshot), Is.True);
+            foreach (WorkTask task in restored.Tasks)
+                Assert.That(task.RequiredCompetencies, Has.Length.InRange(1, 3));
+        }
+
+        [Test]
         public void WorkPrerequisiteLocksLaunchUntilFoundationCompletes()
         {
             var game = new MilestoneSimulation(1);
@@ -823,7 +883,7 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(game.AssignParallel("safety", 0), Is.True);
             game.AdvanceDay();
 
-            Assert.That(game.Tasks.Find(task => task.Id == "power").Progress, Is.EqualTo(1f));
+            Assert.That(game.Tasks.Find(task => task.Id == "power").Progress, Is.EqualTo(1.5f));
             Assert.That(safety.State, Is.EqualTo(TaskState.Complete));
             Assert.That(game.Crew[0].Fatigue, Is.EqualTo(36));
         }
@@ -838,7 +898,7 @@ namespace ProjectW.MilestonePrototype.Tests
             game.AdvanceDay();
 
             Assert.That(game.Assign(habitat.Id, -1), Is.True);
-            Assert.That(habitat.Progress, Is.EqualTo(1f));
+            Assert.That(habitat.Progress, Is.EqualTo(1.25f));
             Assert.That(habitat.ContextCostDays, Is.EqualTo(1f));
             Assert.That(habitat.EffectiveRequiredWork, Is.EqualTo(5f));
             Assert.That(habitat.SplitCount, Is.EqualTo(1));

@@ -70,6 +70,8 @@ namespace ProjectW.MilestonePrototype
                         throw new InvalidOperationException(
                             $"Crew competencies must be between 0 and {CrewMember.MaximumCompetency}.");
             }
+            foreach (WorkTask task in data.Tasks)
+                ValidateRequiredCompetencies(task?.RequiredCompetencies, "Every Task");
             if (data.CampaignEndDay <= 0 || data.MidpointReviewDay <= 0 ||
                 data.MidpointReviewDay >= data.CampaignEndDay || data.StartingResources < 0)
                 throw new InvalidOperationException("Task-system campaign values are invalid.");
@@ -108,6 +110,7 @@ namespace ProjectW.MilestonePrototype
                     string.IsNullOrWhiteSpace(target.Text) || !hasCompatibleAction)
                     throw new InvalidOperationException(
                         "Every random task target requires at least one compatible action.");
+                ValidateRequiredCompetencies(target.RequiredCompetencies, "Every random task target");
             }
             foreach (RandomTaskAdjective adjective in data.RandomTaskWords.Adjectives)
             {
@@ -120,6 +123,21 @@ namespace ProjectW.MilestonePrototype
                 if (action == null || string.IsNullOrWhiteSpace(action.Id) ||
                     string.IsNullOrWhiteSpace(action.Text))
                     throw new InvalidOperationException("Random task words cannot be empty.");
+                ValidateRequiredCompetencies(action.RequiredCompetencies, "Every random task action");
+            }
+        }
+
+        private static void ValidateRequiredCompetencies(int[] competencies, string owner)
+        {
+            if (competencies == null || competencies.Length < 1 || competencies.Length > 3)
+                throw new InvalidOperationException($"{owner} requires one to three competencies.");
+            for (int i = 0; i < competencies.Length; i++)
+            {
+                if (competencies[i] < 0 || competencies[i] >= CrewMember.CompetencyCount)
+                    throw new InvalidOperationException($"{owner} contains an invalid competency index.");
+                for (int previous = 0; previous < i; previous++)
+                    if (competencies[previous] == competencies[i])
+                        throw new InvalidOperationException($"{owner} cannot repeat a competency.");
             }
         }
     }

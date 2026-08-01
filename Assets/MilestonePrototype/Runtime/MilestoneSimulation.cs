@@ -14,6 +14,7 @@ namespace ProjectW.MilestonePrototype
         private readonly string[][] crewPerks;
         private readonly int[][] crewCompetencies;
         private readonly RandomTaskWordPool randomTaskWords;
+        private readonly WorkTask[] baseTasks;
         private readonly CodexEntry[] baseCodex;
         private int nextRandomWorkId;
 
@@ -50,6 +51,7 @@ namespace ProjectW.MilestonePrototype
             random = new Random(seed);
             balance = data.Balance;
             randomTaskWords = data.RandomTaskWords;
+            baseTasks = data.Tasks;
             baseCodex = data.Codex ?? new CodexEntry[0];
             crewPortraits = new string[data.Crew.Length];
             crewMemos = new string[data.Crew.Length];
@@ -383,7 +385,8 @@ namespace ProjectW.MilestonePrototype
                     : 0f,
                 PrimaryFatigue = primaryFatigue,
                 ParallelFatigue = primaryFatigue + balance.ParallelFatigue,
-                CanRunInParallel = task.RemainingWork <= balance.ParallelMaximumRemainingDays + .001f
+                CanRunInParallel = task.RemainingWork <= balance.ParallelMaximumRemainingDays + .001f,
+                CompetencyMultiplier = hasWorker ? CompetencyOutputMultiplier(Crew[crewIndex], task) : 1f
             };
         }
 
@@ -392,7 +395,7 @@ namespace ProjectW.MilestonePrototype
             WorkTask task = Tasks.FirstOrDefault(candidate => candidate.Id == taskId);
             if (task == null || crewIndex < 0 || crewIndex >= Crew.Count) return null;
 
-            float expectedOutput = ExpectedDailyOutput(crewIndex);
+            float expectedOutput = ExpectedDailyOutput(task, crewIndex);
             float handoverWork = task.AssignedCharacter >= 0 &&
                                  task.AssignedCharacter != crewIndex &&
                                  task.Progress > 0f &&
@@ -484,7 +487,7 @@ namespace ProjectW.MilestonePrototype
             int workerIndex = task.ScheduledWorker >= 0 && task.ScheduledWorker < Crew.Count
                 ? task.ScheduledWorker
                 : -1;
-            float output = workerIndex >= 0 ? ExpectedDailyOutput(workerIndex) : 1f;
+            float output = workerIndex >= 0 ? ExpectedDailyOutput(task, workerIndex) : 1f;
             int startDay = task.ScheduledDay > 0 ? Math.Max(Day, task.ScheduledDay) : Day;
             bool rolling = false;
             bool dependencyDelay = ApplyPreviewDependencyStart(task, ref startDay, ref rolling, 0);
@@ -527,7 +530,7 @@ namespace ProjectW.MilestonePrototype
             };
         }
 
-        private float ExpectedDailyOutput(int crewIndex)
+        private float ExpectedDailyOutput(WorkTask task, int crewIndex)
         {
             int lowChance;
             int highChance;
@@ -538,8 +541,27 @@ namespace ProjectW.MilestonePrototype
                 regularChance / 100f +
                 highChance * balance.HighOutputMultiplier / 100f;
             float dailyOutput = Crew[crewIndex].DailyOutput > 0f ? Crew[crewIndex].DailyOutput : 1f;
-            float output = dailyOutput * balance.PrimaryProgressDays * expectedMultiplier;
+            float output = dailyOutput * balance.PrimaryProgressDays *
+                           CompetencyOutputMultiplier(Crew[crewIndex], task) * expectedMultiplier;
             return output > .001f ? output : .001f;
+        }
+
+        public static float CompetencyOutputMultiplier(CrewMember member, WorkTask task)
+        {
+            if (member?.Competencies == null || task?.RequiredCompetencies == null ||
+                task.RequiredCompetencies.Length == 0) return 1f;
+            int total = 0;
+            bool allBelowStandard = true;
+            foreach (int competency in task.RequiredCompetencies)
+            {
+                int score = competency >= 0 && competency < member.Competencies.Length
+                    ? member.Competencies[competency]
+                    : 0;
+                total += score;
+                if (score >= 4) allBelowStandard = false;
+            }
+            if (allBelowStandard) return .5f;
+            return Math.Max(.5f, total / (4f * task.RequiredCompetencies.Length));
         }
 
         public void OutputChances(int fatigue, out int lowChance, out int highChance)
@@ -667,7 +689,7 @@ namespace ProjectW.MilestonePrototype
             int workerIndex = task.ScheduledWorker >= 0 && task.ScheduledWorker < Crew.Count
                 ? task.ScheduledWorker
                 : -1;
-            float output = workerIndex >= 0 ? ExpectedDailyOutput(workerIndex) : 1f;
+            float output = workerIndex >= 0 ? ExpectedDailyOutput(task, workerIndex) : 1f;
             int startDay = task.ScheduledDay > 0 ? Math.Max(Day, task.ScheduledDay) : Day;
             bool rolling = false;
             ApplyPreviewDependencyStart(task, ref startDay, ref rolling, depth + 1);
@@ -687,7 +709,7 @@ namespace ProjectW.MilestonePrototype
             bool rolling = false;
             ApplyDependencyStart(task, ref startDay, ref rolling, depth + 1);
             if (rolling) return 0;
-            float output = ExpectedDailyOutput(task.AssignedCharacter);
+            float output = ExpectedDailyOutput(task, task.AssignedCharacter);
             int duration = CeilPositive(task.RemainingWork / output);
             return startDay + Math.Max(0, duration - 1);
         }
@@ -762,15 +784,19 @@ namespace ProjectW.MilestonePrototype
             baseOutput *= task.IsParallelAssignment
                 ? balance.ParallelProgressDays
                 : balance.PrimaryProgressDays;
+            baseOutput *= CompetencyOutputMultiplier(member, task);
             int lowOutputChance;
             int highOutputChance;
             OutputChances(member.Fatigue, out lowOutputChance, out highOutputChance);
             int outputRoll = random.Next(100);
-            float outputMultiplier = outputRoll < lowOutputChance
-                ? balance.LowOutputMultiplier
+            TaskOutcome outcome = outputRoll < lowOutputChance
+                ? TaskOutcome.Failure
                 : outputRoll >= 100 - highOutputChance
-                    ? balance.HighOutputMultiplier
-                    : 1f;
+                    ? TaskOutcome.GreatSuccess
+                    : TaskOutcome.Success;
+            float outputMultiplier = outcome == TaskOutcome.Failure
+                ? balance.LowOutputMultiplier
+                : outcome == TaskOutcome.GreatSuccess ? balance.HighOutputMultiplier : 1f;
             float progress = baseOutput * outputMultiplier;
             WorkTask prerequisite = string.IsNullOrEmpty(task.PrerequisiteId)
                 ? null
@@ -786,11 +812,13 @@ namespace ProjectW.MilestonePrototype
 
             task.Progress = Math.Min(task.EffectiveRequiredWork, task.Progress + progress);
             task.LastOutput = progress;
+            task.LastOutcome = outcome;
             member.Fatigue = Math.Min(100, member.Fatigue + fatigue);
             member.Experience++;
             task.LastWorker = task.AssignedCharacter;
-            report.Lines.Add($"{member.Name}: {task.Name} +{progress:0.#}일 (피로 +{fatigue})");
-            AddRecord(task, member.Name, RecordKind.Output, $"+{progress:0.#}일 진행");
+            string outcomeName = OutcomeName(outcome);
+            report.Lines.Add($"{member.Name}: {task.Name} {outcomeName} +{progress:0.#}일 (피로 +{fatigue})");
+            AddRecord(task, member.Name, RecordKind.Output, $"{outcomeName} · +{progress:0.#}일 진행");
 
             int accidentChance = member.Fatigue >= 80
                 ? balance.HighFatigueAccidentChance
@@ -902,6 +930,10 @@ namespace ProjectW.MilestonePrototype
 
         private static string RiskDescription(RiskLevel risk) =>
             risk == RiskLevel.High ? "높음" : risk == RiskLevel.Medium ? "보통" : "낮음";
+
+        public static string OutcomeName(TaskOutcome outcome) => outcome == TaskOutcome.Failure
+            ? "실패"
+            : outcome == TaskOutcome.GreatSuccess ? "대성공" : outcome == TaskOutcome.Success ? "성공" : "없음";
 
         private void Detach(WorkTask task, bool interrupted)
         {
@@ -1043,6 +1075,8 @@ namespace ProjectW.MilestonePrototype
                 Name = $"{adjective.Text} {target.Text} {action.Text}",
                 Kind = TaskKind.SideMission,
                 RequiredRole = action.Role,
+                RequiredCompetencies = MergeCompetencies(
+                    target.RequiredCompetencies, action.RequiredCompetencies),
                 RequiredWork = random.Next(
                     balance.RandomWorkMinRequiredDays,
                     balance.RandomWorkMaxRequiredDays + 1),
@@ -1082,6 +1116,29 @@ namespace ProjectW.MilestonePrototype
             }
 
             throw new InvalidOperationException("Validated random task action was not found.");
+        }
+
+        private static int[] MergeCompetencies(int[] first, int[] second)
+        {
+            var merged = new int[3];
+            int count = 0;
+            AddCompetencies(first, merged, ref count);
+            AddCompetencies(second, merged, ref count);
+            var result = new int[count];
+            for (int i = 0; i < count; i++) result[i] = merged[i];
+            return result;
+        }
+
+        private static void AddCompetencies(int[] source, int[] destination, ref int count)
+        {
+            if (source == null) return;
+            foreach (int competency in source)
+            {
+                bool exists = false;
+                for (int i = 0; i < count; i++)
+                    if (destination[i] == competency) exists = true;
+                if (!exists && count < destination.Length) destination[count++] = competency;
+            }
         }
 
         private void TryGrantWorkReward(WorkGroup group, DayReport report)
@@ -1196,6 +1253,7 @@ namespace ProjectW.MilestonePrototype
                 if (task.State == TaskState.Complete && task.CompletedDay <= 0)
                     task.CompletedDay = Math.Max(task.StartedDay, Day - 1);
                 BackfillGeneratedWordIds(task);
+                BackfillRequiredCompetencies(task);
                 task.Records = task.Records ?? new List<TaskRecord>();
                 WorkGroup group = ParentWork(task);
                 if (group != null) task.Deadline = group.HardDeadline;
@@ -1246,6 +1304,26 @@ namespace ProjectW.MilestonePrototype
                     }
                 }
             }
+        }
+
+        private void BackfillRequiredCompetencies(WorkTask task)
+        {
+            if (task.RequiredCompetencies != null && task.RequiredCompetencies.Length > 0) return;
+            foreach (WorkTask definition in baseTasks)
+            {
+                if (definition.Id != task.Id || definition.RequiredCompetencies == null) continue;
+                task.RequiredCompetencies = (int[])definition.RequiredCompetencies.Clone();
+                return;
+            }
+            RandomTaskTarget target = null;
+            RandomTaskAction action = null;
+            foreach (RandomTaskTarget candidate in randomTaskWords.Targets)
+                if (candidate.Id == task.GeneratedTargetId) target = candidate;
+            foreach (RandomTaskAction candidate in randomTaskWords.Actions)
+                if (candidate.Id == task.GeneratedActionId) action = candidate;
+            task.RequiredCompetencies = target != null && action != null
+                ? MergeCompetencies(target.RequiredCompetencies, action.RequiredCompetencies)
+                : new[] { (int)task.RequiredRole };
         }
 
         private WorkGroup ParentWork(WorkTask task) =>
