@@ -1206,7 +1206,7 @@ namespace ProjectW.MilestonePrototype
                          candidate.State == TaskState.Available).ToList())
             {
                 AssignmentRule rule = AssignmentRules.FirstOrDefault(candidate => candidate.Matches(task));
-                if (rule == null) continue;
+                if (rule == null || !AutomaticDependenciesComplete(task)) continue;
                 int worker = Crew.FindIndex(member => member.Name == rule.CrewName);
                 if (worker < 0 || !Crew[worker].Available ||
                     Tasks.Any(candidate => candidate.AssignedCharacter == worker &&
@@ -1223,7 +1223,7 @@ namespace ProjectW.MilestonePrototype
             foreach (WorkTask task in Tasks)
             {
                 if (task.AssignedCharacter >= 0 || task.ScheduledDay > 0 ||
-                    task.State != TaskState.Available) continue;
+                    task.State != TaskState.Available || !AutomaticDependenciesComplete(task)) continue;
                 int bestWorker = -1;
                 float bestMultiplier = -1f;
                 int bestFatigue = int.MaxValue;
@@ -1245,6 +1245,24 @@ namespace ProjectW.MilestonePrototype
                 report.Lines.Add(
                     $"역량 자동 배정: {Crew[bestWorker].Name} → {task.Name} (×{bestMultiplier:0.##})");
             }
+        }
+
+        private bool AutomaticDependenciesComplete(WorkTask task)
+        {
+            WorkGroup group = ParentWork(task);
+            if (group == null || group.State == WorkState.Locked || group.State == WorkState.Failed)
+                return false;
+            if (group.PredecessorIds != null)
+            {
+                foreach (string predecessorId in group.PredecessorIds)
+                {
+                    WorkGroup predecessor = Groups.FirstOrDefault(candidate => candidate.Id == predecessorId);
+                    if (predecessor == null || predecessor.State != WorkState.Complete) return false;
+                }
+            }
+            if (string.IsNullOrEmpty(task.PrerequisiteId)) return true;
+            WorkTask prerequisite = Tasks.FirstOrDefault(candidate => candidate.Id == task.PrerequisiteId);
+            return prerequisite != null && prerequisite.State == TaskState.Complete;
         }
 
         private void ApplyMidpointReview(DayReport report)

@@ -102,6 +102,64 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void CompetencyAutoAssignmentLeavesSuccessorsUnassignedUntilPredecessorCompletes()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            DisableAccidents(data);
+            var game = new MilestoneSimulation(data, 1);
+            game.SetCompetencyAutoAssignment(true);
+
+            game.AdvanceDay();
+
+            Assert.That(game.Tasks.Find(task => task.Id == "survey").AssignedCharacter, Is.GreaterThanOrEqualTo(0));
+            Assert.That(game.Tasks.Find(task => task.Id == "power").AssignedCharacter, Is.EqualTo(-1));
+            Assert.That(game.Tasks.Find(task => task.Id == "habitat").AssignedCharacter, Is.EqualTo(-1));
+            Assert.That(game.Tasks.Find(task => task.Id == "safety").AssignedCharacter, Is.EqualTo(-1));
+            Assert.That(game.Tasks.Find(task => task.Id == "launch").AssignedCharacter, Is.EqualTo(-1));
+        }
+
+        [Test]
+        public void CompetencyAutoAssignmentReconsidersSuccessorsOnCycleAfterCompletion()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            DisableAccidents(data);
+            data.Balance.BaseSideMissionChance = 0;
+            Array.Find(data.Tasks, task => task.Id == "survey").RequiredWork = .5f;
+            var game = new MilestoneSimulation(data, 1);
+            game.SetCompetencyAutoAssignment(true);
+
+            game.AdvanceDay();
+            Assert.That(game.Tasks.Find(task => task.Id == "survey").State, Is.EqualTo(TaskState.Complete));
+            Assert.That(game.Tasks.Find(task => task.Id == "power").AssignedCharacter, Is.EqualTo(-1));
+            Assert.That(game.Tasks.Find(task => task.Id == "habitat").AssignedCharacter, Is.EqualTo(-1));
+
+            game.AdvanceDay();
+
+            Assert.That(game.Tasks.Find(task => task.Id == "power").AssignedCharacter, Is.GreaterThanOrEqualTo(0));
+            Assert.That(game.Tasks.Find(task => task.Id == "habitat").AssignedCharacter, Is.GreaterThanOrEqualTo(0));
+        }
+
+        [Test]
+        public void LearnedAutoAssignmentAlsoWaitsForTaskPredecessor()
+        {
+            var game = new MilestoneSimulation(1);
+            WorkTask power = game.Tasks.Find(task => task.Id == "power");
+            game.AssignmentRules.Add(new AssignmentRule
+            {
+                Kind = power.Kind,
+                RequiredRole = power.RequiredRole,
+                Difficulty = power.Difficulty,
+                Risk = power.Risk,
+                Importance = power.Importance,
+                CrewName = game.Crew[0].Name
+            });
+
+            game.AdvanceDay();
+
+            Assert.That(power.AssignedCharacter, Is.EqualTo(-1));
+        }
+
+        [Test]
         public void ReservationTakesPriorityOverCompetencyAutoAssignment()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
