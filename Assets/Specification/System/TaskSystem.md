@@ -2,12 +2,12 @@
 
 ## Document Control
 
-- Version: 1.4
+- Version: 1.5
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
-- Rationale: Let the player opt into competency-based automatic assignment and expose current Task
-  ownership directly in the Gantt view.
+- Rationale: Preserve visible Task ownership through temporary worker conditions and add current-day
+  worker status slots to the Gantt view.
 - Idea references: `IDEA.md` items 1, 2, 4, and 8
 
 ## Scope
@@ -101,6 +101,14 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 - Fatigue 100 does not make a worker unavailable, remove an assignment, or stop ongoing work.
   The worker continues at the low output multiplier. Only explicit interruption causes such as
   injury or scheduled rest stop work.
+- Injury, scheduled rest, and regeneration never implicitly remove a Task assignment. They pause
+  progress for the affected cycle when applicable while preserving the owner, assignment mode,
+  split count, and context cost. Recovery resumes the same assignment automatically.
+- A worker who begins a daily cycle injured or scheduled to rest produces no Task output that cycle.
+  Injury recovery and rest recovery are then applied for the following cycle. An accident caused
+  during execution keeps the worker attached to that Task while recording the injury and progress loss.
+- Only explicit player reassignment/unassignment, completion, hard-deadline failure, or another
+  separately specified permanent removal may detach a worker from a Task.
 - A worker may additionally hold at most one parallel Task when that Task has no more than one day of effective work remaining.
 - Parallel work costs additional fatigue defined by gameplay balance data.
 - Parallel assignment does not interrupt the worker's primary Task.
@@ -371,6 +379,10 @@ The Task application must present schedule information as a time-based Gantt vie
 - Work rows expose Work state, completion, and deadline status.
 - Every Task row shows its current primary or parallel assignee. Unassigned rows show `미배정`, and
   future reservations show the reserved worker and start day.
+- The Task name is immediately followed by Task state and the assigned worker's current condition.
+- On each assigned Task row, the current-day column anchors a worker activity slot showing the
+  worker, current Task, and condition. The slot reserves separate portrait, status-icon, and border
+  regions implemented as code-drawn placeholders until a remote content pipeline supplies assets.
 
 The projected segment is operational guidance, not an immutable reservation. It is recalculated from current progress, context cost, prerequisites, assignments, and today whenever state changes.
 
