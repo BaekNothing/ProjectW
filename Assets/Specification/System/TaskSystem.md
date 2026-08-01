@@ -2,12 +2,12 @@
 
 ## Document Control
 
-- Version: 1.7
+- Version: 1.8
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
-- Rationale: Reserve the final operation for day 60 and make generated side missions explicit
-  morning-mail offers that require player acceptance.
+- Rationale: Preserve completed Task ownership and keep the side-mission queue supplied with
+  structured morning-mail offers without classifying urgent missions as side missions.
 - Idea references: `IDEA.md` items 1, 2, 4, and 8
 
 ## Scope
@@ -84,6 +84,8 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 - The operations desktop exposes an always-visible `다음날로` button at the bottom-right above the
   taskbar. It is disabled after campaign victory or loss.
 - A worker can hold at most one primary Task for that day.
+- Completing a Task preserves its assignee as historical ownership. The completed assignment does
+  not consume current worker capacity and is not cleared when that worker starts another Task.
 - Each worker owns a daily output value. A primary assignment contributes that output toward the
   Task workload before outcome modifiers.
 - Every Task requires one to three of the six colony competencies: base engineering, science
@@ -377,6 +379,9 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 - A generated side mission produces next-morning mail, remains invisible and unassignable before
   acceptance, and follows normal Work/Task state rules after acceptance.
 - Generated side-mission hard-deadline failure deducts resources without setting campaign loss.
+- Task completion retains the completing assignee while leaving that worker free for new work.
+- Zero remaining side missions generate one to three next-morning structured offers; urgent
+  missions do not prevent that refill.
 
 ## Morning Side-Mission Offers
 
@@ -393,6 +398,14 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 - Until the day-60 final-operation reveal, incident handling and accepted generated side missions
   are the primary additional work stream around the authored foundation Work.
 - Pending offers count toward the random-Work limit so unread mail cannot create an unbounded queue.
+- Remaining side missions are pending, accepted, or active Tasks whose `TaskKind` is `SideMission`
+  and whose parent Work is neither complete nor failed. Urgent/incident missions are not side
+  missions and never satisfy this inventory check.
+- At the end of a day with zero remaining side missions, the system generates a random batch of one
+  to three structured side-mission Works, bounded by the random-Work limit. Each generated Work uses
+  the existing adjective/target/action structure and arrives as its own next-morning acceptance mail.
+- The zero-inventory batch is guaranteed; ordinary chance-based generation is used only while at
+  least one side mission remains.
 
 ## Gantt and Task Detail UI
 
@@ -415,6 +428,8 @@ The Task application must present schedule information as a time-based Gantt vie
 - Work rows expose Work state, completion, and deadline status.
 - Every Task row shows its current primary or parallel assignee. Unassigned rows show `미배정`, and
   future reservations show the reserved worker and start day.
+- A completed Task row continues to show the worker who completed it. Historical ownership does not
+  imply that the worker is currently occupied by that Task.
 - The Task name is immediately followed by Task state and the assigned worker's current condition.
 - On each assigned Task row, the current-day column anchors a worker activity slot showing the
   worker, current Task, and condition. The slot reserves separate portrait, status-icon, and border
