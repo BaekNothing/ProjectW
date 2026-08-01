@@ -2,12 +2,12 @@
 
 ## Document Control
 
-- Version: 1.6
+- Version: 1.7
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
-- Rationale: Prevent every automatic assignment path from starting successor Tasks before their
-  Work and Task predecessors complete.
+- Rationale: Reserve the final operation for day 60 and make generated side missions explicit
+  morning-mail offers that require player acceptance.
 - Idea references: `IDEA.md` items 1, 2, 4, and 8
 
 ## Scope
@@ -58,6 +58,10 @@ Work states:
 4. `Completed`: all required Tasks are complete.
 5. `Failed`: the hard deadline has passed before completion.
 
+A Work may additionally own a reveal day or wait for mail acceptance. Before either gate opens, the
+Work and all of its Tasks remain locked and are hidden from the Gantt. These gates do not replace
+Work or Task predecessor checks.
+
 Task states:
 
 1. `Locked`: its Work or Task prerequisite is locked.
@@ -75,6 +79,8 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 - One month is always 30 days. The campaign covers three months (`90 days`).
 - The midpoint review occurs on day 45. It summarizes current Work completion and deadline state
   without ending the campaign or introducing an unstated pass/fail condition.
+- The required final operation is revealed at the start of day 60. It is absent from the Gantt and
+  cannot be assigned, reserved, or automatically assigned before that day.
 - The operations desktop exposes an always-visible `다음날로` button at the bottom-right above the
   taskbar. It is disabled after campaign victory or loss.
 - A worker can hold at most one primary Task for that day.
@@ -365,6 +371,28 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
   competency/fatigue tie-breaking; its toggle survives campaign save/restore.
 - Learned and competency automatic assignment leave every predecessor-blocked successor unassigned
   until its Work and Task predecessors are complete.
+- Reveal-day and mail-acceptance gates also block manual, learned, scheduled, and competency
+  automatic assignment.
+- The final operation is invisible and unassignable through day 59, then becomes visible on day 60.
+- A generated side mission produces next-morning mail, remains invisible and unassignable before
+  acceptance, and follows normal Work/Task state rules after acceptance.
+- Generated side-mission hard-deadline failure deducts resources without setting campaign loss.
+
+## Morning Side-Mission Offers
+
+- Generated side missions are optional Works with the same Work/Task deadline, assignment,
+  competency, progress, reward, and penalty rules as authored missions.
+- A generated side mission is created as a pending offer. It does not appear in the Gantt and cannot
+  receive an assignment until the player accepts its mail.
+- The offer arrives in the mail application on the morning after generation. Resolving that mail is
+  the explicit acceptance action and immediately unlocks the Work, subject to normal predecessors.
+- Generated offers use materially larger credit rewards than the previous incident baseline. Their
+  reward and resource penalties remain externally balanced in `task-system.json`.
+- A generated side mission is never required for campaign victory. Missing its hard deadline fails
+  only that Work, applies its configured resource penalty, and cannot directly produce game over.
+- Until the day-60 final-operation reveal, incident handling and accepted generated side missions
+  are the primary additional work stream around the authored foundation Work.
+- Pending offers count toward the random-Work limit so unread mail cannot create an unbounded queue.
 
 ## Gantt and Task Detail UI
 
