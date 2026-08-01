@@ -416,6 +416,9 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
   side-mission mail, or `TaskKind.SideMission` merely to represent a small random action.
 - The generated Work deadline includes additional schedule allowance for its child count so the
   hierarchy is not balanced as though it were a single Task.
+- On campaign restore, an incomplete legacy generated side-mission Work with only one child Task is
+  migrated to the hierarchical form by appending structured dependent Tasks and extending its
+  deadlines. Completed and failed historical Works are not rewritten.
 - The zero-inventory batch is guaranteed; ordinary chance-based generation is used only while at
   least one side mission remains.
 
