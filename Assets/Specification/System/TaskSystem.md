@@ -2,12 +2,12 @@
 
 ## Document Control
 
-- Version: 1.9
+- Version: 2.0
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
-- Rationale: Correct generated side missions from repeated single-action incidents into
-  mission-level Works with a visible hierarchy of structured child Tasks.
+- Rationale: Refill side missions immediately after failure, prioritize unread mail, and present
+  messenger reports and replies as one chronological conversation.
 - Idea references: `IDEA.md` items 1, 2, 4, and 8
 
 ## Scope
@@ -383,6 +383,8 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 - Zero remaining side missions generate one to three next-morning structured offers; urgent
   missions do not prevent that refill.
 - Each generated offer has one Work row, two to four chained Task rows, and one acceptance mail.
+- Side-mission failure can trigger same-morning replacement mail, unread mail sorts first, and a
+  messenger question/reply renders as one item in the unified report/conversation stream.
 
 ## Morning Side-Mission Offers
 
@@ -421,6 +423,18 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
   deadlines. Completed and failed historical Works are not rewritten.
 - The zero-inventory batch is guaranteed; ordinary chance-based generation is used only while at
   least one side mission remains.
+- A failed side-mission Work leaves the remaining inventory in the same way as a completed Work.
+  Hard-deadline failure is evaluated before the morning refill check, so a replacement offer can
+  arrive immediately on the newly entered day without an extra empty day.
+
+## Mail and Messenger Ordering
+
+- Arrived unread mail marked `[NEW]` is listed above every read or resolved message. Within each
+  read state, newer arrival days appear first while equal-day insertion order remains stable.
+- A messenger question and its worker reply are stored and rendered as one conversation item, not
+  two detached bubbles.
+- Worker reports and question/reply items share one day-ordered messenger stream. Task records remain
+  available in Task detail but are not rendered as a separate report section below conversation.
 
 ## Gantt and Task Detail UI
 
