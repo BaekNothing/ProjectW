@@ -59,6 +59,17 @@ namespace ProjectW.MilestonePrototype
             if (data.Crew.Length != MilestoneSimulation.TeamSize)
                 throw new InvalidOperationException(
                     $"A field team must contain exactly {MilestoneSimulation.TeamSize} crew members.");
+            foreach (CrewMember member in data.Crew)
+            {
+                if (member == null || member.Competencies == null ||
+                    member.Competencies.Length != CrewMember.CompetencyCount)
+                    throw new InvalidOperationException(
+                        $"Every crew member requires exactly {CrewMember.CompetencyCount} competencies.");
+                foreach (int competency in member.Competencies)
+                    if (competency < 0 || competency > CrewMember.MaximumCompetency)
+                        throw new InvalidOperationException(
+                            $"Crew competencies must be between 0 and {CrewMember.MaximumCompetency}.");
+            }
             if (data.CampaignEndDay <= 0 || data.MidpointReviewDay <= 0 ||
                 data.MidpointReviewDay >= data.CampaignEndDay || data.StartingResources < 0)
                 throw new InvalidOperationException("Task-system campaign values are invalid.");

@@ -52,12 +52,16 @@ namespace ProjectW.MilestonePrototype
     [Serializable]
     public sealed class CrewMember
     {
+        public const int CompetencyCount = 6;
+        public const int MaximumCompetency = 7;
+
         public string Name;
         public string PortraitLabel;
         public string Memo;
         public string[] Perks;
         public WorkRole Specialty;
         public int Skill;
+        public int[] Competencies;
         public int Fatigue;
         public int Experience;
         public int InjuryDays;

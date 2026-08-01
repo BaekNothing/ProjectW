@@ -12,6 +12,7 @@ namespace ProjectW.MilestonePrototype
         private readonly string[] crewPortraits;
         private readonly string[] crewMemos;
         private readonly string[][] crewPerks;
+        private readonly int[][] crewCompetencies;
         private readonly RandomTaskWordPool randomTaskWords;
         private readonly CodexEntry[] baseCodex;
         private int nextRandomWorkId;
@@ -53,11 +54,13 @@ namespace ProjectW.MilestonePrototype
             crewPortraits = new string[data.Crew.Length];
             crewMemos = new string[data.Crew.Length];
             crewPerks = new string[data.Crew.Length][];
+            crewCompetencies = new int[data.Crew.Length][];
             for (int i = 0; i < data.Crew.Length; i++)
             {
                 crewPortraits[i] = data.Crew[i].PortraitLabel;
                 crewMemos[i] = data.Crew[i].Memo;
                 crewPerks[i] = data.Crew[i].Perks;
+                crewCompetencies[i] = data.Crew[i].Competencies;
             }
             CampaignEndDay = data.CampaignEndDay;
             MidpointReviewDay = data.MidpointReviewDay;
@@ -1209,6 +1212,10 @@ namespace ProjectW.MilestonePrototype
                     member.Perks = i < crewPerks.Length && crewPerks[i] != null
                         ? crewPerks[i]
                         : Array.Empty<string>();
+                if (member.Competencies == null || member.Competencies.Length != CrewMember.CompetencyCount)
+                    member.Competencies = i < crewCompetencies.Length && crewCompetencies[i] != null
+                        ? (int[])crewCompetencies[i].Clone()
+                        : new int[CrewMember.CompetencyCount];
                 member.RestScheduled = false;
             }
             int highestRandomWorkId = Groups.Where(group => group.Id != null &&

@@ -20,6 +20,8 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(game.Crew[0].PortraitLabel, Is.Not.Empty);
             Assert.That(game.Crew[0].Memo, Is.Not.Empty);
             Assert.That(game.Crew[0].Perks, Is.Not.Null.And.Not.Empty);
+            Assert.That(game.Crew[0].Competencies, Has.Length.EqualTo(CrewMember.CompetencyCount));
+            Assert.That(game.Crew[0].Competencies, Has.All.InRange(0, CrewMember.MaximumCompetency));
             Assert.That(game.Crew[0].Trust, Is.InRange(0, 100));
         }
 

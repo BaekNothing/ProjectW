@@ -61,6 +61,10 @@ namespace ProjectW.MilestonePrototype
         private static readonly Color GrayColor = new Color(.6f, .6f, .6f, 1f);
         private static readonly Color InkColor = new Color(.267f, .267f, .267f, 1f);
         private static readonly Color PaleColor = new Color(.88f, .88f, .88f, 1f);
+        private static readonly string[] CompetencyNames =
+        {
+            "기지공학", "과학탐사", "자원운용", "환경적응", "생명유지", "지휘교섭"
+        };
         public const float DefaultScrollbarWidth = 16f;
         private const float ResizeHandleReach = 40f;
         private const float MinimumWindowWidth = 420f;
@@ -710,6 +714,10 @@ namespace ProjectW.MilestonePrototype
             GUILayout.EndVertical();
             GUILayout.EndHorizontal();
 
+            GUILayout.Space(10);
+            GUILayout.Label("개척 역량 · 0 아주 못함 / 4 중간 / 7 탁월함", section);
+            DrawCompetencyRadar(member);
+
             DrawSectionRule();
             GUILayout.Label("퍽", section);
             if (member.Perks == null || member.Perks.Length == 0)
@@ -742,6 +750,69 @@ namespace ProjectW.MilestonePrototype
             }
             if (!hasHistory) GUILayout.Label("아직 작업 기록이 없습니다.", small);
 
+        }
+
+        private void DrawCompetencyRadar(CrewMember member)
+        {
+            int[] values = member.Competencies ?? new int[CrewMember.CompetencyCount];
+            Rect chart = GUILayoutUtility.GetRect(320f, 270f, GUILayout.ExpandWidth(true));
+            float radius = Math.Min(105f, chart.width * .27f);
+            Vector2 center = new Vector2(chart.x + chart.width * .5f, chart.y + 130f);
+            var directions = new Vector2[CrewMember.CompetencyCount];
+            for (int i = 0; i < directions.Length; i++)
+            {
+                double angle = -Math.PI * .5 + Math.PI * 2.0 * i / directions.Length;
+                directions[i] = new Vector2((float)Math.Cos(angle), (float)Math.Sin(angle));
+            }
+
+            for (int level = 1; level <= CrewMember.MaximumCompetency; level++)
+            {
+                float levelRadius = radius * level / CrewMember.MaximumCompetency;
+                Color color = level == 4 ? GrayColor : PaleColor;
+                for (int i = 0; i < directions.Length; i++)
+                    DrawPixelLine(center + directions[i] * levelRadius,
+                        center + directions[(i + 1) % directions.Length] * levelRadius, color);
+            }
+
+            for (int i = 0; i < directions.Length; i++)
+                DrawPixelLine(center, center + directions[i] * radius, PaleColor);
+
+            var points = new Vector2[directions.Length];
+            for (int i = 0; i < directions.Length; i++)
+            {
+                int value = i < values.Length
+                    ? Math.Max(0, Math.Min(CrewMember.MaximumCompetency, values[i]))
+                    : 0;
+                points[i] = center + directions[i] * (radius * value / CrewMember.MaximumCompetency);
+            }
+            for (int i = 0; i < points.Length; i++)
+            {
+                DrawPixelLine(points[i], points[(i + 1) % points.Length], InkColor, 3f);
+                DrawSolid(new Rect(points[i].x - 3f, points[i].y - 3f, 6f, 6f), InkColor);
+            }
+
+            for (int i = 0; i < directions.Length; i++)
+            {
+                Vector2 labelPoint = center + directions[i] * (radius + 30f);
+                int value = i < values.Length ? values[i] : 0;
+                GUI.Label(new Rect(labelPoint.x - 48f, labelPoint.y - 12f, 96f, 34f),
+                    $"{CompetencyNames[i]} {value}", small);
+            }
+            GUI.Label(new Rect(chart.x + 6f, chart.yMax - 22f, chart.width - 12f, 20f),
+                "회색 강조선은 중간 역량(4) 기준입니다.", small);
+        }
+
+        private static void DrawPixelLine(Vector2 from, Vector2 to, Color color, float thickness = 2f)
+        {
+            float distance = Math.Max(Math.Abs(to.x - from.x), Math.Abs(to.y - from.y));
+            int steps = Math.Max(1, (int)(distance / 3f));
+            for (int step = 0; step <= steps; step++)
+            {
+                float amount = step / (float)steps;
+                float x = from.x + (to.x - from.x) * amount;
+                float y = from.y + (to.y - from.y) * amount;
+                DrawSolid(new Rect(x - thickness * .5f, y - thickness * .5f, thickness, thickness), color);
+            }
         }
 
         private void DrawMessenger(DeskWindow window)
