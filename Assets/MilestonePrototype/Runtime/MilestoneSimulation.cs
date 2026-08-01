@@ -42,6 +42,9 @@ namespace ProjectW.MilestonePrototype
         public bool MidpointReviewIssued { get; private set; }
         public bool CompetencyAutoAssignment { get; private set; }
 
+        public bool IsWorkVisible(WorkGroup group) => group != null &&
+            !group.AwaitingAcceptance && (group.RevealDay <= 0 || Day >= group.RevealDay);
+
         public void SetCompetencyAutoAssignment(bool enabled) =>
             CompetencyAutoAssignment = enabled;
 
@@ -224,6 +227,16 @@ namespace ProjectW.MilestonePrototype
                     task.Risk = RiskLevel.High;
                     AddRecord(task, mail.From, RecordKind.Issue, mail.Instruction);
                 }
+            }
+            if (targetWork != null && mail.ActivatesWork && targetWork.AwaitingAcceptance)
+            {
+                int acceptanceDelay = Math.Max(0, Day - mail.ArrivalDay);
+                targetWork.SoftDeadline += acceptanceDelay;
+                targetWork.HardDeadline += acceptanceDelay;
+                targetWork.AwaitingAcceptance = false;
+                foreach (WorkTask task in Tasks.Where(candidate => candidate.GroupId == targetWork.Id))
+                    task.Deadline = targetWork.HardDeadline;
+                RefreshStates();
             }
             Resources = Math.Max(0, Resources + mail.ResourceDelta);
             mail.Resolved = true;
@@ -970,6 +983,7 @@ namespace ProjectW.MilestonePrototype
             foreach (WorkGroup group in Groups)
             {
                 if (group.State == WorkState.Complete || group.State == WorkState.Failed) continue;
+                if (group.AwaitingAcceptance || group.RevealDay > Day) continue;
                 if (Day > group.SoftDeadline && !group.SoftDeadlineMissed)
                 {
                     group.SoftDeadlineMissed = true;
@@ -1011,6 +1025,11 @@ namespace ProjectW.MilestonePrototype
                 if (complete && workTasks.Any(task => task.Required))
                 {
                     group.State = WorkState.Complete;
+                    continue;
+                }
+                if (group.AwaitingAcceptance || group.RevealDay > Day)
+                {
+                    group.State = WorkState.Locked;
                     continue;
                 }
                 bool predecessorsComplete = group.PredecessorIds == null ||
@@ -1072,7 +1091,8 @@ namespace ProjectW.MilestonePrototype
                 HardDeadline = Day + softDays + balance.RandomWorkHardDeadlineDays,
                 Required = false,
                 PredecessorIds = Array.Empty<string>(),
-                State = WorkState.Available,
+                State = WorkState.Locked,
+                AwaitingAcceptance = true,
                 RewardCredits = reward,
                 SoftPenaltyCredits = balance.RandomWorkSoftPenalty,
                 HardPenaltyCredits = balance.RandomWorkHardPenalty
@@ -1109,7 +1129,20 @@ namespace ProjectW.MilestonePrototype
             };
             Groups.Add(work);
             Tasks.Add(mission);
-            report.Lines.Add($"사이드 업무 발생: {mission.Name}");
+            Mail.Add(new MailEvent
+            {
+                Id = $"side-mission-offer-{id}",
+                ArrivalDay = Day + 1,
+                From = "외행성 개척 관제국",
+                Subject = $"사이드 미션 제안: {mission.Name}",
+                Body = $"추가 개척 임무가 접수되었습니다. 성공 보상은 자원 {reward}입니다.",
+                Instruction = $"수락 시 작업이 활성화됩니다. 실패 페널티: 자원 {work.HardPenaltyCredits}",
+                TargetTaskId = mission.Id,
+                TargetWorkId = work.Id,
+                Risk = mission.Risk,
+                ActivatesWork = true
+            });
+            report.Lines.Add($"다음 날 아침 사이드 미션 제안 메일 예정: {mission.Name}");
         }
 
         private RandomTaskAction SelectRandomAction(WorkRole role)

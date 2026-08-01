@@ -541,6 +541,17 @@ namespace ProjectW.MilestonePrototype.Tests
             WorkGroup generated = game.Groups.Find(work => work.Id.StartsWith("random-work-"));
             WorkTask generatedTask = game.Tasks.Find(task => task.GroupId == generated.Id);
             Assert.That(generated, Is.Not.Null);
+            Assert.That(generated.AwaitingAcceptance, Is.True);
+            Assert.That(game.IsWorkVisible(generated), Is.False);
+            Assert.That(generatedTask.State, Is.EqualTo(TaskState.Locked));
+            MailEvent offer = game.Mail.Find(mail => mail.TargetWorkId == generated.Id);
+            Assert.That(offer, Is.Not.Null);
+            Assert.That(offer.ArrivalDay, Is.EqualTo(game.Day));
+            Assert.That(offer.ActivatesWork, Is.True);
+            Assert.That(game.ResolveMail(offer.Id), Is.True);
+            Assert.That(generated.AwaitingAcceptance, Is.False);
+            Assert.That(game.IsWorkVisible(generated), Is.True);
+            Assert.That(generatedTask.State, Is.EqualTo(TaskState.Available));
             Assert.That(generated.SoftDeadline, Is.LessThan(generated.HardDeadline));
             Assert.That(generated.RewardCredits, Is.GreaterThan(0));
             Assert.That(generated.HardPenaltyCredits, Is.GreaterThan(generated.SoftPenaltyCredits));
@@ -1009,6 +1020,56 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(game.Groups.Find(group => group.Id == "launch").State, Is.EqualTo(WorkState.Locked));
             Assert.That(game.Tasks.Find(task => task.Id == "launch").State, Is.EqualTo(TaskState.Locked));
             Assert.That(game.Assign("launch", 0), Is.False);
+        }
+
+        [Test]
+        public void FinalWorkBecomesVisibleOnDaySixty()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.BaseSideMissionChance = 0;
+            var original = new MilestoneSimulation(data, 1);
+            CampaignSnapshot snapshot = original.CreateSnapshot();
+            snapshot.Day = 59;
+            foreach (WorkTask task in snapshot.Tasks)
+                if (task.GroupId == "foundation") task.State = TaskState.Complete;
+            System.Array.Find(snapshot.Groups, group => group.Id == "foundation").State =
+                WorkState.Complete;
+            var game = new MilestoneSimulation(data, 2);
+            Assert.That(game.Restore(snapshot), Is.True);
+            WorkGroup finalWork = game.Groups.Find(group => group.Id == "launch");
+
+            Assert.That(game.IsWorkVisible(finalWork), Is.False);
+            Assert.That(game.Tasks.Find(task => task.Id == "launch").State, Is.EqualTo(TaskState.Locked));
+            game.AdvanceDay();
+
+            Assert.That(game.Day, Is.EqualTo(60));
+            Assert.That(game.IsWorkVisible(finalWork), Is.True);
+            Assert.That(game.Tasks.Find(task => task.Id == "launch").State,
+                Is.EqualTo(TaskState.Available));
+        }
+
+        [Test]
+        public void FailedAcceptedSideMissionCostsResourcesWithoutGameOver()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.BaseSideMissionChance = 100;
+            data.Balance.RandomWorkChanceScalePercent = 100;
+            var game = new MilestoneSimulation(data, 1);
+            game.AdvanceDay();
+            WorkGroup sideMission = game.Groups.Find(group => group.Id.StartsWith("random-work-"));
+            MailEvent offer = game.Mail.Find(mail => mail.TargetWorkId == sideMission.Id);
+            Assert.That(game.ResolveMail(offer.Id), Is.True);
+            data.Balance.BaseSideMissionChance = 0;
+            sideMission.SoftDeadline = game.Day;
+            sideMission.HardDeadline = game.Day;
+            int resourcesBeforeFailure = game.Resources;
+
+            game.AdvanceDay();
+
+            Assert.That(sideMission.State, Is.EqualTo(WorkState.Failed));
+            Assert.That(game.Resources, Is.EqualTo(resourcesBeforeFailure -
+                sideMission.SoftPenaltyCredits - sideMission.HardPenaltyCredits));
+            Assert.That(game.IsLost, Is.False);
         }
 
         [Test]

@@ -111,6 +111,8 @@ namespace ProjectW.MilestonePrototype
         public bool RewardClaimed;
         public bool SoftPenaltyApplied;
         public bool HardPenaltyApplied;
+        public int RevealDay;
+        public bool AwaitingAcceptance;
     }
 
     [Serializable]
@@ -264,8 +266,9 @@ namespace ProjectW.MilestonePrototype
         public int DeadlineDelta;
         public int ResourceDelta;
         public RiskLevel Risk;
-        public bool Read;
-        public bool Resolved;
+          public bool Read;
+          public bool Resolved;
+          public bool ActivatesWork;
     }
 
     [Serializable]

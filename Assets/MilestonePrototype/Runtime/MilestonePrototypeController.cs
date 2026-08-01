@@ -240,7 +240,10 @@ namespace ProjectW.MilestonePrototype
                 GUILayout.Space(8);
                 GUILayout.Label($"지시: {mail.Instruction}", warning);
                 SetControlEnabled(!mail.Resolved);
-                if (LayoutButton(mail.Resolved ? "처리 완료" : "지시 수락 및 반영", GUILayout.Height(38)))
+                string actionLabel = mail.ActivatesWork
+                    ? mail.Resolved ? "미션 수락 완료" : "미션 수락"
+                    : mail.Resolved ? "처리 완료" : "지시 수락 및 반영";
+                if (LayoutButton(actionLabel, GUILayout.Height(38)))
                 {
                     game.ResolveMail(mail.Id);
                     SaveCampaign();
@@ -278,7 +281,8 @@ namespace ProjectW.MilestonePrototype
             const float labelWidth = 285f;
             const float dayWidth = 28f;
             const float rowHeight = 48f;
-            int rowCount = game.Groups.Sum(group =>
+            List<WorkGroup> visibleGroups = game.Groups.Where(game.IsWorkVisible).ToList();
+            int rowCount = visibleGroups.Sum(group =>
                 1 + game.Tasks.Count(task => task.GroupId == group.Id));
             float contentWidth = game.CampaignEndDay * dayWidth + 180f;
             float contentHeight = Math.Max(120f, rowCount * rowHeight + 28f);
@@ -297,7 +301,7 @@ namespace ProjectW.MilestonePrototype
             }
 
             float y = 28f;
-            foreach (WorkGroup group in game.Groups)
+            foreach (WorkGroup group in visibleGroups)
             {
                 List<WorkTask> tasks = game.Tasks.Where(task => task.GroupId == group.Id).ToList();
                 DrawSolid(new Rect(0, y, contentWidth, rowHeight - 1), PaleColor);
@@ -341,7 +345,7 @@ namespace ProjectW.MilestonePrototype
             GUI.BeginGroup(labelViewport);
             DrawSolid(new Rect(0, 0, labelWidth, labelViewport.height), Color.white);
             y = 28f - window.TimelineScroll.y;
-            foreach (WorkGroup group in game.Groups)
+            foreach (WorkGroup group in visibleGroups)
             {
                 List<WorkTask> tasks = game.Tasks.Where(task => task.GroupId == group.Id).ToList();
                 DrawSolid(new Rect(0, y, labelWidth, rowHeight - 1), PaleColor);
@@ -413,6 +417,8 @@ namespace ProjectW.MilestonePrototype
         {
             foreach (WorkTask task in game.Tasks)
             {
+                if (!game.IsWorkVisible(game.Groups.FirstOrDefault(group => group.Id == task.GroupId)))
+                    continue;
                 if (string.IsNullOrEmpty(task.PrerequisiteId)) continue;
                 WorkTask predecessor = game.Tasks.FirstOrDefault(candidate =>
                     candidate.Id == task.PrerequisiteId);
@@ -422,6 +428,7 @@ namespace ProjectW.MilestonePrototype
 
             foreach (WorkGroup group in game.Groups)
             {
+                if (!game.IsWorkVisible(group)) continue;
                 if (group.PredecessorIds == null) continue;
                 foreach (string predecessorId in group.PredecessorIds)
                 {
@@ -467,7 +474,7 @@ namespace ProjectW.MilestonePrototype
         private float TaskRowCenterY(string taskId, float rowHeight)
         {
             float y = 28f;
-            foreach (WorkGroup group in game.Groups)
+            foreach (WorkGroup group in game.Groups.Where(game.IsWorkVisible))
             {
                 y += rowHeight;
                 foreach (WorkTask task in game.Tasks.Where(candidate =>
@@ -483,7 +490,7 @@ namespace ProjectW.MilestonePrototype
         private float WorkRowCenterY(string groupId, float rowHeight)
         {
             float y = 28f;
-            foreach (WorkGroup group in game.Groups)
+            foreach (WorkGroup group in game.Groups.Where(game.IsWorkVisible))
             {
                 if (group.Id == groupId) return y + rowHeight * .5f;
                 y += rowHeight;
@@ -699,7 +706,8 @@ namespace ProjectW.MilestonePrototype
         private void DrawMilestones(DeskWindow window)
         {
             GUILayout.Label("마일스톤", section);
-            foreach (WorkGroup group in game.Groups.Where(g => g.Id != "incident"))
+            foreach (WorkGroup group in game.Groups.Where(g =>
+                         g.Id != "incident" && game.IsWorkVisible(g)))
             {
                 List<WorkTask> tasks = game.Tasks.Where(t => t.GroupId == group.Id).ToList();
                 int progress = tasks.Count == 0 ? 0 : Mathf.RoundToInt(tasks.Average(t => t.Completion) * 100);
