@@ -40,6 +40,10 @@ namespace ProjectW.MilestonePrototype
         public List<string> SystemLog { get; } = new List<string>();
         public DayReport LastReport { get; private set; } = new DayReport();
         public bool MidpointReviewIssued { get; private set; }
+        public bool CompetencyAutoAssignment { get; private set; }
+
+        public void SetCompetencyAutoAssignment(bool enabled) =>
+            CompetencyAutoAssignment = enabled;
 
         public MilestoneSimulation(int seed = 731) : this(TaskSystemDataLoader.Load(), seed)
         {
@@ -314,6 +318,7 @@ namespace ProjectW.MilestonePrototype
 
             ApplyScheduledAssignments(report);
             ApplyLearnedAssignments(report);
+            ApplyCompetencyAssignments(report);
             foreach (CrewMember member in Crew)
             {
                 if (member.InjuryDays > 0) member.InjuryDays--;
@@ -733,7 +738,8 @@ namespace ProjectW.MilestonePrototype
             Log = SystemLog.ToArray(),
             AssignmentRules = AssignmentRules.ToArray(),
             DiscoveredTaskWordIds = DiscoveredTaskWordIds.ToArray(),
-            MidpointReviewIssued = MidpointReviewIssued
+            MidpointReviewIssued = MidpointReviewIssued,
+            CompetencyAutoAssignment = CompetencyAutoAssignment
         };
 
         public bool Restore(CampaignSnapshot snapshot)
@@ -760,6 +766,7 @@ namespace ProjectW.MilestonePrototype
                     UnlockTaskWord(wordId, null);
             }
             MidpointReviewIssued = snapshot.MidpointReviewIssued;
+            CompetencyAutoAssignment = snapshot.CompetencyAutoAssignment;
             SystemLog.Clear();
             if (snapshot.Log != null) SystemLog.AddRange(snapshot.Log);
             NormalizeLoadedData();
@@ -1202,6 +1209,36 @@ namespace ProjectW.MilestonePrototype
                     continue;
                 if (!AssignPrimary(task, worker)) continue;
                 report.Lines.Add($"자동 배정: {Crew[worker].Name} → {task.Name}");
+            }
+        }
+
+        private void ApplyCompetencyAssignments(DayReport report)
+        {
+            if (!CompetencyAutoAssignment) return;
+            foreach (WorkTask task in Tasks)
+            {
+                if (task.AssignedCharacter >= 0 || task.ScheduledDay > 0 ||
+                    task.State != TaskState.Available) continue;
+                int bestWorker = -1;
+                float bestMultiplier = -1f;
+                int bestFatigue = int.MaxValue;
+                for (int worker = 0; worker < Crew.Count; worker++)
+                {
+                    CrewMember member = Crew[worker];
+                    if (!member.Available || Tasks.Any(candidate =>
+                            candidate.AssignedCharacter == worker && !candidate.IsParallelAssignment))
+                        continue;
+                    float multiplier = CompetencyOutputMultiplier(member, task);
+                    if (multiplier < bestMultiplier ||
+                        Math.Abs(multiplier - bestMultiplier) < .001f && member.Fatigue >= bestFatigue)
+                        continue;
+                    bestWorker = worker;
+                    bestMultiplier = multiplier;
+                    bestFatigue = member.Fatigue;
+                }
+                if (bestWorker < 0 || !AssignPrimary(task, bestWorker)) continue;
+                report.Lines.Add(
+                    $"역량 자동 배정: {Crew[bestWorker].Name} → {task.Name} (×{bestMultiplier:0.##})");
             }
         }
 

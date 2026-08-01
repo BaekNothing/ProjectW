@@ -74,10 +74,68 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void CompetencyAutoAssignmentChoosesBestAvailableWorker()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            DisableAccidents(data);
+            var game = new MilestoneSimulation(data, 1);
+            game.SetCompetencyAutoAssignment(true);
+
+            game.AdvanceDay();
+
+            Assert.That(game.Tasks.Find(task => task.Id == "survey").AssignedCharacter, Is.EqualTo(1));
+            Assert.That(game.LastReport.Lines, Has.Some.Contains("역량 자동 배정"));
+        }
+
+        [Test]
+        public void CompetencyAutoAssignmentBreaksEqualScoresByLowerFatigue()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            DisableAccidents(data);
+            data.Crew[1].Fatigue = 30;
+            var game = new MilestoneSimulation(data, 1);
+            game.SetCompetencyAutoAssignment(true);
+
+            game.AdvanceDay();
+
+            Assert.That(game.Tasks.Find(task => task.Id == "survey").AssignedCharacter, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void ReservationTakesPriorityOverCompetencyAutoAssignment()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            DisableAccidents(data);
+            var game = new MilestoneSimulation(data, 1);
+            Assert.That(game.Schedule("survey", 0, game.Day), Is.True);
+            game.SetCompetencyAutoAssignment(true);
+
+            game.AdvanceDay();
+
+            Assert.That(game.Tasks.Find(task => task.Id == "survey").AssignedCharacter, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void LearnedRuleTakesPriorityOverCompetencyAutoAssignment()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            DisableAccidents(data);
+            var game = new MilestoneSimulation(data, 1);
+            Assert.That(game.Assign("survey", 0), Is.True);
+            Assert.That(game.Assign("survey", -1), Is.True);
+            game.SetCompetencyAutoAssignment(true);
+
+            game.AdvanceDay();
+
+            Assert.That(game.Tasks.Find(task => task.Id == "survey").AssignedCharacter, Is.EqualTo(0));
+        }
+
+        [Test]
         public void LearnedRulesAndMidpointReviewSurviveSnapshot()
         {
             var original = new MilestoneSimulation(1);
             Assert.That(original.Assign("survey", 1), Is.True);
+            original.SetCompetencyAutoAssignment(true);
             CampaignSnapshot snapshot = original.CreateSnapshot();
             snapshot.Day = 44;
 
@@ -86,6 +144,7 @@ namespace ProjectW.MilestonePrototype.Tests
             DayReport report = restored.AdvanceDay();
 
             Assert.That(restored.AssignmentRules, Has.Count.EqualTo(1));
+            Assert.That(restored.CompetencyAutoAssignment, Is.True);
             Assert.That(restored.MidpointReviewIssued, Is.True);
             Assert.That(report.Lines, Has.Some.Contains("중간평가"));
             Assert.That(restored.CreateSnapshot().MidpointReviewIssued, Is.True);
@@ -1316,6 +1375,13 @@ namespace ProjectW.MilestonePrototype.Tests
             for (int i = 0; i < 8 && game.Tasks.Find(task => task.Id == "survey").State != TaskState.Complete; i++)
                 game.AdvanceDay();
             Assert.That(game.Tasks.Find(task => task.Id == "survey").State, Is.EqualTo(TaskState.Complete));
+        }
+
+        private static void DisableAccidents(TaskSystemData data)
+        {
+            data.Balance.HighFatigueAccidentChance = 0;
+            data.Balance.MediumFatigueAccidentChance = 0;
+            data.Balance.MismatchAccidentChance = 0;
         }
     }
 }

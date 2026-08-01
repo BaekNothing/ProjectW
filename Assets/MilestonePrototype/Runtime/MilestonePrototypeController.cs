@@ -253,7 +253,16 @@ namespace ProjectW.MilestonePrototype
 
         private void DrawGantt(DeskWindow window)
         {
+            GUILayout.BeginHorizontal();
             GUILayout.Label("GANTT / 일감 계획", section);
+            GUILayout.FlexibleSpace();
+            if (LayoutButton(game.CompetencyAutoAssignment ? "[✓] 자동배정" : "[ ] 자동배정",
+                    GUILayout.Width(125f), GUILayout.Height(30f)))
+            {
+                game.SetCompetencyAutoAssignment(!game.CompetencyAutoAssignment);
+                SaveCampaign();
+            }
+            GUILayout.EndHorizontal();
             GUILayout.Label($"DAY {game.Day:00}  │  회색=완료  진회색=예상 잔여  ┆ SOFT  │ HARD", small);
             float availableHeight = GanttViewportHeight(window.Rect.height);
             Rect viewport = GUILayoutUtility.GetRect(100f, availableHeight,
@@ -266,9 +275,9 @@ namespace ProjectW.MilestonePrototype
 
         private void DrawGanttTimeline(DeskWindow window, Rect viewport)
         {
-            const float labelWidth = 190f;
+            const float labelWidth = 240f;
             const float dayWidth = 28f;
-            const float rowHeight = 28f;
+            const float rowHeight = 38f;
             int rowCount = game.Groups.Sum(group =>
                 1 + game.Tasks.Count(task => task.GroupId == group.Id));
             float contentWidth = game.CampaignEndDay * dayWidth + 16f;
@@ -342,15 +351,26 @@ namespace ProjectW.MilestonePrototype
 
                 foreach (WorkTask task in tasks)
                 {
+                    string owner = GanttTaskOwner(task);
                     if (Button(new Rect(4, y + 2, labelWidth - 8, rowHeight - 3),
-                            $"{StateName(task.State)}  {task.Name}" +
-                            (task.ScheduledDay > 0 ? $"  [D{task.ScheduledDay:00}]" : ""), small))
+                            $"{StateName(task.State)}  {task.Name}\n담당 {owner}", small))
                         OpenTaskDetail(task.Id);
                     y += rowHeight;
                 }
                 DrawSolid(new Rect(0, y - 1, labelWidth, 1), GrayColor);
             }
             GUI.EndGroup();
+        }
+
+        private string GanttTaskOwner(WorkTask task)
+        {
+            if (task.AssignedCharacter >= 0 && task.AssignedCharacter < game.Crew.Count)
+                return $"{game.Crew[task.AssignedCharacter].Name}" +
+                       (task.IsParallelAssignment ? " · 병행" : "");
+            if (task.ScheduledDay > 0 && task.ScheduledWorker >= 0 &&
+                task.ScheduledWorker < game.Crew.Count)
+                return $"{game.Crew[task.ScheduledWorker].Name} · D{task.ScheduledDay:00} 예약";
+            return "미배정";
         }
 
         private void DrawDependencyArrows(float dayWidth, float rowHeight)

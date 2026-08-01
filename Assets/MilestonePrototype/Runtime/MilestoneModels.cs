@@ -302,6 +302,7 @@ namespace ProjectW.MilestonePrototype
         public AssignmentRule[] AssignmentRules;
         public string[] DiscoveredTaskWordIds;
         public bool MidpointReviewIssued;
+        public bool CompetencyAutoAssignment;
     }
 
     [Serializable]
