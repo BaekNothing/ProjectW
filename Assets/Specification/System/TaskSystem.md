@@ -77,6 +77,10 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 
 - One turn advances the calendar by one day.
 - One month is always 30 days. The campaign covers three months (`90 days`).
+- Payroll is charged every 30 days. Each crew member starts with a data-defined monthly base salary,
+  and every configured block of accumulated Experience increases that salary by a configured amount.
+- Experience is earned through daily Task execution. Regeneration resets Experience to zero, which
+  also returns that crew member to the initial base salary. Payroll never reduces resources below zero.
 - The midpoint review occurs on day 45. It summarizes current Work completion and deadline state
   without ending the campaign or introducing an unstated pass/fail condition.
 - The required final operation is revealed at the start of day 60. It is absent from the Gantt and

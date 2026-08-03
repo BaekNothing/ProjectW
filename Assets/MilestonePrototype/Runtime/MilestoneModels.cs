@@ -130,6 +130,10 @@ namespace ProjectW.MilestonePrototype
         public int SoftDeadlineFatigue = 4;
         public int RestRecovery = 18;
         public int RegenerationResourceCost = 3;
+        public int PayrollIntervalDays = 30;
+        public int BaseSalary = 1;
+        public int ExperiencePerSalaryIncrease = 20;
+        public int SalaryIncrease = 1;
         public int HighFatigueAccidentChance = 28;
         public int MediumFatigueAccidentChance = 10;
         public int MismatchAccidentChance = 6;

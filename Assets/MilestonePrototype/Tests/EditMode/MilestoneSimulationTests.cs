@@ -900,13 +900,41 @@ namespace ProjectW.MilestonePrototype.Tests
             var game = new MilestoneSimulation(1);
             game.Assign("survey", 1);
             game.AdvanceDay();
+            game.Crew[1].Experience = 25;
             int before = game.Resources;
             WorkTask survey = game.Tasks.Find(task => task.Id == "survey");
             Assert.That(game.Regenerate(1), Is.True);
             Assert.That(game.Crew[1].Fatigue, Is.Zero);
+            Assert.That(game.Crew[1].Experience, Is.Zero);
+            Assert.That(game.CurrentBaseSalary(game.Crew[1]), Is.EqualTo(1));
             Assert.That(game.Resources, Is.EqualTo(before - 3));
             Assert.That(survey.AssignedCharacter, Is.EqualTo(1));
             Assert.That(survey.ContextCostDays, Is.Zero);
+        }
+
+        [Test]
+        public void CareerRaisesBaseSalaryAndPayrollContinuouslyConsumesResources()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.StartingResources = 100;
+            data.Balance.RandomWorkLimit = 0;
+            data.Balance.PayrollIntervalDays = 2;
+            data.Balance.BaseSalary = 1;
+            data.Balance.ExperiencePerSalaryIncrease = 2;
+            data.Balance.SalaryIncrease = 1;
+            ForceSuccessOutcome(data);
+            var game = new MilestoneSimulation(data, 1);
+            Assert.That(game.Assign("survey", 0), Is.True);
+
+            game.AdvanceDay();
+            Assert.That(game.Resources, Is.EqualTo(100));
+            game.AdvanceDay();
+
+            Assert.That(game.Crew[0].Experience, Is.EqualTo(2));
+            Assert.That(game.CurrentBaseSalary(game.Crew[0]), Is.EqualTo(2));
+            Assert.That(game.TotalPayroll(), Is.EqualTo(5));
+            Assert.That(game.Resources, Is.EqualTo(95));
+            Assert.That(game.LastReport.Lines, Has.Some.Contains("기본급 합계 -5자원"));
         }
 
         [Test]

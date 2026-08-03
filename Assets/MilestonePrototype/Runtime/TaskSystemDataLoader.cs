@@ -80,6 +80,10 @@ namespace ProjectW.MilestonePrototype
             if (data.Balance.PrimaryProgressDays <= 0f ||
                 data.Balance.InterruptionCostDays < 0f ||
                 data.Balance.ResumptionCostDays < 0f ||
+                data.Balance.PayrollIntervalDays <= 0 ||
+                data.Balance.BaseSalary < 0 ||
+                data.Balance.ExperiencePerSalaryIncrease <= 0 ||
+                data.Balance.SalaryIncrease < 0 ||
                 data.Balance.PrerequisiteProgressLimit < 0f ||
                 data.Balance.PrerequisiteProgressLimit > 1f ||
                 data.Balance.LowOutputChance < 0 ||

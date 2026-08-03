@@ -25,6 +25,9 @@ namespace ProjectW.MilestonePrototype
         public int Resources { get; private set; }
         public float ParallelMaximumRemainingDays => balance.ParallelMaximumRemainingDays;
         public int RegenerationResourceCost => balance.RegenerationResourceCost;
+        public int PayrollIntervalDays => balance.PayrollIntervalDays;
+        public int NextPayrollDay => ((Day - 1) / balance.PayrollIntervalDays + 1) *
+                                     balance.PayrollIntervalDays;
         public float InterruptionAndResumptionCostDays =>
             balance.InterruptionCostDays + balance.ResumptionCostDays;
         public bool IsWon => Groups.Where(group => group.Required).All(group => group.State == WorkState.Complete);
@@ -201,10 +204,10 @@ namespace ProjectW.MilestonePrototype
             member.Fatigue = 0;
             member.InjuryDays = 0;
             member.RestScheduled = false;
-            member.Experience = Math.Max(0, member.Experience - 2);
+            member.Experience = 0;
             member.RegenerationCount++;
-            member.History.Add($"DAY {Day}: 재생 시술");
-            Log($"{member.Name} 재생 시술, 자원 -{balance.RegenerationResourceCost}");
+            member.History.Add($"DAY {Day}: 재생 시술 · 경력과 급여 초기화");
+            Log($"{member.Name} 재생 시술, 경력 0 · 기본급 {CurrentBaseSalary(member)} · 자원 -{balance.RegenerationResourceCost}");
             RefreshStates();
             return true;
         }
@@ -371,6 +374,7 @@ namespace ProjectW.MilestonePrototype
                 ProcessTask(task, report, pausedCrew[task.AssignedCharacter],
                     pausedConditions[task.AssignedCharacter]);
 
+            ApplyPayroll(report);
             Day++;
             RefreshStates();
             ApplyDeadlineResults(report);
@@ -395,6 +399,31 @@ namespace ProjectW.MilestonePrototype
                                            task.State != TaskState.Complete),
             OverloadedCrew = Crew.Count(member => member.Fatigue >= 55 || member.InjuryDays > 0)
         };
+
+        public int CurrentBaseSalary(CrewMember member)
+        {
+            if (member == null) return 0;
+            return balance.BaseSalary +
+                   Math.Max(0, member.Experience) / balance.ExperiencePerSalaryIncrease *
+                   balance.SalaryIncrease;
+        }
+
+        public int TotalPayroll()
+        {
+            int total = 0;
+            foreach (CrewMember member in Crew) total += CurrentBaseSalary(member);
+            return total;
+        }
+
+        private void ApplyPayroll(DayReport report)
+        {
+            if (Day % balance.PayrollIntervalDays != 0) return;
+            int payroll = TotalPayroll();
+            Resources = Math.Max(0, Resources - payroll);
+            report.Lines.Add($"급여 지급: 월 기본급 합계 -{payroll}자원");
+            foreach (CrewMember member in Crew)
+                member.History.Add($"DAY {Day}: 기본급 {CurrentBaseSalary(member)} 지급");
+        }
 
         public RiskLevel EffectiveRisk(WorkTask task)
         {

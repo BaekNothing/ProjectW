@@ -743,14 +743,14 @@ namespace ProjectW.MilestonePrototype
                         $"{member.Name}   {RoleName(member.Specialty)} / SKILL {member.Skill} / EXP {member.Experience}",
                         section, GUILayout.Height(38)))
                     OpenWorkerDetail(i);
-                GUILayout.Label($"상태 {member.Condition}   피로 {member.Fatigue}%   성격 {member.Personality}   담당 {AssignedTask(i)}");
+                GUILayout.Label($"상태 {member.Condition}   피로 {member.Fatigue}%   성격 {member.Personality}   기본급 {game.CurrentBaseSalary(member)}   담당 {AssignedTask(i)}");
                 GUILayout.HorizontalSlider(member.Fatigue, 0, 100);
                 GUILayout.Label($"담당자 신뢰도 {member.Trust}% · {MilestoneSimulation.TrustDescription(member.Trust)}", small);
                 if (member.History.Count > 0) GUILayout.Label($"최근: {member.History[member.History.Count - 1]}", small);
                 GUILayout.BeginHorizontal();
                 SetControlEnabled(member.InjuryDays <= 0 && !member.RestScheduled);
                 if (LayoutButton(member.RestScheduled ? "휴식 예약됨" : "휴식 예약")) { game.Rest(i); SaveCampaign(); }
-                SetControlEnabled(game.Resources >= 3);
+                SetControlEnabled(game.Resources >= game.RegenerationResourceCost);
                 if (LayoutButton($"재생 시술 {game.RegenerationResourceCost}자원 ({member.RegenerationCount})")) { game.Regenerate(i); SaveCampaign(); }
                 SetControlEnabled(true);
                 GUILayout.EndHorizontal();
@@ -786,6 +786,7 @@ namespace ProjectW.MilestonePrototype
                 section);
             GUILayout.Label($"상태 {member.Condition}   피로 {member.Fatigue}%");
             GUILayout.Label($"성격  {member.Personality}", section);
+            GUILayout.Label($"경력 {member.Experience}  ·  월 기본급 {game.CurrentBaseSalary(member)}자원", section);
             GUILayout.Label($"현재 담당  {AssignedTask(window.Selected)}", small);
             GUILayout.Label($"담당자 신뢰도  {member.Trust}%", section);
             GUILayout.HorizontalSlider(member.Trust, 0, 100);
@@ -1079,7 +1080,7 @@ namespace ProjectW.MilestonePrototype
             GUILayout.Label(
                 $"PROJECT W 운영 담당자\nDAY {game.Day}/{game.CampaignEndDay}\n" +
                 $"중간평가 DAY {game.MidpointReviewDay} ({(game.MidpointReviewIssued ? "완료" : "예정")})\n" +
-                $"자원 {game.Resources}\n패치 {patchVersion}");
+                $"자원 {game.Resources}\n월 기본급 합계 {game.TotalPayroll()} · 다음 지급 DAY {game.NextPayrollDay}\n패치 {patchVersion}");
             GUILayout.Space(12);
             GUILayout.Label($"자동지정 규칙 {game.AssignmentRules.Count}개", section);
             if (game.AssignmentRules.Count == 0)
