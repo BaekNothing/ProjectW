@@ -3,6 +3,7 @@
 ## Current authority
 
 - Working title: **외행성재척지원실 3과**
+- Current implementation and completion map: `Docs/GameCompletionMap.md`
 - AI entry point: `Assets/Specification/Project_W – System Index (AI Entry Point).md`
 - Build/push guide for AI sessions: `Assets/Specification/AI Build and Git Push Guide.md`
 
