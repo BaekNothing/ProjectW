@@ -27,6 +27,28 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void CodexShipsAPlayerGuideAndDeveloperMiniSpecification()
+        {
+            var game = new MilestoneSimulation(1);
+            string[] requiredCategories =
+            {
+                "시작과 목표", "일과 작업", "작업자", "자동화",
+                "자원과 운영", "상호작용", "시스템과 데이터"
+            };
+
+            foreach (string category in requiredCategories)
+                Assert.That(game.Codex.Exists(entry => entry.Category == category), Is.True, category);
+            Assert.That(game.Codex, Has.Count.GreaterThanOrEqualTo(25));
+            Assert.That(game.Codex.TrueForAll(entry =>
+                !string.IsNullOrWhiteSpace(entry.Id) &&
+                !string.IsNullOrWhiteSpace(entry.Category) &&
+                !string.IsNullOrWhiteSpace(entry.Name) &&
+                entry.Description != null && entry.Description.Length >= 100), Is.True);
+            Assert.That(game.Codex.Exists(entry => entry.Description.Contains("DailyOutput")), Is.True);
+            Assert.That(game.Codex.Exists(entry => entry.Description.Contains("아직 구현되지")), Is.True);
+        }
+
+        [Test]
         public void ManualAssignmentCreatesAndUpdatesLearnedRule()
         {
             var game = new MilestoneSimulation(1);

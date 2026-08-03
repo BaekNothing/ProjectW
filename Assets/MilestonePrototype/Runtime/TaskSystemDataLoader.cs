@@ -51,6 +51,7 @@ namespace ProjectW.MilestonePrototype
             if (data == null || data.SchemaVersion != SupportedSchema)
                 throw new InvalidOperationException($"Unsupported task-system schema {data?.SchemaVersion ?? 0}.");
             if (data.Balance == null || data.Works == null || data.Tasks == null || data.Crew == null ||
+                data.Codex == null || data.Codex.Length == 0 ||
                 data.RandomTaskWords == null ||
                 data.RandomTaskWords.Adjectives == null || data.RandomTaskWords.Adjectives.Length == 0 ||
                 data.RandomTaskWords.Targets == null || data.RandomTaskWords.Targets.Length == 0 ||
@@ -74,6 +75,18 @@ namespace ProjectW.MilestonePrototype
             }
             foreach (WorkTask task in data.Tasks)
                 ValidateRequiredCompetencies(task?.RequiredCompetencies, "Every Task");
+            for (int i = 0; i < data.Codex.Length; i++)
+            {
+                CodexEntry entry = data.Codex[i];
+                if (entry == null || string.IsNullOrWhiteSpace(entry.Id) ||
+                    string.IsNullOrWhiteSpace(entry.Category) ||
+                    string.IsNullOrWhiteSpace(entry.Name) ||
+                    string.IsNullOrWhiteSpace(entry.Description))
+                    throw new InvalidOperationException("Every Codex entry requires an id, category, name, and description.");
+                for (int previous = 0; previous < i; previous++)
+                    if (data.Codex[previous].Id == entry.Id)
+                        throw new InvalidOperationException($"Codex entry id '{entry.Id}' is duplicated.");
+            }
             if (data.CampaignEndDay <= 0 || data.MidpointReviewDay <= 0 ||
                 data.MidpointReviewDay >= data.CampaignEndDay || data.StartingResources < 0)
                 throw new InvalidOperationException("Task-system campaign values are invalid.");

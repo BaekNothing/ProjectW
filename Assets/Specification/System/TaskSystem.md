@@ -342,6 +342,19 @@ External data includes:
 - assignment, interruption, parallel-work, fatigue, outcome, and perk balance values
 - random Task adjective, target, and action pools with their role, risk, and difficulty metadata
 - learned assignment situation fields and player-created rule state
+
+## In-Game Codex as Living Specification
+
+- The base `Codex` array in `task-system.json` is both an always-available player guide and a
+  developer-facing mini specification of the behavior shipped in the current patch.
+- It covers campaign goals, day order, Work and Task mechanics, worker systems, automation,
+  resources, interactions, save data, and patch boundaries.
+- Entries must distinguish implemented behavior from planned behavior with explicit wording such
+  as `현재`, `아직`, and `향후`; planned effects must never be presented as active mechanics.
+- Any balance or behavior change that makes a guide statement inaccurate must update the matching
+  Codex entry in the same commit.
+- Base guide entries are visible from campaign start. Generated adjective, target, and action
+  entries remain discovery-based additions and persist through discovered word IDs.
 - mail and codex content
 
 The authoritative runtime data file for this prototype is:
