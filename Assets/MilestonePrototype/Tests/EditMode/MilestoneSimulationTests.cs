@@ -935,6 +935,55 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void RegenerationInheritanceTradesUpfrontResourcesForRetainedAbilityAndPerks()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.StartingResources = 30;
+            data.Balance.RegenerationPersonalityRetentionWeight = 100;
+            var game = new MilestoneSimulation(data, 1);
+            CrewMember member = game.Crew[0];
+            member.Skill = 7;
+            member.Competencies = new[] { 7, 7, 7, 7, 7, 7 };
+            member.Perks = new[] { "현장 성장 퍽" };
+            member.Experience = 40;
+            string personality = member.Personality;
+
+            Assert.That(game.RegenerationCost(true, true), Is.EqualTo(12));
+            Assert.That(game.Regenerate(0, true, true), Is.True);
+
+            Assert.That(game.Resources, Is.EqualTo(18));
+            Assert.That(member.Skill, Is.EqualTo(7));
+            Assert.That(member.Competencies, Is.All.EqualTo(7));
+            Assert.That(member.Perks, Is.EqualTo(new[] { "현장 성장 퍽" }));
+            Assert.That(member.Experience, Is.Zero);
+            Assert.That(game.CurrentBaseSalary(member), Is.EqualTo(1));
+            Assert.That(member.Personality, Is.EqualTo(personality));
+        }
+
+        [Test]
+        public void RegenerationWithoutInheritanceRestoresBaselineAndRerollsPersonality()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.RegenerationPersonalityRetentionWeight = 0;
+            int baselineSkill = data.Crew[0].Skill;
+            int[] baselineCompetencies = (int[])data.Crew[0].Competencies.Clone();
+            string[] baselinePerks = (string[])data.Crew[0].Perks.Clone();
+            var game = new MilestoneSimulation(data, 1);
+            CrewMember member = game.Crew[0];
+            string previousPersonality = member.Personality;
+            member.Skill = 1;
+            member.Competencies = new[] { 1, 1, 1, 1, 1, 1 };
+            member.Perks = new[] { "임시 퍽" };
+
+            Assert.That(game.Regenerate(0, false, false), Is.True);
+
+            Assert.That(member.Skill, Is.EqualTo(baselineSkill));
+            Assert.That(member.Competencies, Is.EqualTo(baselineCompetencies));
+            Assert.That(member.Perks, Is.EqualTo(baselinePerks));
+            Assert.That(member.Personality, Is.Not.EqualTo(previousPersonality));
+        }
+
+        [Test]
         public void CareerRaisesBaseSalaryAndPayrollContinuouslyConsumesResources()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();

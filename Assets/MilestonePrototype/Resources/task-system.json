@@ -15,6 +15,9 @@
     "SoftDeadlineFatigue": 4,
     "RestRecovery": 18,
     "RegenerationResourceCost": 3,
+    "RegenerationAbilityInheritanceCost": 5,
+    "RegenerationPerkInheritanceCost": 4,
+    "RegenerationPersonalityRetentionWeight": 60,
     "PayrollIntervalDays": 30,
     "BaseSalary": 1,
     "ExperiencePerSalaryIncrease": 20,
@@ -380,7 +383,7 @@
       "Id": "guide-rest-regeneration",
       "Category": "작업자",
       "Name": "휴식과 재생",
-      "Description": "휴식 예약은 다음 하루의 작업을 쉬게 하고 피로를 18 회복합니다. 회복은 즉시가 아니라 다음날 처리에서 발생하며 현재 작업 담당은 유지됩니다. 부상 중이거나 이미 휴식이 예약된 대원에게는 다시 예약할 수 없습니다.\n\n재생 시술은 현재 3자원을 소비하고 즉시 피로 0, 부상 0, 휴식 예약 해제, 경력 0으로 만듭니다. 담당 작업은 유지되며 문맥 비용도 붙지 않습니다. 경력이 0이 되므로 상승했던 기본급도 초기 기본급으로 돌아갑니다. 재생 횟수는 누적 기록됩니다."
+      "Description": "휴식 예약은 다음 하루의 작업을 쉬게 하고 피로를 18 회복합니다. 회복은 즉시가 아니라 다음날 처리에서 발생하며 현재 작업 담당은 유지됩니다. 부상 중이거나 이미 휴식이 예약된 대원에게는 다시 예약할 수 없습니다.\n\n재생 기본 비용은 3자원입니다. 능력 인계 +5, 퍽 인계 +4를 선택할 수 있어 모두 보존하면 12자원을 선불로 냅니다. 인계하지 않은 능력과 퍽은 해당 자리의 초기 데이터로 돌아갑니다. 피로·부상·휴식·경력은 항상 초기화되어 월급이 다시 1부터 시작합니다. 성격은 기존 성격 60% 유지, 나머지 40%는 다른 팀 성격 중 무작위입니다. 담당 작업은 유지되며 문맥 비용은 붙지 않습니다."
     },
     {
       "Id": "guide-career-payroll",

@@ -81,6 +81,14 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
   and every configured block of accumulated Experience increases that salary by a configured amount.
 - Experience is earned through daily Task execution. Regeneration resets Experience to zero, which
   also returns that crew member to the initial base salary. Payroll never reduces resources below zero.
+- Regeneration always pays a base resource cost and offers independent ability and perk inheritance
+  options for additional data-driven costs. Ability inheritance preserves specialty, skill,
+  competencies, and daily output; perk inheritance preserves the current perk array. Any unselected
+  layer returns to that roster slot's initial external-data definition.
+- Regeneration rerolls personality. The previous personality has a data-driven retention weight;
+  when it is not retained, one of the other roster-defined personalities is selected uniformly.
+- Assignment and Task context survive regeneration. Fatigue, injury, scheduled rest, Experience,
+  and salary progression never survive, regardless of inheritance choices.
 - The midpoint review occurs on day 45. It summarizes current Work completion and deadline state
   without ending the campaign or introducing an unstated pass/fail condition.
 - The required final operation is revealed at the start of day 60. It is absent from the Gantt and

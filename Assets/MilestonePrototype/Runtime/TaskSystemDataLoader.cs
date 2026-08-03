@@ -93,6 +93,11 @@ namespace ProjectW.MilestonePrototype
             if (data.Balance.PrimaryProgressDays <= 0f ||
                 data.Balance.InterruptionCostDays < 0f ||
                 data.Balance.ResumptionCostDays < 0f ||
+                data.Balance.RegenerationResourceCost < 0 ||
+                data.Balance.RegenerationAbilityInheritanceCost < 0 ||
+                data.Balance.RegenerationPerkInheritanceCost < 0 ||
+                data.Balance.RegenerationPersonalityRetentionWeight < 0 ||
+                data.Balance.RegenerationPersonalityRetentionWeight > 100 ||
                 data.Balance.PayrollIntervalDays <= 0 ||
                 data.Balance.BaseSalary < 0 ||
                 data.Balance.ExperiencePerSalaryIncrease <= 0 ||

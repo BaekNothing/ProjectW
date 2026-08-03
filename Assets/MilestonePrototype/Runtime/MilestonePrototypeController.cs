@@ -22,6 +22,8 @@ namespace ProjectW.MilestonePrototype
             public int SelectedCrew;
             public int ScheduleDay;
             public List<string> CollapsedCodexCategories = new List<string>();
+            public bool InheritRegenerationAbilities;
+            public bool InheritRegenerationPerks;
             public string Notice;
             public bool Resizing;
             public Vector2 ResizePointerOrigin;
@@ -750,9 +752,8 @@ namespace ProjectW.MilestonePrototype
                 GUILayout.BeginHorizontal();
                 SetControlEnabled(member.InjuryDays <= 0 && !member.RestScheduled);
                 if (LayoutButton(member.RestScheduled ? "휴식 예약됨" : "휴식 예약")) { game.Rest(i); SaveCampaign(); }
-                SetControlEnabled(game.Resources >= game.RegenerationResourceCost);
-                if (LayoutButton($"재생 시술 {game.RegenerationResourceCost}자원 ({member.RegenerationCount})")) { game.Regenerate(i); SaveCampaign(); }
                 SetControlEnabled(true);
+                if (LayoutButton("재생 계획 열기")) OpenWorkerDetail(i);
                 GUILayout.EndHorizontal();
                 GUILayout.EndVertical();
             }
@@ -791,6 +792,38 @@ namespace ProjectW.MilestonePrototype
             GUILayout.Label($"담당자 신뢰도  {member.Trust}%", section);
             GUILayout.HorizontalSlider(member.Trust, 0, 100);
             GUILayout.Label(MilestoneSimulation.TrustDescription(member.Trust), small);
+            DrawSectionRule();
+            GUILayout.Label("재생 계획", section);
+            GUILayout.Label(
+                "경력과 급여는 항상 초기화됩니다. 추가 자원을 내면 현재 능력이나 퍽을 새 개체에 인계합니다. 성격은 가중 무작위로 다시 결정됩니다.",
+                small);
+            GUILayout.BeginHorizontal();
+            if (LayoutButton(window.InheritRegenerationAbilities
+                    ? $"능력 인계 +{game.RegenerationAbilityInheritanceCost}: 선택됨"
+                    : $"능력 인계 +{game.RegenerationAbilityInheritanceCost}: 안 함"))
+                window.InheritRegenerationAbilities = !window.InheritRegenerationAbilities;
+            if (LayoutButton(window.InheritRegenerationPerks
+                    ? $"퍽 인계 +{game.RegenerationPerkInheritanceCost}: 선택됨"
+                    : $"퍽 인계 +{game.RegenerationPerkInheritanceCost}: 안 함"))
+                window.InheritRegenerationPerks = !window.InheritRegenerationPerks;
+            GUILayout.EndHorizontal();
+            int regenerationCost = game.RegenerationCost(
+                window.InheritRegenerationAbilities, window.InheritRegenerationPerks);
+            GUILayout.Label(
+                $"선불 비용 {regenerationCost}자원 · 기존 성격 유지 확률 {game.RegenerationPersonalityRetentionWeight}% · 이후 기본급 {game.InitialBaseSalary}자원부터 재시작",
+                section);
+            SetControlEnabled(game.Resources >= regenerationCost);
+            if (LayoutButton($"이 계획으로 재생 ({member.RegenerationCount + 1}회차)"))
+            {
+                if (game.Regenerate(window.Selected,
+                        window.InheritRegenerationAbilities, window.InheritRegenerationPerks))
+                {
+                    window.Notice = $"재생 완료 · 성격 {member.Personality} · 경력 0 · 기본급 {game.CurrentBaseSalary(member)}";
+                    SaveCampaign();
+                }
+            }
+            SetControlEnabled(true);
+            if (!string.IsNullOrEmpty(window.Notice)) GUILayout.Label(window.Notice, success);
             DrawSectionRule();
             GUILayout.Label("메모", section);
             GUILayout.Label(string.IsNullOrEmpty(member.Memo) ? "메모 없음" : member.Memo);

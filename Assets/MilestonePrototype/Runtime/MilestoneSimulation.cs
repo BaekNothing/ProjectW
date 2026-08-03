@@ -14,6 +14,9 @@ namespace ProjectW.MilestonePrototype
         private readonly string[] crewMemos;
         private readonly string[][] crewPerks;
         private readonly int[][] crewCompetencies;
+        private readonly WorkRole[] crewSpecialties;
+        private readonly int[] crewSkills;
+        private readonly float[] crewDailyOutputs;
         private readonly RandomTaskWordPool randomTaskWords;
         private readonly WorkTask[] baseTasks;
         private readonly CodexEntry[] baseCodex;
@@ -25,6 +28,11 @@ namespace ProjectW.MilestonePrototype
         public int Resources { get; private set; }
         public float ParallelMaximumRemainingDays => balance.ParallelMaximumRemainingDays;
         public int RegenerationResourceCost => balance.RegenerationResourceCost;
+        public int RegenerationAbilityInheritanceCost => balance.RegenerationAbilityInheritanceCost;
+        public int RegenerationPerkInheritanceCost => balance.RegenerationPerkInheritanceCost;
+        public int RegenerationPersonalityRetentionWeight =>
+            balance.RegenerationPersonalityRetentionWeight;
+        public int InitialBaseSalary => balance.BaseSalary;
         public int PayrollIntervalDays => balance.PayrollIntervalDays;
         public int NextPayrollDay => ((Day - 1) / balance.PayrollIntervalDays + 1) *
                                      balance.PayrollIntervalDays;
@@ -69,13 +77,21 @@ namespace ProjectW.MilestonePrototype
             crewMemos = new string[data.Crew.Length];
             crewPerks = new string[data.Crew.Length][];
             crewCompetencies = new int[data.Crew.Length][];
+            crewSpecialties = new WorkRole[data.Crew.Length];
+            crewSkills = new int[data.Crew.Length];
+            crewDailyOutputs = new float[data.Crew.Length];
             for (int i = 0; i < data.Crew.Length; i++)
             {
                 crewPortraits[i] = data.Crew[i].PortraitLabel;
                 crewPersonalities[i] = data.Crew[i].Personality;
                 crewMemos[i] = data.Crew[i].Memo;
-                crewPerks[i] = data.Crew[i].Perks;
-                crewCompetencies[i] = data.Crew[i].Competencies;
+                crewPerks[i] = data.Crew[i].Perks == null
+                    ? Array.Empty<string>()
+                    : (string[])data.Crew[i].Perks.Clone();
+                crewCompetencies[i] = (int[])data.Crew[i].Competencies.Clone();
+                crewSpecialties[i] = data.Crew[i].Specialty;
+                crewSkills[i] = data.Crew[i].Skill;
+                crewDailyOutputs[i] = data.Crew[i].DailyOutput;
             }
             CampaignEndDay = data.CampaignEndDay;
             MidpointReviewDay = data.MidpointReviewDay;
@@ -197,19 +213,68 @@ namespace ProjectW.MilestonePrototype
 
         public bool Regenerate(int crewIndex)
         {
+            return Regenerate(crewIndex, false, false);
+        }
+
+        public int RegenerationCost(bool inheritAbilities, bool inheritPerks)
+        {
+            return balance.RegenerationResourceCost +
+                   (inheritAbilities ? balance.RegenerationAbilityInheritanceCost : 0) +
+                   (inheritPerks ? balance.RegenerationPerkInheritanceCost : 0);
+        }
+
+        public bool Regenerate(int crewIndex, bool inheritAbilities, bool inheritPerks)
+        {
+            int cost = RegenerationCost(inheritAbilities, inheritPerks);
             if (crewIndex < 0 || crewIndex >= Crew.Count ||
-                Resources < balance.RegenerationResourceCost) return false;
+                Resources < cost) return false;
             CrewMember member = Crew[crewIndex];
-            Resources -= balance.RegenerationResourceCost;
+            string previousPersonality = member.Personality;
+            Resources -= cost;
+            if (!inheritAbilities)
+            {
+                member.Specialty = crewSpecialties[crewIndex];
+                member.Skill = crewSkills[crewIndex];
+                member.Competencies = (int[])crewCompetencies[crewIndex].Clone();
+                member.DailyOutput = crewDailyOutputs[crewIndex];
+            }
+            if (!inheritPerks)
+                member.Perks = (string[])crewPerks[crewIndex].Clone();
             member.Fatigue = 0;
             member.InjuryDays = 0;
             member.RestScheduled = false;
             member.Experience = 0;
+            member.Personality = RollRegeneratedPersonality(previousPersonality);
             member.RegenerationCount++;
-            member.History.Add($"DAY {Day}: 재생 시술 · 경력과 급여 초기화");
-            Log($"{member.Name} 재생 시술, 경력 0 · 기본급 {CurrentBaseSalary(member)} · 자원 -{balance.RegenerationResourceCost}");
+            string inheritance = inheritAbilities && inheritPerks
+                ? "능력·퍽 인계"
+                : inheritAbilities ? "능력 인계" : inheritPerks ? "퍽 인계" : "인계 없음";
+            member.History.Add($"DAY {Day}: 재생 시술 · {inheritance} · 성격 {member.Personality}");
+            Log($"{member.Name} 재생 시술, {inheritance} · 경력 0 · 기본급 {CurrentBaseSalary(member)} · 자원 -{cost}");
             RefreshStates();
             return true;
+        }
+
+        private string RollRegeneratedPersonality(string previousPersonality)
+        {
+            if (!string.IsNullOrEmpty(previousPersonality) &&
+                random.Next(100) < balance.RegenerationPersonalityRetentionWeight)
+                return previousPersonality;
+            int alternatives = 0;
+            for (int i = 0; i < crewPersonalities.Length; i++)
+                if (!string.IsNullOrEmpty(crewPersonalities[i]) &&
+                    crewPersonalities[i] != previousPersonality)
+                    alternatives++;
+            if (alternatives == 0) return previousPersonality;
+            int selected = random.Next(alternatives);
+            for (int i = 0; i < crewPersonalities.Length; i++)
+            {
+                string candidate = crewPersonalities[i];
+                if (string.IsNullOrEmpty(candidate) || candidate == previousPersonality) continue;
+                if (selected == 0) return candidate;
+                selected--;
+            }
+            return previousPersonality;
         }
 
         public bool ResolveMail(string mailId)
