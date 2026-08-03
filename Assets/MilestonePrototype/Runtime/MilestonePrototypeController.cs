@@ -21,6 +21,7 @@ namespace ProjectW.MilestonePrototype
             public int Selected;
             public int SelectedCrew;
             public int ScheduleDay;
+            public List<string> CollapsedCodexCategories = new List<string>();
             public string Notice;
             public bool Resizing;
             public Vector2 ResizePointerOrigin;
@@ -32,7 +33,7 @@ namespace ProjectW.MilestonePrototype
         {
             { "mail", "MAIL / 통신" }, { "gantt", "GANTT / 작업" }, { "milestone", "MILESTONE" },
             { "workers", "CREW / 대원" }, { "report", "REPORT" }, { "codex", "CODEX / 도감" },
-            { "help", "HELP" }, { "profile", "MY INFO" }, { "log", "SYSTEM LOG" },
+            { "profile", "MY INFO" }, { "log", "SYSTEM LOG" },
             { "messenger", "MESSENGER / 메신저" },
             { "worker-detail", "CREW PROFILE / 대원 상세" },
             { "task-detail", "TASK DETAIL / 작업 상세" },
@@ -41,9 +42,9 @@ namespace ProjectW.MilestonePrototype
         private readonly string[] desktopBadgeAppIds =
         {
             "mail", "gantt", "milestone", "workers", "report",
-            "codex", "messenger", "help", "profile", "options"
+            "codex", "messenger", "profile", "options"
         };
-        private readonly int[] desktopBadgeCounts = new int[10];
+        private readonly int[] desktopBadgeCounts = new int[9];
 
         private MilestoneSimulation game;
         private GUIStyle title;
@@ -129,7 +130,7 @@ namespace ProjectW.MilestonePrototype
             GUI.Label(new Rect(22, 15, Mathf.Max(220f, logicalWidth - 300f), 34),
                 "PROJECT W  /  OPERATIONS DESK", title);
             GUI.Label(new Rect(logicalWidth - 250, 18, 225, 25), $"DAY {game.Day:00}/{game.CampaignEndDay}", small);
-            string[] ids = { "mail", "gantt", "milestone", "workers", "report", "codex", "messenger", "help", "profile", "options" };
+            string[] ids = { "mail", "gantt", "milestone", "workers", "report", "codex", "messenger", "profile", "options" };
             RefreshDesktopBadges();
             for (int i = 0; i < ids.Length; i++)
             {
@@ -198,7 +199,6 @@ namespace ProjectW.MilestonePrototype
                 case "task-detail": DrawTaskDetail(window); break;
                 case "report": DrawReport(window); break;
                 case "codex": DrawCodex(window); break;
-                case "help": DrawHelp(); break;
                 case "profile": DrawProfile(); break;
                 case "options": DrawOptions(window); break;
                 case "log": DrawLog(window); break;
@@ -743,7 +743,7 @@ namespace ProjectW.MilestonePrototype
                         $"{member.Name}   {RoleName(member.Specialty)} / SKILL {member.Skill} / EXP {member.Experience}",
                         section, GUILayout.Height(38)))
                     OpenWorkerDetail(i);
-                GUILayout.Label($"상태 {member.Condition}   피로 {member.Fatigue}%   담당 {AssignedTask(i)}");
+                GUILayout.Label($"상태 {member.Condition}   피로 {member.Fatigue}%   성격 {member.Personality}   담당 {AssignedTask(i)}");
                 GUILayout.HorizontalSlider(member.Fatigue, 0, 100);
                 GUILayout.Label($"담당자 신뢰도 {member.Trust}% · {MilestoneSimulation.TrustDescription(member.Trust)}", small);
                 if (member.History.Count > 0) GUILayout.Label($"최근: {member.History[member.History.Count - 1]}", small);
@@ -785,6 +785,7 @@ namespace ProjectW.MilestonePrototype
             GUILayout.Label($"{RoleName(member.Specialty)}  /  SKILL {member.Skill}  /  EXP {member.Experience}",
                 section);
             GUILayout.Label($"상태 {member.Condition}   피로 {member.Fatigue}%");
+            GUILayout.Label($"성격  {member.Personality}", section);
             GUILayout.Label($"현재 담당  {AssignedTask(window.Selected)}", small);
             GUILayout.Label($"담당자 신뢰도  {member.Trust}%", section);
             GUILayout.HorizontalSlider(member.Trust, 0, 100);
@@ -925,7 +926,7 @@ namespace ProjectW.MilestonePrototype
             GUILayout.BeginVertical(GUI.skin.box);
             GUILayout.Label(selected.Name, section);
             GUILayout.Label(
-                $"{RoleName(selected.Specialty)} · {MessengerPresence(window.Selected)} · 담당자 신뢰 {selected.Trust}%",
+                $"{RoleName(selected.Specialty)} · 성격 {selected.Personality} · {MessengerPresence(window.Selected)} · 담당자 신뢰 {selected.Trust}%",
                 small);
             GUILayout.Label(MilestoneSimulation.TrustDescription(selected.Trust), small);
             DrawSectionRule();
@@ -1018,10 +1019,32 @@ namespace ProjectW.MilestonePrototype
 
         private void DrawCodex(DeskWindow window)
         {
+            if (game.Codex.Count == 0)
+            {
+                GUILayout.Label("아직 해금된 도감 항목이 없습니다.", small);
+                return;
+            }
             GUILayout.BeginHorizontal();
             GUILayout.BeginVertical(GUILayout.Width(185));
-            for (int i = 0; i < game.Codex.Count; i++)
-                if (LayoutButton($"{game.Codex[i].Category}\n{game.Codex[i].Name}", GUILayout.Height(48))) window.Selected = i;
+            var renderedCategories = new List<string>();
+            foreach (CodexEntry codexEntry in game.Codex)
+            {
+                string category = codexEntry.Category;
+                if (ListContains(renderedCategories, category)) continue;
+                renderedCategories.Add(category);
+                bool collapsed = ListContains(window.CollapsedCodexCategories, category);
+                if (LayoutButton($"{(collapsed ? "▶" : "▼")} {category}", section, GUILayout.Height(36)))
+                {
+                    if (collapsed) RemoveFromList(window.CollapsedCodexCategories, category);
+                    else window.CollapsedCodexCategories.Add(category);
+                }
+                if (collapsed) continue;
+                for (int i = 0; i < game.Codex.Count; i++)
+                {
+                    if (game.Codex[i].Category != category) continue;
+                    if (LayoutButton($"  {game.Codex[i].Name}", GUILayout.Height(40))) window.Selected = i;
+                }
+            }
             GUILayout.EndVertical();
             GUILayout.BeginVertical(GUI.skin.box);
             CodexEntry entry = game.Codex[Mathf.Clamp(window.Selected, 0, game.Codex.Count - 1)];
@@ -1033,10 +1056,21 @@ namespace ProjectW.MilestonePrototype
             GUILayout.EndHorizontal();
         }
 
-        private void DrawHelp()
+        private static bool ListContains(List<string> values, string value)
         {
-            GUILayout.Label("OPS DESK 사용법", section);
-            GUILayout.Label("• 바탕화면 아이콘을 한 번 탭해 앱을 엽니다.\n• 창 제목을 드래그해 이동합니다.\n• 창 내용은 터치 드래그 또는 마우스 휠로 이동합니다.\n• Gantt에서는 왼쪽 일감 열이 고정되고 날짜 영역만 움직입니다.\n• 주 작업은 하루 하나, 잔여 1일 이하 작업은 피로를 더 써서 병행할 수 있습니다.\n• 통신 지시를 수락하면 마감·중요도·자원이 실제 게임에 반영됩니다.\n• 옵션에서 화면 배율과 초기화 기능을 설정할 수 있습니다.");
+            for (int i = 0; i < values.Count; i++)
+                if (values[i] == value) return true;
+            return false;
+        }
+
+        private static void RemoveFromList(List<string> values, string value)
+        {
+            for (int i = 0; i < values.Count; i++)
+            {
+                if (values[i] != value) continue;
+                values.RemoveAt(i);
+                return;
+            }
         }
 
         private void DrawProfile()
@@ -1864,7 +1898,6 @@ namespace ProjectW.MilestonePrototype
                 case "report": return "보고서";
                 case "codex": return "도감";
                 case "messenger": return "메신저";
-                case "help": return "도움말";
                 case "options": return "옵션";
                 default: return "내정보";
             }
@@ -1881,7 +1914,6 @@ namespace ProjectW.MilestonePrototype
                 case "report": return "RPT";
                 case "codex": return "CODEX";
                 case "messenger": return "CHAT";
-                case "help": return "HELP";
                 case "options": return "OPT";
                 default: return "INFO";
             }

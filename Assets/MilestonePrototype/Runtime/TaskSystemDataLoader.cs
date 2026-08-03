@@ -61,6 +61,8 @@ namespace ProjectW.MilestonePrototype
                     $"A field team must contain exactly {MilestoneSimulation.TeamSize} crew members.");
             foreach (CrewMember member in data.Crew)
             {
+                if (member == null || string.IsNullOrWhiteSpace(member.Personality))
+                    throw new InvalidOperationException("Every crew member requires a personality.");
                 if (member == null || member.Competencies == null ||
                     member.Competencies.Length != CrewMember.CompetencyCount)
                     throw new InvalidOperationException(

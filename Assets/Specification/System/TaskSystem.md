@@ -315,6 +315,8 @@ Version 0.1 retains deterministic progress and the prototype accident outcome wh
   player-character responsible for the team.
 - Trust and a readable interpretation must appear in the crew list, crew detail, and messenger.
 - Messenger status replies include the worker's current view of the responsible officer.
+- Each crew member has a data-defined personality. Crew detail and messenger expose it, and
+  messenger replies express the same underlying situation differently according to personality.
 - Trust changes and command acceptance effects remain extension points until their outcome rules are
   specified. This version exposes and preserves the relationship value without changing it implicitly.
 - When an older campaign save contains more than four crew members, only the first four remain on
@@ -332,6 +334,7 @@ External data includes:
 - Task definitions, durations, roles, one-to-three competency requirements, difficulty, and prerequisite IDs
 - worker definitions and initial stats
 - the four-person field-team roster and each member's initial trust toward the responsible officer
+- each crew member's personality and initial voice
 - assignment, interruption, parallel-work, fatigue, outcome, and perk balance values
 - random Task adjective, target, and action pools with their role, risk, and difficulty metadata
 - learned assignment situation fields and player-created rule state

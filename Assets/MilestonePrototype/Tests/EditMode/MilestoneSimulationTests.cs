@@ -18,6 +18,7 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(game.CampaignEndDay, Is.EqualTo(90));
             Assert.That(game.MidpointReviewDay, Is.EqualTo(45));
             Assert.That(game.Crew[0].PortraitLabel, Is.Not.Empty);
+            Assert.That(game.Crew[0].Personality, Is.Not.Empty);
             Assert.That(game.Crew[0].Memo, Is.Not.Empty);
             Assert.That(game.Crew[0].Perks, Is.Not.Null.And.Not.Empty);
             Assert.That(game.Crew[0].Competencies, Has.Length.EqualTo(CrewMember.CompetencyCount));
@@ -984,6 +985,23 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void MessengerRepliesExpressTheSameSituationByPersonality()
+        {
+            var game = new MilestoneSimulation(1);
+            game.Crew[0].Fatigue = 60;
+            game.Crew[1].Fatigue = 60;
+
+            string principled = game.BuildWorkerStatusReply(0);
+            string analytical = game.BuildWorkerStatusReply(1);
+
+            Assert.That(principled, Does.Contain("절차에 따라"));
+            Assert.That(analytical, Does.Contain("수치와 정황"));
+            Assert.That(principled, Does.Contain("피로도 60%"));
+            Assert.That(analytical, Does.Contain("피로도 60%"));
+            Assert.That(principled, Is.Not.EqualTo(analytical));
+        }
+
+        [Test]
         public void MessengerWorkQuestionReportsAssignedTaskProgress()
         {
             var game = new MilestoneSimulation(1);
@@ -1582,7 +1600,7 @@ namespace ProjectW.MilestonePrototype.Tests
             string[] ids =
             {
                 "mail", "gantt", "milestone", "workers", "report",
-                "codex", "messenger", "help", "profile", "options"
+                "codex", "messenger", "profile", "options"
             };
 
             foreach (string id in ids)

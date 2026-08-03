@@ -10,6 +10,7 @@ namespace ProjectW.MilestonePrototype
         private readonly Random random;
         private readonly TaskSystemBalance balance;
         private readonly string[] crewPortraits;
+        private readonly string[] crewPersonalities;
         private readonly string[] crewMemos;
         private readonly string[][] crewPerks;
         private readonly int[][] crewCompetencies;
@@ -61,12 +62,14 @@ namespace ProjectW.MilestonePrototype
             baseTasks = data.Tasks;
             baseCodex = data.Codex ?? new CodexEntry[0];
             crewPortraits = new string[data.Crew.Length];
+            crewPersonalities = new string[data.Crew.Length];
             crewMemos = new string[data.Crew.Length];
             crewPerks = new string[data.Crew.Length][];
             crewCompetencies = new int[data.Crew.Length][];
             for (int i = 0; i < data.Crew.Length; i++)
             {
                 crewPortraits[i] = data.Crew[i].PortraitLabel;
+                crewPersonalities[i] = data.Crew[i].Personality;
                 crewMemos[i] = data.Crew[i].Memo;
                 crewPerks[i] = data.Crew[i].Perks;
                 crewCompetencies[i] = data.Crew[i].Competencies;
@@ -284,15 +287,18 @@ namespace ProjectW.MilestonePrototype
             if (crewIndex < 0 || crewIndex >= Crew.Count) return string.Empty;
             CrewMember member = Crew[crewIndex];
             string relationship = $"담당자 신뢰도는 {member.Trust}%입니다. {TrustDescription(member.Trust)} ";
+            string reply;
             if (member.InjuryDays > 0)
-                return relationship + $"지금은 부상 회복 중입니다. 복귀까지 {member.InjuryDays}일 남았습니다.";
-            if (member.RestScheduled)
-                return relationship + "오늘은 휴식이 예정되어 있습니다. 회복 후 다시 보고드리겠습니다.";
-            if (member.Fatigue >= 80)
-                return relationship + $"피로도가 {member.Fatigue}%라 많이 지쳤습니다. 휴식이 필요합니다.";
-            if (member.Fatigue >= 55)
-                return relationship + $"피로도 {member.Fatigue}%입니다. 계속할 수 있지만 무리가 쌓이고 있습니다.";
-            return relationship + $"괜찮습니다. 현재 피로도는 {member.Fatigue}%이고 바로 대응할 수 있습니다.";
+                reply = $"지금은 부상 회복 중입니다. 복귀까지 {member.InjuryDays}일 남았습니다.";
+            else if (member.RestScheduled)
+                reply = "오늘은 휴식이 예정되어 있습니다. 회복 후 다시 보고드리겠습니다.";
+            else if (member.Fatigue >= 80)
+                reply = $"피로도가 {member.Fatigue}%라 많이 지쳤습니다. 휴식이 필요합니다.";
+            else if (member.Fatigue >= 55)
+                reply = $"피로도 {member.Fatigue}%입니다. 계속할 수 있지만 무리가 쌓이고 있습니다.";
+            else
+                reply = $"괜찮습니다. 현재 피로도는 {member.Fatigue}%이고 바로 대응할 수 있습니다.";
+            return ApplyPersonalityVoice(member, relationship + reply);
         }
 
         public static string TrustDescription(int trust)
@@ -306,19 +312,33 @@ namespace ProjectW.MilestonePrototype
         public string BuildWorkerWorkReply(int crewIndex)
         {
             if (crewIndex < 0 || crewIndex >= Crew.Count) return string.Empty;
+            CrewMember member = Crew[crewIndex];
             WorkTask primary = Tasks.FirstOrDefault(task =>
                 IsOngoingAssignment(task) && task.AssignedCharacter == crewIndex && !task.IsParallelAssignment);
             WorkTask parallel = Tasks.FirstOrDefault(task =>
                 IsOngoingAssignment(task) && task.AssignedCharacter == crewIndex && task.IsParallelAssignment);
             if (primary == null && parallel == null)
-                return "현재 맡은 작업은 없습니다. 새 지시를 기다리고 있습니다.";
+                return ApplyPersonalityVoice(member, "현재 맡은 작업은 없습니다. 새 지시를 기다리고 있습니다.");
 
             string reply = primary == null
                 ? "주 작업은 없습니다."
                 : $"{primary.Name} 작업을 진행 중입니다. 진척도는 {primary.Completion * 100:0}%입니다.";
             if (parallel != null)
                 reply += $" 병행 작업은 {parallel.Name}, 진척도 {parallel.Completion * 100:0}%입니다.";
-            return reply;
+            return ApplyPersonalityVoice(member, reply);
+        }
+
+        public static string ApplyPersonalityVoice(CrewMember member, string message)
+        {
+            if (member == null || string.IsNullOrEmpty(message)) return message ?? string.Empty;
+            switch (member.Personality)
+            {
+                case "원칙적": return "절차에 따라 보고드립니다. " + message;
+                case "분석적": return "현재 수치와 정황을 종합하면, " + message;
+                case "다정함": return message + " 다른 대원들의 상태도 함께 살펴보겠습니다.";
+                case "대담함": return message + " 필요하면 바로 움직이겠습니다.";
+                default: return message;
+            }
         }
 
         public DayReport AdvanceDay()
@@ -1400,6 +1420,8 @@ namespace ProjectW.MilestonePrototype
                 member.History = member.History ?? new List<string>();
                 if (i < crewPortraits.Length && string.IsNullOrEmpty(member.PortraitLabel))
                     member.PortraitLabel = crewPortraits[i];
+                if (i < crewPersonalities.Length && string.IsNullOrEmpty(member.Personality))
+                    member.Personality = crewPersonalities[i];
                 if (i < crewMemos.Length && string.IsNullOrEmpty(member.Memo))
                     member.Memo = crewMemos[i];
                 if (member.Perks == null)
