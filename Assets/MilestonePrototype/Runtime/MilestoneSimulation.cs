@@ -1232,8 +1232,8 @@ namespace ProjectW.MilestonePrototype
                 HardDeadline = Day + softDays + balance.RandomWorkHardDeadlineDays,
                 Required = false,
                 PredecessorIds = Array.Empty<string>(),
-                State = WorkState.Locked,
-                AwaitingAcceptance = true,
+                State = WorkState.Available,
+                AwaitingAcceptance = false,
                 RewardCredits = reward,
                 SoftPenaltyCredits = balance.RandomWorkSoftPenalty,
                 HardPenaltyCredits = balance.RandomWorkHardPenalty
@@ -1291,13 +1291,14 @@ namespace ProjectW.MilestonePrototype
                 From = "외행성 개척 관제국",
                 Subject = $"사이드 미션 제안: {work.Name}",
                 Body = $"{taskCount}개 하위 일감으로 구성된 개척 임무입니다. 성공 보상은 자원 {reward}입니다.",
-                Instruction = $"수락 시 작업이 활성화됩니다. 실패 페널티: 자원 {work.HardPenaltyCredits}",
+                Instruction = $"작업 목록에 자동 편성되었습니다. 실패 페널티: 자원 {work.HardPenaltyCredits}",
                 TargetTaskId = firstTask.Id,
                 TargetWorkId = work.Id,
                 Risk = missionRisk,
-                ActivatesWork = true
+                ActivatesWork = false
             });
-            report.Lines.Add($"아침 사이드 미션 제안 메일 도착: {work.Name} ({taskCount}개 일감)");
+            RefreshStates();
+            report.Lines.Add($"아침 사이드 미션 자동 편성: {work.Name} ({taskCount}개 일감)");
         }
 
         private RandomTaskAction SelectRandomAction(WorkRole role)
@@ -1541,6 +1542,14 @@ namespace ProjectW.MilestonePrototype
             {
                 if (group.Id == null || !group.Id.StartsWith("random-work-") ||
                     group.State == WorkState.Complete || group.State == WorkState.Failed) continue;
+                group.AwaitingAcceptance = false;
+                MailEvent offer = Mail.FirstOrDefault(mail => mail.TargetWorkId == group.Id);
+                if (offer != null)
+                {
+                    offer.ActivatesWork = false;
+                    offer.Instruction =
+                        $"작업 목록에 자동 편성되었습니다. 실패 페널티: 자원 {group.HardPenaltyCredits}";
+                }
                 List<WorkTask> children = Tasks.Where(task => task.GroupId == group.Id).ToList();
                 if (children.Count != 1 || children[0].Kind != TaskKind.SideMission) continue;
 
@@ -1587,8 +1596,6 @@ namespace ProjectW.MilestonePrototype
                     previous = task;
                 }
 
-                MailEvent offer = Mail.FirstOrDefault(mail => mail.TargetWorkId == group.Id &&
-                                                              mail.ActivatesWork);
                 if (offer == null) continue;
                 offer.Subject = $"사이드 미션 제안: {group.Name}";
                 offer.Body = $"3개 하위 일감으로 재구성된 개척 임무입니다. 성공 보상은 자원 {group.RewardCredits}입니다.";

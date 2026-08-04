@@ -185,3 +185,19 @@ It must bundle:
 
 The approved new Contracts calls are the diagnostics property getters, `GetLogs()`, and
 `ClearLogs()`. This does not authorize unrelated Contracts or Unity APIs.
+
+## Base APK v8 AOT Baseline
+
+Base APK v8 adds the exact IMGUI window-depth operation required to bring an already-open
+desktop application to the front when its desktop icon is pressed.
+
+It must bundle:
+
+- `BaseVersion = 8`
+- the latest embedded `ProjectW.HotUpdate.dll.bytes` and `task-system.json`
+- regenerated Android AOT metadata
+- stable linker preservation for `UnityEngine.GUI`
+- the v7 diagnostics contract and Input System preservation surface
+
+The approved new member is `GUI.BringWindowToFront(int)`. This does not authorize unrelated
+Unity IMGUI APIs.

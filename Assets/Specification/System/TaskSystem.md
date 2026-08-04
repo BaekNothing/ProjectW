@@ -404,13 +404,13 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 - Reveal-day and mail-acceptance gates also block manual, learned, scheduled, and competency
   automatic assignment.
 - The final operation is invisible and unassignable through day 59, then becomes visible on day 60.
-- A generated side mission produces next-morning mail, remains invisible and unassignable before
-  acceptance, and follows normal Work/Task state rules after acceptance.
+- A generated side mission is automatically added to the visible task roster when its next-morning
+  notification mail arrives and follows normal Work/Task state rules without an acceptance gate.
 - Generated side-mission hard-deadline failure deducts resources without setting campaign loss.
 - Task completion retains the completing assignee while leaving that worker free for new work.
 - Zero remaining side missions generate one to three next-morning structured offers; urgent
   missions do not prevent that refill.
-- Each generated offer has one Work row, two to four chained Task rows, and one acceptance mail.
+- Each generated offer has one Work row, two to four chained Task rows, and one notification mail.
 - Side-mission failure can trigger same-morning replacement mail, unread mail sorts first, and a
   messenger question/reply renders as one item in the unified report/conversation stream.
 
@@ -418,29 +418,29 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 
 - Generated side missions are optional Works with the same Work/Task deadline, assignment,
   competency, progress, reward, and penalty rules as authored missions.
-- A generated side mission is created as a pending offer. It does not appear in the Gantt and cannot
-  receive an assignment until the player accepts its mail.
-- The offer arrives in the mail application on the morning after generation. Resolving that mail is
-  the explicit acceptance action and immediately unlocks the Work, subject to normal predecessors.
+- A generated side mission is automatically added to the Gantt and task roster on the morning after
+  generation. It can receive an assignment immediately, subject to normal predecessors.
+- The mail application receives one notification for the generated mission. Resolving the mail only
+  acknowledges the notification and is not an acceptance gate.
 - Generated offers use materially larger credit rewards than the previous incident baseline. Their
   reward and resource penalties remain externally balanced in `task-system.json`.
 - A generated side mission is never required for campaign victory. Missing its hard deadline fails
   only that Work, applies its configured resource penalty, and cannot directly produce game over.
 - Until the day-60 final-operation reveal, incident handling and accepted generated side missions
   are the primary additional work stream around the authored foundation Work.
-- Pending offers count toward the random-Work limit so unread mail cannot create an unbounded queue.
-- Remaining side missions are pending, accepted, or active Tasks whose `TaskKind` is `SideMission`
+- Generated missions count toward the random-Work limit so unread mail cannot create an unbounded queue.
+- Remaining side missions are available or active Tasks whose `TaskKind` is `SideMission`
   and whose parent Work is neither complete nor failed. Urgent/incident missions are not side
   missions and never satisfy this inventory check.
 - At the end of a day with zero remaining side missions, the system generates a random batch of one
   to three structured side-mission Works, bounded by the random-Work limit. Each generated Work uses
-  the existing adjective/target/action structure and arrives as its own next-morning acceptance mail.
+  the existing adjective/target/action structure and arrives with its own next-morning notification mail.
 - Every generated side-mission Work contains two to four required child Tasks. The Work is the
   mission/table-of-contents row, while its Tasks are separately assignable structured work items.
 - Generated child Tasks use the existing adjective/target/action word pool independently and form a
   prerequisite chain inside the Work. Completing one child unlocks the next; completing all children
   completes the mission Work.
-- A generated mission sends exactly one acceptance mail, regardless of its child Task count. The
+- A generated mission sends exactly one notification mail, regardless of its child Task count. The
   mail names the mission and summarizes the number of child work items and total reward.
 - Urgent/incident generation remains a separate concept. It must not use the side-mission batch,
   side-mission mail, or `TaskKind.SideMission` merely to represent a small random action.
@@ -539,6 +539,8 @@ or the mouse wheel.
 - Scroll offsets remain clamped by the scroll view.
 - Window-title dragging continues to move the window and must not scroll its content.
 - The window-title drag hit area is twice the visible title-bar height.
+- Pressing a desktop icon for an already-open application restores it when minimized
+  and raises its window above every other application window.
 - Minimize and close keep their visual size but use hit areas twice their width and height.
 - Escape closes the active non-minimized window, then the next active window on another press.
 - Nested scroll regions use the region where the gesture began and do not transfer the gesture mid-drag.

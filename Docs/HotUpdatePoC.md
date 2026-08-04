@@ -37,15 +37,15 @@ native plugins, Android settings, Unity, or HybridCLR change.
 
 ### Current base APK
 
-- Base version: `7`
+- Base version: `8`
 - Artifact: `APK/ProjectW-HybridCLR.apk`
-- Size: `50,322,160` bytes
-- SHA-256: `1b9dae0ed22a0e3c5488779a18c9b80d30eddd62dfe3eadb0f5df378c12c4d39`
-- Required for: the v6 Input System touch surface plus the patch diagnostics contract used by the
-  Options log popup
+- Size: `50,362,316` bytes
+- SHA-256: `929ea5e0865536b5273da5c391643265af41b5b654db648fc45252bc6ec7646a`
+- Required for: the v7 patch diagnostics contract plus the IMGUI window-depth operation used to
+  raise an already-open desktop application from its icon
 
-Older base APKs reject manifests whose `minBaseVersion` is `7`. Install base APK v7 once before
-consuming patches that use the Options log popup.
+Older base APKs reject manifests whose `minBaseVersion` is `8`. Install base APK v8 once before
+consuming patches that raise an already-open application window from its desktop icon.
 
 ## Routine code patch workflow
 

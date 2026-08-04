@@ -569,13 +569,13 @@ namespace ProjectW.MilestonePrototype.Tests
             for (int taskIndex = 1; taskIndex < generatedTasks.Count; taskIndex++)
                 Assert.That(generatedTasks[taskIndex].PrerequisiteId,
                     Is.EqualTo(generatedTasks[taskIndex - 1].Id));
-            Assert.That(generated.AwaitingAcceptance, Is.True);
-            Assert.That(game.IsWorkVisible(generated), Is.False);
-            Assert.That(generatedTask.State, Is.EqualTo(TaskState.Locked));
+            Assert.That(generated.AwaitingAcceptance, Is.False);
+            Assert.That(game.IsWorkVisible(generated), Is.True);
+            Assert.That(generatedTask.State, Is.EqualTo(TaskState.Available));
             MailEvent offer = game.Mail.Find(mail => mail.TargetWorkId == generated.Id);
             Assert.That(offer, Is.Not.Null);
             Assert.That(offer.ArrivalDay, Is.EqualTo(game.Day));
-            Assert.That(offer.ActivatesWork, Is.True);
+            Assert.That(offer.ActivatesWork, Is.False);
             Assert.That(game.ResolveMail(offer.Id), Is.True);
             Assert.That(generated.AwaitingAcceptance, Is.False);
             Assert.That(game.IsWorkVisible(generated), Is.True);
@@ -591,12 +591,19 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(generatedTask.RequiredWork, Is.InRange(1f, 2f));
 
             CampaignSnapshot legacySnapshot = game.CreateSnapshot();
+            generated.AwaitingAcceptance = true;
+            offer.ActivatesWork = true;
             generatedTask.GeneratedAdjectiveId = null;
             generatedTask.GeneratedTargetId = null;
             generatedTask.GeneratedActionId = null;
             var migrated = new MilestoneSimulation(data, 98);
             Assert.That(migrated.Restore(legacySnapshot), Is.True);
             WorkTask migratedTask = migrated.Tasks.Find(task => task.Id == generatedTask.Id);
+            WorkGroup migratedWork = migrated.Groups.Find(work => work.Id == generated.Id);
+            MailEvent migratedOffer = migrated.Mail.Find(mail => mail.Id == offer.Id);
+            Assert.That(migratedWork.AwaitingAcceptance, Is.False);
+            Assert.That(migratedOffer.ActivatesWork, Is.False);
+            Assert.That(migrated.IsWorkVisible(migratedWork), Is.True);
             Assert.That(migratedTask.GeneratedAdjectiveId, Is.EqualTo("adjective-unstable"));
             Assert.That(migratedTask.GeneratedTargetId, Is.EqualTo("target-bedrock"));
             Assert.That(migratedTask.GeneratedActionId, Is.EqualTo("action-survey"));
@@ -693,13 +700,15 @@ namespace ProjectW.MilestonePrototype.Tests
             data.Balance.BaseSideMissionChance = 0;
             data.Balance.RandomWorkChanceScalePercent = 0;
             data.Balance.RandomWorkLimit = 3;
+            data.Balance.RandomWorkDependencyChance = 0;
             var game = new MilestoneSimulation(data, 1);
 
             game.AdvanceDay();
 
             List<WorkGroup> generatedWorks = game.Groups.FindAll(group =>
                 group.Id.StartsWith("random-work-"));
-            int offerCount = game.Mail.FindAll(mail => mail.ActivatesWork &&
+            int offerCount = game.Mail.FindAll(mail => mail.TargetWorkId != null &&
+                mail.TargetWorkId.StartsWith("random-work-") &&
                 mail.ArrivalDay == game.Day).Count;
             Assert.That(generatedWorks, Has.Count.InRange(1, 3));
             Assert.That(offerCount, Is.EqualTo(generatedWorks.Count));
@@ -707,6 +716,9 @@ namespace ProjectW.MilestonePrototype.Tests
             {
                 List<WorkTask> childTasks = game.Tasks.FindAll(task => task.GroupId == work.Id);
                 Assert.That(childTasks, Has.Count.InRange(2, 4));
+                Assert.That(work.AwaitingAcceptance, Is.False);
+                Assert.That(game.IsWorkVisible(work), Is.True);
+                Assert.That(childTasks[0].State, Is.EqualTo(TaskState.Available));
                 Assert.That(game.Mail.FindAll(mail => mail.TargetWorkId == work.Id), Has.Count.EqualTo(1));
             }
             Assert.That(game.Groups.Find(group => group.Id == "incident").Required, Is.False);
@@ -1153,7 +1165,7 @@ namespace ProjectW.MilestonePrototype.Tests
         [Test]
         public void BaseVersionMatchesCurrentAotBaseline()
         {
-            Assert.That(PatchBootstrapper.BaseVersion, Is.EqualTo(7));
+            Assert.That(PatchBootstrapper.BaseVersion, Is.EqualTo(8));
         }
 
         [Test]
@@ -1250,7 +1262,7 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void FailedAcceptedSideMissionCostsResourcesWithoutGameOver()
+        public void FailedAutomaticallyAddedSideMissionCostsResourcesWithoutGameOver()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
             data.Balance.BaseSideMissionChance = 100;
@@ -1265,7 +1277,8 @@ namespace ProjectW.MilestonePrototype.Tests
             sideMission.SoftDeadline = game.Day;
             sideMission.HardDeadline = game.Day;
             int resourcesBeforeFailure = game.Resources;
-            int offersBeforeFailure = game.Mail.FindAll(mail => mail.ActivatesWork).Count;
+            int offersBeforeFailure = game.Mail.FindAll(mail =>
+                mail.TargetWorkId != null && mail.TargetWorkId.StartsWith("random-work-")).Count;
 
             game.AdvanceDay();
 
@@ -1274,8 +1287,10 @@ namespace ProjectW.MilestonePrototype.Tests
                 sideMission.SoftPenaltyCredits - sideMission.HardPenaltyCredits));
             Assert.That(game.IsLost, Is.False);
             List<MailEvent> replacementOffers = game.Mail.FindAll(mail =>
-                mail.ActivatesWork && mail.TargetWorkId != sideMission.Id);
-            Assert.That(game.Mail.FindAll(mail => mail.ActivatesWork),
+                mail.TargetWorkId != null && mail.TargetWorkId.StartsWith("random-work-") &&
+                mail.TargetWorkId != sideMission.Id);
+            Assert.That(game.Mail.FindAll(mail =>
+                    mail.TargetWorkId != null && mail.TargetWorkId.StartsWith("random-work-")),
                 Has.Count.EqualTo(offersBeforeFailure + 1));
             Assert.That(replacementOffers, Has.Count.EqualTo(1));
             Assert.That(replacementOffers[0].ArrivalDay, Is.EqualTo(game.Day));

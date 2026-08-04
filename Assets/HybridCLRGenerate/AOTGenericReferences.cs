@@ -86,6 +86,7 @@ public class AOTGenericReferences : UnityEngine.MonoBehaviour
 	// System.Linq.EnumerableSorter<object,int>
 	// System.Linq.EnumerableSorter<object,object>
 	// System.Linq.EnumerableSorter<object>
+	// System.Linq.IOrderedEnumerable<object>
 	// System.Linq.OrderedEnumerable.<GetEnumerator>d__1<object>
 	// System.Linq.OrderedEnumerable<object,byte>
 	// System.Linq.OrderedEnumerable<object,int>
@@ -124,12 +125,14 @@ public class AOTGenericReferences : UnityEngine.MonoBehaviour
 		// System.Collections.Generic.IEnumerable<object> System.Linq.Enumerable.Skip<object>(System.Collections.Generic.IEnumerable<object>,int)
 		// System.Collections.Generic.IEnumerable<object> System.Linq.Enumerable.SkipIterator<object>(System.Collections.Generic.IEnumerable<object>,int)
 		// int System.Linq.Enumerable.Sum<object>(System.Collections.Generic.IEnumerable<object>,System.Func<object,int>)
+		// System.Linq.IOrderedEnumerable<object> System.Linq.Enumerable.ThenByDescending<object,int>(System.Linq.IOrderedEnumerable<object>,System.Func<object,int>)
 		// object[] System.Linq.Enumerable.ToArray<object>(System.Collections.Generic.IEnumerable<object>)
 		// System.Collections.Generic.List<object> System.Linq.Enumerable.ToList<object>(System.Collections.Generic.IEnumerable<object>)
 		// System.Collections.Generic.IEnumerable<object> System.Linq.Enumerable.Where<object>(System.Collections.Generic.IEnumerable<object>,System.Func<object,bool>)
 		// System.Collections.Generic.IEnumerable<float> System.Linq.Enumerable.Iterator<object>.Select<float>(System.Func<object,float>)
 		// System.Collections.Generic.IEnumerable<int> System.Linq.Enumerable.Iterator<object>.Select<int>(System.Func<object,int>)
 		// System.Collections.Generic.IEnumerable<object> System.Linq.Enumerable.Iterator<object>.Select<object>(System.Func<object,object>)
+		// System.Linq.IOrderedEnumerable<object> System.Linq.IOrderedEnumerable<object>.CreateOrderedEnumerable<int>(System.Func<object,int>,System.Collections.Generic.IComparer<int>,bool)
 		// object UnityEngine.GameObject.AddComponent<object>()
 		// object UnityEngine.JsonUtility.FromJson<object>(string)
 		// object UnityEngine.Resources.Load<object>(string)

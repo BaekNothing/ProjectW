@@ -53,6 +53,7 @@ namespace ProjectW.MilestonePrototype
         private GUIStyle desktopIcon;
         private GUIStyle desktopIconLabel;
         private GUIStyle desktopBadge;
+        private DeskWindow frontWindow;
         private GUIStyle section;
         private GUIStyle small;
         private GUIStyle warning;
@@ -170,6 +171,9 @@ namespace ProjectW.MilestonePrototype
                 GUI.enabled = !inputLayerBlocked;
                 window.Rect = GUI.Window(100 + i, window.Rect, _ => DrawWindow(window), window.Title);
             }
+            if (frontWindow != null && !frontWindow.Minimized && windows.Count > 0 &&
+                windows[windows.Count - 1] == frontWindow)
+                GUI.BringWindowToFront(99 + windows.Count);
             inputLayerBlocked = false;
             GUI.enabled = true;
         }
@@ -1389,6 +1393,7 @@ namespace ProjectW.MilestonePrototype
         {
             windows.Remove(window);
             windows.Add(window);
+            frontWindow = window;
         }
 
         private void HandleWindowInput()

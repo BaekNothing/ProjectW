@@ -65,6 +65,7 @@
   <assembly fullname="mscorlib">
     <type fullname="System.ArgumentNullException" preserve="all" />
     <type fullname="System.Array" preserve="all" />
+    <type fullname="System.Boolean" preserve="all" />
     <type fullname="System.Byte" preserve="all" />
     <type fullname="System.Char" preserve="all" />
     <type fullname="System.Collections.Generic.Dictionary`2" preserve="all" />
