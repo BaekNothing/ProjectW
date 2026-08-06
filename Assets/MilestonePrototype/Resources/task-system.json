@@ -248,6 +248,93 @@
       "DailyOutput": 1.0
     }
   ],
+  "CriticalEvents": [
+    {
+      "Id": "solar-storm-chain",
+      "StartDay": 12,
+      "FirstNodeId": "storm-warning",
+      "Nodes": [
+        {
+          "Id": "storm-warning",
+          "From": "궤도 기상 관제",
+          "Subject": "태양 폭풍 접근",
+          "Body": "고에너지 입자 폭풍이 18시간 안에 기지를 통과합니다. 전력망을 차폐하면 비축 부품을 소모하고, 현장 보강은 대원 부담과 실패 위험을 감수해야 합니다.",
+          "Risk": 2,
+          "Choices": [
+            {
+              "Id": "spend-shielding",
+              "Text": "비축 부품으로 전력망을 차폐한다",
+              "Forecast": "확정 비용: 자원 -2 · 전원 피로 -5 · 작업 성공률 +5%p",
+              "Outcomes": [
+                { "Weight": 100, "Text": "차폐가 안정적으로 작동했다.", "ResourceDelta": -2, "CrewIndex": -1, "FatigueDelta": -5, "SuccessChanceDelta": 5, "NextNodeId": "distress-call" }
+              ]
+            },
+            {
+              "Id": "field-reinforcement",
+              "Text": "대원을 보내 현장에서 보강한다",
+              "Forecast": "70% 안정화 / 30% 과부하 · 자원과 피로, 성공률 변동",
+              "Outcomes": [
+                { "Weight": 70, "Text": "현장 보강이 제시간에 끝났다.", "ResourceDelta": -1, "CrewIndex": -1, "FatigueDelta": 8, "SuccessChanceDelta": 3, "NextNodeId": "distress-call" },
+                { "Weight": 30, "Text": "보강 중 계통이 손상되어 복구 부담이 커졌다.", "ResourceDelta": -3, "CrewIndex": -1, "FatigueDelta": 15, "SuccessChanceDelta": -5, "NextNodeId": "distress-call" }
+              ]
+            }
+          ]
+        },
+        {
+          "Id": "distress-call",
+          "From": "외곽 채굴 전초기지",
+          "Subject": "폭풍 속 구조 요청",
+          "Body": "폭풍으로 고립된 전초기지가 구조 전력을 요청했습니다. 우리도 여유가 없지만, 응답하면 이후 물자 회수 기회가 생길 수 있습니다.",
+          "Risk": 2,
+          "Choices": [
+            {
+              "Id": "send-rescue",
+              "Text": "구조대를 보낸다",
+              "Forecast": "60% 구조 성공 / 40% 장기 수색 · 전원 피로 증가",
+              "Outcomes": [
+                { "Weight": 60, "Text": "생존자를 확보하고 보급 좌표를 받았다.", "ResourceDelta": 1, "CrewIndex": -1, "FatigueDelta": 10, "SuccessChanceDelta": 4, "NextNodeId": "supply-wreck" },
+                { "Weight": 40, "Text": "수색이 길어져 인력과 물자를 소모했다.", "ResourceDelta": -2, "CrewIndex": -1, "FatigueDelta": 18, "SuccessChanceDelta": -3, "NextNodeId": "supply-wreck" }
+              ]
+            },
+            {
+              "Id": "hold-position",
+              "Text": "기지를 지키며 통신 안내만 제공한다",
+              "Forecast": "확정 효과: 전원 피로 -4 · 작업 성공률 -2%p",
+              "Outcomes": [
+                { "Weight": 100, "Text": "기지는 안전했지만 현장 사기는 가라앉았다.", "ResourceDelta": 0, "CrewIndex": -1, "FatigueDelta": -4, "SuccessChanceDelta": -2, "NextNodeId": "supply-wreck" }
+              ]
+            }
+          ]
+        },
+        {
+          "Id": "supply-wreck",
+          "From": "개척 운영 본부",
+          "Subject": "표류 보급선 처리",
+          "Body": "폭풍이 지나간 뒤 손상된 보급선이 탐지되었습니다. 즉시 회수하면 큰 자원을 얻을 수 있지만 잔류 방사선 위험이 있습니다.",
+          "Risk": 1,
+          "Choices": [
+            {
+              "Id": "salvage-now",
+              "Text": "지금 회수한다",
+              "Forecast": "50% 자원 +5 / 50% 자원 +2·전원 피로 +12",
+              "Outcomes": [
+                { "Weight": 50, "Text": "온전한 보급 컨테이너를 확보했다.", "ResourceDelta": 5, "CrewIndex": -1, "FatigueDelta": 4, "SuccessChanceDelta": 2, "NextNodeId": "" },
+                { "Weight": 50, "Text": "회수는 성공했지만 잔류 방사선 대응에 지쳤다.", "ResourceDelta": 2, "CrewIndex": -1, "FatigueDelta": 12, "SuccessChanceDelta": -2, "NextNodeId": "" }
+              ]
+            },
+            {
+              "Id": "mark-and-withdraw",
+              "Text": "좌표만 기록하고 철수한다",
+              "Forecast": "확정 효과: 자원 +1 · 전원 피로 -6",
+              "Outcomes": [
+                { "Weight": 100, "Text": "안전한 부품만 회수하고 사건을 마무리했다.", "ResourceDelta": 1, "CrewIndex": -1, "FatigueDelta": -6, "SuccessChanceDelta": 0, "NextNodeId": "" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
   "Mail": [
     {
       "Id": "mail-1",
@@ -420,6 +507,12 @@
       "Category": "자원과 운영",
       "Name": "자원의 수입과 지출",
       "Description": "캠페인은 자원 12로 시작합니다. 현재 자원은 하나의 통합 정수이며 일 완료 보상과 메일로 얻고, 마감 패널티·재생 시술·월 급여로 소비합니다.\n\n주요 기본값\n• 생성형 사이드 미션 보상: 6~10\n• 재생 시술: 3\n• 개인 초기 월 기본급: 1\n• 소프트·하드 패널티: 각 일 데이터 또는 생성 밸런스 사용\n\n자원은 어떤 차감에서도 0 아래로 내려가지 않습니다. 자원 0은 즉시 패배가 아니며 현재 부채, 미지급 급여, 파산 규칙은 없습니다. 경제 밸런스와 추가 사용처는 개발 중입니다."
+    },
+    {
+      "Id": "guide-critical-events",
+      "Category": "상호작용",
+      "Name": "[!중요!] 선택 이벤트",
+      "Description": "중요 선택 이벤트는 메일 제목에 [!중요!]로 표시됩니다. 이벤트에 진입하면 현재 선택 고리가 끝날 때까지 다음날로 진행하거나 다른 메일을 처리할 수 없습니다. 각 선택지는 표시된 가능성에 따라 결과를 굴리고 다음 상황으로 이어지거나 사건을 종료합니다.\n\n결과는 자원, 특정 대원 또는 전원의 피로, 이후 작업의 실패·성공 확률에 영향을 줄 수 있습니다. 작업 성공률 보정은 대성공 확률을 바꾸지 않고 실패 확률과 일반 성공 확률 사이에서 이동하며 한 회차 동안 누적됩니다."
     },
     {
       "Id": "guide-mail",

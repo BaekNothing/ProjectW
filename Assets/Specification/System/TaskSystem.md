@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Version: 3.0
+- Version: 3.1
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
@@ -293,6 +293,23 @@ through data without redefining Task ownership.
   survival-day distributions rather than a win rate.
 - Random Work generation continues after the initial authored content so the run can continue.
 
+## Critical Choice Event Chains
+
+- A critical event arrives through mail with a `[!중요!]` subject prefix.
+- Entering a critical event activates exactly one event chain. Until its current node is resolved,
+  the player cannot advance the day or interact with unrelated mail.
+- A chain contains one or more nodes. Every node presents explicit player choices, and every choice
+  contains one or more weighted outcomes.
+- An outcome applies data-defined resource, fatigue, and task-success modifiers, then names the next
+  node. An empty next-node ID ends the chain.
+- `CrewIndex = -1` applies fatigue to the whole team; a valid roster index targets one crew member.
+- The task-success modifier moves percentage points between daily Failure and Success. It does not
+  change Great Success probability and is clamped to `-50..+50` percentage points for the run.
+- Only one due critical event may be active. Other due chains wait until a later daily cycle after
+  the active chain ends.
+- Critical-event definitions, nodes, choices, outcome weights, effects, and start days are external
+  gameplay data. Active chain/node and accumulated success modifier persist in campaign saves.
+
 ## Random Work Generation
 
 - The daily cycle may generate optional Works up to the configured active limit.
@@ -360,6 +377,7 @@ External data includes:
 - each crew member's personality and initial voice
 - assignment, interruption, parallel-work, fatigue, outcome, and perk balance values
 - random Task adjective, target, and action pools with their role, risk, and difficulty metadata
+- critical event chains, choices, weighted outcomes, and resource/fatigue/success effects
 - learned assignment situation fields and player-created rule state
 
 ## In-Game Codex as Living Specification
@@ -406,6 +424,8 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
   fatigue-driven failure/success/great-success output.
 - The run continues beyond day 90, has no victory state, and ends only at zero resources.
 - Day 45 produces one midpoint review and the planning horizon remains at least 30 days ahead.
+- A `[!중요!]` mail locks day advancement and unrelated mail until its full choice chain ends.
+- Critical choice outcomes deterministically apply their rolled resource, fatigue, and task-success effects.
 - A manual primary assignment creates or updates a learned rule.
 - A matching available Task is automatically assigned only when the recorded worker is eligible.
 - Learned rules survive campaign save/restore and are visible in `My Info`.

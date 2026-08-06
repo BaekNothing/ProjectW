@@ -147,6 +147,7 @@ namespace ProjectW.MilestonePrototype.Editor
             while (!game.IsLost && game.Day <= maximumDays)
             {
                 ResolveMail(game);
+                ResolveCriticalEvent(game);
                 ApplyCrewPolicy(game, restFatigue, regenerationFatigue, resourceReserve);
                 AssignIdleCrew(game);
                 game.AdvanceDay();
@@ -168,6 +169,16 @@ namespace ProjectW.MilestonePrototype.Editor
             foreach (MailEvent mail in game.Mail.Where(mail =>
                          mail.ArrivalDay <= game.Day && !mail.Resolved).ToList())
                 game.ResolveMail(mail.Id);
+        }
+
+        private static void ResolveCriticalEvent(MilestoneSimulation game)
+        {
+            while (game.HasActiveCriticalEvent)
+            {
+                CriticalEventNode node = game.ActiveCriticalNode();
+                if (node?.Choices == null || node.Choices.Length == 0) return;
+                game.ChooseCriticalEvent(node.Choices[0].Id);
+            }
         }
 
         private static void ApplyCrewPolicy(MilestoneSimulation game, int restFatigue,

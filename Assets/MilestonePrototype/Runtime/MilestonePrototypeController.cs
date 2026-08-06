@@ -150,14 +150,16 @@ namespace ProjectW.MilestonePrototype
                 $"가용 대원 {game.Crew.Count(c => c.Available)}/{game.Crew.Count}  |  자원 {game.Resources}", section);
             if (logicalHeight >= 520f)
             {
-                SetControlEnabled(!game.IsWon && !game.IsLost);
+                SetControlEnabled(!game.IsWon && !game.IsLost && !game.HasActiveCriticalEvent);
                 if (Button(new Rect(25, 365, 210, 48), "하루 진행"))
                     AdvanceToNextDay();
                 SetControlEnabled(true);
             }
             GUI.Label(DesktopStatusRect(logicalWidth, logicalHeight),
-                FormatStatus(game.LastReport, game.IsWon, game.IsLost),
-                game.IsLost ? warning : success);
+                game.HasActiveCriticalEvent
+                    ? "[!중요!] 결정을 내려야 다음 날로 진행할 수 있습니다."
+                    : FormatStatus(game.LastReport, game.IsWon, game.IsLost),
+                game.IsLost || game.HasActiveCriticalEvent ? warning : success);
         }
 
         private void DrawWindows()
@@ -219,6 +221,8 @@ namespace ProjectW.MilestonePrototype
         private void DrawMail(DeskWindow window)
         {
             List<MailEvent> arrived = game.Mail.Where(m => m.ArrivalDay <= game.Day)
+                .Where(m => !game.HasActiveCriticalEvent ||
+                            m.IsCritical && m.CriticalEventId == game.ActiveCriticalEventId)
                 .OrderBy(m => m.Read ? 1 : 0)
                 .ThenByDescending(m => m.ArrivalDay)
                 .ToList();
@@ -254,16 +258,38 @@ namespace ProjectW.MilestonePrototype
                 GUILayout.Label(mail.Body);
                 GUILayout.Space(8);
                 GUILayout.Label($"지시: {mail.Instruction}", warning);
-                SetControlEnabled(!mail.Resolved);
-                string actionLabel = mail.ActivatesWork
-                    ? mail.Resolved ? "미션 수락 완료" : "미션 수락"
-                    : mail.Resolved ? "처리 완료" : "지시 수락 및 반영";
-                if (LayoutButton(actionLabel, GUILayout.Height(38)))
+                if (mail.IsCritical && !mail.Resolved)
                 {
-                    game.ResolveMail(mail.Id);
-                    SaveCampaign();
+                    CriticalEventNode node = game.ActiveCriticalNode();
+                    if (node != null && node.Id == mail.CriticalNodeId)
+                    {
+                        foreach (CriticalEventChoice choice in node.Choices)
+                        {
+                            GUILayout.Space(4);
+                            GUILayout.Label(choice.Forecast, small);
+                            if (LayoutButton(choice.Text, GUILayout.Height(38)))
+                            {
+                                game.ChooseCriticalEvent(choice.Id);
+                                window.Notice = null;
+                                SaveCampaign();
+                                break;
+                            }
+                        }
+                    }
                 }
-                SetControlEnabled(true);
+                else
+                {
+                    SetControlEnabled(!mail.Resolved);
+                    string actionLabel = mail.ActivatesWork
+                        ? mail.Resolved ? "미션 수락 완료" : "미션 수락"
+                        : mail.Resolved ? "처리 완료" : "지시 수락 및 반영";
+                    if (LayoutButton(actionLabel, GUILayout.Height(38)))
+                    {
+                        game.ResolveMail(mail.Id);
+                        SaveCampaign();
+                    }
+                    SetControlEnabled(true);
+                }
             }
             GUILayout.EndVertical();
             GUILayout.EndHorizontal();
@@ -1118,7 +1144,8 @@ namespace ProjectW.MilestonePrototype
             GUILayout.Label(
                 $"PROJECT W 운영 담당자\nDAY {game.Day} · 생존 기록\n" +
                 $"중간평가 DAY {game.MidpointReviewDay} ({(game.MidpointReviewIssued ? "완료" : "예정")})\n" +
-                $"자원 {game.Resources}\n월 기본급 합계 {game.TotalPayroll()} · 다음 지급 DAY {game.NextPayrollDay}\n패치 {patchVersion}");
+                $"자원 {game.Resources}\n작업 성공 보정 {game.TaskSuccessChanceModifier:+#;-#;0}%p\n" +
+                $"월 기본급 합계 {game.TotalPayroll()} · 다음 지급 DAY {game.NextPayrollDay}\n패치 {patchVersion}");
             GUILayout.Space(12);
             GUILayout.Label($"자동지정 규칙 {game.AssignmentRules.Count}개", section);
             if (game.AssignmentRules.Count == 0)
@@ -1237,7 +1264,7 @@ namespace ProjectW.MilestonePrototype
         {
             Rect bar = new Rect(0, logicalHeight - 44, logicalWidth, 44);
             DrawSolid(bar, GrayColor);
-            SetControlEnabled(!game.IsWon && !game.IsLost);
+            SetControlEnabled(!game.IsWon && !game.IsLost && !game.HasActiveCriticalEvent);
             if (Button(NextDayButtonRect(logicalWidth, logicalHeight), "다음날로 →"))
                 AdvanceToNextDay();
             SetControlEnabled(true);
@@ -1261,6 +1288,7 @@ namespace ProjectW.MilestonePrototype
         private void AdvanceToNextDay()
         {
             game.AdvanceDay();
+            if (game.HasActiveCriticalEvent) Open("mail");
             SaveCampaign();
         }
 

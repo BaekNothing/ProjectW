@@ -10,6 +10,100 @@ namespace ProjectW.MilestonePrototype.Tests
     public sealed class MilestoneSimulationTests
     {
         [Test]
+        public void CriticalEventChoiceChainAppliesEffectsAndAdvancesNodes()
+        {
+            TaskSystemData data = TestData();
+            data.CriticalEvents = CriticalEventFixture();
+            var game = new MilestoneSimulation(data, 7);
+            int initialResources = game.Resources;
+
+            Assert.That(game.HasActiveCriticalEvent, Is.True);
+            Assert.That(game.ActiveCriticalNodeId, Is.EqualTo("first"));
+            Assert.That(game.Mail.Exists(mail => mail.Subject.StartsWith("[!중요!]")), Is.True);
+            Assert.That(game.ChooseCriticalEvent("commit"), Is.True);
+            Assert.That(game.ActiveCriticalNodeId, Is.EqualTo("second"));
+            Assert.That(game.Resources, Is.EqualTo(initialResources - 2));
+            foreach (CrewMember member in game.Crew)
+                Assert.That(member.Fatigue, Is.EqualTo(5));
+            Assert.That(game.TaskSuccessChanceModifier, Is.EqualTo(6));
+
+            Assert.That(game.ChooseCriticalEvent("finish"), Is.True);
+            Assert.That(game.HasActiveCriticalEvent, Is.False);
+            game.AdvanceDay();
+            Assert.That(game.Day, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void OnlyOneDueCriticalEventCanBeActiveAtATime()
+        {
+            TaskSystemData data = TestData();
+            CriticalEventDefinition[] definitions = CriticalEventFixture();
+            CriticalEventDefinition second = definitions[0];
+            definitions[0] = new CriticalEventDefinition
+            {
+                Id = "earlier",
+                StartDay = 1,
+                FirstNodeId = "first",
+                Nodes = second.Nodes
+            };
+            definitions = new[] { definitions[0], second };
+            data.CriticalEvents = definitions;
+            var game = new MilestoneSimulation(data, 1);
+
+            Assert.That(game.ActiveCriticalEventId, Is.EqualTo("earlier"));
+            Assert.That(game.Mail.FindAll(mail => mail.IsCritical), Has.Count.EqualTo(1));
+        }
+
+        private static CriticalEventDefinition[] CriticalEventFixture()
+        {
+            return new[]
+            {
+                new CriticalEventDefinition
+                {
+                    Id = "test-chain",
+                    StartDay = 1,
+                    FirstNodeId = "first",
+                    Nodes = new[]
+                    {
+                        new CriticalEventNode
+                        {
+                            Id = "first", From = "TEST", Subject = "First", Body = "Body",
+                            Choices = new[]
+                            {
+                                new CriticalEventChoice
+                                {
+                                    Id = "commit", Text = "Commit", Outcomes = new[]
+                                    {
+                                        new CriticalEventOutcome
+                                        {
+                                            Weight = 100, Text = "Applied", ResourceDelta = -2,
+                                            CrewIndex = -1, FatigueDelta = 5,
+                                            SuccessChanceDelta = 6, NextNodeId = "second"
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        new CriticalEventNode
+                        {
+                            Id = "second", From = "TEST", Subject = "Second", Body = "Body",
+                            Choices = new[]
+                            {
+                                new CriticalEventChoice
+                                {
+                                    Id = "finish", Text = "Finish", Outcomes = new[]
+                                    {
+                                        new CriticalEventOutcome { Weight = 100, Text = "Done" }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+        }
+
+        [Test]
         public void EndlessSessionHasNoVictoryState()
         {
             var game = new MilestoneSimulation(1);

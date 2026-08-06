@@ -20,6 +20,7 @@ namespace ProjectW.MilestonePrototype
         private readonly RandomTaskWordPool randomTaskWords;
         private readonly WorkTask[] baseTasks;
         private readonly CodexEntry[] baseCodex;
+        private readonly CriticalEventDefinition[] criticalEvents;
         private int nextRandomWorkId;
 
         public int Day { get; private set; } = 1;
@@ -52,6 +53,10 @@ namespace ProjectW.MilestonePrototype
         public DayReport LastReport { get; private set; } = new DayReport();
         public bool MidpointReviewIssued { get; private set; }
         public bool CompetencyAutoAssignment { get; private set; }
+        public string ActiveCriticalEventId { get; private set; }
+        public string ActiveCriticalNodeId { get; private set; }
+        public int TaskSuccessChanceModifier { get; private set; }
+        public bool HasActiveCriticalEvent => !string.IsNullOrEmpty(ActiveCriticalEventId);
 
         public bool IsWorkVisible(WorkGroup group) => group != null &&
             !group.AwaitingAcceptance && (group.RevealDay <= 0 || Day >= group.RevealDay);
@@ -71,6 +76,7 @@ namespace ProjectW.MilestonePrototype
             randomTaskWords = data.RandomTaskWords;
             baseTasks = data.Tasks;
             baseCodex = data.Codex ?? new CodexEntry[0];
+            criticalEvents = data.CriticalEvents ?? new CriticalEventDefinition[0];
             crewPortraits = new string[data.Crew.Length];
             crewPersonalities = new string[data.Crew.Length];
             crewMemos = new string[data.Crew.Length];
@@ -104,6 +110,7 @@ namespace ProjectW.MilestonePrototype
             RefreshStates();
             LastReport.Lines.Add("첫 번째 개척 기지가 가동되었습니다.");
             Log("캠페인을 시작했습니다.");
+            TriggerCriticalEvent();
         }
 
         public bool Assign(string taskId, int crewIndex)
@@ -279,7 +286,7 @@ namespace ProjectW.MilestonePrototype
         public bool ResolveMail(string mailId)
         {
             MailEvent mail = Mail.FirstOrDefault(item => item.Id == mailId && item.ArrivalDay <= Day);
-            if (mail == null || mail.Resolved) return false;
+            if (mail == null || mail.Resolved || mail.IsCritical) return false;
             mail.Read = true;
 
             WorkGroup targetWork = Groups.FirstOrDefault(group => group.Id == mail.TargetWorkId);
@@ -320,6 +327,136 @@ namespace ProjectW.MilestonePrototype
         {
             MailEvent mail = Mail.FirstOrDefault(item => item.Id == mailId && item.ArrivalDay <= Day);
             if (mail != null) mail.Read = true;
+        }
+
+        public CriticalEventNode ActiveCriticalNode()
+        {
+            foreach (CriticalEventDefinition definition in criticalEvents)
+            {
+                if (definition.Id != ActiveCriticalEventId || definition.Nodes == null) continue;
+                foreach (CriticalEventNode node in definition.Nodes)
+                    if (node.Id == ActiveCriticalNodeId) return node;
+            }
+            return null;
+        }
+
+        public bool ChooseCriticalEvent(string choiceId)
+        {
+            CriticalEventNode node = ActiveCriticalNode();
+            CriticalEventChoice choice = null;
+            if (node?.Choices != null)
+                foreach (CriticalEventChoice candidate in node.Choices)
+                    if (candidate.Id == choiceId)
+                    {
+                        choice = candidate;
+                        break;
+                    }
+            if (choice?.Outcomes == null || choice.Outcomes.Length == 0) return false;
+            int totalWeight = 0;
+            foreach (CriticalEventOutcome outcome in choice.Outcomes)
+                totalWeight += Math.Max(0, outcome.Weight);
+            if (totalWeight <= 0) return false;
+
+            int roll = random.Next(totalWeight);
+            CriticalEventOutcome selected = choice.Outcomes[choice.Outcomes.Length - 1];
+            foreach (CriticalEventOutcome outcome in choice.Outcomes)
+            {
+                roll -= Math.Max(0, outcome.Weight);
+                if (roll < 0)
+                {
+                    selected = outcome;
+                    break;
+                }
+            }
+
+            ApplyCriticalOutcome(selected);
+            MailEvent currentMail = Mail.FirstOrDefault(mail => mail.IsCritical &&
+                mail.CriticalEventId == ActiveCriticalEventId &&
+                mail.CriticalNodeId == ActiveCriticalNodeId && !mail.Resolved);
+            if (currentMail != null)
+            {
+                currentMail.Read = true;
+                currentMail.Resolved = true;
+                currentMail.Instruction = $"선택: {choice.Text}\n결과: {selected.Text}";
+            }
+            Log($"중요 선택: {node.Subject} / {choice.Text} / {selected.Text}");
+
+            if (IsLost || string.IsNullOrEmpty(selected.NextNodeId))
+            {
+                ActiveCriticalEventId = null;
+                ActiveCriticalNodeId = null;
+            }
+            else
+            {
+                ActiveCriticalNodeId = selected.NextNodeId;
+                AddCriticalMail();
+            }
+            return true;
+        }
+
+        private void ApplyCriticalOutcome(CriticalEventOutcome outcome)
+        {
+            Resources = Math.Max(0, Resources + outcome.ResourceDelta);
+            if (outcome.CrewIndex >= 0 && outcome.CrewIndex < Crew.Count)
+            {
+                CrewMember member = Crew[outcome.CrewIndex];
+                member.Fatigue = Math.Max(0, Math.Min(100, member.Fatigue + outcome.FatigueDelta));
+            }
+            else if (outcome.FatigueDelta != 0)
+            {
+                foreach (CrewMember member in Crew)
+                    member.Fatigue = Math.Max(0, Math.Min(100, member.Fatigue + outcome.FatigueDelta));
+            }
+            TaskSuccessChanceModifier = Math.Max(-50,
+                Math.Min(50, TaskSuccessChanceModifier + outcome.SuccessChanceDelta));
+        }
+
+        private void TriggerCriticalEvent()
+        {
+            if (IsLost || HasActiveCriticalEvent) return;
+            CriticalEventDefinition definition = null;
+            foreach (CriticalEventDefinition candidate in criticalEvents)
+            {
+                if (candidate.StartDay > Day) continue;
+                bool alreadyStarted = false;
+                foreach (MailEvent mail in Mail)
+                    if (mail.IsCritical && mail.CriticalEventId == candidate.Id)
+                    {
+                        alreadyStarted = true;
+                        break;
+                    }
+                if (alreadyStarted) continue;
+                if (definition == null || candidate.StartDay < definition.StartDay)
+                    definition = candidate;
+            }
+            if (definition == null) return;
+            ActiveCriticalEventId = definition.Id;
+            ActiveCriticalNodeId = definition.FirstNodeId;
+            AddCriticalMail();
+        }
+
+        private void AddCriticalMail()
+        {
+            CriticalEventNode node = ActiveCriticalNode();
+            if (node == null)
+            {
+                ActiveCriticalEventId = null;
+                ActiveCriticalNodeId = null;
+                return;
+            }
+            Mail.Add(new MailEvent
+            {
+                Id = $"critical-{ActiveCriticalEventId}-{node.Id}-{Day}",
+                ArrivalDay = Day,
+                From = node.From,
+                Subject = $"[!중요!] {node.Subject}",
+                Body = node.Body,
+                Instruction = "결정을 내려야 다음 날로 진행할 수 있습니다.",
+                Risk = node.Risk,
+                IsCritical = true,
+                CriticalEventId = ActiveCriticalEventId,
+                CriticalNodeId = node.Id
+            });
         }
 
         public bool AskWorker(int crewIndex, string question)
@@ -445,6 +582,7 @@ namespace ProjectW.MilestonePrototype
             ApplyMidpointReview(report);
             RefreshStates();
             TriggerRandomWork(report);
+            TriggerCriticalEvent();
             LastReport = report;
             if (report.Lines.Count == 0) report.Lines.Add("특이사항 없이 하루가 지났습니다.");
             foreach (string line in report.Lines) Log(line);
@@ -669,6 +807,7 @@ namespace ProjectW.MilestonePrototype
             int lowChance;
             int highChance;
             OutputChances(Crew[crewIndex].Fatigue, out lowChance, out highChance);
+            ApplySuccessChanceModifier(ref lowChance, highChance);
             float regularChance = 100 - lowChance - highChance;
             float expectedMultiplier =
                 lowChance * balance.LowOutputMultiplier / 100f +
@@ -715,6 +854,12 @@ namespace ProjectW.MilestonePrototype
                 balance.LowOutputChance, balance.ExhaustedLowOutputChance, exhaustedWeight, 50);
             highChance = InterpolateChance(
                 balance.HighOutputChance, balance.ExhaustedHighOutputChance, exhaustedWeight, 50);
+        }
+
+        private void ApplySuccessChanceModifier(ref int lowChance, int highChance)
+        {
+            lowChance = Math.Max(0, Math.Min(100 - highChance,
+                lowChance - TaskSuccessChanceModifier));
         }
 
         private static int InterpolateChance(int start, int end, int weight, int range)
@@ -868,7 +1013,10 @@ namespace ProjectW.MilestonePrototype
             AssignmentRules = AssignmentRules.ToArray(),
             DiscoveredTaskWordIds = DiscoveredTaskWordIds.ToArray(),
             MidpointReviewIssued = MidpointReviewIssued,
-            CompetencyAutoAssignment = CompetencyAutoAssignment
+            CompetencyAutoAssignment = CompetencyAutoAssignment,
+            ActiveCriticalEventId = ActiveCriticalEventId,
+            ActiveCriticalNodeId = ActiveCriticalNodeId,
+            TaskSuccessChanceModifier = TaskSuccessChanceModifier
         };
 
         public bool Restore(CampaignSnapshot snapshot)
@@ -896,11 +1044,15 @@ namespace ProjectW.MilestonePrototype
             }
             MidpointReviewIssued = snapshot.MidpointReviewIssued;
             CompetencyAutoAssignment = snapshot.CompetencyAutoAssignment;
+            ActiveCriticalEventId = snapshot.ActiveCriticalEventId;
+            ActiveCriticalNodeId = snapshot.ActiveCriticalNodeId;
+            TaskSuccessChanceModifier = snapshot.TaskSuccessChanceModifier;
             SystemLog.Clear();
             if (snapshot.Log != null) SystemLog.AddRange(snapshot.Log);
             MigrateLegacyGeneratedSideMissions();
             NormalizeLoadedData();
             RefreshStates();
+            if (!HasActiveCriticalEvent) TriggerCriticalEvent();
             return true;
         }
 
@@ -928,6 +1080,7 @@ namespace ProjectW.MilestonePrototype
             int lowOutputChance;
             int highOutputChance;
             OutputChances(member.Fatigue, out lowOutputChance, out highOutputChance);
+            ApplySuccessChanceModifier(ref lowOutputChance, highOutputChance);
             int outputRoll = random.Next(100);
             TaskOutcome outcome = outputRoll < lowOutputChance
                 ? TaskOutcome.Failure

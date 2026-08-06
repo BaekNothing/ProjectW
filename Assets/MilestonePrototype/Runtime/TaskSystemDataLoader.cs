@@ -75,6 +75,52 @@ namespace ProjectW.MilestonePrototype
             }
             foreach (WorkTask task in data.Tasks)
                 ValidateRequiredCompetencies(task?.RequiredCompetencies, "Every Task");
+            if (data.CriticalEvents != null)
+            {
+                foreach (CriticalEventDefinition definition in data.CriticalEvents)
+                {
+                    if (definition == null || string.IsNullOrWhiteSpace(definition.Id) ||
+                        definition.StartDay <= 0 || string.IsNullOrWhiteSpace(definition.FirstNodeId) ||
+                        definition.Nodes == null || definition.Nodes.Length == 0)
+                        throw new InvalidOperationException("Every critical event requires an id, start day, first node, and nodes.");
+                    bool hasFirstNode = false;
+                    foreach (CriticalEventNode node in definition.Nodes)
+                    {
+                        if (node == null || string.IsNullOrWhiteSpace(node.Id) ||
+                            string.IsNullOrWhiteSpace(node.Subject) || node.Choices == null ||
+                            node.Choices.Length == 0)
+                            throw new InvalidOperationException("Every critical event node requires content and choices.");
+                        if (node.Id == definition.FirstNodeId) hasFirstNode = true;
+                        foreach (CriticalEventChoice choice in node.Choices)
+                        {
+                            if (choice == null || string.IsNullOrWhiteSpace(choice.Id) ||
+                                string.IsNullOrWhiteSpace(choice.Text) || choice.Outcomes == null ||
+                                choice.Outcomes.Length == 0)
+                                throw new InvalidOperationException("Every critical event choice requires weighted outcomes.");
+                            int totalWeight = 0;
+                            foreach (CriticalEventOutcome outcome in choice.Outcomes)
+                            {
+                                if (outcome == null)
+                                    throw new InvalidOperationException("Critical event outcomes cannot be null.");
+                                if (outcome.Weight > 0) totalWeight += outcome.Weight;
+                                if (!string.IsNullOrWhiteSpace(outcome.NextNodeId))
+                                {
+                                    bool hasNextNode = false;
+                                    foreach (CriticalEventNode candidate in definition.Nodes)
+                                        if (candidate != null && candidate.Id == outcome.NextNodeId)
+                                            hasNextNode = true;
+                                    if (!hasNextNode)
+                                        throw new InvalidOperationException("A critical event next node was not found.");
+                                }
+                            }
+                            if (totalWeight <= 0)
+                                throw new InvalidOperationException("Critical event outcome weights must total above zero.");
+                        }
+                    }
+                    if (!hasFirstNode)
+                        throw new InvalidOperationException("A critical event first node was not found.");
+                }
+            }
             for (int i = 0; i < data.Codex.Length; i++)
             {
                 CodexEntry entry = data.Codex[i];

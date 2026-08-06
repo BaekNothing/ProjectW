@@ -257,7 +257,49 @@ namespace ProjectW.MilestonePrototype
         public CrewMember[] Crew;
         public RandomTaskWordPool RandomTaskWords;
         public MailEvent[] Mail;
+        public CriticalEventDefinition[] CriticalEvents;
         public CodexEntry[] Codex;
+    }
+
+    [Serializable]
+    public sealed class CriticalEventDefinition
+    {
+        public string Id;
+        public int StartDay;
+        public string FirstNodeId;
+        public CriticalEventNode[] Nodes;
+    }
+
+    [Serializable]
+    public sealed class CriticalEventNode
+    {
+        public string Id;
+        public string From;
+        public string Subject;
+        public string Body;
+        public RiskLevel Risk;
+        public CriticalEventChoice[] Choices;
+    }
+
+    [Serializable]
+    public sealed class CriticalEventChoice
+    {
+        public string Id;
+        public string Text;
+        public string Forecast;
+        public CriticalEventOutcome[] Outcomes;
+    }
+
+    [Serializable]
+    public sealed class CriticalEventOutcome
+    {
+        public int Weight;
+        public string Text;
+        public int ResourceDelta;
+        public int CrewIndex = -1;
+        public int FatigueDelta;
+        public int SuccessChanceDelta;
+        public string NextNodeId;
     }
 
     [Serializable]
@@ -277,6 +319,9 @@ namespace ProjectW.MilestonePrototype
           public bool Read;
           public bool Resolved;
           public bool ActivatesWork;
+          public bool IsCritical;
+          public string CriticalEventId;
+          public string CriticalNodeId;
     }
 
     [Serializable]
@@ -314,6 +359,9 @@ namespace ProjectW.MilestonePrototype
         public string[] DiscoveredTaskWordIds;
         public bool MidpointReviewIssued;
         public bool CompetencyAutoAssignment;
+        public string ActiveCriticalEventId;
+        public string ActiveCriticalNodeId;
+        public int TaskSuccessChanceModifier;
     }
 
     [Serializable]
