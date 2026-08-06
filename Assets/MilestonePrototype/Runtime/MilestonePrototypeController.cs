@@ -132,7 +132,7 @@ namespace ProjectW.MilestonePrototype
             GUI.DrawTexture(new Rect(0, 0, logicalWidth, logicalHeight), Texture2D.whiteTexture);
             GUI.Label(new Rect(22, 15, Mathf.Max(220f, logicalWidth - 300f), 34),
                 "PROJECT W  /  OPERATIONS DESK", title);
-            GUI.Label(new Rect(logicalWidth - 250, 18, 225, 25), $"DAY {game.Day:00}/{game.CampaignEndDay}", small);
+            GUI.Label(new Rect(logicalWidth - 250, 18, 225, 25), $"DAY {game.Day:00}  ·  생존 기록", small);
             string[] ids = { "mail", "gantt", "milestone", "workers", "report", "codex", "messenger", "profile", "options" };
             RefreshDesktopBadges();
             for (int i = 0; i < ids.Length; i++)
@@ -299,7 +299,8 @@ namespace ProjectW.MilestonePrototype
             List<WorkGroup> visibleGroups = game.Groups.Where(game.IsWorkVisible).ToList();
             int rowCount = visibleGroups.Sum(group =>
                 1 + game.Tasks.Count(task => task.GroupId == group.Id));
-            float contentWidth = game.CampaignEndDay * dayWidth + 180f;
+            int planningHorizonDay = game.PlanningHorizonDay;
+            float contentWidth = planningHorizonDay * dayWidth + 180f;
             float contentHeight = Math.Max(120f, rowCount * rowHeight + 28f);
             Rect content = new Rect(0, 0, contentWidth, contentHeight);
             Rect labelViewport = new Rect(viewport.x, viewport.y, labelWidth, viewport.height);
@@ -308,7 +309,7 @@ namespace ProjectW.MilestonePrototype
 
             window.TimelineScroll = GUI.BeginScrollView(timelineViewport, window.TimelineScroll, content);
             DrawSolid(new Rect(0, 0, contentWidth, contentHeight), Color.white);
-            for (int day = 1; day <= game.CampaignEndDay; day++)
+            for (int day = 1; day <= planningHorizonDay; day++)
             {
                 float x = (day - 1) * dayWidth;
                 DrawSolid(new Rect(x, 0, 1, contentHeight), day == game.Day ? InkColor : PaleColor);
@@ -658,7 +659,7 @@ namespace ProjectW.MilestonePrototype
             else
                 GUILayout.Label("예약된 시작일 없음", small);
             window.ScheduleDay = Mathf.Clamp(window.ScheduleDay <= 0 ? game.Day : window.ScheduleDay,
-                game.Day, game.CampaignEndDay);
+                game.Day, game.PlanningHorizonDay);
             window.SelectedCrew = Mathf.Clamp(window.SelectedCrew, 0, Mathf.Max(0, game.Crew.Count - 1));
             TaskScheduleEstimate estimate = game.EstimateSchedule(task.Id, window.SelectedCrew);
             if (estimate != null)
@@ -677,7 +678,7 @@ namespace ProjectW.MilestonePrototype
             GUILayout.BeginHorizontal();
             if (LayoutButton("◀ DAY")) window.ScheduleDay = Mathf.Max(game.Day, window.ScheduleDay - 1);
             GUILayout.Label($"시작 DAY {window.ScheduleDay:00}", section);
-            if (LayoutButton("DAY ▶")) window.ScheduleDay = Mathf.Min(game.CampaignEndDay, window.ScheduleDay + 1);
+            if (LayoutButton("DAY ▶")) window.ScheduleDay = Mathf.Min(game.PlanningHorizonDay, window.ScheduleDay + 1);
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
             if (LayoutButton("◀ 작업자"))
@@ -1115,7 +1116,7 @@ namespace ProjectW.MilestonePrototype
         {
             GUILayout.Label("내정보 / 캠페인 관리", section);
             GUILayout.Label(
-                $"PROJECT W 운영 담당자\nDAY {game.Day}/{game.CampaignEndDay}\n" +
+                $"PROJECT W 운영 담당자\nDAY {game.Day} · 생존 기록\n" +
                 $"중간평가 DAY {game.MidpointReviewDay} ({(game.MidpointReviewIssued ? "완료" : "예정")})\n" +
                 $"자원 {game.Resources}\n월 기본급 합계 {game.TotalPayroll()} · 다음 지급 DAY {game.NextPayrollDay}\n패치 {patchVersion}");
             GUILayout.Space(12);
@@ -1380,7 +1381,7 @@ namespace ProjectW.MilestonePrototype
         private void SetEstimatedScheduleDay(DeskWindow window, WorkTask task)
         {
             TaskScheduleEstimate estimate = game.EstimateSchedule(task.Id, window.SelectedCrew);
-            window.ScheduleDay = Mathf.Clamp(estimate?.StartDay ?? game.Day, game.Day, game.CampaignEndDay);
+            window.ScheduleDay = Mathf.Clamp(estimate?.StartDay ?? game.Day, game.Day, game.PlanningHorizonDay);
         }
 
         private void Close(string id)
@@ -1799,8 +1800,7 @@ namespace ProjectW.MilestonePrototype
 
         public static string FormatStatus(DayReport report, bool isWon, bool isLost)
         {
-            if (isWon) return "마일스톤 완료 — 캠페인 승리";
-            if (isLost) return "운영 붕괴 — 캠페인 실패";
+            if (isLost) return "자원 고갈 — 생존 기록 종료";
             if (report == null || report.Lines.Count == 0) return string.Empty;
             return string.Join("\n", report.Lines.Skip(Math.Max(0, report.Lines.Count - 2)));
         }

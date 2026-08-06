@@ -10,6 +10,56 @@ namespace ProjectW.MilestonePrototype.Tests
     public sealed class MilestoneSimulationTests
     {
         [Test]
+        public void EndlessSessionHasNoVictoryState()
+        {
+            var game = new MilestoneSimulation(1);
+
+            foreach (WorkGroup group in game.Groups) group.Required = false;
+
+            Assert.That(game.IsWon, Is.False);
+            Assert.That(game.IsLost, Is.False);
+        }
+
+        [Test]
+        public void FormerCampaignEndIsOnlyAPlanningBaseline()
+        {
+            TaskSystemData data = TestData();
+            data.CampaignEndDay = 2;
+            data.MidpointReviewDay = 1;
+            data.StartingResources = 100;
+            data.Balance.PayrollIntervalDays = 100;
+            foreach (WorkGroup group in data.Works) group.Required = false;
+            var game = new MilestoneSimulation(data, 1);
+
+            game.AdvanceDay();
+            game.AdvanceDay();
+            game.AdvanceDay();
+
+            Assert.That(game.Day, Is.GreaterThan(data.CampaignEndDay));
+            Assert.That(game.IsLost, Is.False);
+            Assert.That(game.PlanningHorizonDay, Is.EqualTo(game.Day + 30));
+        }
+
+        [Test]
+        public void ResourceDepletionIsTheOnlySessionEndingRule()
+        {
+            TaskSystemData data = TestData();
+            data.StartingResources = 1;
+            data.Balance.PayrollIntervalDays = 1;
+            data.Balance.BaseSalary = 1;
+            foreach (WorkGroup group in data.Works) group.Required = false;
+            var game = new MilestoneSimulation(data, 1);
+
+            game.AdvanceDay();
+
+            Assert.That(game.Resources, Is.Zero);
+            Assert.That(game.IsLost, Is.True);
+            int stoppedDay = game.Day;
+            game.AdvanceDay();
+            Assert.That(game.Day, Is.EqualTo(stoppedDay));
+        }
+
+        [Test]
         public void CrewProfilesLoadPortraitMemoAndPerksFromExternalData()
         {
             var game = new MilestoneSimulation(1);
@@ -1126,13 +1176,13 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void StatusTextUsesTerminalCampaignStateInsteadOfEventLines()
+        public void StatusTextOnlyOverridesEventLinesForResourceDepletion()
         {
             var report = new DayReport();
             report.Lines.Add("event");
 
-            Assert.That(MilestonePrototypeController.FormatStatus(report, true, false), Is.EqualTo("마일스톤 완료 — 캠페인 승리"));
-            Assert.That(MilestonePrototypeController.FormatStatus(report, false, true), Is.EqualTo("운영 붕괴 — 캠페인 실패"));
+            Assert.That(MilestonePrototypeController.FormatStatus(report, true, false), Is.EqualTo("event"));
+            Assert.That(MilestonePrototypeController.FormatStatus(report, false, true), Is.EqualTo("자원 고갈 — 생존 기록 종료"));
         }
 
         [Test]
@@ -1368,14 +1418,14 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void MissingHardDeadlineFailsRequiredWork()
+        public void MissingHardDeadlineFailsRequiredWorkWithoutEndingTheRun()
         {
             var game = new MilestoneSimulation(1);
             int hardDeadline = game.Groups.Find(group => group.Id == "foundation").HardDeadline;
             while (game.Day <= hardDeadline) game.AdvanceDay();
 
             Assert.That(game.Groups.Find(group => group.Id == "foundation").State, Is.EqualTo(WorkState.Failed));
-            Assert.That(game.IsLost, Is.True);
+            Assert.That(game.IsLost, Is.False);
         }
 
         [Test]

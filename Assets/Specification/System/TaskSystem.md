@@ -2,12 +2,12 @@
 
 ## Document Control
 
-- Version: 2.0
+- Version: 3.0
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
-- Rationale: Refill side missions immediately after failure, prioritize unread mail, and present
-  messenger reports and replies as one chronological conversation.
+- Rationale: Define resources as the run's life, remove victory and fixed-duration endings, and
+  support endurance balance simulation.
 - Idea references: `IDEA.md` items 1, 2, 4, and 8
 
 ## Scope
@@ -76,7 +76,7 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 ## Day and Assignment Rules
 
 - One turn advances the calendar by one day.
-- One month is always 30 days. The campaign covers three months (`90 days`).
+- One month is always 30 days. Day 90 is a content/planning baseline, not a run limit.
 - Payroll is charged every 30 days. Each crew member starts with a data-defined monthly base salary,
   and every configured block of accumulated Experience increases that salary by a configured amount.
 - Experience is earned through daily Task execution. Regeneration resets Experience to zero, which
@@ -94,7 +94,7 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 - The required final operation is revealed at the start of day 60. It is absent from the Gantt and
   cannot be assigned, reserved, or automatically assigned before that day.
 - The operations desktop exposes an always-visible `다음날로` button at the bottom-right above the
-  taskbar. It is disabled after campaign victory or loss.
+  taskbar. It is disabled only after resources reach zero.
 - A worker can hold at most one primary Task for that day.
 - Completing a Task preserves its assignee as historical ownership. The completed assignment does
   not consume current worker capacity and is not cleared when that worker starts another Task.
@@ -186,8 +186,8 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 
 ## Task Scheduling
 
-- A player may reserve a Task start day for one worker from the current day through the campaign
-  end day.
+- A player may reserve a Task start day for one worker within the rolling planning horizon. The
+  horizon always extends at least 30 days beyond the current day.
 - The reserved day is a start or resume day, not a one-day assignment.
 - Once started, the same worker remains assigned and contributes output every daily cycle without
   repeated player input until the Task completes, fails, is held, or is reassigned.
@@ -282,6 +282,17 @@ The UI must show base progress, accumulated context cost, current owner, and exp
 Overdue work also retains the increased-fatigue consequence. Further consequences may be added
 through data without redefining Task ownership.
 
+## Endless Run and Resource Life
+
+- There is no victory state. Completing all initial required Works is a milestone inside the run.
+- A failed required Work, passing day 90, and having every crew member injured do not end the run.
+- Resources are the run's life. The only session-ending condition is `Resources <= 0`.
+- Rewards refill resources while payroll, deadline penalties, regeneration, and future sinks drain
+  them. All deductions clamp at zero.
+- The score is the day reached before resource depletion. Balance evaluation must therefore compare
+  survival-day distributions rather than a win rate.
+- Random Work generation continues after the initial authored content so the run can continue.
+
 ## Random Work Generation
 
 - The daily cycle may generate optional Works up to the configured active limit.
@@ -340,7 +351,7 @@ Gameplay content and balance values must not be authored as constructor literals
 
 External data includes:
 
-- campaign duration and starting resources
+- initial planning baseline and starting resources
 - midpoint review day
 - Work definitions and predecessor IDs
 - Task definitions, durations, roles, one-to-three competency requirements, difficulty, and prerequisite IDs
@@ -393,7 +404,8 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 - EditMode tests cover assignment capacity, prerequisites, parallel work, interruption cost, handover cost, and deadlines.
 - EditMode tests cover below-standard output, competency averaging, excellent-score coverage, and
   fatigue-driven failure/success/great-success output.
-- The campaign lasts 90 days and produces one midpoint review on day 45.
+- The run continues beyond day 90, has no victory state, and ends only at zero resources.
+- Day 45 produces one midpoint review and the planning horizon remains at least 30 days ahead.
 - A manual primary assignment creates or updates a learned rule.
 - A matching available Task is automatically assigned only when the recorded worker is eligible.
 - Learned rules survive campaign save/restore and are visible in `My Info`.

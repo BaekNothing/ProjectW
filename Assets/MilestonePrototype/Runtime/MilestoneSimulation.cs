@@ -38,10 +38,9 @@ namespace ProjectW.MilestonePrototype
                                      balance.PayrollIntervalDays;
         public float InterruptionAndResumptionCostDays =>
             balance.InterruptionCostDays + balance.ResumptionCostDays;
-        public bool IsWon => Groups.Where(group => group.Required).All(group => group.State == WorkState.Complete);
-        public bool IsLost => Groups.Any(group => group.Required && group.State == WorkState.Failed) ||
-                              Day > CampaignEndDay ||
-                              Crew.All(member => member.InjuryDays > 0);
+        public int PlanningHorizonDay => Math.Max(CampaignEndDay, Day + 30);
+        public bool IsWon => false;
+        public bool IsLost => Resources <= 0;
         public List<WorkTask> Tasks { get; } = new List<WorkTask>();
         public List<CrewMember> Crew { get; } = new List<CrewMember>();
         public List<WorkGroup> Groups { get; } = new List<WorkGroup>();
@@ -412,7 +411,7 @@ namespace ProjectW.MilestonePrototype
         public DayReport AdvanceDay()
         {
             var report = new DayReport();
-            if (IsWon || IsLost) return report;
+            if (IsLost) return report;
 
             ApplyScheduledAssignments(report);
             ApplyLearnedAssignments(report);
