@@ -12,7 +12,7 @@ namespace ProjectW.MilestonePrototype.Tests
         [Test]
         public void CriticalEventChoiceChainAppliesEffectsAndAdvancesNodes()
         {
-            TaskSystemData data = TestData();
+            TaskSystemData data = TaskSystemDataLoader.Load();
             data.CriticalEvents = CriticalEventFixture();
             var game = new MilestoneSimulation(data, 7);
             int initialResources = game.Resources;
@@ -36,7 +36,7 @@ namespace ProjectW.MilestonePrototype.Tests
         [Test]
         public void OnlyOneDueCriticalEventCanBeActiveAtATime()
         {
-            TaskSystemData data = TestData();
+            TaskSystemData data = TaskSystemDataLoader.Load();
             CriticalEventDefinition[] definitions = CriticalEventFixture();
             CriticalEventDefinition second = definitions[0];
             definitions[0] = new CriticalEventDefinition
@@ -57,7 +57,7 @@ namespace ProjectW.MilestonePrototype.Tests
         [Test]
         public void DebugForceStartsEarliestCriticalEventBeforeItsScheduledDay()
         {
-            TaskSystemData data = TestData();
+            TaskSystemData data = TaskSystemDataLoader.Load();
             CriticalEventDefinition[] definitions = CriticalEventFixture();
             definitions[0].StartDay = 20;
             data.CriticalEvents = definitions;
@@ -136,7 +136,7 @@ namespace ProjectW.MilestonePrototype.Tests
         [Test]
         public void FormerCampaignEndIsOnlyAPlanningBaseline()
         {
-            TaskSystemData data = TestData();
+            TaskSystemData data = TaskSystemDataLoader.Load();
             data.CampaignEndDay = 2;
             data.MidpointReviewDay = 1;
             data.StartingResources = 100;
@@ -156,7 +156,7 @@ namespace ProjectW.MilestonePrototype.Tests
         [Test]
         public void ResourceDepletionIsTheOnlySessionEndingRule()
         {
-            TaskSystemData data = TestData();
+            TaskSystemData data = TaskSystemDataLoader.Load();
             data.StartingResources = 1;
             data.Balance.PayrollIntervalDays = 1;
             data.Balance.BaseSalary = 1;
