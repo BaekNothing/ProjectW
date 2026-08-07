@@ -361,6 +361,7 @@ namespace ProjectW.MilestonePrototype
         public bool CompetencyAutoAssignment;
         public string ActiveCriticalEventId;
         public string ActiveCriticalNodeId;
+        public int ActiveCriticalNodeArrivalDay;
         public int TaskSuccessChanceModifier;
     }
 

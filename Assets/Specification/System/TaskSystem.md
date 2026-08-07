@@ -298,6 +298,9 @@ through data without redefining Task ownership.
 - A critical event arrives through mail with a `[!중요!]` subject prefix.
 - Entering a critical event activates exactly one event chain. Until its current node is resolved,
   the player cannot advance the day or interact with unrelated mail.
+- After a node is resolved, its follow-up node arrives 2 or 3 days later. During this waiting period
+  normal day advancement is allowed, but the same event retains the exclusive critical-event slot.
+- Day advancement is locked only while an arrived critical node is waiting for a player choice.
 - A chain contains one or more nodes. Every node presents explicit player choices, and every choice
   contains one or more weighted outcomes.
 - An outcome applies data-defined resource, fatigue, and task-success modifiers, then names the next
@@ -427,7 +430,7 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
   fatigue-driven failure/success/great-success output.
 - The run continues beyond day 90, has no victory state, and ends only at zero resources.
 - Day 45 produces one midpoint review and the planning horizon remains at least 30 days ahead.
-- A `[!중요!]` mail locks day advancement and unrelated mail until its full choice chain ends.
+- An arrived `[!중요!]` mail locks day advancement until chosen; follow-up nodes arrive after 2–3 days.
 - Critical choice outcomes deterministically apply their rolled resource, fatigue, and task-success effects.
 - A manual primary assignment creates or updates a learned rule.
 - A matching available Task is automatically assigned only when the recorded worker is eligible.

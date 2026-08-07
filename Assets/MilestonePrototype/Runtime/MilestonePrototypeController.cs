@@ -150,16 +150,18 @@ namespace ProjectW.MilestonePrototype
                 $"가용 대원 {game.Crew.Count(c => c.Available)}/{game.Crew.Count}  |  자원 {game.Resources}", section);
             if (logicalHeight >= 520f)
             {
-                SetControlEnabled(!game.IsWon && !game.IsLost && !game.HasActiveCriticalEvent);
+                SetControlEnabled(!game.IsWon && !game.IsLost && !game.HasPendingCriticalChoice);
                 if (Button(new Rect(25, 365, 210, 48), "하루 진행"))
                     AdvanceToNextDay();
                 SetControlEnabled(true);
             }
             GUI.Label(DesktopStatusRect(logicalWidth, logicalHeight),
-                game.HasActiveCriticalEvent
+                game.HasPendingCriticalChoice
                     ? "[!중요!] 결정을 내려야 다음 날로 진행할 수 있습니다."
+                    : game.HasActiveCriticalEvent
+                        ? $"중요 이벤트 후속 보고 대기 · DAY {game.ActiveCriticalNodeArrivalDay}"
                     : FormatStatus(game.LastReport, game.IsWon, game.IsLost),
-                game.IsLost || game.HasActiveCriticalEvent ? warning : success);
+                game.IsLost || game.HasPendingCriticalChoice ? warning : success);
         }
 
         private void DrawWindows()
@@ -1277,7 +1279,7 @@ namespace ProjectW.MilestonePrototype
         {
             Rect bar = new Rect(0, logicalHeight - 44, logicalWidth, 44);
             DrawSolid(bar, GrayColor);
-            SetControlEnabled(!game.IsWon && !game.IsLost && !game.HasActiveCriticalEvent);
+            SetControlEnabled(!game.IsWon && !game.IsLost && !game.HasPendingCriticalChoice);
             if (Button(NextDayButtonRect(logicalWidth, logicalHeight), "다음날로 →"))
                 AdvanceToNextDay();
             SetControlEnabled(true);
@@ -1301,7 +1303,7 @@ namespace ProjectW.MilestonePrototype
         private void AdvanceToNextDay()
         {
             game.AdvanceDay();
-            if (game.HasActiveCriticalEvent) Open("mail");
+            if (game.HasPendingCriticalChoice) Open("mail");
             SaveCampaign();
         }
 

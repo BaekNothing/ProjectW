@@ -22,15 +22,19 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(game.Mail.Exists(mail => mail.Subject.StartsWith("[!중요!]")), Is.True);
             Assert.That(game.ChooseCriticalEvent("commit"), Is.True);
             Assert.That(game.ActiveCriticalNodeId, Is.EqualTo("second"));
+            Assert.That(game.HasPendingCriticalChoice, Is.False);
+            Assert.That(game.ActiveCriticalNodeArrivalDay, Is.InRange(3, 4));
             Assert.That(game.Resources, Is.EqualTo(initialResources - 2));
             foreach (CrewMember member in game.Crew)
                 Assert.That(member.Fatigue, Is.EqualTo(5));
             Assert.That(game.TaskSuccessChanceModifier, Is.EqualTo(6));
 
+            while (game.Day < game.ActiveCriticalNodeArrivalDay) game.AdvanceDay();
+            Assert.That(game.HasPendingCriticalChoice, Is.True);
             Assert.That(game.ChooseCriticalEvent("finish"), Is.True);
             Assert.That(game.HasActiveCriticalEvent, Is.False);
             game.AdvanceDay();
-            Assert.That(game.Day, Is.EqualTo(2));
+            Assert.That(game.Day, Is.InRange(4, 5));
         }
 
         [Test]
@@ -70,6 +74,7 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(game.ActiveCriticalEventId, Is.EqualTo("test-chain"));
             Assert.That(game.ActiveCriticalNodeId, Is.EqualTo("first"));
             Assert.That(game.CanForceCriticalEvent, Is.False);
+            Assert.That(game.HasPendingCriticalChoice, Is.True);
             Assert.That(game.Mail.Exists(mail => mail.IsCritical && !mail.Resolved), Is.True);
         }
 

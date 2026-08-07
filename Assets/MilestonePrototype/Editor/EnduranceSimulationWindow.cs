@@ -173,7 +173,7 @@ namespace ProjectW.MilestonePrototype.Editor
 
         private static void ResolveCriticalEvent(MilestoneSimulation game)
         {
-            while (game.HasActiveCriticalEvent)
+            while (game.HasPendingCriticalChoice)
             {
                 CriticalEventNode node = game.ActiveCriticalNode();
                 if (node?.Choices == null || node.Choices.Length == 0) return;

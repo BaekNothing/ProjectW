@@ -55,8 +55,20 @@ namespace ProjectW.MilestonePrototype
         public bool CompetencyAutoAssignment { get; private set; }
         public string ActiveCriticalEventId { get; private set; }
         public string ActiveCriticalNodeId { get; private set; }
+        public int ActiveCriticalNodeArrivalDay { get; private set; }
         public int TaskSuccessChanceModifier { get; private set; }
         public bool HasActiveCriticalEvent => !string.IsNullOrEmpty(ActiveCriticalEventId);
+        public bool HasPendingCriticalChoice
+        {
+            get
+            {
+                foreach (MailEvent mail in Mail)
+                    if (mail.IsCritical && mail.CriticalEventId == ActiveCriticalEventId &&
+                        mail.CriticalNodeId == ActiveCriticalNodeId && !mail.Resolved)
+                        return true;
+                return false;
+            }
+        }
         public bool CanForceCriticalEvent => !IsLost && !HasActiveCriticalEvent && criticalEvents.Length > 0;
 
         public bool IsWorkVisible(WorkGroup group) => group != null &&
@@ -343,6 +355,7 @@ namespace ProjectW.MilestonePrototype
 
         public bool ChooseCriticalEvent(string choiceId)
         {
+            if (!HasPendingCriticalChoice) return false;
             CriticalEventNode node = ActiveCriticalNode();
             CriticalEventChoice choice = null;
             if (node?.Choices != null)
@@ -386,11 +399,13 @@ namespace ProjectW.MilestonePrototype
             {
                 ActiveCriticalEventId = null;
                 ActiveCriticalNodeId = null;
+                ActiveCriticalNodeArrivalDay = 0;
             }
             else
             {
                 ActiveCriticalNodeId = selected.NextNodeId;
-                AddCriticalMail();
+                ActiveCriticalNodeArrivalDay = Day + random.Next(2, 4);
+                Log($"중요 이벤트 후속 보고 예정: DAY {ActiveCriticalNodeArrivalDay}");
             }
             return true;
         }
@@ -433,6 +448,7 @@ namespace ProjectW.MilestonePrototype
             if (definition == null) return;
             ActiveCriticalEventId = definition.Id;
             ActiveCriticalNodeId = definition.FirstNodeId;
+            ActiveCriticalNodeArrivalDay = Day;
             AddCriticalMail();
         }
 
@@ -445,6 +461,7 @@ namespace ProjectW.MilestonePrototype
                     definition = candidate;
             ActiveCriticalEventId = definition.Id;
             ActiveCriticalNodeId = definition.FirstNodeId;
+            ActiveCriticalNodeArrivalDay = Day;
             AddCriticalMail();
             Log($"디버그 중요 이벤트 강제 발생: {definition.Id}");
             return HasActiveCriticalEvent;
@@ -452,11 +469,13 @@ namespace ProjectW.MilestonePrototype
 
         private void AddCriticalMail()
         {
+            if (HasPendingCriticalChoice || ActiveCriticalNodeArrivalDay > Day) return;
             CriticalEventNode node = ActiveCriticalNode();
             if (node == null)
             {
                 ActiveCriticalEventId = null;
                 ActiveCriticalNodeId = null;
+                ActiveCriticalNodeArrivalDay = 0;
                 return;
             }
             Mail.Add(new MailEvent
@@ -472,6 +491,13 @@ namespace ProjectW.MilestonePrototype
                 CriticalEventId = ActiveCriticalEventId,
                 CriticalNodeId = node.Id
             });
+        }
+
+        private void DeliverScheduledCriticalMail()
+        {
+            if (!HasActiveCriticalEvent || HasPendingCriticalChoice ||
+                ActiveCriticalNodeArrivalDay > Day) return;
+            AddCriticalMail();
         }
 
         public bool AskWorker(int crewIndex, string question)
@@ -597,6 +623,7 @@ namespace ProjectW.MilestonePrototype
             ApplyMidpointReview(report);
             RefreshStates();
             TriggerRandomWork(report);
+            DeliverScheduledCriticalMail();
             TriggerCriticalEvent();
             LastReport = report;
             if (report.Lines.Count == 0) report.Lines.Add("특이사항 없이 하루가 지났습니다.");
@@ -1031,6 +1058,7 @@ namespace ProjectW.MilestonePrototype
             CompetencyAutoAssignment = CompetencyAutoAssignment,
             ActiveCriticalEventId = ActiveCriticalEventId,
             ActiveCriticalNodeId = ActiveCriticalNodeId,
+            ActiveCriticalNodeArrivalDay = ActiveCriticalNodeArrivalDay,
             TaskSuccessChanceModifier = TaskSuccessChanceModifier
         };
 
@@ -1061,12 +1089,16 @@ namespace ProjectW.MilestonePrototype
             CompetencyAutoAssignment = snapshot.CompetencyAutoAssignment;
             ActiveCriticalEventId = snapshot.ActiveCriticalEventId;
             ActiveCriticalNodeId = snapshot.ActiveCriticalNodeId;
+            ActiveCriticalNodeArrivalDay = snapshot.ActiveCriticalNodeArrivalDay;
             TaskSuccessChanceModifier = snapshot.TaskSuccessChanceModifier;
             SystemLog.Clear();
             if (snapshot.Log != null) SystemLog.AddRange(snapshot.Log);
             MigrateLegacyGeneratedSideMissions();
             NormalizeLoadedData();
             RefreshStates();
+            if (HasActiveCriticalEvent && ActiveCriticalNodeArrivalDay <= 0)
+                ActiveCriticalNodeArrivalDay = Day;
+            DeliverScheduledCriticalMail();
             if (!HasActiveCriticalEvent) TriggerCriticalEvent();
             return true;
         }
