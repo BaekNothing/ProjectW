@@ -54,6 +54,25 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(game.Mail.FindAll(mail => mail.IsCritical), Has.Count.EqualTo(1));
         }
 
+        [Test]
+        public void DebugForceStartsEarliestCriticalEventBeforeItsScheduledDay()
+        {
+            TaskSystemData data = TestData();
+            CriticalEventDefinition[] definitions = CriticalEventFixture();
+            definitions[0].StartDay = 20;
+            data.CriticalEvents = definitions;
+            var game = new MilestoneSimulation(data, 1);
+
+            Assert.That(game.HasActiveCriticalEvent, Is.False);
+            Assert.That(game.CanForceCriticalEvent, Is.True);
+            Assert.That(game.ForceCriticalEvent(), Is.True);
+
+            Assert.That(game.ActiveCriticalEventId, Is.EqualTo("test-chain"));
+            Assert.That(game.ActiveCriticalNodeId, Is.EqualTo("first"));
+            Assert.That(game.CanForceCriticalEvent, Is.False);
+            Assert.That(game.Mail.Exists(mail => mail.IsCritical && !mail.Resolved), Is.True);
+        }
+
         private static CriticalEventDefinition[] CriticalEventFixture()
         {
             return new[]

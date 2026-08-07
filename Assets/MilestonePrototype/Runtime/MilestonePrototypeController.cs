@@ -1186,6 +1186,19 @@ namespace ProjectW.MilestonePrototype
             if (LayoutButton("로그 열기", GUILayout.Height(38)))
                 Open("log");
             GUILayout.Space(16);
+            GUILayout.Label("디버그", section);
+            GUILayout.Label("가장 이른 중요 이벤트를 현재 날짜에 즉시 시작합니다. 완료한 이벤트도 다시 시험할 수 있습니다.", small);
+            SetControlEnabled(game.CanForceCriticalEvent);
+            if (LayoutButton("[디버그] 중요 이벤트 강제 발생", GUILayout.Height(38)))
+            {
+                if (game.ForceCriticalEvent())
+                {
+                    SaveCampaign();
+                    Open("mail");
+                }
+            }
+            SetControlEnabled(true);
+            GUILayout.Space(16);
             GUILayout.Label("초기화", section);
             if (LayoutButton("창 위치 및 열린 상태 초기화", GUILayout.Height(38)))
             {

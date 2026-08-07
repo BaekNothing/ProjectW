@@ -309,6 +309,9 @@ through data without redefining Task ownership.
   the active chain ends.
 - Critical-event definitions, nodes, choices, outcome weights, effects, and start days are external
   gameplay data. Active chain/node and accumulated success modifier persist in campaign saves.
+- Options provides a clearly labeled debug button that immediately starts the earliest configured
+  critical event, including replay after completion. It is disabled during an active chain or after
+  resource depletion and opens the resulting `[!중요!]` mail on success.
 
 ## Random Work Generation
 

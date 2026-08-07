@@ -57,6 +57,7 @@ namespace ProjectW.MilestonePrototype
         public string ActiveCriticalNodeId { get; private set; }
         public int TaskSuccessChanceModifier { get; private set; }
         public bool HasActiveCriticalEvent => !string.IsNullOrEmpty(ActiveCriticalEventId);
+        public bool CanForceCriticalEvent => !IsLost && !HasActiveCriticalEvent && criticalEvents.Length > 0;
 
         public bool IsWorkVisible(WorkGroup group) => group != null &&
             !group.AwaitingAcceptance && (group.RevealDay <= 0 || Day >= group.RevealDay);
@@ -435,6 +436,20 @@ namespace ProjectW.MilestonePrototype
             AddCriticalMail();
         }
 
+        public bool ForceCriticalEvent()
+        {
+            if (!CanForceCriticalEvent) return false;
+            CriticalEventDefinition definition = criticalEvents[0];
+            foreach (CriticalEventDefinition candidate in criticalEvents)
+                if (candidate.StartDay < definition.StartDay)
+                    definition = candidate;
+            ActiveCriticalEventId = definition.Id;
+            ActiveCriticalNodeId = definition.FirstNodeId;
+            AddCriticalMail();
+            Log($"디버그 중요 이벤트 강제 발생: {definition.Id}");
+            return HasActiveCriticalEvent;
+        }
+
         private void AddCriticalMail()
         {
             CriticalEventNode node = ActiveCriticalNode();
@@ -446,7 +461,7 @@ namespace ProjectW.MilestonePrototype
             }
             Mail.Add(new MailEvent
             {
-                Id = $"critical-{ActiveCriticalEventId}-{node.Id}-{Day}",
+                Id = $"critical-{ActiveCriticalEventId}-{node.Id}-{Day}-{Mail.Count}",
                 ArrivalDay = Day,
                 From = node.From,
                 Subject = $"[!중요!] {node.Subject}",
