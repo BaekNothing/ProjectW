@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Version: 3.1
+- Version: 3.2
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
@@ -76,6 +76,7 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 ## Day and Assignment Rules
 
 - One turn advances the calendar by one day.
+- Day 1 is Monday. The seven-day week repeats Monday through Sunday.
 - One month is always 30 days. Day 90 is a content/planning baseline, not a run limit.
 - Payroll is charged every 30 days. Each crew member starts with a data-defined monthly base salary,
   and every configured block of accumulated Experience increases that salary by a configured amount.
@@ -98,6 +99,37 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 - A worker can hold at most one primary Task for that day.
 - Completing a Task preserves its assignee as historical ownership. The completed assignment does
   not consume current worker capacity and is not cleared when that worker starts another Task.
+
+## Weekly Work, Rest, and Medical Checkups
+
+- Saturday and Sunday are non-working days by default. Assignments and reservations remain attached,
+  but workers produce no Task output on those days.
+- A weekend rest cycle reduces fatigue and improves mental condition using external balance data.
+  An injured worker also receives one data-driven recovery roll per resting weekend day. Successful
+  recovery clears the injury for the following day; failure leaves the normal injury countdown intact.
+- The Gantt header places a campaign-level `Crunch` checkbox beside competency automatic assignment.
+  When enabled, Saturday and Sunday use the normal weekday work cycle instead of weekend rest.
+  Crunch is preserved in the campaign save.
+- Friday afternoon is the regular medical-checkup period. Unless Crunch is enabled, every worker is
+  examined for no resource cost and can perform only half of their normal Task output that Friday.
+- Crunch skips the regular Friday checkup. A `Check all` option beside Crunch overrides that skip and
+  sends every worker for a checkup. Check-all follows the regular Friday half-day and free-cost rules
+  only on Friday; on any other day it is an unscheduled checkup.
+- The player may send an individual worker for a checkup on any day. A checkup outside the regular
+  Friday period is unscheduled: that worker produces no Task output for the entire day and consumes
+  the external-data unscheduled-checkup resource cost. The request fails without changing state when
+  the campaign cannot pay that cost.
+- A checkup request does not detach or interrupt the worker's assignments and does not add context cost.
+- Checkups assess health, fatigue, mental condition, and manager trust. The measured values are held as
+  a pending medical result rather than immediately changing the worker file.
+- Results from checkups performed since the previous result delivery arrive by mail at the start of the
+  next Monday. The result mail exposes a `Download medical file` action.
+- Downloading the medical file applies every attached result to the corresponding worker file. Until
+  download, the visible file retains its prior values and update day. Each worker file records the last
+  downloaded update day and weekday.
+- Health, fatigue, mental condition, and manager trust show both their numeric value and a readable
+  `Good`, `Caution`, or `Risk` grade. Thresholds and all checkup costs and recovery amounts are external
+  balance data.
 - Each worker owns a daily output value. A primary assignment contributes that output toward the
   Task workload before outcome modifiers.
 - Every Task requires one to three of the six colony competencies: base engineering, science
