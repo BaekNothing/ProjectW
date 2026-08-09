@@ -217,6 +217,44 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void CodexRecordsEveryInitialCrewPersonalityAndPerkOnce()
+        {
+            var game = new MilestoneSimulation(2);
+
+            foreach (CrewMember member in game.Crew)
+            {
+                Assert.That(game.Codex.Exists(entry =>
+                    entry.Category == "작업자 특성 · 성격" && entry.Name == member.Personality), Is.True);
+                foreach (string perk in member.Perks)
+                    Assert.That(game.Codex.Exists(entry =>
+                        entry.Category == "작업자 특성 · 퍽" && entry.Name == perk), Is.True);
+            }
+            for (int i = 0; i < game.DiscoveredCrewTraitIds.Count; i++)
+                for (int previous = 0; previous < i; previous++)
+                    Assert.That(game.DiscoveredCrewTraitIds[i],
+                        Is.Not.EqualTo(game.DiscoveredCrewTraitIds[previous]));
+        }
+
+        [Test]
+        public void RegeneratedCrewTraitDiscoveryPersistsAfterTraitIsLostAndSaveIsRestored()
+        {
+            var game = new MilestoneSimulation(3);
+            game.Crew[0].Perks = new[] { "새로운 현장 퍽" };
+
+            Assert.That(game.Regenerate(0, false, true), Is.True);
+            Assert.That(game.Codex.Exists(entry =>
+                entry.Category == "작업자 특성 · 퍽" && entry.Name == "새로운 현장 퍽"), Is.True);
+            game.Crew[0].Perks = new[] { "교체된 퍽" };
+
+            var restored = new MilestoneSimulation(4);
+            Assert.That(restored.Restore(game.CreateSnapshot()), Is.True);
+            Assert.That(restored.Codex.Exists(entry =>
+                entry.Category == "작업자 특성 · 퍽" && entry.Name == "새로운 현장 퍽"), Is.True);
+            Assert.That(restored.Codex.Exists(entry =>
+                entry.Category == "작업자 특성 · 퍽" && entry.Name == "교체된 퍽"), Is.True);
+        }
+
+        [Test]
         public void ManualAssignmentCreatesAndUpdatesLearnedRule()
         {
             var game = new MilestoneSimulation(1);

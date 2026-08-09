@@ -384,6 +384,8 @@ namespace ProjectW.MilestonePrototype
         public string[] Log;
         public AssignmentRule[] AssignmentRules;
         public string[] DiscoveredTaskWordIds;
+        public string[] DiscoveredCrewTraitIds;
+        public string[] DiscoveredCrewTraitSources;
         public bool MidpointReviewIssued;
         public bool CompetencyAutoAssignment;
         public bool Crunch;

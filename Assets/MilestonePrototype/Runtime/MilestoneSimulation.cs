@@ -48,6 +48,8 @@ namespace ProjectW.MilestonePrototype
         public List<MailEvent> Mail { get; } = new List<MailEvent>();
         public List<CodexEntry> Codex { get; } = new List<CodexEntry>();
         public List<string> DiscoveredTaskWordIds { get; } = new List<string>();
+        public List<string> DiscoveredCrewTraitIds { get; } = new List<string>();
+        public List<string> DiscoveredCrewTraitSources { get; } = new List<string>();
         public List<AssignmentRule> AssignmentRules { get; } = new List<AssignmentRule>();
         public List<string> SystemLog { get; } = new List<string>();
         public DayReport LastReport { get; private set; } = new DayReport();
@@ -142,6 +144,7 @@ namespace ProjectW.MilestonePrototype
             Crew.AddRange(data.Crew);
             if (data.Mail != null) Mail.AddRange(data.Mail);
             Codex.AddRange(baseCodex);
+            DiscoverCurrentCrewTraits();
             NormalizeLoadedData();
             RefreshStates();
             LastReport.Lines.Add("첫 번째 개척 기지가 가동되었습니다.");
@@ -287,6 +290,7 @@ namespace ProjectW.MilestonePrototype
             member.RestScheduled = false;
             member.Experience = 0;
             member.Personality = RollRegeneratedPersonality(previousPersonality);
+            DiscoverCrewTraits(crewIndex);
             member.RegenerationCount++;
             string inheritance = inheritAbilities && inheritPerks
                 ? "능력·퍽 인계"
@@ -1183,6 +1187,8 @@ namespace ProjectW.MilestonePrototype
             Log = SystemLog.ToArray(),
             AssignmentRules = AssignmentRules.ToArray(),
             DiscoveredTaskWordIds = DiscoveredTaskWordIds.ToArray(),
+            DiscoveredCrewTraitIds = DiscoveredCrewTraitIds.ToArray(),
+            DiscoveredCrewTraitSources = DiscoveredCrewTraitSources.ToArray(),
             MidpointReviewIssued = MidpointReviewIssued,
             CompetencyAutoAssignment = CompetencyAutoAssignment,
             Crunch = Crunch,
@@ -1216,6 +1222,9 @@ namespace ProjectW.MilestonePrototype
                 foreach (string wordId in snapshot.DiscoveredTaskWordIds)
                     UnlockTaskWord(wordId, null);
             }
+            RestoreCrewTraitDiscoveries(snapshot.DiscoveredCrewTraitIds,
+                snapshot.DiscoveredCrewTraitSources);
+            DiscoverCurrentCrewTraits();
             MidpointReviewIssued = snapshot.MidpointReviewIssued;
             CompetencyAutoAssignment = snapshot.CompetencyAutoAssignment;
             Crunch = snapshot.Crunch;
@@ -1332,6 +1341,81 @@ namespace ProjectW.MilestonePrototype
             UnlockTaskWord(task.GeneratedAdjectiveId, report);
             UnlockTaskWord(task.GeneratedTargetId, report);
             UnlockTaskWord(task.GeneratedActionId, report);
+        }
+
+        private void DiscoverCurrentCrewTraits()
+        {
+            for (int crewIndex = 0; crewIndex < Crew.Count; crewIndex++)
+                DiscoverCrewTraits(crewIndex);
+        }
+
+        private void DiscoverCrewTraits(int crewIndex)
+        {
+            if (crewIndex < 0 || crewIndex >= Crew.Count) return;
+            CrewMember member = Crew[crewIndex];
+            DiscoverCrewTrait("personality", member.Personality, member.Name);
+            if (member.Perks == null) return;
+            foreach (string perk in member.Perks)
+                DiscoverCrewTrait("perk", perk, member.Name);
+        }
+
+        private void DiscoverCrewTrait(string kind, string traitName, string crewName)
+        {
+            if (string.IsNullOrWhiteSpace(traitName)) return;
+            string discoveryId = kind + ":" + traitName;
+            for (int i = 0; i < DiscoveredCrewTraitIds.Count; i++)
+                if (DiscoveredCrewTraitIds[i] == discoveryId) return;
+
+            DiscoveredCrewTraitIds.Add(discoveryId);
+            DiscoveredCrewTraitSources.Add(crewName ?? string.Empty);
+            AddCrewTraitCodexEntry(discoveryId, crewName);
+        }
+
+        private void AddCrewTraitCodexEntry(string discoveryId, string crewName)
+        {
+            if (string.IsNullOrEmpty(discoveryId)) return;
+            bool personality = discoveryId.Length > 12 && discoveryId[3] == 's';
+            int nameStart = personality ? 12 : 5;
+            if (discoveryId.Length <= nameStart) return;
+            string traitName = discoveryId.Substring(nameStart);
+            string entryId = "crew-trait-" + discoveryId;
+            for (int i = 0; i < Codex.Count; i++)
+                if (Codex[i].Id == entryId) return;
+
+            string source = string.IsNullOrEmpty(crewName) ? "기록 미상 작업자" : crewName;
+            string description = personality
+                ? $"{source} 작업자에게서 처음 확인된 성격 특성입니다. 성격은 작업자 상세 정보에 표시되며, 같은 상황을 설명하는 메신저 답변의 말투와 표현 방식에 반영됩니다. 재생 시술 뒤 성격이 바뀌더라도 이미 확인한 특성 기록은 도감에 남습니다. 현재 별도의 수치 보정이나 성공 확률 효과는 명세되지 않았습니다."
+                : $"{source} 작업자에게서 처음 확인된 퍽입니다. 퍽은 작업자 상세 정보와 재생 시술의 퍽 인계 대상에 포함됩니다. 이 도감은 발견 사실과 이름을 보존하며, 퍽의 구체적인 작업 보정 수치는 외부 게임 데이터에 명시된 효과만 적용합니다. 작업자가 퍽을 잃거나 재생되더라도 한번 확인한 기록은 도감에 남습니다.";
+            Codex.AddRange(new[]
+            {
+                new CodexEntry
+                {
+                    Id = entryId,
+                    Category = personality ? "작업자 특성 · 성격" : "작업자 특성 · 퍽",
+                    Name = traitName,
+                    Description = description
+                }
+            });
+        }
+
+        private void RestoreCrewTraitDiscoveries(string[] ids, string[] sources)
+        {
+            if (ids == null) return;
+            for (int i = 0; i < ids.Length; i++)
+            {
+                string source = sources != null && i < sources.Length ? sources[i] : string.Empty;
+                bool known = false;
+                for (int existing = 0; existing < DiscoveredCrewTraitIds.Count; existing++)
+                    if (DiscoveredCrewTraitIds[existing] == ids[i])
+                    {
+                        known = true;
+                        break;
+                    }
+                if (known) continue;
+                DiscoveredCrewTraitIds.Add(ids[i]);
+                DiscoveredCrewTraitSources.Add(source);
+                AddCrewTraitCodexEntry(ids[i], source);
+            }
         }
 
         private void UnlockTaskWord(string wordId, DayReport report)
