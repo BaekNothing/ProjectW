@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Version: 3.2
+- Version: 3.3
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
@@ -430,6 +430,14 @@ External data includes:
   Codex entry in the same commit.
 - Base guide entries are visible from campaign start. Generated adjective, target, and action
   entries remain discovery-based additions and persist through discovered word IDs.
+- Every personality and perk currently present on a crew member is recorded as a discovery-based
+  Codex entry under separate worker-personality and worker-perk categories. Duplicate names create
+  only one entry, with the first observed crew member recorded as its discovery source.
+- Crew-trait discoveries are recorded when a campaign starts, after a crew regeneration changes
+  personality or perks, and after a campaign save is restored. Once discovered, an entry remains in
+  the Codex even when no current crew member retains that trait.
+- Discovered crew-trait IDs and their first-observed crew names are campaign save data. Restoring an
+  older save backfills the current roster's traits without removing existing generated-word entries.
 - mail and codex content
 
 The authoritative runtime data file for this prototype is:
