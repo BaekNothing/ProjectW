@@ -11,6 +11,7 @@ namespace ProjectW.MilestonePrototype
     public enum ImportanceLevel { Low, Medium, High }
     public enum RecordKind { Output, Note, Issue }
     public enum TaskOutcome { None, Failure, Success, GreatSuccess }
+    public enum Weekday { Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday }
 
     [Serializable]
     public sealed class WorkTask
@@ -73,8 +74,16 @@ namespace ProjectW.MilestonePrototype
         public int Trust;
         public int Pride;
         public int Authority;
+        public int Mental = 70;
         public float DailyOutput = 1f;
         public bool RestScheduled;
+        public int MedicalLeaveDay;
+        public int MedicalHalfDay;
+        public int MedicalFileUpdatedDay;
+        public int MedicalFileHealth;
+        public int MedicalFileFatigue;
+        public int MedicalFileMental;
+        public int MedicalFileTrust;
         public List<string> History = new List<string>();
 
         public bool Available => InjuryDays <= 0 && !RestScheduled;
@@ -129,6 +138,10 @@ namespace ProjectW.MilestonePrototype
         public int ParallelFatigue = 12;
         public int SoftDeadlineFatigue = 4;
         public int RestRecovery = 18;
+        public int WeekendFatigueRecovery = 12;
+        public int WeekendMentalRecovery = 8;
+        public int WeekendInjuryRecoveryChance = 35;
+        public int UnscheduledCheckupResourceCost = 1;
         public int RegenerationResourceCost = 3;
         public int RegenerationAbilityInheritanceCost = 5;
         public int RegenerationPerkInheritanceCost = 4;
@@ -322,6 +335,20 @@ namespace ProjectW.MilestonePrototype
           public bool IsCritical;
           public string CriticalEventId;
           public string CriticalNodeId;
+          public bool IsMedicalReport;
+          public MedicalResult[] MedicalResults;
+    }
+
+    [Serializable]
+    public sealed class MedicalResult
+    {
+        public int CrewIndex;
+        public int ExamDay;
+        public int DeliveryDay;
+        public int Health;
+        public int Fatigue;
+        public int Mental;
+        public int Trust;
     }
 
     [Serializable]
@@ -359,6 +386,8 @@ namespace ProjectW.MilestonePrototype
         public string[] DiscoveredTaskWordIds;
         public bool MidpointReviewIssued;
         public bool CompetencyAutoAssignment;
+        public bool Crunch;
+        public MedicalResult[] PendingMedicalResults;
         public string ActiveCriticalEventId;
         public string ActiveCriticalNodeId;
         public int ActiveCriticalNodeArrivalDay;

@@ -53,6 +53,10 @@ namespace ProjectW.MilestonePrototype
         public DayReport LastReport { get; private set; } = new DayReport();
         public bool MidpointReviewIssued { get; private set; }
         public bool CompetencyAutoAssignment { get; private set; }
+        public bool Crunch { get; private set; }
+        public Weekday CurrentWeekday => (Weekday)((Day - 1) % 7);
+        public int UnscheduledCheckupResourceCost => balance.UnscheduledCheckupResourceCost;
+        public MedicalResult[] PendingMedicalResults { get; private set; } = new MedicalResult[0];
         public string ActiveCriticalEventId { get; private set; }
         public string ActiveCriticalNodeId { get; private set; }
         public int ActiveCriticalNodeArrivalDay { get; private set; }
@@ -76,6 +80,25 @@ namespace ProjectW.MilestonePrototype
 
         public void SetCompetencyAutoAssignment(bool enabled) =>
             CompetencyAutoAssignment = enabled;
+
+        public void SetCrunch(bool enabled) => Crunch = enabled;
+
+        public static string WeekdayName(Weekday weekday)
+        {
+            switch (weekday)
+            {
+                case Weekday.Monday: return "월";
+                case Weekday.Tuesday: return "화";
+                case Weekday.Wednesday: return "수";
+                case Weekday.Thursday: return "목";
+                case Weekday.Friday: return "금";
+                case Weekday.Saturday: return "토";
+                default: return "일";
+            }
+        }
+
+        public static string MedicalGrade(int value) =>
+            value >= 70 ? "양호" : value >= 40 ? "주의" : "위험";
 
         public MilestoneSimulation(int seed = 731) : this(TaskSystemDataLoader.Load(), seed)
         {
@@ -301,6 +324,25 @@ namespace ProjectW.MilestonePrototype
             MailEvent mail = Mail.FirstOrDefault(item => item.Id == mailId && item.ArrivalDay <= Day);
             if (mail == null || mail.Resolved || mail.IsCritical) return false;
             mail.Read = true;
+
+            if (mail.IsMedicalReport)
+            {
+                if (mail.MedicalResults != null)
+                    foreach (MedicalResult result in mail.MedicalResults)
+                    {
+                        if (result == null || result.CrewIndex < 0 || result.CrewIndex >= Crew.Count) continue;
+                        CrewMember member = Crew[result.CrewIndex];
+                        member.MedicalFileUpdatedDay = Day;
+                        member.MedicalFileHealth = result.Health;
+                        member.MedicalFileFatigue = result.Fatigue;
+                        member.MedicalFileMental = result.Mental;
+                        member.MedicalFileTrust = result.Trust;
+                        member.History.Add($"DAY {Day}: 검진 파일 갱신");
+                    }
+                mail.Resolved = true;
+                Log($"검진 파일 다운로드: {mail.Subject}");
+                return true;
+            }
 
             WorkGroup targetWork = Groups.FirstOrDefault(group => group.Id == mail.TargetWorkId);
             if (targetWork == null && !string.IsNullOrWhiteSpace(mail.TargetTaskId))
@@ -591,6 +633,8 @@ namespace ProjectW.MilestonePrototype
             var report = new DayReport();
             if (IsLost) return report;
 
+            bool weekendRest = (CurrentWeekday == Weekday.Saturday || CurrentWeekday == Weekday.Sunday) && !Crunch;
+            bool regularFridayCheckup = CurrentWeekday == Weekday.Friday && !Crunch;
             ApplyScheduledAssignments(report);
             ApplyLearnedAssignments(report);
             ApplyCompetencyAssignments(report);
@@ -599,9 +643,21 @@ namespace ProjectW.MilestonePrototype
             for (int crewIndex = 0; crewIndex < Crew.Count; crewIndex++)
             {
                 CrewMember member = Crew[crewIndex];
-                pausedCrew[crewIndex] = member.InjuryDays > 0 || member.RestScheduled;
+                bool medicalLeave = member.MedicalLeaveDay == Day;
+                pausedCrew[crewIndex] = weekendRest || medicalLeave || member.InjuryDays > 0 || member.RestScheduled;
                 pausedConditions[crewIndex] = member.Condition;
+                if (regularFridayCheckup) RecordMedicalResult(crewIndex);
                 if (member.InjuryDays > 0) member.InjuryDays--;
+                if (weekendRest)
+                {
+                    member.Fatigue = Math.Max(0, member.Fatigue - balance.WeekendFatigueRecovery);
+                    member.Mental = Math.Min(100, member.Mental + balance.WeekendMentalRecovery);
+                    if (member.InjuryDays > 0 && random.Next(100) < balance.WeekendInjuryRecoveryChance)
+                        member.InjuryDays = 0;
+                    report.Lines.Add($"{member.Name}: 주말 휴식 · 피로/멘탈 회복");
+                }
+                else if (medicalLeave)
+                    report.Lines.Add($"{member.Name}: 일정 외 검진으로 당일 작업 중단");
                 if (!member.RestScheduled) continue;
                 member.Fatigue = Math.Max(0, member.Fatigue - balance.RestRecovery);
                 member.RestScheduled = false;
@@ -614,10 +670,12 @@ namespace ProjectW.MilestonePrototype
                          candidate.State != TaskState.Failed)
                          .OrderBy(candidate => candidate.IsParallelAssignment).ToList())
                 ProcessTask(task, report, pausedCrew[task.AssignedCharacter],
-                    pausedConditions[task.AssignedCharacter]);
+                    pausedConditions[task.AssignedCharacter],
+                    regularFridayCheckup || Crew[task.AssignedCharacter].MedicalHalfDay == Day ? .5f : 1f);
 
             ApplyPayroll(report);
             Day++;
+            DeliverMedicalResults();
             RefreshStates();
             ApplyDeadlineResults(report);
             ApplyMidpointReview(report);
@@ -629,6 +687,77 @@ namespace ProjectW.MilestonePrototype
             if (report.Lines.Count == 0) report.Lines.Add("특이사항 없이 하루가 지났습니다.");
             foreach (string line in report.Lines) Log(line);
             return report;
+        }
+
+        public bool SendForMedicalCheckup(int crewIndex)
+        {
+            if (crewIndex < 0 || crewIndex >= Crew.Count || IsLost) return false;
+            bool regular = CurrentWeekday == Weekday.Friday;
+            CrewMember member = Crew[crewIndex];
+            foreach (MedicalResult result in PendingMedicalResults)
+                if (result.CrewIndex == crewIndex && result.ExamDay == Day) return false;
+            if (!regular)
+            {
+                if (Resources < balance.UnscheduledCheckupResourceCost) return false;
+                Resources -= balance.UnscheduledCheckupResourceCost;
+                member.MedicalLeaveDay = Day;
+            }
+            else member.MedicalHalfDay = Day;
+            RecordMedicalResult(crewIndex);
+            member.History.Add($"DAY {Day}: {(regular ? "정기" : "일정 외")} 검진 예약");
+            return true;
+        }
+
+        public int SendAllForMedicalCheckup()
+        {
+            int sent = 0;
+            for (int i = 0; i < Crew.Count; i++)
+                if (SendForMedicalCheckup(i)) sent++;
+            return sent;
+        }
+
+        private void RecordMedicalResult(int crewIndex)
+        {
+            foreach (MedicalResult result in PendingMedicalResults)
+                if (result.CrewIndex == crewIndex && result.ExamDay == Day) return;
+            CrewMember member = Crew[crewIndex];
+            var next = new MedicalResult[PendingMedicalResults.Length + 1];
+            for (int i = 0; i < PendingMedicalResults.Length; i++) next[i] = PendingMedicalResults[i];
+            next[next.Length - 1] = new MedicalResult
+            {
+                CrewIndex = crewIndex,
+                ExamDay = Day,
+                DeliveryDay = Day + 7 - ((Day - 1) % 7),
+                Health = Math.Max(0, 100 - member.InjuryDays * 20),
+                Fatigue = member.Fatigue,
+                Mental = member.Mental,
+                Trust = member.Trust
+            };
+            PendingMedicalResults = next;
+        }
+
+        private void DeliverMedicalResults()
+        {
+            int dueCount = 0;
+            foreach (MedicalResult result in PendingMedicalResults)
+                if (result.DeliveryDay <= Day) dueCount++;
+            if (dueCount == 0) return;
+            var due = new MedicalResult[dueCount];
+            var remaining = new MedicalResult[PendingMedicalResults.Length - dueCount];
+            int dueIndex = 0;
+            int remainingIndex = 0;
+            foreach (MedicalResult result in PendingMedicalResults)
+                if (result.DeliveryDay <= Day) due[dueIndex++] = result;
+                else remaining[remainingIndex++] = result;
+            Mail.Add(new MailEvent
+            {
+                Id = $"medical-{Day}", ArrivalDay = Day, From = "의료지원실",
+                Subject = $"주간 검진 결과 · DAY {Day}",
+                Body = $"작업자 {due.Length}명의 검진 결과가 도착했습니다.",
+                Instruction = "검진 파일 다운로드를 눌러 작업자 파일을 갱신하세요.",
+                Risk = RiskLevel.Low, IsMedicalReport = true, MedicalResults = due
+            });
+            PendingMedicalResults = remaining;
         }
 
         public OperationsReport BuildReport() => new OperationsReport
@@ -1056,6 +1185,8 @@ namespace ProjectW.MilestonePrototype
             DiscoveredTaskWordIds = DiscoveredTaskWordIds.ToArray(),
             MidpointReviewIssued = MidpointReviewIssued,
             CompetencyAutoAssignment = CompetencyAutoAssignment,
+            Crunch = Crunch,
+            PendingMedicalResults = PendingMedicalResults,
             ActiveCriticalEventId = ActiveCriticalEventId,
             ActiveCriticalNodeId = ActiveCriticalNodeId,
             ActiveCriticalNodeArrivalDay = ActiveCriticalNodeArrivalDay,
@@ -1087,6 +1218,8 @@ namespace ProjectW.MilestonePrototype
             }
             MidpointReviewIssued = snapshot.MidpointReviewIssued;
             CompetencyAutoAssignment = snapshot.CompetencyAutoAssignment;
+            Crunch = snapshot.Crunch;
+            PendingMedicalResults = snapshot.PendingMedicalResults ?? new MedicalResult[0];
             ActiveCriticalEventId = snapshot.ActiveCriticalEventId;
             ActiveCriticalNodeId = snapshot.ActiveCriticalNodeId;
             ActiveCriticalNodeArrivalDay = snapshot.ActiveCriticalNodeArrivalDay;
@@ -1104,7 +1237,7 @@ namespace ProjectW.MilestonePrototype
         }
 
         private void ProcessTask(WorkTask task, DayReport report, bool pausedByCondition,
-            string pausedCondition)
+            string pausedCondition, float workdayMultiplier = 1f)
         {
             if (task.AssignedCharacter < 0) return;
             CrewMember member = Crew[task.AssignedCharacter];
@@ -1137,7 +1270,7 @@ namespace ProjectW.MilestonePrototype
             float outputMultiplier = outcome == TaskOutcome.Failure
                 ? balance.LowOutputMultiplier
                 : outcome == TaskOutcome.GreatSuccess ? balance.HighOutputMultiplier : 1f;
-            float progress = baseOutput * outputMultiplier;
+            float progress = baseOutput * outputMultiplier * workdayMultiplier;
             WorkTask prerequisite = string.IsNullOrEmpty(task.PrerequisiteId)
                 ? null
                 : Tasks.FirstOrDefault(candidate => candidate.Id == task.PrerequisiteId);

@@ -139,6 +139,11 @@ namespace ProjectW.MilestonePrototype
             if (data.Balance.PrimaryProgressDays <= 0f ||
                 data.Balance.InterruptionCostDays < 0f ||
                 data.Balance.ResumptionCostDays < 0f ||
+                data.Balance.WeekendFatigueRecovery < 0 ||
+                data.Balance.WeekendMentalRecovery < 0 ||
+                data.Balance.WeekendInjuryRecoveryChance < 0 ||
+                data.Balance.WeekendInjuryRecoveryChance > 100 ||
+                data.Balance.UnscheduledCheckupResourceCost < 0 ||
                 data.Balance.RegenerationResourceCost < 0 ||
                 data.Balance.RegenerationAbilityInheritanceCost < 0 ||
                 data.Balance.RegenerationPerkInheritanceCost < 0 ||

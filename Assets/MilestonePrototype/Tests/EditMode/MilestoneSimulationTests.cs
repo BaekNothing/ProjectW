@@ -1925,6 +1925,86 @@ namespace ProjectW.MilestonePrototype.Tests
             public void DeleteKey(string key) => values.Remove(key);
         }
 
+        [Test]
+        public void UnscheduledCheckupConsumesResourceStopsWorkAndUpdatesOnlyAfterMondayDownload()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            DisableAccidents(data);
+            ForceSuccessOutcome(data);
+            var game = new MilestoneSimulation(data, 11);
+            Assert.That(game.Assign("survey", 1), Is.True);
+            int resources = game.Resources;
+
+            Assert.That(game.SendForMedicalCheckup(1), Is.True);
+            Assert.That(game.Resources, Is.EqualTo(resources - data.Balance.UnscheduledCheckupResourceCost));
+            game.AdvanceDay();
+            Assert.That(game.Tasks.Find(task => task.Id == "survey").Progress, Is.Zero);
+
+            while (game.Day < 8) game.AdvanceDay();
+            MailEvent resultMail = game.Mail.Find(mail => mail.IsMedicalReport && mail.ArrivalDay == 8);
+            Assert.That(resultMail, Is.Not.Null);
+            Assert.That(game.Crew[1].MedicalFileUpdatedDay, Is.Zero);
+            Assert.That(game.ResolveMail(resultMail.Id), Is.True);
+            Assert.That(game.Crew[1].MedicalFileUpdatedDay, Is.EqualTo(8));
+            Assert.That(game.Crew[1].MedicalFileMental, Is.EqualTo(70));
+        }
+
+        [Test]
+        public void RegularFridayCheckupIsFreeAndProducesHalfDayOutput()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            DisableAccidents(data);
+            ForceSuccessOutcome(data);
+            var game = new MilestoneSimulation(data, 12);
+            CampaignSnapshot snapshot = game.CreateSnapshot();
+            snapshot.Day = 5;
+            Assert.That(game.Restore(snapshot), Is.True);
+            Assert.That(game.CurrentWeekday, Is.EqualTo(Weekday.Friday));
+            Assert.That(game.Assign("survey", 1), Is.True);
+            float fullOutput = game.Crew[1].DailyOutput *
+                               MilestoneSimulation.CompetencyOutputMultiplier(
+                                   game.Crew[1], game.Tasks.Find(task => task.Id == "survey"));
+            int resources = game.Resources;
+
+            game.AdvanceDay();
+
+            Assert.That(game.Tasks.Find(task => task.Id == "survey").LastOutput,
+                Is.EqualTo(fullOutput * .5f).Within(.001f));
+            Assert.That(game.Resources, Is.EqualTo(resources));
+            Assert.That(game.PendingMedicalResults, Has.Length.EqualTo(game.Crew.Count));
+        }
+
+        [Test]
+        public void WeekendRestPausesWorkAndCrunchRestoresWeekendLabor()
+        {
+            TaskSystemData restingData = TaskSystemDataLoader.Load();
+            DisableAccidents(restingData);
+            ForceSuccessOutcome(restingData);
+            var resting = new MilestoneSimulation(restingData, 13);
+            CampaignSnapshot restingSnapshot = resting.CreateSnapshot();
+            restingSnapshot.Day = 6;
+            Assert.That(resting.Restore(restingSnapshot), Is.True);
+            resting.Crew[1].Fatigue = 50;
+            resting.Crew[1].Mental = 50;
+            Assert.That(resting.Assign("survey", 1), Is.True);
+            resting.AdvanceDay();
+            Assert.That(resting.Tasks.Find(task => task.Id == "survey").Progress, Is.Zero);
+            Assert.That(resting.Crew[1].Fatigue, Is.EqualTo(38));
+            Assert.That(resting.Crew[1].Mental, Is.EqualTo(58));
+
+            TaskSystemData crunchData = TaskSystemDataLoader.Load();
+            DisableAccidents(crunchData);
+            ForceSuccessOutcome(crunchData);
+            var crunch = new MilestoneSimulation(crunchData, 13);
+            CampaignSnapshot crunchSnapshot = crunch.CreateSnapshot();
+            crunchSnapshot.Day = 6;
+            Assert.That(crunch.Restore(crunchSnapshot), Is.True);
+            Assert.That(crunch.Assign("survey", 1), Is.True);
+            crunch.SetCrunch(true);
+            crunch.AdvanceDay();
+            Assert.That(crunch.Tasks.Find(task => task.Id == "survey").Progress, Is.GreaterThan(0f));
+        }
+
         private static void CompleteSurvey(MilestoneSimulation game)
         {
             Assert.That(game.Assign("survey", 1), Is.True);

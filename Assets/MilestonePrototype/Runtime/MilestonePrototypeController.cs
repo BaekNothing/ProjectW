@@ -132,7 +132,8 @@ namespace ProjectW.MilestonePrototype
             GUI.DrawTexture(new Rect(0, 0, logicalWidth, logicalHeight), Texture2D.whiteTexture);
             GUI.Label(new Rect(22, 15, Mathf.Max(220f, logicalWidth - 300f), 34),
                 "PROJECT W  /  OPERATIONS DESK", title);
-            GUI.Label(new Rect(logicalWidth - 250, 18, 225, 25), $"DAY {game.Day:00}  ·  생존 기록", small);
+            GUI.Label(new Rect(logicalWidth - 250, 18, 225, 25),
+                $"DAY {game.Day:00} ({MilestoneSimulation.WeekdayName(game.CurrentWeekday)})  ·  생존 기록", small);
             string[] ids = { "mail", "gantt", "milestone", "workers", "report", "codex", "messenger", "profile", "options" };
             RefreshDesktopBadges();
             for (int i = 0; i < ids.Length; i++)
@@ -285,6 +286,8 @@ namespace ProjectW.MilestonePrototype
                     string actionLabel = mail.ActivatesWork
                         ? mail.Resolved ? "미션 수락 완료" : "미션 수락"
                         : mail.Resolved ? "처리 완료" : "지시 수락 및 반영";
+                    if (mail.IsMedicalReport)
+                        actionLabel = mail.Resolved ? "검진 파일 갱신 완료" : "검진 파일 다운로드";
                     if (LayoutButton(actionLabel, GUILayout.Height(38)))
                     {
                         game.ResolveMail(mail.Id);
@@ -308,7 +311,20 @@ namespace ProjectW.MilestonePrototype
                 game.SetCompetencyAutoAssignment(!game.CompetencyAutoAssignment);
                 SaveCampaign();
             }
+            if (LayoutButton(game.Crunch ? "[✓] 크런치" : "[ ] 크런치",
+                    GUILayout.Width(105f), GUILayout.Height(30f)))
+            {
+                game.SetCrunch(!game.Crunch);
+                SaveCampaign();
+            }
+            if (LayoutButton("검진 일괄", GUILayout.Width(95f), GUILayout.Height(30f)))
+            {
+                game.SendAllForMedicalCheckup();
+                SaveCampaign();
+            }
             GUILayout.EndHorizontal();
+            GUILayout.Label($"DAY {game.Day:00} ({MilestoneSimulation.WeekdayName(game.CurrentWeekday)})  " +
+                            $"일정 외 검진 {game.UnscheduledCheckupResourceCost} 자원 · 금요일 정기검진 무료/반일", small);
             GUILayout.Label($"DAY {game.Day:00}  │  회색=완료  진회색=예상 잔여  ┆ SOFT  │ HARD", small);
             float availableHeight = GanttViewportHeight(window.Rect.height);
             Rect viewport = GUILayoutUtility.GetRect(100f, availableHeight,
@@ -840,6 +856,29 @@ namespace ProjectW.MilestonePrototype
                     : $"퍽 인계 +{game.RegenerationPerkInheritanceCost}: 안 함"))
                 window.InheritRegenerationPerks = !window.InheritRegenerationPerks;
             GUILayout.EndHorizontal();
+            GUILayout.Label("검진 파일", section);
+            if (member.MedicalFileUpdatedDay <= 0)
+                GUILayout.Label("아직 다운로드된 검진 파일이 없습니다.", small);
+            else
+            {
+                Weekday updatedWeekday = (Weekday)((member.MedicalFileUpdatedDay - 1) % 7);
+                GUILayout.Label($"갱신일 DAY {member.MedicalFileUpdatedDay:00} ({MilestoneSimulation.WeekdayName(updatedWeekday)})", small);
+                GUILayout.Label($"건강 {member.MedicalFileHealth} · {MilestoneSimulation.MedicalGrade(member.MedicalFileHealth)}");
+                GUILayout.Label($"피로도 {member.MedicalFileFatigue} · {MilestoneSimulation.MedicalGrade(100 - member.MedicalFileFatigue)}");
+                GUILayout.Label($"멘탈 {member.MedicalFileMental} · {MilestoneSimulation.MedicalGrade(member.MedicalFileMental)}");
+                GUILayout.Label($"담당자 신뢰도 {member.MedicalFileTrust} · {MilestoneSimulation.MedicalGrade(member.MedicalFileTrust)}");
+            }
+            string checkupCostLabel = game.CurrentWeekday == Weekday.Friday
+                ? "정기검진 무료 · 반일 근무"
+                : $"일정 외 {game.UnscheduledCheckupResourceCost} 자원 · 전일 작업 중단";
+            if (LayoutButton($"개별 검진 보내기 ({checkupCostLabel})"))
+            {
+                window.Notice = game.SendForMedicalCheckup(window.Selected)
+                    ? "검진을 예약했습니다. 결과는 다음 월요일 메일로 도착합니다."
+                    : "이미 오늘 검진했거나 자원이 부족합니다.";
+                SaveCampaign();
+            }
+            DrawSectionRule();
             int regenerationCost = game.RegenerationCost(
                 window.InheritRegenerationAbilities, window.InheritRegenerationPerks);
             GUILayout.Label(
@@ -1297,7 +1336,8 @@ namespace ProjectW.MilestonePrototype
             }
             int unread = game.Mail.Count(m => m.ArrivalDay <= game.Day && !m.Read);
             if (Button(new Rect(logicalWidth - 310, logicalHeight - 38, 95, 31), unread > 0 ? $"MAIL ({unread})" : "MAIL")) Open("mail");
-            GUI.Label(new Rect(logicalWidth - 108, logicalHeight - 34, 100, 25), $"DAY {game.Day:00}", small);
+            GUI.Label(new Rect(logicalWidth - 108, logicalHeight - 34, 100, 25),
+                $"D{game.Day:00} {MilestoneSimulation.WeekdayName(game.CurrentWeekday)}", small);
         }
 
         private void AdvanceToNextDay()
