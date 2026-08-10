@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Version: 3.3
+- Version: 3.4
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
@@ -684,3 +684,12 @@ Base APK v6 uses the project's active Input System package rather than the disab
   touch-control slots.
 - Base APK v6 preserves the required `Unity.InputSystem` types and embeds the same behavior for
   offline fallback.
+- Saturday and Sunday columns use a distinct background treatment and weekday labels so the
+  non-working weekend cadence remains identifiable across the full planning horizon.
+- An unassigned Task row shows its next automatic-assignment candidate when one can currently be
+  determined. Reservation preview has priority, followed by a matching learned assignment rule,
+  followed by competency automatic assignment when that campaign option is enabled.
+- Learned and competency previews apply the same dependency-complete, worker-availability, and
+  no-existing-primary-work checks as actual daily assignment. If those checks prevent assignment,
+  the row does not promise a worker. The preview states whether it comes from a reservation,
+  learned rule, or competency selection and does not itself change assignment state.
