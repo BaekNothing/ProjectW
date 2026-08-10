@@ -63,6 +63,7 @@ namespace ProjectW.MilestonePrototype
         private const string CampaignSaveKey = "projectw.campaign.v1";
         private const string DesktopSaveKey = "projectw.desktop.v1";
         private static readonly Color GrayColor = new Color(.6f, .6f, .6f, 1f);
+        private static readonly Color DimmedGrayColor = new Color(.6f, .6f, .6f, .45f);
         private static readonly Color InkColor = new Color(.267f, .267f, .267f, 1f);
         private static readonly Color PaleColor = new Color(.88f, .88f, .88f, 1f);
         private static readonly Color WeekendColor = new Color(.94f, .92f, .88f, 1f);
@@ -225,8 +226,6 @@ namespace ProjectW.MilestonePrototype
         private void DrawMail(DeskWindow window)
         {
             List<MailEvent> arrived = game.Mail.Where(m => m.ArrivalDay <= game.Day)
-                .Where(m => !game.HasActiveCriticalEvent ||
-                            m.IsCritical && m.CriticalEventId == game.ActiveCriticalEventId)
                 .OrderBy(m => m.Read ? 1 : 0)
                 .ThenByDescending(m => m.ArrivalDay)
                 .ToList();
@@ -241,7 +240,8 @@ namespace ProjectW.MilestonePrototype
             {
                 MailEvent mail = arrived[i];
                 string prefix = mail.Resolved ? "[완료] " : mail.Read ? "" : "[NEW] ";
-                if (LayoutButton($"{prefix}{mail.Subject}\n{mail.From}", GUILayout.Height(55)))
+                if (LayoutMailButton($"{prefix}{mail.Subject}\n{mail.From}", mail.Resolved,
+                        GUILayout.Height(55)))
                 {
                     window.Selected = i;
                     window.Notice = mail.Id;
@@ -1848,6 +1848,15 @@ namespace ProjectW.MilestonePrototype
             Color previous = GUI.color;
             GUI.color = GrayColor;
             bool clicked = GUILayout.Button(label, style, options);
+            GUI.color = previous;
+            return clicked;
+        }
+
+        private static bool LayoutMailButton(string label, bool dimmed, params GUILayoutOption[] options)
+        {
+            Color previous = GUI.color;
+            GUI.color = dimmed ? DimmedGrayColor : GrayColor;
+            bool clicked = GUILayout.Button(label, options);
             GUI.color = previous;
             return clicked;
         }

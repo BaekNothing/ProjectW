@@ -329,7 +329,8 @@ through data without redefining Task ownership.
 
 - A critical event arrives through mail with a `[!중요!]` subject prefix.
 - Entering a critical event activates exactly one event chain. Until its current node is resolved,
-  the player cannot advance the day or interact with unrelated mail.
+  the player cannot advance the day. Unrelated mail remains visible and can be read from the same
+  list while the critical choice is pending.
 - After a node is resolved, its follow-up node arrives 2 or 3 days later. During this waiting period
   normal day advancement is allowed, but the same event retains the exclusive critical-event slot.
 - Day advancement is locked only while an arrived critical node is waiting for a player choice.
@@ -537,6 +538,8 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 
 - Arrived unread mail marked `[NEW]` is listed above every read or resolved message. Within each
   read state, newer arrival days appear first while equal-day insertion order remains stable.
+- Critical mail is listed together with all other arrived mail, including while its choice is
+  pending. Resolved mail rows are visually dimmed while remaining available for reference.
 - A messenger question and its worker reply are stored and rendered as one conversation item, not
   two detached bubbles.
 - Worker reports and question/reply items share one day-ordered messenger stream. Task records remain
