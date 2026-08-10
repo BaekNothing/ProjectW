@@ -99,6 +99,55 @@ namespace ProjectW.MilestonePrototype
             }
         }
 
+        public static bool IsWeekendDay(int day)
+        {
+            int weekday = (Math.Max(1, day) - 1) % 7;
+            return weekday == (int)Weekday.Saturday || weekday == (int)Weekday.Sunday;
+        }
+
+        public int PreviewAutomaticAssignee(string taskId, out string source)
+        {
+            source = string.Empty;
+            WorkTask task = Tasks.FirstOrDefault(candidate => candidate.Id == taskId);
+            if (task == null || task.AssignedCharacter >= 0) return -1;
+            if (task.ScheduledDay > 0 && task.ScheduledWorker >= 0 && task.ScheduledWorker < Crew.Count)
+            {
+                source = $"예약 D{task.ScheduledDay:00}";
+                return task.ScheduledWorker;
+            }
+            if (task.State != TaskState.Available || !AutomaticDependenciesComplete(task)) return -1;
+
+            AssignmentRule rule = AssignmentRules.FirstOrDefault(candidate => candidate.Matches(task));
+            if (rule != null)
+            {
+                int learnedWorker = Crew.FindIndex(member => member.Name == rule.CrewName);
+                if (WorkerCanTakePrimary(learnedWorker))
+                {
+                    source = "학습 규칙";
+                    return learnedWorker;
+                }
+            }
+            if (!CompetencyAutoAssignment) return -1;
+
+            int bestWorker = -1;
+            float bestMultiplier = -1f;
+            int bestFatigue = int.MaxValue;
+            for (int worker = 0; worker < Crew.Count; worker++)
+            {
+                if (!WorkerCanTakePrimary(worker)) continue;
+                CrewMember member = Crew[worker];
+                float multiplier = CompetencyOutputMultiplier(member, task);
+                if (multiplier < bestMultiplier ||
+                    Math.Abs(multiplier - bestMultiplier) < .001f && member.Fatigue >= bestFatigue)
+                    continue;
+                bestWorker = worker;
+                bestMultiplier = multiplier;
+                bestFatigue = member.Fatigue;
+            }
+            if (bestWorker >= 0) source = $"역량 ×{bestMultiplier:0.##}";
+            return bestWorker;
+        }
+
         public static string MedicalGrade(int value) =>
             value >= 70 ? "양호" : value >= 40 ? "주의" : "위험";
 
@@ -1813,11 +1862,7 @@ namespace ProjectW.MilestonePrototype
                 AssignmentRule rule = AssignmentRules.FirstOrDefault(candidate => candidate.Matches(task));
                 if (rule == null || !AutomaticDependenciesComplete(task)) continue;
                 int worker = Crew.FindIndex(member => member.Name == rule.CrewName);
-                if (worker < 0 || !Crew[worker].Available ||
-                    Tasks.Any(candidate => candidate.AssignedCharacter == worker &&
-                                           !candidate.IsParallelAssignment &&
-                                           IsOngoingAssignment(candidate)))
-                    continue;
+                if (!WorkerCanTakePrimary(worker)) continue;
                 if (!AssignPrimary(task, worker)) continue;
                 report.Lines.Add($"자동 배정: {Crew[worker].Name} → {task.Name}");
             }
@@ -1836,10 +1881,7 @@ namespace ProjectW.MilestonePrototype
                 for (int worker = 0; worker < Crew.Count; worker++)
                 {
                     CrewMember member = Crew[worker];
-                    if (!member.Available || Tasks.Any(candidate =>
-                            candidate.AssignedCharacter == worker && !candidate.IsParallelAssignment &&
-                            IsOngoingAssignment(candidate)))
-                        continue;
+                    if (!WorkerCanTakePrimary(worker)) continue;
                     float multiplier = CompetencyOutputMultiplier(member, task);
                     if (multiplier < bestMultiplier ||
                         Math.Abs(multiplier - bestMultiplier) < .001f && member.Fatigue >= bestFatigue)
@@ -1870,6 +1912,14 @@ namespace ProjectW.MilestonePrototype
             if (string.IsNullOrEmpty(task.PrerequisiteId)) return true;
             WorkTask prerequisite = Tasks.FirstOrDefault(candidate => candidate.Id == task.PrerequisiteId);
             return prerequisite != null && prerequisite.State == TaskState.Complete;
+        }
+
+        private bool WorkerCanTakePrimary(int worker)
+        {
+            if (worker < 0 || worker >= Crew.Count || !Crew[worker].Available) return false;
+            return !Tasks.Any(candidate => candidate.AssignedCharacter == worker &&
+                                           !candidate.IsParallelAssignment &&
+                                           IsOngoingAssignment(candidate));
         }
 
         private void ApplyMidpointReview(DayReport report)

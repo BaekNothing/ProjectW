@@ -65,6 +65,7 @@ namespace ProjectW.MilestonePrototype
         private static readonly Color GrayColor = new Color(.6f, .6f, .6f, 1f);
         private static readonly Color InkColor = new Color(.267f, .267f, .267f, 1f);
         private static readonly Color PaleColor = new Color(.88f, .88f, .88f, 1f);
+        private static readonly Color WeekendColor = new Color(.94f, .92f, .88f, 1f);
         private static readonly string[] CompetencyNames =
         {
             "기지공학", "과학탐사", "자원운용", "환경적응", "생명유지", "지휘교섭"
@@ -354,10 +355,14 @@ namespace ProjectW.MilestonePrototype
             window.TimelineScroll = GUI.BeginScrollView(timelineViewport, window.TimelineScroll, content);
             DrawSolid(new Rect(0, 0, contentWidth, contentHeight), Color.white);
             for (int day = 1; day <= planningHorizonDay; day++)
+                if (MilestoneSimulation.IsWeekendDay(day))
+                    DrawSolid(new Rect((day - 1) * dayWidth, 0, dayWidth, contentHeight), WeekendColor);
+            for (int day = 1; day <= planningHorizonDay; day++)
             {
                 float x = (day - 1) * dayWidth;
                 DrawSolid(new Rect(x, 0, 1, contentHeight), day == game.Day ? InkColor : PaleColor);
-                GUI.Label(new Rect(x + 2, 1, dayWidth - 3, 24), day.ToString(), small);
+                string weekday = MilestoneSimulation.WeekdayName((Weekday)((day - 1) % 7));
+                GUI.Label(new Rect(x + 2, 1, dayWidth - 3, 27), $"{day}\n{weekday}", small);
             }
 
             float y = 28f;
@@ -460,11 +465,17 @@ namespace ProjectW.MilestonePrototype
                 return game.Crew[task.AssignedCharacter].Condition;
             if (task.ScheduledWorker >= 0 && task.ScheduledWorker < game.Crew.Count)
                 return game.Crew[task.ScheduledWorker].Condition;
+            int previewWorker = game.PreviewAutomaticAssignee(task.Id, out _);
+            if (previewWorker >= 0 && previewWorker < game.Crew.Count)
+                return game.Crew[previewWorker].Condition;
             return "담당 없음";
         }
 
         private string GanttTaskOwner(WorkTask task)
         {
+            int previewWorker = game.PreviewAutomaticAssignee(task.Id, out string source);
+            if (previewWorker >= 0 && previewWorker < game.Crew.Count)
+                return $"{game.Crew[previewWorker].Name} · {source} 예정";
             if (task.AssignedCharacter >= 0 && task.AssignedCharacter < game.Crew.Count)
                 return $"{game.Crew[task.AssignedCharacter].Name}" +
                        (task.IsParallelAssignment ? " · 병행" : "");

@@ -303,6 +303,48 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void WeeklyCalendarIdentifiesSaturdayAndSundayColumns()
+        {
+            Assert.That(MilestoneSimulation.IsWeekendDay(5), Is.False);
+            Assert.That(MilestoneSimulation.IsWeekendDay(6), Is.True);
+            Assert.That(MilestoneSimulation.IsWeekendDay(7), Is.True);
+            Assert.That(MilestoneSimulation.IsWeekendDay(8), Is.False);
+            Assert.That(MilestoneSimulation.WeekdayName((Weekday)((13 - 1) % 7)), Is.EqualTo("토"));
+        }
+
+        [Test]
+        public void AutomaticAssignmentPreviewUsesLearnedRuleBeforeCompetencySelection()
+        {
+            var game = new MilestoneSimulation(5);
+            Assert.That(game.Assign("survey", 1), Is.True);
+            Assert.That(game.Assign("survey", -1), Is.True);
+            game.SetCompetencyAutoAssignment(true);
+
+            int preview = game.PreviewAutomaticAssignee("survey", out string source);
+
+            Assert.That(preview, Is.EqualTo(1));
+            Assert.That(source, Is.EqualTo("학습 규칙"));
+            game.AdvanceDay();
+            Assert.That(game.Tasks.Find(task => task.Id == "survey").AssignedCharacter, Is.EqualTo(preview));
+        }
+
+        [Test]
+        public void CompetencyAssignmentPreviewMatchesNextAutomaticAssignment()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            DisableAccidents(data);
+            var game = new MilestoneSimulation(data, 6);
+            game.SetCompetencyAutoAssignment(true);
+
+            int preview = game.PreviewAutomaticAssignee("survey", out string source);
+
+            Assert.That(preview, Is.GreaterThanOrEqualTo(0));
+            Assert.That(source, Does.StartWith("역량"));
+            game.AdvanceDay();
+            Assert.That(game.Tasks.Find(task => task.Id == "survey").AssignedCharacter, Is.EqualTo(preview));
+        }
+
+        [Test]
         public void CompetencyAutoAssignmentChoosesBestAvailableWorker()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
