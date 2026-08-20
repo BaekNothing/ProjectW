@@ -2,12 +2,12 @@
 
 ## Document Control
 
-- Version: 3.4
+- Version: 3.5
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
-- Rationale: Define resources as the run's life, remove victory and fixed-duration endings, and
-  support endurance balance simulation.
+- Rationale: Define resources as the run's life, remove victory and fixed-duration endings, support
+  endurance balance simulation, and provide title, update, reset, and live gameplay-data operations.
 - Idea references: `IDEA.md` items 1, 2, 4, and 8
 
 ## Scope
@@ -419,6 +419,49 @@ External data includes:
 - critical event chains, choices, weighted outcomes, and resource/fatigue/success effects
 - learned assignment situation fields and player-created rule state
 
+## Title and Startup Operations
+
+- After Bootstrap has selected and loaded a valid HotUpdate assembly, the player first sees a
+  dedicated title screen instead of the operations desktop.
+- The title screen presents `PROJECT W`, `PRESS TO START`, and an adjacent `OPTIONS` action.
+- `PRESS TO START` enters the operations desktop and restores a valid campaign save when one exists.
+- Title Options provides the basic startup operations: reset campaign data, reset desktop layout,
+  check for and install an update, inspect update status/version, and return to the title.
+- Reset actions require a second confirmation action before deleting data. Campaign reset does not
+  delete desktop accessibility settings; desktop reset does not delete campaign progress.
+- The operations desktop Options application exposes the same update action and diagnostics.
+- An update request downloads, validates, and installs the newest immutable development patch. The
+  currently loaded HotUpdate assembly continues running; the newly installed patch is activated on
+  the next application restart. The UI must state this restart requirement instead of claiming that
+  an already-loaded assembly was replaced.
+- The fixed Bootstrap scene remains the only Unity scene dependency. Title, desktop, and data editor
+  are HotUpdate-owned screen states created through `IGameEntry`, so fixed scenes never reference
+  HotUpdate implementation types directly.
+
+## Gameplay Data Editor and Reload
+
+- The operations desktop provides a developer-facing `GAME DATA` application presented as an
+  Excel-like table editor. It is not exposed on the title screen.
+- The editor groups data into at least `Characters`, `Balance and probabilities`, `Critical events`,
+  and `Mail`. Additional external-data sections can be added without changing the editor's ownership.
+- Tables use stable row identities, visible column headers, editable scalar cells, and explicit
+  validation messages. Nested critical-event choices/outcomes may use a selected-row detail table.
+- Editing changes a working copy only. `Save draft` validates and persists the complete gameplay-data
+  document as a local override. Invalid drafts are rejected without changing the active campaign or
+  the last valid override.
+- `Reload game data` exists in the data editor, not in Options. Reload validates the working copy,
+  persists it, creates a new campaign from it, and returns to the operations desktop. Because initial
+  definitions can invalidate live object identities, reload intentionally discards current campaign
+  progress after a confirmation action.
+- The source precedence is: valid local editor override, active patch manifest data, then the
+  APK-embedded Resources fallback. `Reset data override` removes only the local override and reloads
+  from the patch or embedded source after confirmation.
+- Local editor overrides are development data. They are not uploaded, added to a release, or treated
+  as authoritative SSOT. Production defaults remain `task-system.json`, and publish tooling continues
+  to package that file explicitly.
+- Data reload never reloads or unloads the HotUpdate DLL. Code update and data reload are separate,
+  clearly labeled operations.
+
 ## In-Game Codex as Living Specification
 
 - The base `Codex` array in `task-system.json` is both an always-available player guide and a
@@ -452,9 +495,9 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 | Area | Impact |
 |---|---|
 | Ingame | Work availability, daily assignment, progress, fatigue, deadline failure |
-| Outgame | None in version 0.1 |
-| Metadata | External JSON schema and campaign save schema |
-| Operation | Patch builder includes and verifies gameplay JSON |
+| Outgame | Title, startup Options, reset confirmation, and update status |
+| Metadata | External JSON schema, validated local override, and campaign save schema |
+| Operation | Patch builder includes and verifies gameplay JSON; update activation requires restart |
 
 ## Acceptance Criteria
 
@@ -466,6 +509,11 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 - Soft and hard deadlines are evaluated at Work level.
 - No initial Work, Task, worker, mail, codex, or balance values are created in runtime code.
 - The gameplay JSON is emitted as a manifest-listed patch file.
+- The title exposes Press to Start and Options before the desktop is entered.
+- Title and desktop Options can request an update and clearly report next-restart activation.
+- The data editor exposes character, balance/probability, critical-event, and mail tables.
+- Invalid data drafts cannot replace the active campaign or last valid override.
+- Confirmed data reload starts a new campaign from the validated working copy.
 - EditMode tests cover assignment capacity, prerequisites, parallel work, interruption cost, handover cost, and deadlines.
 - EditMode tests cover below-standard output, competency averaging, excellent-score coverage, and
   fatigue-driven failure/success/great-success output.
