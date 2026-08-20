@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Version: 3.7
+- Version: 3.8
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
@@ -463,8 +463,8 @@ External data includes:
   clearly labeled operations.
 - Each editor category tab (`Characters`, `Balance and probabilities`, `Critical events`, and
   `Mail`) provides one JSON transfer field, `Copy`, and `Apply`.
-- `Copy` serializes the entire selected category into the transfer field. It does not access or
-  modify the system clipboard; the player uses the platform's normal text selection and copy action.
+- `Copy` serializes the entire selected category into the transfer field and system clipboard in
+  one action. Copy does not focus the transfer field or open the virtual keyboard.
 - The player may paste replacement category JSON into the same field using the platform's normal
   paste action. `Apply` parses the field as the selected category, validates its required fields and
   the complete gameplay-data document, and replaces that entire category in the working copy.
@@ -472,6 +472,9 @@ External data includes:
   identity, or cross-reference failure rejects the change and leaves the working copy untouched.
 - Paste/apply changes only the working copy. `Save draft` or confirmed `Reload game data` remains
   required to persist or activate the edited document.
+- The shared desktop skin uses dark text on white backgrounds for labels, buttons, windows, boxes,
+  toggles, and text-entry states. Data-editor cells and the JSON transfer field must remain readable
+  in normal, hover, active, and focused states.
 
 ## In-Game Codex as Living Specification
 
