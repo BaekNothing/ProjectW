@@ -220,3 +220,9 @@ It must bundle:
 The approved new HotUpdate-facing members are the two diagnostics-contract update operations and
 `GUILayout.TextField(string, GUILayoutOption[])`. This does not authorize unrelated Contracts,
 Unity, package, or platform APIs.
+
+The shipped v9 preservation report also retains all members of `GUIUtility`, `GUISkin`, and
+`GUIStyle`. Patch UI may therefore use `GUIUtility.systemCopyBuffer` to copy editor text without
+opening the virtual keyboard, and may read `GUISkin.textField` to set text colors through the
+already-used `GUIStyle` state surface. This authorization does not extend to `TextEditor`, control
+IDs, keyboard-control mutation, synthetic events, or programmatic text selection.
