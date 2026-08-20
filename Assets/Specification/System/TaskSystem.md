@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Version: 3.6
+- Version: 3.7
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
@@ -461,16 +461,15 @@ External data includes:
   to package that file explicitly.
 - Data reload never reloads or unloads the HotUpdate DLL. Code update and data reload are separate,
   clearly labeled operations.
-- Every editable top-level item row provides `Copy`. Copy serializes only that row's typed data as
-  JSON and writes it to the system clipboard; character, critical-event, and mail rows never copy
-  the complete gameplay-data document.
-- Each editor tab provides one visible paste buffer and an `Apply` action. The player can paste
-  JSON into that buffer using the platform paste command or load the current system clipboard into
-  it before applying.
-- Apply parses the buffer as the selected tab's row type, checks the row's required fields, replaces
-  the row with the same stable identity, and then validates the complete working document. A type
-  mismatch, missing/unknown identity, malformed JSON, or cross-reference failure rejects the change
-  and leaves the working copy untouched.
+- Each editor category tab (`Characters`, `Balance and probabilities`, `Critical events`, and
+  `Mail`) provides one JSON transfer field, `Copy`, and `Apply`.
+- `Copy` serializes the entire selected category into the transfer field. It does not access or
+  modify the system clipboard; the player uses the platform's normal text selection and copy action.
+- The player may paste replacement category JSON into the same field using the platform's normal
+  paste action. `Apply` parses the field as the selected category, validates its required fields and
+  the complete gameplay-data document, and replaces that entire category in the working copy.
+- A category mismatch, malformed JSON, missing required content, invalid stable identity, duplicate
+  identity, or cross-reference failure rejects the change and leaves the working copy untouched.
 - Paste/apply changes only the working copy. `Save draft` or confirmed `Reload game data` remains
   required to persist or activate the edited document.
 
