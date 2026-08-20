@@ -1430,14 +1430,15 @@ namespace ProjectW.MilestonePrototype
         {
             GUILayout.Space(12f);
             GUILayout.Label("CATEGORY JSON TRANSFER", section);
-            GUILayout.Label("Copy fills this field. Select/copy or paste text normally, then Apply.", small);
+            GUILayout.Label("Copy sends this category to the field and clipboard. Paste replacement JSON, then Apply.", small);
             categoryTransferText = GUILayout.TextField(categoryTransferText ?? string.Empty,
                 GUILayout.Height(72f), GUILayout.ExpandWidth(true));
             GUILayout.BeginHorizontal();
-            if (LayoutButton("COPY CATEGORY TO FIELD", GUILayout.Height(36)))
+            if (LayoutButton("COPY CATEGORY", GUILayout.Height(36)))
             {
                 categoryTransferText = TaskSystemDataCategoryTransfer.Copy(editorData, category);
-                editorNotice = "Category JSON is ready in the transfer field.";
+                GUIUtility.systemCopyBuffer = categoryTransferText;
+                editorNotice = "Category JSON was copied to the field and system clipboard.";
             }
             if (LayoutButton("APPLY CATEGORY JSON", GUILayout.Height(36)))
             {
@@ -2211,11 +2212,11 @@ namespace ProjectW.MilestonePrototype
             if (title != null) return;
             Color white = Color.white;
             Color black = Color.black;
-            Color gray = GrayColor;
             Color ink = InkColor;
             Texture2D whiteFill = Texture2D.whiteTexture;
 
             GUI.skin.label.normal.textColor = ink;
+            SetAllTextColors(GUI.skin.label, ink);
             GUI.skin.button.normal.background = whiteFill;
             GUI.skin.button.hover.background = whiteFill;
             GUI.skin.button.active.background = whiteFill;
@@ -2224,6 +2225,7 @@ namespace ProjectW.MilestonePrototype
             GUI.skin.button.hover.textColor = ink;
             GUI.skin.button.active.textColor = ink;
             GUI.skin.button.focused.textColor = ink;
+            SetAllTextColors(GUI.skin.button, ink);
             GUI.skin.button.border = new RectOffset();
             GUI.skin.button.margin = new RectOffset(2, 2, 2, 2);
             GUI.skin.button.padding = new RectOffset(7, 7, 5, 5);
@@ -2238,13 +2240,16 @@ namespace ProjectW.MilestonePrototype
             GUI.skin.window.onActive.textColor = black;
             GUI.skin.window.focused.textColor = black;
             GUI.skin.window.onFocused.textColor = black;
+            SetAllTextColors(GUI.skin.window, ink);
             GUI.skin.window.border = new RectOffset();
             GUI.skin.window.padding = new RectOffset(8, 8, 24, 8);
 
             GUI.skin.box.normal.background = whiteFill;
             GUI.skin.box.normal.textColor = ink;
+            SetAllTextColors(GUI.skin.box, ink);
             GUI.skin.box.border = new RectOffset();
             GUI.skin.scrollView.normal.background = whiteFill;
+            SetAllTextColors(GUI.skin.textField, ink);
             float scrollbarWidth = RestoredScrollbarWidth(GUI.skin.verticalScrollbar.fixedWidth);
             GUI.skin.verticalScrollbar.fixedWidth = scrollbarWidth;
             GUI.skin.verticalScrollbarThumb.fixedWidth = scrollbarWidth;
@@ -2260,7 +2265,7 @@ namespace ProjectW.MilestonePrototype
                 padding = new RectOffset(6, 6, 3, 3)
             };
             section.normal.background = whiteFill;
-            section.normal.textColor = gray;
+            section.normal.textColor = ink;
             small = new GUIStyle(GUI.skin.label) { fontSize = 12, wordWrap = true };
             desktopIcon = new GUIStyle(GUI.skin.button)
             {
@@ -2287,6 +2292,19 @@ namespace ProjectW.MilestonePrototype
             warning.normal.textColor = ink;
             success = new GUIStyle(GUI.skin.label) { fontStyle = FontStyle.Bold, wordWrap = true };
             success.normal.textColor = ink;
+        }
+
+        private static void SetAllTextColors(GUIStyle style, Color color)
+        {
+            if (style == null) return;
+            style.normal.textColor = color;
+            style.onNormal.textColor = color;
+            style.hover.textColor = color;
+            style.onHover.textColor = color;
+            style.active.textColor = color;
+            style.onActive.textColor = color;
+            style.focused.textColor = color;
+            style.onFocused.textColor = color;
         }
 
         private static void DrawSolid(Rect rect, Color color)
