@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Version: 3.5
+- Version: 3.6
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
@@ -461,6 +461,18 @@ External data includes:
   to package that file explicitly.
 - Data reload never reloads or unloads the HotUpdate DLL. Code update and data reload are separate,
   clearly labeled operations.
+- Every editable top-level item row provides `Copy`. Copy serializes only that row's typed data as
+  JSON and writes it to the system clipboard; character, critical-event, and mail rows never copy
+  the complete gameplay-data document.
+- Each editor tab provides one visible paste buffer and an `Apply` action. The player can paste
+  JSON into that buffer using the platform paste command or load the current system clipboard into
+  it before applying.
+- Apply parses the buffer as the selected tab's row type, checks the row's required fields, replaces
+  the row with the same stable identity, and then validates the complete working document. A type
+  mismatch, missing/unknown identity, malformed JSON, or cross-reference failure rejects the change
+  and leaves the working copy untouched.
+- Paste/apply changes only the working copy. `Save draft` or confirmed `Reload game data` remains
+  required to persist or activate the edited document.
 
 ## In-Game Codex as Living Specification
 
