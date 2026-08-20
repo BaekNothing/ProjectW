@@ -201,3 +201,22 @@ It must bundle:
 
 The approved new member is `GUI.BringWindowToFront(int)`. This does not authorize unrelated
 Unity IMGUI APIs.
+
+## Base APK v9 AOT Baseline
+
+Base APK v9 adds fixed Bootstrap update-request operations and the IMGUI text-editing surface used by
+the HotUpdate-owned title and gameplay-data editor screens.
+
+It must bundle:
+
+- `BaseVersion = 9`
+- the latest embedded `ProjectW.HotUpdate.dll.bytes` and `task-system.json`
+- regenerated Android AOT metadata
+- `IPatchDiagnostics.UpdateInProgress` and `IPatchDiagnostics.RequestUpdate()` in `ProjectW.Contracts`
+- a `PatchBootstrapper` implementation that installs an update for activation after restart
+- stable preservation for the existing full `UnityEngine.GUILayout` IMGUI surface
+- the v8 window-depth, diagnostics, and Input System preservation surfaces
+
+The approved new HotUpdate-facing members are the two diagnostics-contract update operations and
+`GUILayout.TextField(string, GUILayoutOption[])`. This does not authorize unrelated Contracts,
+Unity, package, or platform APIs.

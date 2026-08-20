@@ -49,6 +49,8 @@ namespace ProjectW.Contracts
         string InstalledVersion { get; }
         string Status { get; }
         string LastPatchResult { get; }
+        bool UpdateInProgress { get; }
+        bool RequestUpdate();
         PatchDiagnosticEntry[] GetLogs();
         void ClearLogs();
     }

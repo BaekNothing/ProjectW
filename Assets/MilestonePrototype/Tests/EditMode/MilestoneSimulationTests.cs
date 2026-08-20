@@ -1413,7 +1413,41 @@ namespace ProjectW.MilestonePrototype.Tests
         [Test]
         public void BaseVersionMatchesCurrentAotBaseline()
         {
-            Assert.That(PatchBootstrapper.BaseVersion, Is.EqualTo(8));
+            Assert.That(PatchBootstrapper.BaseVersion, Is.EqualTo(9));
+        }
+
+        [Test]
+        public void GameplayDataOverrideRoundTripsAndCanBeRemoved()
+        {
+            var storage = new MemoryStringStorage();
+            TaskSystemDataLoader.Configure(null, storage);
+            try
+            {
+                TaskSystemData edited = TaskSystemDataLoader.Load();
+                int original = edited.StartingResources;
+                edited.StartingResources = original + 7;
+                TaskSystemDataLoader.SaveOverride(edited);
+                Assert.That(TaskSystemDataLoader.Load().StartingResources, Is.EqualTo(original + 7));
+                TaskSystemDataLoader.DeleteOverride();
+                Assert.That(TaskSystemDataLoader.Load().StartingResources, Is.EqualTo(original));
+            }
+            finally { TaskSystemDataLoader.Configure(null, null); }
+        }
+
+        [Test]
+        public void InvalidGameplayDataCannotReplaceLastValidOverride()
+        {
+            var storage = new MemoryStringStorage();
+            TaskSystemDataLoader.Configure(null, storage);
+            try
+            {
+                TaskSystemData valid = TaskSystemDataLoader.Load();
+                TaskSystemDataLoader.SaveOverride(valid);
+                valid.SchemaVersion = 999;
+                Assert.Throws<InvalidOperationException>(() => TaskSystemDataLoader.SaveOverride(valid));
+                Assert.That(TaskSystemDataLoader.Load().SchemaVersion, Is.EqualTo(TaskSystemDataLoader.SupportedSchema));
+            }
+            finally { TaskSystemDataLoader.Configure(null, null); }
         }
 
         [Test]

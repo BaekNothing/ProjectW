@@ -8,15 +8,23 @@ namespace ProjectW.MilestonePrototype
     {
         public const int SupportedSchema = 1;
         public const string FileName = "task-system.json";
+        public const string OverrideStorageKey = "projectw.game-data.override.v1";
         private const string ResourceName = "task-system";
         private static string patchDataPath;
+        private static ProjectW.Contracts.IStringStorage storage;
 
-        public static void Configure(string dataPath) =>
+        public static void Configure(string dataPath, ProjectW.Contracts.IStringStorage value = null)
+        {
             patchDataPath = string.IsNullOrWhiteSpace(dataPath) ? null : dataPath;
+            storage = value;
+        }
 
         public static TaskSystemData Load()
         {
             string json = null;
+            if (storage != null && storage.TryGetString(OverrideStorageKey, out string overridden) &&
+                !string.IsNullOrWhiteSpace(overridden))
+                json = overridden;
             if (!string.IsNullOrWhiteSpace(patchDataPath))
             {
                 string path = Path.Combine(patchDataPath, FileName);
@@ -32,6 +40,19 @@ namespace ProjectW.MilestonePrototype
             if (string.IsNullOrWhiteSpace(json))
                 throw new InvalidOperationException($"Required gameplay data '{FileName}' was not found.");
 
+            return Parse(json);
+        }
+
+        public static string Serialize(TaskSystemData data)
+        {
+            Validate(data);
+            return JsonUtility.ToJson(data, true);
+        }
+
+        public static TaskSystemData Parse(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+                throw new InvalidOperationException("Gameplay data JSON is empty.");
             TaskSystemData data;
             try
             {
@@ -44,6 +65,17 @@ namespace ProjectW.MilestonePrototype
 
             Validate(data);
             return data;
+        }
+
+        public static void SaveOverride(TaskSystemData data)
+        {
+            if (storage == null) throw new InvalidOperationException("Gameplay data storage is unavailable.");
+            storage.SetString(OverrideStorageKey, Serialize(data));
+        }
+
+        public static void DeleteOverride()
+        {
+            if (storage != null) storage.DeleteKey(OverrideStorageKey);
         }
 
         public static void Validate(TaskSystemData data)

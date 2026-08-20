@@ -37,15 +37,15 @@ native plugins, Android settings, Unity, or HybridCLR change.
 
 ### Current base APK
 
-- Base version: `8`
+- Base version: `9`
 - Artifact: `APK/ProjectW-HybridCLR.apk`
-- Size: `50,362,316` bytes
-- SHA-256: `929ea5e0865536b5273da5c391643265af41b5b654db648fc45252bc6ec7646a`
-- Required for: the v7 patch diagnostics contract plus the IMGUI window-depth operation used to
-  raise an already-open desktop application from its icon
+- Size: `50,392,904` bytes
+- SHA-256: `f1fb37a1b51c631581bf8dae32b17028d16966ce1881f76262390d3c28825383`
+- Required for: the title/startup operations, user-requested patch checks, local gameplay-data
+  spreadsheet editing/reload, and the earlier diagnostics and desktop-window operations
 
-Older base APKs reject manifests whose `minBaseVersion` is `8`. Install base APK v8 once before
-consuming patches that raise an already-open application window from its desktop icon.
+Older base APKs reject manifests whose `minBaseVersion` is `9`. Install base APK v9 once before
+consuming patches that use the update-request contract or gameplay-data editor text-entry surface.
 
 ## Routine code patch workflow
 

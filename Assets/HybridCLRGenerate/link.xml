@@ -99,6 +99,7 @@
     <type fullname="System.RuntimeFieldHandle" preserve="all" />
     <type fullname="System.Single" preserve="all" />
     <type fullname="System.String" preserve="all" />
+    <type fullname="System.StringComparison" preserve="all" />
     <type fullname="System.ValueType" preserve="all" />
   </assembly>
 </linker>

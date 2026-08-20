@@ -14,7 +14,7 @@ namespace ProjectW.Bootstrap
 {
     public sealed class PatchBootstrapper : MonoBehaviour, IPatchDiagnostics
     {
-        public const int BaseVersion = 8;
+        public const int BaseVersion = 9;
         private readonly PlayerPrefsStringStorage storage = new PlayerPrefsStringStorage();
         public const string DefaultChannelUrl =
             "https://raw.githubusercontent.com/BaekNothing/ProjectW/ai-integration/PatchChannels/dev.json";
@@ -36,6 +36,7 @@ namespace ProjectW.Bootstrap
         private bool gameStarted;
         private string activeVersion = "none";
         private string patchResult = "not checked";
+        private bool updateInProgress;
         private readonly object logLock = new object();
         private readonly List<DiagnosticLog> diagnosticLogs = new List<DiagnosticLog>();
         private Vector2 diagnosticScroll;
@@ -48,6 +49,28 @@ namespace ProjectW.Bootstrap
         public string InstalledVersion => ReadManifest(currentPath)?.patchVersion ?? "none";
         public string Status => status;
         public string LastPatchResult => patchResult;
+        public bool UpdateInProgress => updateInProgress;
+
+        public bool RequestUpdate()
+        {
+            if (updateInProgress) return false;
+#if UNITY_EDITOR
+            patchResult = "Remote update checks run in a player build.";
+            return false;
+#else
+            StartCoroutine(CheckForRequestedUpdate());
+            return true;
+#endif
+        }
+
+        private IEnumerator CheckForRequestedUpdate()
+        {
+            updateInProgress = true;
+            yield return TryInstallRemotePatch();
+            updateInProgress = false;
+            if (patchResult.StartsWith("installed ", StringComparison.Ordinal))
+                status = "Update installed. Restart the application to activate it.";
+        }
 
         private void Awake()
         {

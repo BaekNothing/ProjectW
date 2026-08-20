@@ -46,7 +46,7 @@ namespace ProjectW.MilestonePrototype
             "mail", "gantt", "milestone", "workers", "report",
             "codex", "messenger", "profile", "options"
         };
-        private readonly int[] desktopBadgeCounts = new int[9];
+        private readonly int[] desktopBadgeCounts = new int[10];
 
         private MilestoneSimulation game;
         private GUIStyle title;
@@ -85,12 +85,21 @@ namespace ProjectW.MilestonePrototype
         private Vector2 pinchCenterOrigin;
         private float pinchDistanceOrigin;
         private int messengerSeenUpdateCount;
+        private bool titleScreen = true;
+        private bool titleOptions;
+        private bool confirmCampaignReset;
+        private bool confirmDesktopReset;
+        private bool confirmDataReload;
+        private bool confirmOverrideReset;
+        private TaskSystemData editorData;
+        private string editorNotice;
         public const float WindowTitleBarHeight = 25f;
         public const float WindowContentTopSpacing = 6f;
         public const float GanttWindowChromeReserve = 110f;
 
         private void Awake()
         {
+            appTitles["data"] = "GAME DATA";
             game = new MilestoneSimulation();
             if (ProjectWSaveStore.TryLoadCampaign(CampaignSaveKey, out CampaignSnapshot snapshot)) game.Restore(snapshot);
             RestoreDesktop();
@@ -116,6 +125,11 @@ namespace ProjectW.MilestonePrototype
             GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1));
             logicalWidth = Screen.width / scale;
             logicalHeight = Screen.height / scale;
+            if (titleScreen)
+            {
+                DrawTitleScreen();
+                return;
+            }
             HandleWindowInput();
             inputLayerBlocked = IsPointerBlockedBelowWindow(-1);
             GUI.enabled = !inputLayerBlocked;
@@ -129,6 +143,51 @@ namespace ProjectW.MilestonePrototype
             if (Event.current.type == EventType.MouseUp) SaveDesktop();
         }
 
+        private void DrawTitleScreen()
+        {
+            GUI.DrawTexture(new Rect(0, 0, logicalWidth, logicalHeight), Texture2D.whiteTexture);
+            float panelWidth = Mathf.Min(620f, logicalWidth - 40f);
+            float x = (logicalWidth - panelWidth) * .5f;
+            GUI.Label(new Rect(x, logicalHeight * .2f, panelWidth, 60f), "PROJECT W", title);
+            GUI.Label(new Rect(x, logicalHeight * .2f + 55f, panelWidth, 32f),
+                $"OPERATIONS CONTROL  ·  {patchVersion}", section);
+            if (!titleOptions)
+            {
+                if (Button(new Rect(x, logicalHeight * .48f, panelWidth * .62f, 62f), "PRESS TO START"))
+                    titleScreen = false;
+                if (Button(new Rect(x + panelWidth * .65f, logicalHeight * .48f, panelWidth * .35f, 62f), "OPTIONS"))
+                    titleOptions = true;
+                return;
+            }
+
+            GUILayout.BeginArea(new Rect(x, logicalHeight * .36f, panelWidth, Mathf.Min(410f, logicalHeight * .58f)));
+            GUILayout.Label("STARTUP OPTIONS", title);
+            DrawUpdateControls();
+            GUILayout.Space(12f);
+            if (LayoutButton(confirmCampaignReset ? "CONFIRM: RESET CAMPAIGN" : "RESET CAMPAIGN", GUILayout.Height(40)))
+            {
+                if (confirmCampaignReset)
+                {
+                    ProjectWSaveStore.Delete(CampaignSaveKey);
+                    game = new MilestoneSimulation();
+                    confirmCampaignReset = false;
+                }
+                else confirmCampaignReset = true;
+            }
+            if (LayoutButton(confirmDesktopReset ? "CONFIRM: RESET DESKTOP" : "RESET DESKTOP", GUILayout.Height(40)))
+            {
+                if (confirmDesktopReset)
+                {
+                    ProjectWSaveStore.Delete(DesktopSaveKey);
+                    windows.Clear();
+                    confirmDesktopReset = false;
+                }
+                else confirmDesktopReset = true;
+            }
+            if (LayoutButton("BACK", GUILayout.Height(40))) titleOptions = false;
+            GUILayout.EndArea();
+        }
+
         private void DrawDesktop()
         {
             GUI.DrawTexture(new Rect(0, 0, logicalWidth, logicalHeight), Texture2D.whiteTexture);
@@ -136,7 +195,7 @@ namespace ProjectW.MilestonePrototype
                 "PROJECT W  /  OPERATIONS DESK", title);
             GUI.Label(new Rect(logicalWidth - 250, 18, 225, 25),
                 $"DAY {game.Day:00} ({MilestoneSimulation.WeekdayName(game.CurrentWeekday)})  ·  생존 기록", small);
-            string[] ids = { "mail", "gantt", "milestone", "workers", "report", "codex", "messenger", "profile", "options" };
+            string[] ids = { "mail", "gantt", "milestone", "workers", "report", "codex", "messenger", "profile", "options", "data" };
             RefreshDesktopBadges();
             for (int i = 0; i < ids.Length; i++)
             {
@@ -214,6 +273,7 @@ namespace ProjectW.MilestonePrototype
                 case "codex": DrawCodex(window); break;
                 case "profile": DrawProfile(); break;
                 case "options": DrawOptions(window); break;
+                case "data": DrawDataEditor(window); break;
                 case "log": DrawLog(window); break;
             }
             if (!usesIndependentScroll)
@@ -1211,6 +1271,8 @@ namespace ProjectW.MilestonePrototype
 
         private void DrawOptions(DeskWindow window)
         {
+            DrawUpdateControls();
+            GUILayout.Space(16f);
             GUILayout.Label("화면 설정", title);
             GUILayout.Space(8);
             GUILayout.Label("화면 배율", section);
@@ -1266,6 +1328,24 @@ namespace ProjectW.MilestonePrototype
             }
         }
 
+        private void DrawUpdateControls()
+        {
+            GUILayout.Label("UPDATE", section);
+            if (patchDiagnostics == null)
+            {
+                GUILayout.Label("Update service is unavailable.", warning);
+                return;
+            }
+            GUILayout.Label(
+                $"Running: {patchDiagnostics.ActiveVersion}  Installed: {patchDiagnostics.InstalledVersion}\n" +
+                $"State: {patchDiagnostics.Status}\nResult: {patchDiagnostics.LastPatchResult}", small);
+            SetControlEnabled(!patchDiagnostics.UpdateInProgress);
+            if (LayoutButton(patchDiagnostics.UpdateInProgress ? "CHECKING..." : "CHECK FOR UPDATE", GUILayout.Height(38)))
+                patchDiagnostics.RequestUpdate();
+            SetControlEnabled(true);
+            GUILayout.Label("An installed code update is activated after restarting the application.", small);
+        }
+
         private void DrawScaleOption(float value, string label)
         {
             bool selected = Mathf.Abs(uiMagnification - value) < .01f;
@@ -1296,6 +1376,183 @@ namespace ProjectW.MilestonePrototype
 
             GUILayout.Label("게임 로그", section);
             foreach (string line in game.SystemLog.AsEnumerable().Reverse()) GUILayout.Label(line, small);
+        }
+
+        private void DrawDataEditor(DeskWindow window)
+        {
+            if (editorData == null) editorData = TaskSystemDataLoader.Parse(TaskSystemDataLoader.Serialize(TaskSystemDataLoader.Load()));
+            GUILayout.Label("GAME DATA SPREADSHEET", title);
+            GUILayout.Label("Edit a validated local working copy. Reload starts a new campaign.", small);
+            GUILayout.BeginHorizontal();
+            string[] tabs = { "CHARACTERS", "BALANCE / PROBABILITY", "CRITICAL EVENTS", "MAIL" };
+            for (int i = 0; i < tabs.Length; i++)
+                if (LayoutButton(window.Selected == i ? $"● {tabs[i]}" : tabs[i], GUILayout.Height(34)))
+                    window.Selected = i;
+            GUILayout.EndHorizontal();
+            GUILayout.Space(8f);
+            if (window.Selected == 0) DrawCharacterTable();
+            else if (window.Selected == 1) DrawBalanceTable();
+            else if (window.Selected == 2) DrawCriticalEventTable(window);
+            else DrawMailTable();
+            GUILayout.Space(12f);
+            if (!string.IsNullOrWhiteSpace(editorNotice))
+                GUILayout.Label(editorNotice, editorNotice.StartsWith("ERROR", StringComparison.Ordinal) ? warning : success);
+            GUILayout.BeginHorizontal();
+            if (LayoutButton("SAVE DRAFT", GUILayout.Height(38))) SaveDataDraft(false);
+            if (LayoutButton(confirmDataReload ? "CONFIRM RELOAD + NEW CAMPAIGN" : "RELOAD GAME DATA", GUILayout.Height(38)))
+            {
+                if (confirmDataReload) SaveDataDraft(true);
+                else confirmDataReload = true;
+            }
+            if (LayoutButton(confirmOverrideReset ? "CONFIRM RESET OVERRIDE" : "RESET OVERRIDE", GUILayout.Height(38)))
+            {
+                if (confirmOverrideReset)
+                {
+                    TaskSystemDataLoader.DeleteOverride();
+                    editorData = TaskSystemDataLoader.Load();
+                    ProjectWSaveStore.Delete(CampaignSaveKey);
+                    game = new MilestoneSimulation(editorData);
+                    confirmOverrideReset = false;
+                    editorNotice = "Override removed; patch or embedded data reloaded.";
+                }
+                else confirmOverrideReset = true;
+            }
+            GUILayout.EndHorizontal();
+        }
+
+        private void SaveDataDraft(bool reload)
+        {
+            try
+            {
+                TaskSystemDataLoader.SaveOverride(editorData);
+                editorNotice = "Draft saved and validated.";
+                if (!reload) return;
+                ProjectWSaveStore.Delete(CampaignSaveKey);
+                game = new MilestoneSimulation(TaskSystemDataLoader.Load());
+                SaveCampaign();
+                confirmDataReload = false;
+                editorNotice = "Game data reloaded; a new campaign was created.";
+            }
+            catch (Exception exception)
+            {
+                confirmDataReload = false;
+                editorNotice = $"ERROR: {exception.Message}";
+            }
+        }
+
+        private void DrawCharacterTable()
+        {
+            DrawTableHeader("NAME", "PERSONALITY", "SKILL", "TRUST", "FATIGUE", "OUTPUT");
+            foreach (CrewMember member in editorData.Crew)
+            {
+                GUILayout.BeginHorizontal();
+                member.Name = GUILayout.TextField(member.Name ?? string.Empty, GUILayout.Width(130));
+                member.Personality = GUILayout.TextField(member.Personality ?? string.Empty, GUILayout.Width(130));
+                EditInt(ref member.Skill, 60); EditInt(ref member.Trust, 60); EditInt(ref member.Fatigue, 60);
+                EditFloat(ref member.DailyOutput, 70);
+                GUILayout.EndHorizontal();
+            }
+            GUILayout.Label("COMPETENCIES (0..7)", section);
+            foreach (CrewMember member in editorData.Crew)
+            {
+                GUILayout.BeginHorizontal();
+                GUILayout.Label(member.Name, GUILayout.Width(130));
+                for (int i = 0; i < member.Competencies.Length; i++) EditInt(ref member.Competencies[i], 55);
+                GUILayout.EndHorizontal();
+            }
+        }
+
+        private void DrawBalanceTable()
+        {
+            TaskSystemBalance balance = editorData.Balance;
+            DrawTableHeader("FIELD", "VALUE", "FIELD", "VALUE", "FIELD", "VALUE");
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Start resources", GUILayout.Width(130)); EditInt(ref editorData.StartingResources, 70);
+            GUILayout.Label("Side mission %", GUILayout.Width(130)); EditInt(ref balance.BaseSideMissionChance, 70);
+            GUILayout.Label("Accident high %", GUILayout.Width(130)); EditInt(ref balance.HighFatigueAccidentChance, 70);
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Fresh failure %", GUILayout.Width(130)); EditInt(ref balance.FreshLowOutputChance, 70);
+            GUILayout.Label("Fresh great %", GUILayout.Width(130)); EditInt(ref balance.FreshHighOutputChance, 70);
+            GUILayout.Label("Random work scale %", GUILayout.Width(130)); EditInt(ref balance.RandomWorkChanceScalePercent, 70);
+            GUILayout.EndHorizontal();
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Failure output", GUILayout.Width(130)); EditFloat(ref balance.LowOutputMultiplier, 70);
+            GUILayout.Label("Great output", GUILayout.Width(130)); EditFloat(ref balance.HighOutputMultiplier, 70);
+            GUILayout.Label("Weekend recovery", GUILayout.Width(130)); EditInt(ref balance.WeekendFatigueRecovery, 70);
+            GUILayout.EndHorizontal();
+        }
+
+        private void DrawCriticalEventTable(DeskWindow window)
+        {
+            CriticalEventDefinition[] events = editorData.CriticalEvents ?? new CriticalEventDefinition[0];
+            DrawTableHeader("ID", "START DAY", "FIRST NODE", "NODES", "", "");
+            for (int i = 0; i < events.Length; i++)
+            {
+                CriticalEventDefinition definition = events[i];
+                GUILayout.BeginHorizontal();
+                definition.Id = GUILayout.TextField(definition.Id ?? string.Empty, GUILayout.Width(150));
+                EditInt(ref definition.StartDay, 80);
+                definition.FirstNodeId = GUILayout.TextField(definition.FirstNodeId ?? string.Empty, GUILayout.Width(150));
+                GUILayout.Label((definition.Nodes?.Length ?? 0).ToString(), GUILayout.Width(70));
+                if (LayoutButton("DETAIL", GUILayout.Width(90))) window.SelectedCrew = i;
+                GUILayout.EndHorizontal();
+            }
+            if (events.Length == 0) return;
+            CriticalEventDefinition selected = events[Mathf.Clamp(window.SelectedCrew, 0, events.Length - 1)];
+            GUILayout.Label($"NODES / {selected.Id}", section);
+            foreach (CriticalEventNode node in selected.Nodes ?? new CriticalEventNode[0])
+            {
+                GUILayout.BeginHorizontal();
+                node.Id = GUILayout.TextField(node.Id ?? string.Empty, GUILayout.Width(120));
+                node.Subject = GUILayout.TextField(node.Subject ?? string.Empty, GUILayout.Width(220));
+                GUILayout.Label($"Choices {node.Choices?.Length ?? 0}", GUILayout.Width(100));
+                GUILayout.EndHorizontal();
+                foreach (CriticalEventChoice choice in node.Choices ?? new CriticalEventChoice[0])
+                    foreach (CriticalEventOutcome outcome in choice.Outcomes ?? new CriticalEventOutcome[0])
+                    {
+                        GUILayout.BeginHorizontal();
+                        GUILayout.Label($"↳ {choice.Id}", GUILayout.Width(120));
+                        GUILayout.Label("Weight", GUILayout.Width(60)); EditInt(ref outcome.Weight, 60);
+                        GUILayout.Label("Resource", GUILayout.Width(70)); EditInt(ref outcome.ResourceDelta, 60);
+                        GUILayout.Label("Success %p", GUILayout.Width(80)); EditInt(ref outcome.SuccessChanceDelta, 60);
+                        GUILayout.EndHorizontal();
+                    }
+            }
+        }
+
+        private void DrawMailTable()
+        {
+            DrawTableHeader("ID", "DAY", "FROM", "SUBJECT", "RESOURCE", "DEADLINE");
+            foreach (MailEvent mail in editorData.Mail ?? new MailEvent[0])
+            {
+                GUILayout.BeginHorizontal();
+                mail.Id = GUILayout.TextField(mail.Id ?? string.Empty, GUILayout.Width(120));
+                EditInt(ref mail.ArrivalDay, 55);
+                mail.From = GUILayout.TextField(mail.From ?? string.Empty, GUILayout.Width(110));
+                mail.Subject = GUILayout.TextField(mail.Subject ?? string.Empty, GUILayout.Width(190));
+                EditInt(ref mail.ResourceDelta, 65); EditInt(ref mail.DeadlineDelta, 65);
+                GUILayout.EndHorizontal();
+            }
+        }
+
+        private static void DrawTableHeader(params string[] columns)
+        {
+            GUILayout.BeginHorizontal();
+            foreach (string column in columns) GUILayout.Label(column, GUILayout.Width(120));
+            GUILayout.EndHorizontal();
+        }
+
+        private static void EditInt(ref int value, float width)
+        {
+            string text = GUILayout.TextField(value.ToString(), GUILayout.Width(width));
+            if (int.TryParse(text, out int parsed)) value = parsed;
+        }
+
+        private static void EditFloat(ref float value, float width)
+        {
+            string text = GUILayout.TextField(value.ToString("0.###"), GUILayout.Width(width));
+            if (float.TryParse(text, out float parsed)) value = parsed;
         }
 
         private void DrawPatchLog()
@@ -2041,6 +2298,7 @@ namespace ProjectW.MilestonePrototype
                 case "codex": return "도감";
                 case "messenger": return "메신저";
                 case "options": return "옵션";
+                case "data": return "게임데이터";
                 default: return "내정보";
             }
         }
@@ -2057,6 +2315,7 @@ namespace ProjectW.MilestonePrototype
                 case "codex": return "CODEX";
                 case "messenger": return "CHAT";
                 case "options": return "OPT";
+                case "data": return "DATA";
                 default: return "INFO";
             }
         }
