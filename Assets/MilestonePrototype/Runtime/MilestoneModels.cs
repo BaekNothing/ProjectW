@@ -261,6 +261,7 @@ namespace ProjectW.MilestonePrototype
     public sealed class TaskSystemData
     {
         public int SchemaVersion;
+        public string TransferCategory;
         public int CampaignEndDay;
         public int MidpointReviewDay;
         public int StartingResources;

@@ -51,6 +51,13 @@ namespace ProjectW.MilestonePrototype
 
         public static TaskSystemData Parse(string json)
         {
+            TaskSystemData data = ParseUnchecked(json);
+            Validate(data);
+            return data;
+        }
+
+        public static TaskSystemData ParseUnchecked(string json)
+        {
             if (string.IsNullOrWhiteSpace(json))
                 throw new InvalidOperationException("Gameplay data JSON is empty.");
             TaskSystemData data;
@@ -63,7 +70,6 @@ namespace ProjectW.MilestonePrototype
                 throw new InvalidOperationException($"Gameplay data '{FileName}' is invalid JSON.", exception);
             }
 
-            Validate(data);
             return data;
         }
 

@@ -1451,6 +1451,49 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void CategoryTransferCopiesAndAppliesWholeCharacterCategory()
+        {
+            TaskSystemData source = TaskSystemDataLoader.Load();
+            string json = TaskSystemDataCategoryTransfer.Copy(source, TaskSystemDataCategoryTransfer.Characters);
+            TaskSystemData transfer = TaskSystemDataLoader.ParseUnchecked(json);
+            transfer.Crew[0].Name = "Clipboard Crew";
+            json = JsonUtility.ToJson(transfer, true);
+
+            Assert.That(TaskSystemDataCategoryTransfer.TryApply(source,
+                TaskSystemDataCategoryTransfer.Characters, json, out TaskSystemData updated, out string error), Is.True, error);
+            Assert.That(updated.Crew[0].Name, Is.EqualTo("Clipboard Crew"));
+            Assert.That(source.Crew[0].Name, Is.Not.EqualTo("Clipboard Crew"));
+            Assert.That(updated.Balance.BaseSideMissionChance, Is.EqualTo(source.Balance.BaseSideMissionChance));
+        }
+
+        [Test]
+        public void CategoryTransferRejectsWrongCategoryWithoutChangingWorkingCopy()
+        {
+            TaskSystemData source = TaskSystemDataLoader.Load();
+            string mailJson = TaskSystemDataCategoryTransfer.Copy(source, TaskSystemDataCategoryTransfer.Mail);
+
+            Assert.That(TaskSystemDataCategoryTransfer.TryApply(source,
+                TaskSystemDataCategoryTransfer.Characters, mailJson, out TaskSystemData updated, out string error), Is.False);
+            Assert.That(error, Does.Contain("Expected category 'Characters'"));
+            Assert.That(updated, Is.SameAs(source));
+        }
+
+        [Test]
+        public void CategoryTransferRejectsInvalidWholeDocumentRelationship()
+        {
+            TaskSystemData source = TaskSystemDataLoader.Load();
+            TaskSystemData transfer = TaskSystemDataLoader.ParseUnchecked(
+                TaskSystemDataCategoryTransfer.Copy(source, TaskSystemDataCategoryTransfer.CriticalEvents));
+            transfer.CriticalEvents[0].FirstNodeId = "missing-node";
+            string json = JsonUtility.ToJson(transfer, true);
+
+            Assert.That(TaskSystemDataCategoryTransfer.TryApply(source,
+                TaskSystemDataCategoryTransfer.CriticalEvents, json, out TaskSystemData updated, out string error), Is.False);
+            Assert.That(error, Does.Contain("first node"));
+            Assert.That(updated, Is.SameAs(source));
+        }
+
+        [Test]
         public void ResolvingMailAppliesItsRuleOnlyOnce()
         {
             var game = new MilestoneSimulation(1);

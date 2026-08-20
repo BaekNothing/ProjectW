@@ -93,6 +93,7 @@ namespace ProjectW.MilestonePrototype
         private bool confirmOverrideReset;
         private TaskSystemData editorData;
         private string editorNotice;
+        private string categoryTransferText = string.Empty;
         public const float WindowTitleBarHeight = 25f;
         public const float WindowContentTopSpacing = 6f;
         public const float GanttWindowChromeReserve = 110f;
@@ -1387,13 +1388,18 @@ namespace ProjectW.MilestonePrototype
             string[] tabs = { "CHARACTERS", "BALANCE / PROBABILITY", "CRITICAL EVENTS", "MAIL" };
             for (int i = 0; i < tabs.Length; i++)
                 if (LayoutButton(window.Selected == i ? $"● {tabs[i]}" : tabs[i], GUILayout.Height(34)))
+                {
                     window.Selected = i;
+                    categoryTransferText = string.Empty;
+                    editorNotice = string.Empty;
+                }
             GUILayout.EndHorizontal();
             GUILayout.Space(8f);
             if (window.Selected == 0) DrawCharacterTable();
             else if (window.Selected == 1) DrawBalanceTable();
             else if (window.Selected == 2) DrawCriticalEventTable(window);
             else DrawMailTable();
+            DrawCategoryTransfer(window.Selected);
             GUILayout.Space(12f);
             if (!string.IsNullOrWhiteSpace(editorNotice))
                 GUILayout.Label(editorNotice, editorNotice.StartsWith("ERROR", StringComparison.Ordinal) ? warning : success);
@@ -1416,6 +1422,32 @@ namespace ProjectW.MilestonePrototype
                     editorNotice = "Override removed; patch or embedded data reloaded.";
                 }
                 else confirmOverrideReset = true;
+            }
+            GUILayout.EndHorizontal();
+        }
+
+        private void DrawCategoryTransfer(int category)
+        {
+            GUILayout.Space(12f);
+            GUILayout.Label("CATEGORY JSON TRANSFER", section);
+            GUILayout.Label("Copy fills this field. Select/copy or paste text normally, then Apply.", small);
+            categoryTransferText = GUILayout.TextField(categoryTransferText ?? string.Empty,
+                GUILayout.Height(72f), GUILayout.ExpandWidth(true));
+            GUILayout.BeginHorizontal();
+            if (LayoutButton("COPY CATEGORY TO FIELD", GUILayout.Height(36)))
+            {
+                categoryTransferText = TaskSystemDataCategoryTransfer.Copy(editorData, category);
+                editorNotice = "Category JSON is ready in the transfer field.";
+            }
+            if (LayoutButton("APPLY CATEGORY JSON", GUILayout.Height(36)))
+            {
+                if (TaskSystemDataCategoryTransfer.TryApply(editorData, category, categoryTransferText,
+                        out TaskSystemData updated, out string error))
+                {
+                    editorData = updated;
+                    editorNotice = "Category JSON passed validation and was applied to the working copy.";
+                }
+                else editorNotice = $"ERROR: {error}";
             }
             GUILayout.EndHorizontal();
         }
