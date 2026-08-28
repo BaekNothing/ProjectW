@@ -4,9 +4,9 @@
   "MidpointReviewDay": 45,
   "StartingResources": 12,
   "Balance": {
-    "PrimaryProgressDays": 1.0,
-    "ParallelProgressDays": 1.0,
-    "ParallelMaximumRemainingDays": 1.0,
+    "PrimaryProgressDays": 1,
+    "ParallelProgressDays": 1,
+    "ParallelMaximumRemainingDays": 1,
     "InterruptionCostDays": 0.5,
     "ResumptionCostDays": 0.5,
     "MatchingFatigue": 9,
@@ -55,36 +55,386 @@
   },
   "RandomTaskWords": {
     "Adjectives": [
-      { "Id": "adjective-stable", "Text": "안정적인", "Risk": 0, "Difficulty": 0 },
-      { "Id": "adjective-unstable", "Text": "불안정한", "Risk": 1, "Difficulty": 1 },
-      { "Id": "adjective-dangerous", "Text": "위험한", "Risk": 2, "Difficulty": 2 },
-      { "Id": "adjective-very-unstable", "Text": "매우 불안정한", "Risk": 2, "Difficulty": 3 }
+      {
+        "Id": "adjective-stable",
+        "Text": "안정적인",
+        "Risk": 0,
+        "Difficulty": 0
+      },
+      {
+        "Id": "adjective-unstable",
+        "Text": "불안정한",
+        "Risk": 1,
+        "Difficulty": 1
+      },
+      {
+        "Id": "adjective-dangerous",
+        "Text": "위험한",
+        "Risk": 2,
+        "Difficulty": 2
+      },
+      {
+        "Id": "adjective-very-unstable",
+        "Text": "매우 불안정한",
+        "Risk": 2,
+        "Difficulty": 3
+      },
+      {
+        "Id": "adjective-urgent",
+        "Text": "긴급한",
+        "Risk": 2,
+        "Difficulty": 2
+      },
+      {
+        "Id": "adjective-degraded",
+        "Text": "성능 저하된",
+        "Risk": 1,
+        "Difficulty": 1
+      },
+      {
+        "Id": "adjective-contaminated",
+        "Text": "오염된",
+        "Risk": 2,
+        "Difficulty": 2
+      },
+      {
+        "Id": "adjective-overloaded",
+        "Text": "과부하된",
+        "Risk": 2,
+        "Difficulty": 3
+      },
+      {
+        "Id": "adjective-isolated",
+        "Text": "고립된",
+        "Risk": 1,
+        "Difficulty": 1
+      },
+      {
+        "Id": "adjective-unverified",
+        "Text": "미검증",
+        "Risk": 1,
+        "Difficulty": 1
+      }
     ],
     "Targets": [
-      { "Id": "target-bedrock", "Text": "암반", "Role": 1, "RequiredCompetencies": [1], "Difficulty": 1 },
-      { "Id": "target-strata", "Text": "지층", "Role": 1, "RequiredCompetencies": [1], "Difficulty": 1 },
-      { "Id": "target-aggregate", "Text": "골재", "Role": 0, "RequiredCompetencies": [2], "Difficulty": 0 },
-      { "Id": "target-equipment", "Text": "장비", "Role": 0, "RequiredCompetencies": [0], "Difficulty": 1 },
-      { "Id": "target-supply-schedule", "Text": "보급 일정", "Role": 2, "RequiredCompetencies": [2], "Difficulty": 1 },
-      { "Id": "target-field-crew", "Text": "현장 인력", "Role": 2, "RequiredCompetencies": [5], "Difficulty": 0 },
-      { "Id": "target-unknown-zone", "Text": "미지 구역", "Role": 3, "RequiredCompetencies": [3, 1], "Difficulty": 2 },
-      { "Id": "target-weather-change", "Text": "기상 변화", "Role": 3, "RequiredCompetencies": [3], "Difficulty": 1 }
+      {
+        "Id": "target-bedrock",
+        "Text": "암반",
+        "Role": 1,
+        "RequiredCompetencies": [
+          1
+        ],
+        "Difficulty": 1
+      },
+      {
+        "Id": "target-strata",
+        "Text": "지층",
+        "Role": 1,
+        "RequiredCompetencies": [
+          1
+        ],
+        "Difficulty": 1
+      },
+      {
+        "Id": "target-aggregate",
+        "Text": "골재",
+        "Role": 0,
+        "RequiredCompetencies": [
+          2
+        ],
+        "Difficulty": 0
+      },
+      {
+        "Id": "target-equipment",
+        "Text": "장비",
+        "Role": 0,
+        "RequiredCompetencies": [
+          0
+        ],
+        "Difficulty": 1
+      },
+      {
+        "Id": "target-supply-schedule",
+        "Text": "보급 일정",
+        "Role": 2,
+        "RequiredCompetencies": [
+          2
+        ],
+        "Difficulty": 1
+      },
+      {
+        "Id": "target-field-crew",
+        "Text": "현장 인력",
+        "Role": 2,
+        "RequiredCompetencies": [
+          5
+        ],
+        "Difficulty": 0
+      },
+      {
+        "Id": "target-unknown-zone",
+        "Text": "미지 구역",
+        "Role": 3,
+        "RequiredCompetencies": [
+          3,
+          1
+        ],
+        "Difficulty": 2
+      },
+      {
+        "Id": "target-weather-change",
+        "Text": "기상 변화",
+        "Role": 3,
+        "RequiredCompetencies": [
+          3
+        ],
+        "Difficulty": 1
+      },
+      {
+        "Id": "target-water-loop",
+        "Text": "식수 순환망",
+        "Role": 0,
+        "RequiredCompetencies": [
+          0,
+          4
+        ],
+        "Difficulty": 1
+      },
+      {
+        "Id": "target-power-bus",
+        "Text": "전력 버스",
+        "Role": 0,
+        "RequiredCompetencies": [
+          0,
+          2
+        ],
+        "Difficulty": 2
+      },
+      {
+        "Id": "target-cooling-line",
+        "Text": "냉각 배관",
+        "Role": 0,
+        "RequiredCompetencies": [
+          0,
+          4
+        ],
+        "Difficulty": 2
+      },
+      {
+        "Id": "target-medical-stock",
+        "Text": "의료 비축품",
+        "Role": 2,
+        "RequiredCompetencies": [
+          2,
+          4
+        ],
+        "Difficulty": 1
+      },
+      {
+        "Id": "target-relay-station",
+        "Text": "중계기",
+        "Role": 1,
+        "RequiredCompetencies": [
+          1,
+          5
+        ],
+        "Difficulty": 2
+      },
+      {
+        "Id": "target-dust-zone",
+        "Text": "분진 지대",
+        "Role": 3,
+        "RequiredCompetencies": [
+          3,
+          4
+        ],
+        "Difficulty": 2
+      },
+      {
+        "Id": "target-storage-bay",
+        "Text": "적재 구획",
+        "Role": 2,
+        "RequiredCompetencies": [
+          2,
+          5
+        ],
+        "Difficulty": 1
+      },
+      {
+        "Id": "target-sensor-grid",
+        "Text": "센서망",
+        "Role": 1,
+        "RequiredCompetencies": [
+          1,
+          0
+        ],
+        "Difficulty": 1
+      }
     ],
     "Actions": [
-      { "Id": "action-survey", "Text": "탐사", "Role": 1, "RequiredCompetencies": [1], "Difficulty": 1 },
-      { "Id": "action-analysis", "Text": "분석", "Role": 1, "RequiredCompetencies": [1], "Difficulty": 0 },
-      { "Id": "action-transport", "Text": "운반", "Role": 0, "RequiredCompetencies": [2, 3], "Difficulty": 0 },
-      { "Id": "action-maintenance", "Text": "정비", "Role": 0, "RequiredCompetencies": [0], "Difficulty": 1 },
-      { "Id": "action-coordinate", "Text": "조정", "Role": 2, "RequiredCompetencies": [5, 2], "Difficulty": 1 },
-      { "Id": "action-inspection", "Text": "점검", "Role": 2, "RequiredCompetencies": [4], "Difficulty": 0 },
-      { "Id": "action-response", "Text": "대응", "Role": 3, "RequiredCompetencies": [3, 4], "Difficulty": 1 },
-      { "Id": "action-pioneer", "Text": "개척", "Role": 3, "RequiredCompetencies": [3, 0], "Difficulty": 2 }
+      {
+        "Id": "action-survey",
+        "Text": "탐사",
+        "Role": 1,
+        "RequiredCompetencies": [
+          1
+        ],
+        "Difficulty": 1
+      },
+      {
+        "Id": "action-analysis",
+        "Text": "분석",
+        "Role": 1,
+        "RequiredCompetencies": [
+          1
+        ],
+        "Difficulty": 0
+      },
+      {
+        "Id": "action-transport",
+        "Text": "운반",
+        "Role": 0,
+        "RequiredCompetencies": [
+          2,
+          3
+        ],
+        "Difficulty": 0
+      },
+      {
+        "Id": "action-maintenance",
+        "Text": "정비",
+        "Role": 0,
+        "RequiredCompetencies": [
+          0
+        ],
+        "Difficulty": 1
+      },
+      {
+        "Id": "action-coordinate",
+        "Text": "조정",
+        "Role": 2,
+        "RequiredCompetencies": [
+          5,
+          2
+        ],
+        "Difficulty": 1
+      },
+      {
+        "Id": "action-inspection",
+        "Text": "점검",
+        "Role": 2,
+        "RequiredCompetencies": [
+          4
+        ],
+        "Difficulty": 0
+      },
+      {
+        "Id": "action-response",
+        "Text": "대응",
+        "Role": 3,
+        "RequiredCompetencies": [
+          3,
+          4
+        ],
+        "Difficulty": 1
+      },
+      {
+        "Id": "action-pioneer",
+        "Text": "개척",
+        "Role": 3,
+        "RequiredCompetencies": [
+          3,
+          0
+        ],
+        "Difficulty": 2
+      },
+      {
+        "Id": "action-calibrate",
+        "Text": "보정",
+        "Role": 0,
+        "RequiredCompetencies": [
+          0,
+          1
+        ],
+        "Difficulty": 1
+      },
+      {
+        "Id": "action-replace",
+        "Text": "교체",
+        "Role": 0,
+        "RequiredCompetencies": [
+          0,
+          4
+        ],
+        "Difficulty": 2
+      },
+      {
+        "Id": "action-secure",
+        "Text": "확보",
+        "Role": 3,
+        "RequiredCompetencies": [
+          3,
+          5
+        ],
+        "Difficulty": 1
+      },
+      {
+        "Id": "action-recover",
+        "Text": "회수",
+        "Role": 3,
+        "RequiredCompetencies": [
+          3,
+          2
+        ],
+        "Difficulty": 2
+      },
+      {
+        "Id": "action-verify",
+        "Text": "검증",
+        "Role": 1,
+        "RequiredCompetencies": [
+          1,
+          5
+        ],
+        "Difficulty": 1
+      },
+      {
+        "Id": "action-reroute",
+        "Text": "우회",
+        "Role": 2,
+        "RequiredCompetencies": [
+          2,
+          5
+        ],
+        "Difficulty": 2
+      },
+      {
+        "Id": "action-decontaminate",
+        "Text": "제염",
+        "Role": 3,
+        "RequiredCompetencies": [
+          3,
+          4
+        ],
+        "Difficulty": 2
+      },
+      {
+        "Id": "action-reallocate",
+        "Text": "재배정",
+        "Role": 2,
+        "RequiredCompetencies": [
+          2,
+          5
+        ],
+        "Difficulty": 1
+      }
     ]
   },
   "Works": [
     {
       "Id": "foundation",
       "Name": "정착 기반",
+      "RevealDay": 0,
       "SoftDeadline": 45,
       "HardDeadline": 60,
       "Required": true,
@@ -96,24 +446,243 @@
     {
       "Id": "launch",
       "Name": "최종 가동",
+      "RevealDay": 60,
       "SoftDeadline": 81,
       "HardDeadline": 90,
-      "RevealDay": 60,
       "Required": true,
       "RewardCredits": 8,
       "SoftPenaltyCredits": 3,
       "HardPenaltyCredits": 10,
-      "PredecessorIds": ["foundation"]
+      "PredecessorIds": [
+        "foundation"
+      ]
     },
     {
       "Id": "incident",
       "Name": "돌발 대응",
+      "RevealDay": 0,
       "SoftDeadline": 90,
       "HardDeadline": 90,
       "Required": false,
       "RewardCredits": 2,
       "SoftPenaltyCredits": 1,
       "HardPenaltyCredits": 4,
+      "PredecessorIds": []
+    },
+    {
+      "Id": "water-loop",
+      "Name": "식수 순환망 보정",
+      "RevealDay": 2,
+      "SoftDeadline": 16,
+      "HardDeadline": 24,
+      "Required": true,
+      "RewardCredits": 5,
+      "SoftPenaltyCredits": 2,
+      "HardPenaltyCredits": 6,
+      "PredecessorIds": []
+    },
+    {
+      "Id": "comms-array",
+      "Name": "장거리 통신 배열 정비",
+      "RevealDay": 6,
+      "SoftDeadline": 22,
+      "HardDeadline": 32,
+      "Required": true,
+      "RewardCredits": 5,
+      "SoftPenaltyCredits": 2,
+      "HardPenaltyCredits": 7,
+      "PredecessorIds": []
+    },
+    {
+      "Id": "thermal-grid",
+      "Name": "열관리 계통 안정화",
+      "RevealDay": 12,
+      "SoftDeadline": 30,
+      "HardDeadline": 42,
+      "Required": true,
+      "RewardCredits": 6,
+      "SoftPenaltyCredits": 2,
+      "HardPenaltyCredits": 7,
+      "PredecessorIds": []
+    },
+    {
+      "Id": "food-culture",
+      "Name": "배양 식량 라인 확장",
+      "RevealDay": 16,
+      "SoftDeadline": 36,
+      "HardDeadline": 48,
+      "Required": false,
+      "RewardCredits": 7,
+      "SoftPenaltyCredits": 1,
+      "HardPenaltyCredits": 4,
+      "PredecessorIds": []
+    },
+    {
+      "Id": "dust-shielding",
+      "Name": "분진 차폐 체계 강화",
+      "RevealDay": 20,
+      "SoftDeadline": 40,
+      "HardDeadline": 52,
+      "Required": false,
+      "RewardCredits": 6,
+      "SoftPenaltyCredits": 1,
+      "HardPenaltyCredits": 5,
+      "PredecessorIds": []
+    },
+    {
+      "Id": "storage-reorg",
+      "Name": "비축 자원 창고 재편",
+      "RevealDay": 24,
+      "SoftDeadline": 44,
+      "HardDeadline": 56,
+      "Required": false,
+      "RewardCredits": 6,
+      "SoftPenaltyCredits": 1,
+      "HardPenaltyCredits": 4,
+      "PredecessorIds": []
+    },
+    {
+      "Id": "med-bay",
+      "Name": "의료실 기능 확장",
+      "RevealDay": 28,
+      "SoftDeadline": 50,
+      "HardDeadline": 62,
+      "Required": true,
+      "RewardCredits": 7,
+      "SoftPenaltyCredits": 2,
+      "HardPenaltyCredits": 8,
+      "PredecessorIds": []
+    },
+    {
+      "Id": "relay-outpost",
+      "Name": "외곽 중계기 확보",
+      "RevealDay": 32,
+      "SoftDeadline": 54,
+      "HardDeadline": 66,
+      "Required": false,
+      "RewardCredits": 8,
+      "SoftPenaltyCredits": 2,
+      "HardPenaltyCredits": 5,
+      "PredecessorIds": [
+        "comms-array"
+      ]
+    },
+    {
+      "Id": "red-sector-survey",
+      "Name": "적색 지대 정밀 탐사",
+      "RevealDay": 36,
+      "SoftDeadline": 58,
+      "HardDeadline": 70,
+      "Required": false,
+      "RewardCredits": 8,
+      "SoftPenaltyCredits": 2,
+      "HardPenaltyCredits": 5,
+      "PredecessorIds": []
+    },
+    {
+      "Id": "power-reserve",
+      "Name": "비상 전력 예비계통",
+      "RevealDay": 38,
+      "SoftDeadline": 60,
+      "HardDeadline": 72,
+      "Required": true,
+      "RewardCredits": 7,
+      "SoftPenaltyCredits": 2,
+      "HardPenaltyCredits": 8,
+      "PredecessorIds": []
+    },
+    {
+      "Id": "cross-training",
+      "Name": "교차 직무 훈련 계획",
+      "RevealDay": 42,
+      "SoftDeadline": 64,
+      "HardDeadline": 74,
+      "Required": false,
+      "RewardCredits": 5,
+      "SoftPenaltyCredits": 1,
+      "HardPenaltyCredits": 4,
+      "PredecessorIds": []
+    },
+    {
+      "Id": "biofilter-service",
+      "Name": "생명유지 필터 교체",
+      "RevealDay": 44,
+      "SoftDeadline": 66,
+      "HardDeadline": 78,
+      "Required": true,
+      "RewardCredits": 7,
+      "SoftPenaltyCredits": 2,
+      "HardPenaltyCredits": 8,
+      "PredecessorIds": [
+        "med-bay"
+      ]
+    },
+    {
+      "Id": "logistics-route",
+      "Name": "보급 경로 재설계",
+      "RevealDay": 48,
+      "SoftDeadline": 70,
+      "HardDeadline": 82,
+      "Required": false,
+      "RewardCredits": 8,
+      "SoftPenaltyCredits": 2,
+      "HardPenaltyCredits": 5,
+      "PredecessorIds": [
+        "storage-reorg"
+      ]
+    },
+    {
+      "Id": "signal-anomaly",
+      "Name": "반복 신호 이상원 추적",
+      "RevealDay": 52,
+      "SoftDeadline": 74,
+      "HardDeadline": 84,
+      "Required": false,
+      "RewardCredits": 8,
+      "SoftPenaltyCredits": 2,
+      "HardPenaltyCredits": 6,
+      "PredecessorIds": [
+        "comms-array"
+      ]
+    },
+    {
+      "Id": "habitat-expansion",
+      "Name": "거주 구역 2차 확장",
+      "RevealDay": 54,
+      "SoftDeadline": 76,
+      "HardDeadline": 86,
+      "Required": false,
+      "RewardCredits": 8,
+      "SoftPenaltyCredits": 2,
+      "HardPenaltyCredits": 5,
+      "PredecessorIds": [
+        "foundation"
+      ]
+    },
+    {
+      "Id": "prelaunch-audit",
+      "Name": "최종 가동 전 감사",
+      "RevealDay": 58,
+      "SoftDeadline": 80,
+      "HardDeadline": 88,
+      "Required": true,
+      "RewardCredits": 8,
+      "SoftPenaltyCredits": 3,
+      "HardPenaltyCredits": 9,
+      "PredecessorIds": [
+        "power-reserve"
+      ]
+    },
+    {
+      "Id": "emergency-protocol",
+      "Name": "비상 운영 규약 정비",
+      "RevealDay": 62,
+      "SoftDeadline": 82,
+      "HardDeadline": 90,
+      "Required": false,
+      "RewardCredits": 6,
+      "SoftPenaltyCredits": 2,
+      "HardPenaltyCredits": 5,
       "PredecessorIds": []
     }
   ],
@@ -123,8 +692,11 @@
       "Name": "착륙 지점 조사",
       "Kind": 0,
       "RequiredRole": 1,
-      "RequiredCompetencies": [1, 3],
-      "RequiredWork": 3.0,
+      "RequiredCompetencies": [
+        1,
+        3
+      ],
+      "RequiredWork": 3,
       "Required": true,
       "PrerequisiteId": "",
       "AssignedCharacter": -1,
@@ -138,8 +710,11 @@
       "Name": "발전 설비 설치",
       "Kind": 0,
       "RequiredRole": 0,
-      "RequiredCompetencies": [0, 2],
-      "RequiredWork": 4.0,
+      "RequiredCompetencies": [
+        0,
+        2
+      ],
+      "RequiredWork": 4,
       "Required": true,
       "PrerequisiteId": "survey",
       "AssignedCharacter": -1,
@@ -153,8 +728,12 @@
       "Name": "거주 구역 건설",
       "Kind": 0,
       "RequiredRole": 0,
-      "RequiredCompetencies": [0, 4, 2],
-      "RequiredWork": 4.0,
+      "RequiredCompetencies": [
+        0,
+        4,
+        2
+      ],
+      "RequiredWork": 4,
       "Required": true,
       "PrerequisiteId": "survey",
       "AssignedCharacter": -1,
@@ -168,8 +747,12 @@
       "Name": "안전 검증",
       "Kind": 0,
       "RequiredRole": 1,
-      "RequiredCompetencies": [0, 4, 1],
-      "RequiredWork": 1.0,
+      "RequiredCompetencies": [
+        0,
+        4,
+        1
+      ],
+      "RequiredWork": 1,
       "Required": false,
       "PrerequisiteId": "power",
       "AssignedCharacter": -1,
@@ -183,8 +766,12 @@
       "Name": "최종 가동 시험",
       "Kind": 0,
       "RequiredRole": 3,
-      "RequiredCompetencies": [0, 3, 5],
-      "RequiredWork": 3.0,
+      "RequiredCompetencies": [
+        0,
+        3,
+        5
+      ],
+      "RequiredWork": 3,
       "Required": true,
       "PrerequisiteId": "",
       "AssignedCharacter": -1,
@@ -192,6 +779,623 @@
       "Risk": 2,
       "Importance": 2,
       "Difficulty": 3
+    },
+    {
+      "Id": "water-intake-check",
+      "Name": "취수 계통 상태 점검",
+      "Kind": 0,
+      "RequiredRole": 1,
+      "RequiredCompetencies": [
+        1,
+        4
+      ],
+      "RequiredWork": 2,
+      "Required": true,
+      "PrerequisiteId": "",
+      "AssignedCharacter": -1,
+      "GroupId": "water-loop",
+      "Risk": 1,
+      "Importance": 2,
+      "Difficulty": 2
+    },
+    {
+      "Id": "water-loop-calibration",
+      "Name": "순환 제어값 보정",
+      "Kind": 0,
+      "RequiredRole": 0,
+      "RequiredCompetencies": [
+        0,
+        4
+      ],
+      "RequiredWork": 3,
+      "Required": true,
+      "PrerequisiteId": "water-intake-check",
+      "AssignedCharacter": -1,
+      "GroupId": "water-loop",
+      "Risk": 1,
+      "Importance": 2,
+      "Difficulty": 2
+    },
+    {
+      "Id": "comms-mast-inspection",
+      "Name": "통신 안테나 점검",
+      "Kind": 0,
+      "RequiredRole": 0,
+      "RequiredCompetencies": [
+        0,
+        5
+      ],
+      "RequiredWork": 2,
+      "Required": true,
+      "PrerequisiteId": "",
+      "AssignedCharacter": -1,
+      "GroupId": "comms-array",
+      "Risk": 1,
+      "Importance": 2,
+      "Difficulty": 2
+    },
+    {
+      "Id": "comms-link-calibration",
+      "Name": "장거리 링크 보정",
+      "Kind": 0,
+      "RequiredRole": 1,
+      "RequiredCompetencies": [
+        1,
+        5
+      ],
+      "RequiredWork": 3,
+      "Required": true,
+      "PrerequisiteId": "comms-mast-inspection",
+      "AssignedCharacter": -1,
+      "GroupId": "comms-array",
+      "Risk": 1,
+      "Importance": 2,
+      "Difficulty": 2
+    },
+    {
+      "Id": "thermal-map-survey",
+      "Name": "열 부하 분포 조사",
+      "Kind": 0,
+      "RequiredRole": 1,
+      "RequiredCompetencies": [
+        1,
+        3
+      ],
+      "RequiredWork": 2,
+      "Required": true,
+      "PrerequisiteId": "",
+      "AssignedCharacter": -1,
+      "GroupId": "thermal-grid",
+      "Risk": 1,
+      "Importance": 2,
+      "Difficulty": 2
+    },
+    {
+      "Id": "thermal-radiator-service",
+      "Name": "냉각 설비 정비",
+      "Kind": 0,
+      "RequiredRole": 0,
+      "RequiredCompetencies": [
+        0,
+        3,
+        4
+      ],
+      "RequiredWork": 3,
+      "Required": true,
+      "PrerequisiteId": "thermal-map-survey",
+      "AssignedCharacter": -1,
+      "GroupId": "thermal-grid",
+      "Risk": 2,
+      "Importance": 2,
+      "Difficulty": 3
+    },
+    {
+      "Id": "food-culture-sample",
+      "Name": "배양 샘플 검증",
+      "Kind": 0,
+      "RequiredRole": 1,
+      "RequiredCompetencies": [
+        1,
+        4
+      ],
+      "RequiredWork": 2,
+      "Required": true,
+      "PrerequisiteId": "",
+      "AssignedCharacter": -1,
+      "GroupId": "food-culture",
+      "Risk": 0,
+      "Importance": 1,
+      "Difficulty": 1
+    },
+    {
+      "Id": "food-line-commission",
+      "Name": "생산 라인 가동 준비",
+      "Kind": 0,
+      "RequiredRole": 3,
+      "RequiredCompetencies": [
+        3,
+        4
+      ],
+      "RequiredWork": 3,
+      "Required": true,
+      "PrerequisiteId": "food-culture-sample",
+      "AssignedCharacter": -1,
+      "GroupId": "food-culture",
+      "Risk": 1,
+      "Importance": 1,
+      "Difficulty": 2
+    },
+    {
+      "Id": "dust-seal-inspection",
+      "Name": "외벽 밀폐부 점검",
+      "Kind": 0,
+      "RequiredRole": 1,
+      "RequiredCompetencies": [
+        1,
+        3
+      ],
+      "RequiredWork": 2,
+      "Required": true,
+      "PrerequisiteId": "",
+      "AssignedCharacter": -1,
+      "GroupId": "dust-shielding",
+      "Risk": 1,
+      "Importance": 1,
+      "Difficulty": 2
+    },
+    {
+      "Id": "dust-filter-reinforce",
+      "Name": "분진 필터 보강",
+      "Kind": 0,
+      "RequiredRole": 0,
+      "RequiredCompetencies": [
+        0,
+        3
+      ],
+      "RequiredWork": 3,
+      "Required": true,
+      "PrerequisiteId": "dust-seal-inspection",
+      "AssignedCharacter": -1,
+      "GroupId": "dust-shielding",
+      "Risk": 2,
+      "Importance": 1,
+      "Difficulty": 2
+    },
+    {
+      "Id": "storage-inventory-audit",
+      "Name": "비축품 재고 감사",
+      "Kind": 0,
+      "RequiredRole": 2,
+      "RequiredCompetencies": [
+        2,
+        5
+      ],
+      "RequiredWork": 2,
+      "Required": true,
+      "PrerequisiteId": "",
+      "AssignedCharacter": -1,
+      "GroupId": "storage-reorg",
+      "Risk": 0,
+      "Importance": 1,
+      "Difficulty": 1
+    },
+    {
+      "Id": "storage-layout-update",
+      "Name": "창고 배치 갱신",
+      "Kind": 0,
+      "RequiredRole": 2,
+      "RequiredCompetencies": [
+        2,
+        5
+      ],
+      "RequiredWork": 2,
+      "Required": true,
+      "PrerequisiteId": "storage-inventory-audit",
+      "AssignedCharacter": -1,
+      "GroupId": "storage-reorg",
+      "Risk": 0,
+      "Importance": 1,
+      "Difficulty": 1
+    },
+    {
+      "Id": "med-bay-audit",
+      "Name": "의료실 대응 상태 점검",
+      "Kind": 0,
+      "RequiredRole": 1,
+      "RequiredCompetencies": [
+        1,
+        4
+      ],
+      "RequiredWork": 2,
+      "Required": true,
+      "PrerequisiteId": "",
+      "AssignedCharacter": -1,
+      "GroupId": "med-bay",
+      "Risk": 1,
+      "Importance": 2,
+      "Difficulty": 2
+    },
+    {
+      "Id": "med-bay-supply-setup",
+      "Name": "의료 비축품 재배치",
+      "Kind": 0,
+      "RequiredRole": 2,
+      "RequiredCompetencies": [
+        2,
+        4,
+        5
+      ],
+      "RequiredWork": 2,
+      "Required": true,
+      "PrerequisiteId": "med-bay-audit",
+      "AssignedCharacter": -1,
+      "GroupId": "med-bay",
+      "Risk": 1,
+      "Importance": 2,
+      "Difficulty": 2
+    },
+    {
+      "Id": "relay-site-survey",
+      "Name": "중계기 설치 지점 조사",
+      "Kind": 0,
+      "RequiredRole": 1,
+      "RequiredCompetencies": [
+        1,
+        3
+      ],
+      "RequiredWork": 2,
+      "Required": true,
+      "PrerequisiteId": "",
+      "AssignedCharacter": -1,
+      "GroupId": "relay-outpost",
+      "Risk": 1,
+      "Importance": 1,
+      "Difficulty": 2
+    },
+    {
+      "Id": "relay-node-install",
+      "Name": "외곽 중계기 설치",
+      "Kind": 0,
+      "RequiredRole": 0,
+      "RequiredCompetencies": [
+        0,
+        3,
+        5
+      ],
+      "RequiredWork": 3,
+      "Required": true,
+      "PrerequisiteId": "relay-site-survey",
+      "AssignedCharacter": -1,
+      "GroupId": "relay-outpost",
+      "Risk": 2,
+      "Importance": 1,
+      "Difficulty": 3
+    },
+    {
+      "Id": "red-sector-map",
+      "Name": "적색 지대 지도화",
+      "Kind": 0,
+      "RequiredRole": 1,
+      "RequiredCompetencies": [
+        1,
+        3
+      ],
+      "RequiredWork": 3,
+      "Required": true,
+      "PrerequisiteId": "",
+      "AssignedCharacter": -1,
+      "GroupId": "red-sector-survey",
+      "Risk": 2,
+      "Importance": 1,
+      "Difficulty": 3
+    },
+    {
+      "Id": "red-sector-sample",
+      "Name": "현장 시료 회수",
+      "Kind": 0,
+      "RequiredRole": 3,
+      "RequiredCompetencies": [
+        1,
+        3
+      ],
+      "RequiredWork": 3,
+      "Required": true,
+      "PrerequisiteId": "red-sector-map",
+      "AssignedCharacter": -1,
+      "GroupId": "red-sector-survey",
+      "Risk": 2,
+      "Importance": 1,
+      "Difficulty": 3
+    },
+    {
+      "Id": "reserve-load-analysis",
+      "Name": "비상 부하 분석",
+      "Kind": 0,
+      "RequiredRole": 1,
+      "RequiredCompetencies": [
+        0,
+        2
+      ],
+      "RequiredWork": 2,
+      "Required": true,
+      "PrerequisiteId": "",
+      "AssignedCharacter": -1,
+      "GroupId": "power-reserve",
+      "Risk": 1,
+      "Importance": 2,
+      "Difficulty": 2
+    },
+    {
+      "Id": "reserve-grid-test",
+      "Name": "예비 전력 계통 시험",
+      "Kind": 0,
+      "RequiredRole": 0,
+      "RequiredCompetencies": [
+        0,
+        2,
+        4
+      ],
+      "RequiredWork": 3,
+      "Required": true,
+      "PrerequisiteId": "reserve-load-analysis",
+      "AssignedCharacter": -1,
+      "GroupId": "power-reserve",
+      "Risk": 2,
+      "Importance": 2,
+      "Difficulty": 3
+    },
+    {
+      "Id": "training-gap-analysis",
+      "Name": "역할 공백 분석",
+      "Kind": 0,
+      "RequiredRole": 2,
+      "RequiredCompetencies": [
+        2,
+        5
+      ],
+      "RequiredWork": 2,
+      "Required": true,
+      "PrerequisiteId": "",
+      "AssignedCharacter": -1,
+      "GroupId": "cross-training",
+      "Risk": 0,
+      "Importance": 1,
+      "Difficulty": 1
+    },
+    {
+      "Id": "training-rotation",
+      "Name": "교차 훈련 일정 실행",
+      "Kind": 0,
+      "RequiredRole": 2,
+      "RequiredCompetencies": [
+        5
+      ],
+      "RequiredWork": 2,
+      "Required": true,
+      "PrerequisiteId": "training-gap-analysis",
+      "AssignedCharacter": -1,
+      "GroupId": "cross-training",
+      "Risk": 0,
+      "Importance": 1,
+      "Difficulty": 1
+    },
+    {
+      "Id": "biofilter-diagnostic",
+      "Name": "필터 성능 진단",
+      "Kind": 0,
+      "RequiredRole": 1,
+      "RequiredCompetencies": [
+        1,
+        4
+      ],
+      "RequiredWork": 2,
+      "Required": true,
+      "PrerequisiteId": "",
+      "AssignedCharacter": -1,
+      "GroupId": "biofilter-service",
+      "Risk": 1,
+      "Importance": 2,
+      "Difficulty": 2
+    },
+    {
+      "Id": "biofilter-replace",
+      "Name": "생명유지 필터 교체",
+      "Kind": 0,
+      "RequiredRole": 0,
+      "RequiredCompetencies": [
+        0,
+        4
+      ],
+      "RequiredWork": 3,
+      "Required": true,
+      "PrerequisiteId": "biofilter-diagnostic",
+      "AssignedCharacter": -1,
+      "GroupId": "biofilter-service",
+      "Risk": 2,
+      "Importance": 2,
+      "Difficulty": 3
+    },
+    {
+      "Id": "route-risk-analysis",
+      "Name": "보급 경로 위험 분석",
+      "Kind": 0,
+      "RequiredRole": 1,
+      "RequiredCompetencies": [
+        2,
+        3
+      ],
+      "RequiredWork": 2,
+      "Required": true,
+      "PrerequisiteId": "",
+      "AssignedCharacter": -1,
+      "GroupId": "logistics-route",
+      "Risk": 1,
+      "Importance": 1,
+      "Difficulty": 2
+    },
+    {
+      "Id": "route-allocation-plan",
+      "Name": "보급 배정 계획 갱신",
+      "Kind": 0,
+      "RequiredRole": 2,
+      "RequiredCompetencies": [
+        2,
+        5
+      ],
+      "RequiredWork": 3,
+      "Required": true,
+      "PrerequisiteId": "route-risk-analysis",
+      "AssignedCharacter": -1,
+      "GroupId": "logistics-route",
+      "Risk": 1,
+      "Importance": 1,
+      "Difficulty": 2
+    },
+    {
+      "Id": "signal-spectrum-analysis",
+      "Name": "반복 신호 분석",
+      "Kind": 0,
+      "RequiredRole": 1,
+      "RequiredCompetencies": [
+        1,
+        5
+      ],
+      "RequiredWork": 3,
+      "Required": true,
+      "PrerequisiteId": "",
+      "AssignedCharacter": -1,
+      "GroupId": "signal-anomaly",
+      "Risk": 1,
+      "Importance": 1,
+      "Difficulty": 3
+    },
+    {
+      "Id": "signal-source-triangulate",
+      "Name": "신호 발신 지점 추정",
+      "Kind": 0,
+      "RequiredRole": 3,
+      "RequiredCompetencies": [
+        3,
+        5
+      ],
+      "RequiredWork": 2,
+      "Required": true,
+      "PrerequisiteId": "signal-spectrum-analysis",
+      "AssignedCharacter": -1,
+      "GroupId": "signal-anomaly",
+      "Risk": 2,
+      "Importance": 1,
+      "Difficulty": 2
+    },
+    {
+      "Id": "habitat-frame-plan",
+      "Name": "확장 모듈 설치 계획",
+      "Kind": 0,
+      "RequiredRole": 1,
+      "RequiredCompetencies": [
+        0,
+        4
+      ],
+      "RequiredWork": 2,
+      "Required": true,
+      "PrerequisiteId": "",
+      "AssignedCharacter": -1,
+      "GroupId": "habitat-expansion",
+      "Risk": 1,
+      "Importance": 1,
+      "Difficulty": 2
+    },
+    {
+      "Id": "habitat-module-install",
+      "Name": "거주 모듈 설치",
+      "Kind": 0,
+      "RequiredRole": 0,
+      "RequiredCompetencies": [
+        0,
+        2,
+        4
+      ],
+      "RequiredWork": 3,
+      "Required": true,
+      "PrerequisiteId": "habitat-frame-plan",
+      "AssignedCharacter": -1,
+      "GroupId": "habitat-expansion",
+      "Risk": 2,
+      "Importance": 1,
+      "Difficulty": 3
+    },
+    {
+      "Id": "prelaunch-system-audit",
+      "Name": "주요 설비 통합 감사",
+      "Kind": 0,
+      "RequiredRole": 1,
+      "RequiredCompetencies": [
+        0,
+        1,
+        4
+      ],
+      "RequiredWork": 3,
+      "Required": true,
+      "PrerequisiteId": "",
+      "AssignedCharacter": -1,
+      "GroupId": "prelaunch-audit",
+      "Risk": 2,
+      "Importance": 2,
+      "Difficulty": 3
+    },
+    {
+      "Id": "prelaunch-readiness-review",
+      "Name": "가동 준비 상태 검토",
+      "Kind": 0,
+      "RequiredRole": 2,
+      "RequiredCompetencies": [
+        2,
+        5
+      ],
+      "RequiredWork": 2,
+      "Required": true,
+      "PrerequisiteId": "prelaunch-system-audit",
+      "AssignedCharacter": -1,
+      "GroupId": "prelaunch-audit",
+      "Risk": 1,
+      "Importance": 2,
+      "Difficulty": 2
+    },
+    {
+      "Id": "emergency-scenario-review",
+      "Name": "비상 시나리오 검토",
+      "Kind": 0,
+      "RequiredRole": 2,
+      "RequiredCompetencies": [
+        2,
+        5
+      ],
+      "RequiredWork": 2,
+      "Required": true,
+      "PrerequisiteId": "",
+      "AssignedCharacter": -1,
+      "GroupId": "emergency-protocol",
+      "Risk": 1,
+      "Importance": 1,
+      "Difficulty": 2
+    },
+    {
+      "Id": "emergency-command-drill",
+      "Name": "비상 지휘 훈련",
+      "Kind": 0,
+      "RequiredRole": 3,
+      "RequiredCompetencies": [
+        3,
+        5
+      ],
+      "RequiredWork": 2,
+      "Required": true,
+      "PrerequisiteId": "emergency-scenario-review",
+      "AssignedCharacter": -1,
+      "GroupId": "emergency-protocol",
+      "Risk": 1,
+      "Importance": 1,
+      "Difficulty": 2
     }
   ],
   "Crew": [
@@ -200,56 +1404,96 @@
       "PortraitLabel": "한\n기술",
       "Personality": "원칙적",
       "Memo": "기지 핵심 설비를 맡는 선임 기술관. 위험한 상황에서도 절차를 우선한다.",
-      "Perks": ["정밀 정비", "안전 우선"],
+      "Perks": [
+        "정밀 정비",
+        "안전 우선"
+      ],
       "Specialty": 0,
       "Skill": 4,
-      "Competencies": [7, 4, 5, 4, 3, 3],
+      "Competencies": [
+        7,
+        4,
+        5,
+        4,
+        3,
+        3
+      ],
       "Trust": 55,
       "Pride": 45,
       "Authority": 35,
-      "DailyOutput": 1.0
+      "DailyOutput": 1
     },
     {
       "Name": "윤분석관",
       "PortraitLabel": "윤\n분석",
       "Personality": "분석적",
       "Memo": "불확실한 정보를 빠르게 정리하는 분석관. 현장 조사와 위험 판정에 강하다.",
-      "Perks": ["현장 분석", "위험 감지"],
+      "Perks": [
+        "현장 분석",
+        "위험 감지"
+      ],
       "Specialty": 1,
       "Skill": 4,
-      "Competencies": [3, 7, 4, 5, 3, 4],
+      "Competencies": [
+        3,
+        7,
+        4,
+        5,
+        3,
+        4
+      ],
       "Trust": 50,
       "Pride": 55,
       "Authority": 30,
-      "DailyOutput": 1.0
+      "DailyOutput": 1
     },
     {
       "Name": "미관리자",
       "PortraitLabel": "미\n관리",
       "Personality": "다정함",
       "Memo": "작업 순서와 자원 배분을 조율하는 관리자. 대원들의 신뢰가 높다.",
-      "Perks": ["일정 조율", "신뢰 형성"],
+      "Perks": [
+        "일정 조율",
+        "신뢰 형성"
+      ],
       "Specialty": 2,
       "Skill": 4,
-      "Competencies": [4, 4, 7, 3, 4, 6],
+      "Competencies": [
+        4,
+        4,
+        7,
+        3,
+        4,
+        6
+      ],
       "Trust": 60,
       "Pride": 40,
       "Authority": 50,
-      "DailyOutput": 1.0
+      "DailyOutput": 1
     },
     {
       "Name": "강적응관",
       "PortraitLabel": "강\n적응",
       "Personality": "대담함",
       "Memo": "예상 밖의 환경 변화에 대응하는 적응관. 고위험 임무에서도 판단이 빠르다.",
-      "Perks": ["환경 적응", "위기 대응"],
+      "Perks": [
+        "환경 적응",
+        "위기 대응"
+      ],
       "Specialty": 3,
       "Skill": 4,
-      "Competencies": [4, 5, 3, 7, 5, 4],
+      "Competencies": [
+        4,
+        5,
+        3,
+        7,
+        5,
+        4
+      ],
       "Trust": 45,
       "Pride": 60,
       "Authority": 35,
-      "DailyOutput": 1.0
+      "DailyOutput": 1
     }
   ],
   "CriticalEvents": [
@@ -270,7 +1514,15 @@
               "Text": "비축 부품으로 전력망을 차폐한다",
               "Forecast": "확정 비용: 자원 -2 · 전원 피로 -5 · 작업 성공률 +5%p",
               "Outcomes": [
-                { "Weight": 100, "Text": "차폐가 안정적으로 작동했다.", "ResourceDelta": -2, "CrewIndex": -1, "FatigueDelta": -5, "SuccessChanceDelta": 5, "NextNodeId": "distress-call" }
+                {
+                  "Weight": 100,
+                  "Text": "차폐가 안정적으로 작동했다.",
+                  "ResourceDelta": -2,
+                  "CrewIndex": -1,
+                  "FatigueDelta": -5,
+                  "SuccessChanceDelta": 5,
+                  "NextNodeId": "distress-call"
+                }
               ]
             },
             {
@@ -278,8 +1530,24 @@
               "Text": "대원을 보내 현장에서 보강한다",
               "Forecast": "70% 안정화 / 30% 과부하 · 자원과 피로, 성공률 변동",
               "Outcomes": [
-                { "Weight": 70, "Text": "현장 보강이 제시간에 끝났다.", "ResourceDelta": -1, "CrewIndex": -1, "FatigueDelta": 8, "SuccessChanceDelta": 3, "NextNodeId": "distress-call" },
-                { "Weight": 30, "Text": "보강 중 계통이 손상되어 복구 부담이 커졌다.", "ResourceDelta": -3, "CrewIndex": -1, "FatigueDelta": 15, "SuccessChanceDelta": -5, "NextNodeId": "distress-call" }
+                {
+                  "Weight": 70,
+                  "Text": "현장 보강이 제시간에 끝났다.",
+                  "ResourceDelta": -1,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 8,
+                  "SuccessChanceDelta": 3,
+                  "NextNodeId": "distress-call"
+                },
+                {
+                  "Weight": 30,
+                  "Text": "보강 중 계통이 손상되어 복구 부담이 커졌다.",
+                  "ResourceDelta": -3,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 15,
+                  "SuccessChanceDelta": -5,
+                  "NextNodeId": "distress-call"
+                }
               ]
             }
           ]
@@ -296,8 +1564,24 @@
               "Text": "구조대를 보낸다",
               "Forecast": "60% 구조 성공 / 40% 장기 수색 · 전원 피로 증가",
               "Outcomes": [
-                { "Weight": 60, "Text": "생존자를 확보하고 보급 좌표를 받았다.", "ResourceDelta": 1, "CrewIndex": -1, "FatigueDelta": 10, "SuccessChanceDelta": 4, "NextNodeId": "supply-wreck" },
-                { "Weight": 40, "Text": "수색이 길어져 인력과 물자를 소모했다.", "ResourceDelta": -2, "CrewIndex": -1, "FatigueDelta": 18, "SuccessChanceDelta": -3, "NextNodeId": "supply-wreck" }
+                {
+                  "Weight": 60,
+                  "Text": "생존자를 확보하고 보급 좌표를 받았다.",
+                  "ResourceDelta": 1,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 10,
+                  "SuccessChanceDelta": 4,
+                  "NextNodeId": "supply-wreck"
+                },
+                {
+                  "Weight": 40,
+                  "Text": "수색이 길어져 인력과 물자를 소모했다.",
+                  "ResourceDelta": -2,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 18,
+                  "SuccessChanceDelta": -3,
+                  "NextNodeId": "supply-wreck"
+                }
               ]
             },
             {
@@ -305,7 +1589,15 @@
               "Text": "기지를 지키며 통신 안내만 제공한다",
               "Forecast": "확정 효과: 전원 피로 -4 · 작업 성공률 -2%p",
               "Outcomes": [
-                { "Weight": 100, "Text": "기지는 안전했지만 현장 사기는 가라앉았다.", "ResourceDelta": 0, "CrewIndex": -1, "FatigueDelta": -4, "SuccessChanceDelta": -2, "NextNodeId": "supply-wreck" }
+                {
+                  "Weight": 100,
+                  "Text": "기지는 안전했지만 현장 사기는 가라앉았다.",
+                  "ResourceDelta": 0,
+                  "CrewIndex": -1,
+                  "FatigueDelta": -4,
+                  "SuccessChanceDelta": -2,
+                  "NextNodeId": "supply-wreck"
+                }
               ]
             }
           ]
@@ -322,8 +1614,24 @@
               "Text": "지금 회수한다",
               "Forecast": "50% 자원 +5 / 50% 자원 +2·전원 피로 +12",
               "Outcomes": [
-                { "Weight": 50, "Text": "온전한 보급 컨테이너를 확보했다.", "ResourceDelta": 5, "CrewIndex": -1, "FatigueDelta": 4, "SuccessChanceDelta": 2, "NextNodeId": "" },
-                { "Weight": 50, "Text": "회수는 성공했지만 잔류 방사선 대응에 지쳤다.", "ResourceDelta": 2, "CrewIndex": -1, "FatigueDelta": 12, "SuccessChanceDelta": -2, "NextNodeId": "" }
+                {
+                  "Weight": 50,
+                  "Text": "온전한 보급 컨테이너를 확보했다.",
+                  "ResourceDelta": 5,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 4,
+                  "SuccessChanceDelta": 2,
+                  "NextNodeId": ""
+                },
+                {
+                  "Weight": 50,
+                  "Text": "회수는 성공했지만 잔류 방사선 대응에 지쳤다.",
+                  "ResourceDelta": 2,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 12,
+                  "SuccessChanceDelta": -2,
+                  "NextNodeId": ""
+                }
               ]
             },
             {
@@ -331,7 +1639,957 @@
               "Text": "좌표만 기록하고 철수한다",
               "Forecast": "확정 효과: 자원 +1 · 전원 피로 -6",
               "Outcomes": [
-                { "Weight": 100, "Text": "안전한 부품만 회수하고 사건을 마무리했다.", "ResourceDelta": 1, "CrewIndex": -1, "FatigueDelta": -6, "SuccessChanceDelta": 0, "NextNodeId": "" }
+                {
+                  "Weight": 100,
+                  "Text": "안전한 부품만 회수하고 사건을 마무리했다.",
+                  "ResourceDelta": 1,
+                  "CrewIndex": -1,
+                  "FatigueDelta": -6,
+                  "SuccessChanceDelta": 0,
+                  "NextNodeId": ""
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "Id": "dust-front-chain",
+      "StartDay": 18,
+      "FirstNodeId": "dust-forecast",
+      "Nodes": [
+        {
+          "Id": "dust-forecast",
+          "From": "환경 관측실",
+          "Subject": "분진 전선 접근",
+          "Body": "고농도 분진 구름이 접근 중입니다. 외부 작업을 줄이고 밀폐부를 먼저 확인하면 비용이 들지만 위험을 낮출 수 있습니다.",
+          "Risk": 2,
+          "Choices": [
+            {
+              "Id": "seal-early",
+              "Text": "외부 작업을 줄이고 밀폐부를 선점검한다",
+              "Forecast": "확정 비용: 자원 -1 · 전원 피로 -3 · 작업 성공률 +3%p",
+              "Outcomes": [
+                {
+                  "Weight": 100,
+                  "Text": "밀폐부 점검이 끝나 분진 접근에 대비했다.",
+                  "ResourceDelta": -1,
+                  "CrewIndex": -1,
+                  "FatigueDelta": -3,
+                  "SuccessChanceDelta": 3,
+                  "NextNodeId": "seal-breach"
+                }
+              ]
+            },
+            {
+              "Id": "hold-output",
+              "Text": "현재 작업을 유지하고 직전에 대응한다",
+              "Forecast": "70% 무사 통과 / 30% 설비 부담 증가",
+              "Outcomes": [
+                {
+                  "Weight": 70,
+                  "Text": "분진이 예상 범위 안에서 지나가 작업을 유지했다.",
+                  "ResourceDelta": 0,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 3,
+                  "SuccessChanceDelta": 1,
+                  "NextNodeId": "seal-breach"
+                },
+                {
+                  "Weight": 30,
+                  "Text": "분진 영향이 커져 외벽 설비 대응 부담이 늘었다.",
+                  "ResourceDelta": -1,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 10,
+                  "SuccessChanceDelta": -3,
+                  "NextNodeId": "seal-breach"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "Id": "seal-breach",
+          "From": "기지 유지보수실",
+          "Subject": "외벽 밀폐부 손상",
+          "Body": "분진이 일부 접속부를 통과했습니다. 부품을 즉시 교체하거나 현장 보강으로 버틸 수 있습니다.",
+          "Risk": 2,
+          "Choices": [
+            {
+              "Id": "replace-seal",
+              "Text": "예비 부품으로 손상 부위를 교체한다",
+              "Forecast": "확정 비용: 자원 -2 · 전원 피로 -2 · 작업 성공률 +3%p",
+              "Outcomes": [
+                {
+                  "Weight": 100,
+                  "Text": "손상 부품을 교체해 접속부를 안정화했다.",
+                  "ResourceDelta": -2,
+                  "CrewIndex": -1,
+                  "FatigueDelta": -2,
+                  "SuccessChanceDelta": 3,
+                  "NextNodeId": "dust-cleanup"
+                }
+              ]
+            },
+            {
+              "Id": "field-patch",
+              "Text": "현장 보강으로 임시 대응한다",
+              "Forecast": "60% 보강 성공 / 40% 추가 손상",
+              "Outcomes": [
+                {
+                  "Weight": 60,
+                  "Text": "현장 보강이 성공해 교체 없이 버텼다.",
+                  "ResourceDelta": 0,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 7,
+                  "SuccessChanceDelta": 1,
+                  "NextNodeId": "dust-cleanup"
+                },
+                {
+                  "Weight": 40,
+                  "Text": "임시 보강이 늦어져 추가 부품을 소모했다.",
+                  "ResourceDelta": -2,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 13,
+                  "SuccessChanceDelta": -3,
+                  "NextNodeId": "dust-cleanup"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "Id": "dust-cleanup",
+          "From": "환경 관측실",
+          "Subject": "분진 통과 후 정리",
+          "Body": "분진 전선이 지나갔습니다. 외부에 남은 장비와 자재를 회수할 수 있지만 추가 작업 부담이 생깁니다.",
+          "Risk": 1,
+          "Choices": [
+            {
+              "Id": "recover-external",
+              "Text": "외부 자재까지 회수한다",
+              "Forecast": "50% 자원 +3 / 50% 자원 +1·전원 피로 +10",
+              "Outcomes": [
+                {
+                  "Weight": 50,
+                  "Text": "외부 자재를 온전하게 회수했다.",
+                  "ResourceDelta": 3,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 5,
+                  "SuccessChanceDelta": 1,
+                  "NextNodeId": ""
+                },
+                {
+                  "Weight": 50,
+                  "Text": "일부 자재만 회수하고 정리 작업이 길어졌다.",
+                  "ResourceDelta": 1,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 10,
+                  "SuccessChanceDelta": -1,
+                  "NextNodeId": ""
+                }
+              ]
+            },
+            {
+              "Id": "close-hatches",
+              "Text": "기지 내부 정리만 하고 종료한다",
+              "Forecast": "확정 효과: 전원 피로 -5",
+              "Outcomes": [
+                {
+                  "Weight": 100,
+                  "Text": "외부 회수를 포기하고 기지 정리에 집중했다.",
+                  "ResourceDelta": 0,
+                  "CrewIndex": -1,
+                  "FatigueDelta": -5,
+                  "SuccessChanceDelta": 0,
+                  "NextNodeId": ""
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "Id": "coolant-leak-chain",
+      "StartDay": 27,
+      "FirstNodeId": "coolant-alarm",
+      "Nodes": [
+        {
+          "Id": "coolant-alarm",
+          "From": "기지 유지보수실",
+          "Subject": "냉각 계통 누수 경보",
+          "Body": "냉각 배관의 압력 저하가 확인되었습니다. 예비 배관으로 우회하거나 운용을 유지한 채 누수 지점을 직접 찾을 수 있습니다.",
+          "Risk": 2,
+          "Choices": [
+            {
+              "Id": "route-backup",
+              "Text": "예비 배관으로 즉시 우회한다",
+              "Forecast": "확정 비용: 자원 -1 · 전원 피로 -2 · 작업 성공률 +2%p",
+              "Outcomes": [
+                {
+                  "Weight": 100,
+                  "Text": "예비 배관 전환이 완료되어 누수 구간을 분리했다.",
+                  "ResourceDelta": -1,
+                  "CrewIndex": -1,
+                  "FatigueDelta": -2,
+                  "SuccessChanceDelta": 2,
+                  "NextNodeId": "coolant-isolation"
+                }
+              ]
+            },
+            {
+              "Id": "trace-live",
+              "Text": "운용을 유지하며 누수 지점을 찾는다",
+              "Forecast": "70% 빠른 확인 / 30% 누수 확대",
+              "Outcomes": [
+                {
+                  "Weight": 70,
+                  "Text": "운용 중 점검으로 누수 지점을 빠르게 찾았다.",
+                  "ResourceDelta": 0,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 4,
+                  "SuccessChanceDelta": 2,
+                  "NextNodeId": "coolant-isolation"
+                },
+                {
+                  "Weight": 30,
+                  "Text": "누수 범위가 넓어져 추가 부품이 필요해졌다.",
+                  "ResourceDelta": -2,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 11,
+                  "SuccessChanceDelta": -3,
+                  "NextNodeId": "coolant-isolation"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "Id": "coolant-isolation",
+          "From": "설비 지원실",
+          "Subject": "냉각 구역 격리",
+          "Body": "누수 지점이 좁혀졌습니다. 교체 부품을 사용하거나 대원을 투입해 임시 차단할 수 있습니다.",
+          "Risk": 2,
+          "Choices": [
+            {
+              "Id": "swap-module",
+              "Text": "교체 모듈로 손상 구역을 격리한다",
+              "Forecast": "확정 비용: 자원 -2 · 전원 피로 -2 · 작업 성공률 +4%p",
+              "Outcomes": [
+                {
+                  "Weight": 100,
+                  "Text": "교체 모듈로 손상 구역을 안정적으로 격리했다.",
+                  "ResourceDelta": -2,
+                  "CrewIndex": -1,
+                  "FatigueDelta": -2,
+                  "SuccessChanceDelta": 4,
+                  "NextNodeId": "coolant-recovery"
+                }
+              ]
+            },
+            {
+              "Id": "manual-clamp",
+              "Text": "현장 차단 작업을 실시한다",
+              "Forecast": "60% 차단 성공 / 40% 추가 작업",
+              "Outcomes": [
+                {
+                  "Weight": 60,
+                  "Text": "현장 차단이 성공해 추가 부품 사용을 피했다.",
+                  "ResourceDelta": 0,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 7,
+                  "SuccessChanceDelta": 1,
+                  "NextNodeId": "coolant-recovery"
+                },
+                {
+                  "Weight": 40,
+                  "Text": "차단 작업이 길어져 대원 부담이 커졌다.",
+                  "ResourceDelta": -1,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 14,
+                  "SuccessChanceDelta": -3,
+                  "NextNodeId": "coolant-recovery"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "Id": "coolant-recovery",
+          "From": "기지 유지보수실",
+          "Subject": "냉각 계통 복구",
+          "Body": "주요 냉각 기능이 복구되었습니다. 손상 부품 일부를 재사용 대상으로 분류할 수 있습니다.",
+          "Risk": 1,
+          "Choices": [
+            {
+              "Id": "sort-parts",
+              "Text": "손상 부품을 선별해 회수한다",
+              "Forecast": "50% 자원 +3 / 50% 자원 +1·전원 피로 +8",
+              "Outcomes": [
+                {
+                  "Weight": 50,
+                  "Text": "재사용 가능한 부품을 충분히 확보했다.",
+                  "ResourceDelta": 3,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 4,
+                  "SuccessChanceDelta": 1,
+                  "NextNodeId": ""
+                },
+                {
+                  "Weight": 50,
+                  "Text": "소량의 부품만 확보하고 분류 작업이 길어졌다.",
+                  "ResourceDelta": 1,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 8,
+                  "SuccessChanceDelta": -1,
+                  "NextNodeId": ""
+                }
+              ]
+            },
+            {
+              "Id": "discard-parts",
+              "Text": "손상 부품을 폐기하고 작업을 끝낸다",
+              "Forecast": "확정 효과: 전원 피로 -4",
+              "Outcomes": [
+                {
+                  "Weight": 100,
+                  "Text": "손상 부품을 폐기하고 냉각 계통을 정상 운용 상태로 돌렸다.",
+                  "ResourceDelta": 0,
+                  "CrewIndex": -1,
+                  "FatigueDelta": -4,
+                  "SuccessChanceDelta": 0,
+                  "NextNodeId": ""
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "Id": "supply-pod-chain",
+      "StartDay": 36,
+      "FirstNodeId": "pod-signal",
+      "Nodes": [
+        {
+          "Id": "pod-signal",
+          "From": "외곽 센서 관제",
+          "Subject": "미확인 보급 포드 신호",
+          "Body": "정규 보급 일정에 없는 포드 신호가 탐지되었습니다. 원격 확인을 먼저 하거나 즉시 현장에 접근할 수 있습니다.",
+          "Risk": 1,
+          "Choices": [
+            {
+              "Id": "scan-pod",
+              "Text": "원격 확인을 먼저 실시한다",
+              "Forecast": "확정 비용: 전원 피로 +2 · 작업 성공률 +2%p",
+              "Outcomes": [
+                {
+                  "Weight": 100,
+                  "Text": "원격 확인으로 포드 위치와 접근 지점을 정리했다.",
+                  "ResourceDelta": 0,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 2,
+                  "SuccessChanceDelta": 2,
+                  "NextNodeId": "pod-approach"
+                }
+              ]
+            },
+            {
+              "Id": "approach-now",
+              "Text": "즉시 회수팀을 보낸다",
+              "Forecast": "70% 빠른 접근 / 30% 경로 문제",
+              "Outcomes": [
+                {
+                  "Weight": 70,
+                  "Text": "회수팀이 빠르게 포드 근처에 도착했다.",
+                  "ResourceDelta": 0,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 5,
+                  "SuccessChanceDelta": 1,
+                  "NextNodeId": "pod-approach"
+                },
+                {
+                  "Weight": 30,
+                  "Text": "예상하지 못한 지형 문제로 접근 시간이 늘었다.",
+                  "ResourceDelta": -1,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 11,
+                  "SuccessChanceDelta": -2,
+                  "NextNodeId": "pod-approach"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "Id": "pod-approach",
+          "From": "현장 탐사팀",
+          "Subject": "포드 접근 경로 붕괴",
+          "Body": "포드 접근 경로 일부가 무너졌습니다. 우회 경로를 확보하거나 짧은 직선 구간을 강행할 수 있습니다.",
+          "Risk": 2,
+          "Choices": [
+            {
+              "Id": "secure-detour",
+              "Text": "우회 경로를 확보한다",
+              "Forecast": "확정 비용: 자원 -1 · 전원 피로 +3",
+              "Outcomes": [
+                {
+                  "Weight": 100,
+                  "Text": "우회 경로를 확보해 포드 접근을 이어갔다.",
+                  "ResourceDelta": -1,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 3,
+                  "SuccessChanceDelta": 1,
+                  "NextNodeId": "pod-cargo"
+                }
+              ]
+            },
+            {
+              "Id": "cross-direct",
+              "Text": "직선 접근을 시도한다",
+              "Forecast": "60% 단축 성공 / 40% 추가 소모",
+              "Outcomes": [
+                {
+                  "Weight": 60,
+                  "Text": "직선 구간을 통과해 회수 시간을 줄였다.",
+                  "ResourceDelta": 0,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 7,
+                  "SuccessChanceDelta": 2,
+                  "NextNodeId": "pod-cargo"
+                },
+                {
+                  "Weight": 40,
+                  "Text": "접근 중 장비가 손상되어 자원을 소모했다.",
+                  "ResourceDelta": -2,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 13,
+                  "SuccessChanceDelta": -2,
+                  "NextNodeId": "pod-cargo"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "Id": "pod-cargo",
+          "From": "보급 통제실",
+          "Subject": "포드 화물 확인",
+          "Body": "포드를 확보했습니다. 정상 봉인 화물만 가져오거나 손상된 컨테이너까지 추가 확인할 수 있습니다.",
+          "Risk": 1,
+          "Choices": [
+            {
+              "Id": "open-damaged",
+              "Text": "손상 컨테이너까지 확인한다",
+              "Forecast": "50% 자원 +5 / 50% 자원 +2·전원 피로 +12",
+              "Outcomes": [
+                {
+                  "Weight": 50,
+                  "Text": "손상 컨테이너 안에서 추가 보급품을 확보했다.",
+                  "ResourceDelta": 5,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 6,
+                  "SuccessChanceDelta": 1,
+                  "NextNodeId": ""
+                },
+                {
+                  "Weight": 50,
+                  "Text": "추가 화물은 적었고 확인 작업만 길어졌다.",
+                  "ResourceDelta": 2,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 12,
+                  "SuccessChanceDelta": -1,
+                  "NextNodeId": ""
+                }
+              ]
+            },
+            {
+              "Id": "sealed-only",
+              "Text": "정상 봉인 화물만 회수한다",
+              "Forecast": "확정 효과: 자원 +2 · 전원 피로 -3",
+              "Outcomes": [
+                {
+                  "Weight": 100,
+                  "Text": "정상 봉인 화물만 회수하고 현장에서 철수했다.",
+                  "ResourceDelta": 2,
+                  "CrewIndex": -1,
+                  "FatigueDelta": -3,
+                  "SuccessChanceDelta": 0,
+                  "NextNodeId": ""
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "Id": "comms-blackout-chain",
+      "StartDay": 46,
+      "FirstNodeId": "blackout-detected",
+      "Nodes": [
+        {
+          "Id": "blackout-detected",
+          "From": "통신 관제",
+          "Subject": "장거리 통신 두절",
+          "Body": "본부와의 장거리 통신이 끊겼습니다. 내부 채널을 안정화하거나 외부 송신기를 바로 재기동할 수 있습니다.",
+          "Risk": 2,
+          "Choices": [
+            {
+              "Id": "stabilize-local",
+              "Text": "기지 내부 채널부터 안정화한다",
+              "Forecast": "확정 효과: 전원 피로 -2 · 작업 성공률 +2%p",
+              "Outcomes": [
+                {
+                  "Weight": 100,
+                  "Text": "내부 통신 채널을 정리해 운영 혼선을 줄였다.",
+                  "ResourceDelta": 0,
+                  "CrewIndex": -1,
+                  "FatigueDelta": -2,
+                  "SuccessChanceDelta": 2,
+                  "NextNodeId": "blind-window"
+                }
+              ]
+            },
+            {
+              "Id": "restart-transmitter",
+              "Text": "외부 송신기를 즉시 재기동한다",
+              "Forecast": "70% 복구 진전 / 30% 장비 과부하",
+              "Outcomes": [
+                {
+                  "Weight": 70,
+                  "Text": "송신기 재기동이 성공해 외부 신호를 일부 복구했다.",
+                  "ResourceDelta": 0,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 5,
+                  "SuccessChanceDelta": 2,
+                  "NextNodeId": "blind-window"
+                },
+                {
+                  "Weight": 30,
+                  "Text": "송신기 재기동 중 장비 부담이 커졌다.",
+                  "ResourceDelta": -1,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 11,
+                  "SuccessChanceDelta": -3,
+                  "NextNodeId": "blind-window"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "Id": "blind-window",
+          "From": "개척 운영 본부",
+          "Subject": "외부 지시 없는 운영 구간",
+          "Body": "외부 지시를 받을 수 없는 시간이 길어지고 있습니다. 작업 우선순위를 내부 기준으로 재편하거나 중계기 점검을 강행할 수 있습니다.",
+          "Risk": 1,
+          "Choices": [
+            {
+              "Id": "replan-internal",
+              "Text": "내부 기준으로 작업 우선순위를 재정리한다",
+              "Forecast": "확정 비용: 전원 피로 +3 · 작업 성공률 +2%p",
+              "Outcomes": [
+                {
+                  "Weight": 100,
+                  "Text": "외부 지시 없이도 작업 우선순위를 다시 정리했다.",
+                  "ResourceDelta": 0,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 3,
+                  "SuccessChanceDelta": 2,
+                  "NextNodeId": "relay-restored"
+                }
+              ]
+            },
+            {
+              "Id": "send-relay-team",
+              "Text": "외곽 중계기 점검팀을 보낸다",
+              "Forecast": "60% 조기 복구 / 40% 추가 소모",
+              "Outcomes": [
+                {
+                  "Weight": 60,
+                  "Text": "외곽 중계기 점검으로 복구 시간이 줄었다.",
+                  "ResourceDelta": 1,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 7,
+                  "SuccessChanceDelta": 2,
+                  "NextNodeId": "relay-restored"
+                },
+                {
+                  "Weight": 40,
+                  "Text": "점검팀이 추가 부품을 사용하고 늦게 복귀했다.",
+                  "ResourceDelta": -2,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 14,
+                  "SuccessChanceDelta": -2,
+                  "NextNodeId": "relay-restored"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "Id": "relay-restored",
+          "From": "통신 관제",
+          "Subject": "통신 복구 후 시험",
+          "Body": "장거리 링크가 다시 접속되었습니다. 송신 출력을 높여 추가 시험을 하거나 안정 설정을 유지할 수 있습니다.",
+          "Risk": 1,
+          "Choices": [
+            {
+              "Id": "stress-test-link",
+              "Text": "복구 링크를 추가 시험한다",
+              "Forecast": "50% 자원 +2 / 50% 전원 피로 +10·작업 성공률 -2%p",
+              "Outcomes": [
+                {
+                  "Weight": 50,
+                  "Text": "추가 시험에서 예비 통신 장비를 확보했다.",
+                  "ResourceDelta": 2,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 5,
+                  "SuccessChanceDelta": 1,
+                  "NextNodeId": ""
+                },
+                {
+                  "Weight": 50,
+                  "Text": "추가 시험 중 장비 설정이 불안정해 작업 부담이 늘었다.",
+                  "ResourceDelta": 0,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 10,
+                  "SuccessChanceDelta": -2,
+                  "NextNodeId": ""
+                }
+              ]
+            },
+            {
+              "Id": "keep-stable",
+              "Text": "현재 안정 설정을 유지한다",
+              "Forecast": "확정 효과: 전원 피로 -4",
+              "Outcomes": [
+                {
+                  "Weight": 100,
+                  "Text": "현재 설정을 유지하고 통신 사건을 종료했다.",
+                  "ResourceDelta": 0,
+                  "CrewIndex": -1,
+                  "FatigueDelta": -4,
+                  "SuccessChanceDelta": 0,
+                  "NextNodeId": ""
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "Id": "biofilter-alert-chain",
+      "StartDay": 57,
+      "FirstNodeId": "filter-alert",
+      "Nodes": [
+        {
+          "Id": "filter-alert",
+          "From": "생명유지 관제실",
+          "Subject": "필터 경보 발생",
+          "Body": "생명유지 필터의 압력 기록이 정상 구간을 벗어났습니다. 설비 부하를 낮추고 진단하거나 운용을 유지하며 원인을 찾을 수 있습니다.",
+          "Risk": 2,
+          "Choices": [
+            {
+              "Id": "reduce-load",
+              "Text": "설비 부하를 낮추고 진단한다",
+              "Forecast": "확정 비용: 전원 피로 -2 · 작업 성공률 +3%p",
+              "Outcomes": [
+                {
+                  "Weight": 100,
+                  "Text": "설비 부하를 낮추고 필터 상태를 안정적으로 확인했다.",
+                  "ResourceDelta": 0,
+                  "CrewIndex": -1,
+                  "FatigueDelta": -2,
+                  "SuccessChanceDelta": 3,
+                  "NextNodeId": "contamination-check"
+                }
+              ]
+            },
+            {
+              "Id": "keep-running",
+              "Text": "운용을 유지하며 원인을 추적한다",
+              "Forecast": "70% 빠른 확인 / 30% 필터 부담 증가",
+              "Outcomes": [
+                {
+                  "Weight": 70,
+                  "Text": "운용을 유지하면서 원인을 빠르게 좁혔다.",
+                  "ResourceDelta": 0,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 4,
+                  "SuccessChanceDelta": 2,
+                  "NextNodeId": "contamination-check"
+                },
+                {
+                  "Weight": 30,
+                  "Text": "필터 부담이 커져 추가 교체 부품이 필요해졌다.",
+                  "ResourceDelta": -1,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 11,
+                  "SuccessChanceDelta": -3,
+                  "NextNodeId": "contamination-check"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "Id": "contamination-check",
+          "From": "의료 지원실",
+          "Subject": "필터 부산물 검출",
+          "Body": "필터에서 예상보다 많은 부산물이 발견되었습니다. 모듈을 교체하거나 세척 후 재사용할 수 있습니다.",
+          "Risk": 2,
+          "Choices": [
+            {
+              "Id": "replace-filter",
+              "Text": "예비 필터 모듈로 교체한다",
+              "Forecast": "확정 비용: 자원 -2 · 전원 피로 -2 · 작업 성공률 +3%p",
+              "Outcomes": [
+                {
+                  "Weight": 100,
+                  "Text": "예비 필터 교체로 계통 상태를 정상화했다.",
+                  "ResourceDelta": -2,
+                  "CrewIndex": -1,
+                  "FatigueDelta": -2,
+                  "SuccessChanceDelta": 3,
+                  "NextNodeId": "recovery-cycle"
+                }
+              ]
+            },
+            {
+              "Id": "clean-reuse",
+              "Text": "필터를 세척해 재사용한다",
+              "Forecast": "60% 재사용 성공 / 40% 추가 소모",
+              "Outcomes": [
+                {
+                  "Weight": 60,
+                  "Text": "세척한 필터를 재사용해 부품 소모를 줄였다.",
+                  "ResourceDelta": 0,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 7,
+                  "SuccessChanceDelta": 1,
+                  "NextNodeId": "recovery-cycle"
+                },
+                {
+                  "Weight": 40,
+                  "Text": "재사용 준비가 실패해 추가 자원을 소모했다.",
+                  "ResourceDelta": -2,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 13,
+                  "SuccessChanceDelta": -2,
+                  "NextNodeId": "recovery-cycle"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "Id": "recovery-cycle",
+          "From": "생명유지 관제실",
+          "Subject": "필터 계통 복구",
+          "Body": "필터 계통이 정상 운용 상태로 돌아왔습니다. 사용 가능한 소재를 선별하거나 전량 폐기할 수 있습니다.",
+          "Risk": 1,
+          "Choices": [
+            {
+              "Id": "salvage-media",
+              "Text": "사용 가능한 소재를 선별한다",
+              "Forecast": "50% 자원 +3 / 50% 자원 +1·전원 피로 +8",
+              "Outcomes": [
+                {
+                  "Weight": 50,
+                  "Text": "재사용 가능한 소재를 충분히 확보했다.",
+                  "ResourceDelta": 3,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 4,
+                  "SuccessChanceDelta": 1,
+                  "NextNodeId": ""
+                },
+                {
+                  "Weight": 50,
+                  "Text": "소량만 회수하고 분류 작업이 길어졌다.",
+                  "ResourceDelta": 1,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 8,
+                  "SuccessChanceDelta": -1,
+                  "NextNodeId": ""
+                }
+              ]
+            },
+            {
+              "Id": "discard-media",
+              "Text": "남은 소재를 전량 폐기한다",
+              "Forecast": "확정 효과: 전원 피로 -4",
+              "Outcomes": [
+                {
+                  "Weight": 100,
+                  "Text": "남은 소재를 폐기하고 설비 점검을 종료했다.",
+                  "ResourceDelta": 0,
+                  "CrewIndex": -1,
+                  "FatigueDelta": -4,
+                  "SuccessChanceDelta": 0,
+                  "NextNodeId": ""
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "Id": "rover-distress-chain",
+      "StartDay": 69,
+      "FirstNodeId": "rover-distress",
+      "Nodes": [
+        {
+          "Id": "rover-distress",
+          "From": "외곽 탐사팀",
+          "Subject": "탐사 차량 구조 요청",
+          "Body": "외곽 탐사 차량이 이동 불가 상태로 구조 요청을 보냈습니다. 위치를 다시 확인한 뒤 출발하거나 즉시 구조팀을 보낼 수 있습니다.",
+          "Risk": 2,
+          "Choices": [
+            {
+              "Id": "confirm-route",
+              "Text": "위치와 경로를 재확인한 뒤 출발한다",
+              "Forecast": "확정 비용: 전원 피로 +2 · 작업 성공률 +2%p",
+              "Outcomes": [
+                {
+                  "Weight": 100,
+                  "Text": "구조 경로를 확인해 안전한 접근 지점을 확보했다.",
+                  "ResourceDelta": 0,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 2,
+                  "SuccessChanceDelta": 2,
+                  "NextNodeId": "ravine-route"
+                }
+              ]
+            },
+            {
+              "Id": "rescue-now",
+              "Text": "즉시 구조팀을 보낸다",
+              "Forecast": "70% 빠른 접근 / 30% 경로 지연",
+              "Outcomes": [
+                {
+                  "Weight": 70,
+                  "Text": "구조팀이 빠르게 탐사 차량 근처에 도착했다.",
+                  "ResourceDelta": 0,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 6,
+                  "SuccessChanceDelta": 1,
+                  "NextNodeId": "ravine-route"
+                },
+                {
+                  "Weight": 30,
+                  "Text": "경로 확인 부족으로 접근 시간이 늘었다.",
+                  "ResourceDelta": -1,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 12,
+                  "SuccessChanceDelta": -2,
+                  "NextNodeId": "ravine-route"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "Id": "ravine-route",
+          "From": "현장 구조팀",
+          "Subject": "협곡 경로 차단",
+          "Body": "구조 지점 앞 협곡 구간이 막혔습니다. 우회 경로를 확보하거나 짧은 위험 구간을 통과할 수 있습니다.",
+          "Risk": 2,
+          "Choices": [
+            {
+              "Id": "take-detour",
+              "Text": "우회 경로를 확보한다",
+              "Forecast": "확정 비용: 자원 -1 · 전원 피로 +3",
+              "Outcomes": [
+                {
+                  "Weight": 100,
+                  "Text": "우회 경로를 확보해 구조 지점으로 이동했다.",
+                  "ResourceDelta": -1,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 3,
+                  "SuccessChanceDelta": 1,
+                  "NextNodeId": "rover-recovery"
+                }
+              ]
+            },
+            {
+              "Id": "cross-ravine",
+              "Text": "짧은 위험 구간을 통과한다",
+              "Forecast": "60% 단축 성공 / 40% 추가 소모",
+              "Outcomes": [
+                {
+                  "Weight": 60,
+                  "Text": "위험 구간을 통과해 구조 시간을 줄였다.",
+                  "ResourceDelta": 0,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 8,
+                  "SuccessChanceDelta": 2,
+                  "NextNodeId": "rover-recovery"
+                },
+                {
+                  "Weight": 40,
+                  "Text": "접근 장비가 손상되어 추가 자원을 소모했다.",
+                  "ResourceDelta": -2,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 14,
+                  "SuccessChanceDelta": -2,
+                  "NextNodeId": "rover-recovery"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "Id": "rover-recovery",
+          "From": "보급 통제실",
+          "Subject": "탐사 차량 회수",
+          "Body": "대원은 안전 구역에 도착했습니다. 남은 차량 부품까지 회수하거나 인원만 철수할 수 있습니다.",
+          "Risk": 1,
+          "Choices": [
+            {
+              "Id": "recover-rover",
+              "Text": "차량 부품까지 회수한다",
+              "Forecast": "50% 자원 +4 / 50% 자원 +1·전원 피로 +12",
+              "Outcomes": [
+                {
+                  "Weight": 50,
+                  "Text": "탐사 차량의 주요 부품을 함께 회수했다.",
+                  "ResourceDelta": 4,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 6,
+                  "SuccessChanceDelta": 1,
+                  "NextNodeId": ""
+                },
+                {
+                  "Weight": 50,
+                  "Text": "일부 부품만 회수하고 작업이 길어졌다.",
+                  "ResourceDelta": 1,
+                  "CrewIndex": -1,
+                  "FatigueDelta": 12,
+                  "SuccessChanceDelta": -1,
+                  "NextNodeId": ""
+                }
+              ]
+            },
+            {
+              "Id": "crew-only",
+              "Text": "대원만 철수하고 차량은 포기한다",
+              "Forecast": "확정 효과: 전원 피로 -4",
+              "Outcomes": [
+                {
+                  "Weight": 100,
+                  "Text": "대원만 안전하게 철수시키고 차량 회수를 포기했다.",
+                  "ResourceDelta": 0,
+                  "CrewIndex": -1,
+                  "FatigueDelta": -4,
+                  "SuccessChanceDelta": 0,
+                  "NextNodeId": ""
+                }
               ]
             }
           ]
@@ -347,9 +2605,19 @@
       "Subject": "착륙 지점 조사 우선 요청",
       "Body": "후속 설비 작업을 위해 조사 일정을 앞당겨 주십시오.",
       "Instruction": "정착 기반의 마감이 하루 앞당겨지고 중요도가 상승합니다.",
+      "TargetTaskId": "",
       "TargetWorkId": "foundation",
       "DeadlineDelta": -1,
-      "Risk": 1
+      "ResourceDelta": 0,
+      "Risk": 1,
+      "Read": false,
+      "Resolved": false,
+      "ActivatesWork": false,
+      "IsCritical": false,
+      "CriticalEventId": "",
+      "CriticalNodeId": "",
+      "IsMedicalReport": false,
+      "MedicalResults": []
     },
     {
       "Id": "mail-2",
@@ -358,8 +2626,19 @@
       "Subject": "추가 보급 승인",
       "Body": "초기 운영 보고가 승인되었습니다.",
       "Instruction": "자원 2를 수령합니다.",
+      "TargetTaskId": "",
+      "TargetWorkId": "",
+      "DeadlineDelta": 0,
       "ResourceDelta": 2,
-      "Risk": 0
+      "Risk": 0,
+      "Read": false,
+      "Resolved": false,
+      "ActivatesWork": false,
+      "IsCritical": false,
+      "CriticalEventId": "",
+      "CriticalNodeId": "",
+      "IsMedicalReport": false,
+      "MedicalResults": []
     },
     {
       "Id": "mail-3",
@@ -368,9 +2647,376 @@
       "Subject": "발전 설비 안전 검토",
       "Body": "일정 압박으로 사고 위험이 증가했습니다.",
       "Instruction": "정착 기반 마감이 하루 앞당겨집니다.",
+      "TargetTaskId": "",
       "TargetWorkId": "foundation",
       "DeadlineDelta": -1,
-      "Risk": 2
+      "ResourceDelta": 0,
+      "Risk": 2,
+      "Read": false,
+      "Resolved": false,
+      "ActivatesWork": false,
+      "IsCritical": false,
+      "CriticalEventId": "",
+      "CriticalNodeId": "",
+      "IsMedicalReport": false,
+      "MedicalResults": []
+    },
+    {
+      "Id": "mail-4",
+      "ArrivalDay": 6,
+      "From": "생명유지 관제실",
+      "Subject": "수질 기준 재검 요청",
+      "Body": "식수 순환 계통을 한 차례 더 점검해 주십시오.",
+      "Instruction": "식수 순환망 보정의 마감이 하루 앞당겨집니다.",
+      "TargetTaskId": "",
+      "TargetWorkId": "water-loop",
+      "DeadlineDelta": -1,
+      "ResourceDelta": 0,
+      "Risk": 1,
+      "Read": false,
+      "Resolved": false,
+      "ActivatesWork": false,
+      "IsCritical": false,
+      "CriticalEventId": "",
+      "CriticalNodeId": "",
+      "IsMedicalReport": false,
+      "MedicalResults": []
+    },
+    {
+      "Id": "mail-5",
+      "ArrivalDay": 9,
+      "From": "통신 관제",
+      "Subject": "장거리 링크 잡음 보고",
+      "Body": "통신 배열 정비 시 링크 보정을 우선해 주십시오.",
+      "Instruction": "장거리 통신 배열 정비의 마감이 하루 앞당겨집니다.",
+      "TargetTaskId": "",
+      "TargetWorkId": "comms-array",
+      "DeadlineDelta": -1,
+      "ResourceDelta": 0,
+      "Risk": 1,
+      "Read": false,
+      "Resolved": false,
+      "ActivatesWork": false,
+      "IsCritical": false,
+      "CriticalEventId": "",
+      "CriticalNodeId": "",
+      "IsMedicalReport": false,
+      "MedicalResults": []
+    },
+    {
+      "Id": "mail-6",
+      "ArrivalDay": 13,
+      "From": "설비 지원실",
+      "Subject": "냉각 부품 우선 배정",
+      "Body": "확보된 부품을 현장 비축에 반영합니다.",
+      "Instruction": "자원 1을 수령합니다.",
+      "TargetTaskId": "",
+      "TargetWorkId": "",
+      "DeadlineDelta": 0,
+      "ResourceDelta": 1,
+      "Risk": 0,
+      "Read": false,
+      "Resolved": false,
+      "ActivatesWork": false,
+      "IsCritical": false,
+      "CriticalEventId": "",
+      "CriticalNodeId": "",
+      "IsMedicalReport": false,
+      "MedicalResults": []
+    },
+    {
+      "Id": "mail-7",
+      "ArrivalDay": 18,
+      "From": "생산 지원실",
+      "Subject": "배양 샘플 추가 확보",
+      "Body": "식량 라인 검증에 활용할 수 있습니다.",
+      "Instruction": "자원 1을 수령합니다.",
+      "TargetTaskId": "",
+      "TargetWorkId": "",
+      "DeadlineDelta": 0,
+      "ResourceDelta": 1,
+      "Risk": 0,
+      "Read": false,
+      "Resolved": false,
+      "ActivatesWork": false,
+      "IsCritical": false,
+      "CriticalEventId": "",
+      "CriticalNodeId": "",
+      "IsMedicalReport": false,
+      "MedicalResults": []
+    },
+    {
+      "Id": "mail-8",
+      "ArrivalDay": 22,
+      "From": "외벽 안전팀",
+      "Subject": "분진 마모 경보",
+      "Body": "분진 차폐 보강 일정을 앞당겨 주십시오.",
+      "Instruction": "분진 차폐 체계 강화의 마감이 하루 앞당겨집니다.",
+      "TargetTaskId": "",
+      "TargetWorkId": "dust-shielding",
+      "DeadlineDelta": -1,
+      "ResourceDelta": 0,
+      "Risk": 2,
+      "Read": false,
+      "Resolved": false,
+      "ActivatesWork": false,
+      "IsCritical": false,
+      "CriticalEventId": "",
+      "CriticalNodeId": "",
+      "IsMedicalReport": false,
+      "MedicalResults": []
+    },
+    {
+      "Id": "mail-9",
+      "ArrivalDay": 27,
+      "From": "보급 통제실",
+      "Subject": "재고 표기 정합성 요청",
+      "Body": "비축 자원 창고 재편 시 재고 감사를 포함해 주십시오.",
+      "Instruction": "직접 자원 변화는 없습니다.",
+      "TargetTaskId": "",
+      "TargetWorkId": "storage-reorg",
+      "DeadlineDelta": 0,
+      "ResourceDelta": 0,
+      "Risk": 0,
+      "Read": false,
+      "Resolved": false,
+      "ActivatesWork": false,
+      "IsCritical": false,
+      "CriticalEventId": "",
+      "CriticalNodeId": "",
+      "IsMedicalReport": false,
+      "MedicalResults": []
+    },
+    {
+      "Id": "mail-10",
+      "ArrivalDay": 31,
+      "From": "의료 지원국",
+      "Subject": "의료 비축품 선납",
+      "Body": "의료실 확장 전에 비축품을 확보할 수 있습니다.",
+      "Instruction": "자원 1을 지출합니다.",
+      "TargetTaskId": "",
+      "TargetWorkId": "",
+      "DeadlineDelta": 0,
+      "ResourceDelta": -1,
+      "Risk": 1,
+      "Read": false,
+      "Resolved": false,
+      "ActivatesWork": false,
+      "IsCritical": false,
+      "CriticalEventId": "",
+      "CriticalNodeId": "",
+      "IsMedicalReport": false,
+      "MedicalResults": []
+    },
+    {
+      "Id": "mail-11",
+      "ArrivalDay": 34,
+      "From": "통신 관제",
+      "Subject": "외곽 중계기 설치 허가",
+      "Body": "승인 기간을 활용해 설치 일정을 조정할 수 있습니다.",
+      "Instruction": "외곽 중계기 확보의 마감이 하루 늦춰집니다.",
+      "TargetTaskId": "",
+      "TargetWorkId": "relay-outpost",
+      "DeadlineDelta": 1,
+      "ResourceDelta": 0,
+      "Risk": 0,
+      "Read": false,
+      "Resolved": false,
+      "ActivatesWork": false,
+      "IsCritical": false,
+      "CriticalEventId": "",
+      "CriticalNodeId": "",
+      "IsMedicalReport": false,
+      "MedicalResults": []
+    },
+    {
+      "Id": "mail-12",
+      "ArrivalDay": 39,
+      "From": "탐사 통제",
+      "Subject": "적색 지대 접근 제한 갱신",
+      "Body": "정밀 탐사 일정을 앞당겨 주십시오.",
+      "Instruction": "적색 지대 정밀 탐사의 마감이 하루 앞당겨집니다.",
+      "TargetTaskId": "",
+      "TargetWorkId": "red-sector-survey",
+      "DeadlineDelta": -1,
+      "ResourceDelta": 0,
+      "Risk": 2,
+      "Read": false,
+      "Resolved": false,
+      "ActivatesWork": false,
+      "IsCritical": false,
+      "CriticalEventId": "",
+      "CriticalNodeId": "",
+      "IsMedicalReport": false,
+      "MedicalResults": []
+    },
+    {
+      "Id": "mail-13",
+      "ArrivalDay": 43,
+      "From": "전력 관리실",
+      "Subject": "예비 전력 검토 요청",
+      "Body": "비상 전력 예비계통을 계획보다 먼저 검토해 주십시오.",
+      "Instruction": "비상 전력 예비계통의 마감이 하루 앞당겨집니다.",
+      "TargetTaskId": "",
+      "TargetWorkId": "power-reserve",
+      "DeadlineDelta": -1,
+      "ResourceDelta": 0,
+      "Risk": 2,
+      "Read": false,
+      "Resolved": false,
+      "ActivatesWork": false,
+      "IsCritical": false,
+      "CriticalEventId": "",
+      "CriticalNodeId": "",
+      "IsMedicalReport": false,
+      "MedicalResults": []
+    },
+    {
+      "Id": "mail-14",
+      "ArrivalDay": 47,
+      "From": "인사 운영실",
+      "Subject": "교차 훈련 승인",
+      "Body": "훈련 계획에 사용할 지원분을 반영합니다.",
+      "Instruction": "자원 1을 수령합니다.",
+      "TargetTaskId": "",
+      "TargetWorkId": "",
+      "DeadlineDelta": 0,
+      "ResourceDelta": 1,
+      "Risk": 0,
+      "Read": false,
+      "Resolved": false,
+      "ActivatesWork": false,
+      "IsCritical": false,
+      "CriticalEventId": "",
+      "CriticalNodeId": "",
+      "IsMedicalReport": false,
+      "MedicalResults": []
+    },
+    {
+      "Id": "mail-15",
+      "ArrivalDay": 50,
+      "From": "생명유지 관제실",
+      "Subject": "필터 사용 한계 경고",
+      "Body": "필터 진단과 교체를 앞당겨 주십시오.",
+      "Instruction": "생명유지 필터 교체의 마감이 하루 앞당겨집니다.",
+      "TargetTaskId": "",
+      "TargetWorkId": "biofilter-service",
+      "DeadlineDelta": -1,
+      "ResourceDelta": 0,
+      "Risk": 2,
+      "Read": false,
+      "Resolved": false,
+      "ActivatesWork": false,
+      "IsCritical": false,
+      "CriticalEventId": "",
+      "CriticalNodeId": "",
+      "IsMedicalReport": false,
+      "MedicalResults": []
+    },
+    {
+      "Id": "mail-16",
+      "ArrivalDay": 54,
+      "From": "보급 통제실",
+      "Subject": "외곽 보급선 지연 통보",
+      "Body": "새 일정에 맞춰 보급 계획을 갱신해 주십시오.",
+      "Instruction": "보급 경로 재설계의 마감이 이틀 늦춰집니다.",
+      "TargetTaskId": "",
+      "TargetWorkId": "logistics-route",
+      "DeadlineDelta": 2,
+      "ResourceDelta": 0,
+      "Risk": 1,
+      "Read": false,
+      "Resolved": false,
+      "ActivatesWork": false,
+      "IsCritical": false,
+      "CriticalEventId": "",
+      "CriticalNodeId": "",
+      "IsMedicalReport": false,
+      "MedicalResults": []
+    },
+    {
+      "Id": "mail-17",
+      "ArrivalDay": 58,
+      "From": "통신 관제",
+      "Subject": "반복 신호 로그 확보",
+      "Body": "신호 분석에 참고할 수 있는 자료를 전달합니다.",
+      "Instruction": "자원 1을 수령합니다.",
+      "TargetTaskId": "",
+      "TargetWorkId": "",
+      "DeadlineDelta": 0,
+      "ResourceDelta": 1,
+      "Risk": 0,
+      "Read": false,
+      "Resolved": false,
+      "ActivatesWork": false,
+      "IsCritical": false,
+      "CriticalEventId": "",
+      "CriticalNodeId": "",
+      "IsMedicalReport": false,
+      "MedicalResults": []
+    },
+    {
+      "Id": "mail-18",
+      "ArrivalDay": 61,
+      "From": "건설 지원실",
+      "Subject": "추가 거주 모듈 자재 배정",
+      "Body": "확장 작업에 사용할 자재를 비축에 반영합니다.",
+      "Instruction": "자원 2를 수령합니다.",
+      "TargetTaskId": "",
+      "TargetWorkId": "",
+      "DeadlineDelta": 0,
+      "ResourceDelta": 2,
+      "Risk": 0,
+      "Read": false,
+      "Resolved": false,
+      "ActivatesWork": false,
+      "IsCritical": false,
+      "CriticalEventId": "",
+      "CriticalNodeId": "",
+      "IsMedicalReport": false,
+      "MedicalResults": []
+    },
+    {
+      "Id": "mail-19",
+      "ArrivalDay": 65,
+      "From": "개척 본부 감사실",
+      "Subject": "가동 전 감사 항목 추가",
+      "Body": "통합 감사 일정을 조정해 주십시오.",
+      "Instruction": "최종 가동 전 감사의 마감이 하루 앞당겨집니다.",
+      "TargetTaskId": "",
+      "TargetWorkId": "prelaunch-audit",
+      "DeadlineDelta": -1,
+      "ResourceDelta": 0,
+      "Risk": 2,
+      "Read": false,
+      "Resolved": false,
+      "ActivatesWork": false,
+      "IsCritical": false,
+      "CriticalEventId": "",
+      "CriticalNodeId": "",
+      "IsMedicalReport": false,
+      "MedicalResults": []
+    },
+    {
+      "Id": "mail-20",
+      "ArrivalDay": 71,
+      "From": "개척 본부",
+      "Subject": "비상 대응 훈련 요청",
+      "Body": "비상 운영 규약을 실제 훈련으로 확인해 주십시오.",
+      "Instruction": "비상 운영 규약 정비의 마감이 하루 앞당겨집니다.",
+      "TargetTaskId": "",
+      "TargetWorkId": "emergency-protocol",
+      "DeadlineDelta": -1,
+      "ResourceDelta": 0,
+      "Risk": 1,
+      "Read": false,
+      "Resolved": false,
+      "ActivatesWork": false,
+      "IsCritical": false,
+      "CriticalEventId": "",
+      "CriticalNodeId": "",
+      "IsMedicalReport": false,
+      "MedicalResults": []
     }
   ],
   "Codex": [
