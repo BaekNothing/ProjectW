@@ -104,10 +104,13 @@ For current day `D`, a conforming simulation performs the following sequence.
 16. Apply soft- and hard-deadline results against the new current day.
 17. Issue the midpoint review when due.
 18. Refresh states again.
-19. Generate random side missions when eligible.
-20. Deliver scheduled critical-event mail.
-21. Trigger an eligible critical event.
-22. Persist the report and derived state.
+19. Deliver due PM proposal review results, assigning accepted Work deadlines relative to this day.
+20. Remove expired ready-made proposal candidates and generate a three-to-four-item batch when its
+    randomized 14–21-day cadence is due; send one arrival notification mail for a new batch.
+21. Generate random side missions when eligible.
+22. Deliver scheduled critical-event mail.
+23. Trigger an eligible critical event.
+24. Persist the report and derived state.
 
 The order is observable. In particular, daily output and payroll occur before the day increments,
 while deadline checks and newly generated side missions occur after it increments.

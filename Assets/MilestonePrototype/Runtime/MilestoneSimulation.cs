@@ -8,6 +8,7 @@ namespace ProjectW.MilestonePrototype
     {
         public const int TeamSize = 4;
         private readonly Random random;
+        private readonly Random proposalRandom;
         private readonly TaskSystemBalance balance;
         private readonly string[] crewPortraits;
         private readonly string[] crewPersonalities;
@@ -22,6 +23,8 @@ namespace ProjectW.MilestonePrototype
         private readonly CodexEntry[] baseCodex;
         private readonly CriticalEventDefinition[] criticalEvents;
         private int nextRandomWorkId;
+        private int nextReadyProposalId;
+        private int nextProposalBatchDay;
 
         public int Day { get; private set; } = 1;
         public int CampaignEndDay { get; }
@@ -51,6 +54,8 @@ namespace ProjectW.MilestonePrototype
         public List<string> DiscoveredCrewTraitIds { get; } = new List<string>();
         public List<string> DiscoveredCrewTraitSources { get; } = new List<string>();
         public List<AssignmentRule> AssignmentRules { get; } = new List<AssignmentRule>();
+        public List<ReadyMadeProposal> ReadyMadeProposals { get; } = new List<ReadyMadeProposal>();
+        public int NextProposalBatchDay => nextProposalBatchDay;
         public List<string> SystemLog { get; } = new List<string>();
         public DayReport LastReport { get; private set; } = new DayReport();
         public bool MidpointReviewIssued { get; private set; }
@@ -185,6 +190,7 @@ namespace ProjectW.MilestonePrototype
         {
             TaskSystemDataLoader.Validate(data);
             random = new Random(seed);
+            proposalRandom = new Random(seed ^ 1597463007);
             balance = data.Balance;
             randomTaskWords = data.RandomTaskWords;
             baseTasks = data.Tasks;
@@ -222,6 +228,7 @@ namespace ProjectW.MilestonePrototype
             Codex.AddRange(baseCodex);
             DiscoverCurrentCrewTraits();
             NormalizeLoadedData();
+            GenerateReadyMadeProposalBatch(null);
             RefreshStates();
             LastReport.Lines.Add("첫 번째 개척 기지가 가동되었습니다.");
             Log("캠페인을 시작했습니다.");
@@ -489,8 +496,71 @@ namespace ProjectW.MilestonePrototype
                 RewardCredits = reward,
                 SoftDeadlineDay = Day + softDays,
                 HardDeadlineDay = Day + softDays + 7,
+                SoftDurationDays = softDays,
+                HardDurationDays = softDays + 7,
                 Risk = risk
             };
+        }
+
+        public bool SubmitReadyMadeProposal(string proposalId)
+        {
+            ReadyMadeProposal proposal = ReadyMadeProposals.FirstOrDefault(item => item.Id == proposalId);
+            if (proposal == null || Day > proposal.ExpiresDay) return false;
+            if (!SubmitProposal(proposal.TargetId, proposal.ActionIds, proposal.Pitch)) return false;
+            int batchId = proposal.BatchId;
+            ReadyMadeProposals.RemoveAll(item => item.BatchId == batchId);
+            Log($"레디메이드 제안 선택: {proposal.Id}");
+            return true;
+        }
+
+        private void GenerateReadyMadeProposalBatch(DayReport report)
+        {
+            int batchId = Day * 1000 + nextReadyProposalId + 1;
+            int count = proposalRandom.Next(3, 5);
+            int expiresDay = Day + 7;
+            for (int proposalIndex = 0; proposalIndex < count; proposalIndex++)
+            {
+                RandomTaskTarget target = randomTaskWords.Targets[proposalRandom.Next(randomTaskWords.Targets.Length)];
+                int taskCount = proposalRandom.Next(2, 5);
+                var actionIds = new string[taskCount];
+                for (int taskIndex = 0; taskIndex < taskCount; taskIndex++)
+                    actionIds[taskIndex] = randomTaskWords.Actions[proposalRandom.Next(randomTaskWords.Actions.Length)].Id;
+                ProposalEstimate estimate = EstimateProposal(target.Id, actionIds);
+                ReadyMadeProposals.Add(new ReadyMadeProposal
+                {
+                    Id = $"ready-proposal-{++nextReadyProposalId}",
+                    BatchId = batchId,
+                    CreatedDay = Day,
+                    ExpiresDay = expiresDay,
+                    TargetId = target.Id,
+                    ActionIds = actionIds,
+                    Pitch = (ProposalPitch)proposalRandom.Next(0, 3),
+                    CostCredits = estimate.CostCredits,
+                    RewardCredits = estimate.RewardCredits,
+                    TotalWork = estimate.TotalWork,
+                    Risk = estimate.Risk,
+                    SoftDurationDays = estimate.SoftDurationDays,
+                    HardDurationDays = estimate.HardDurationDays
+                });
+            }
+            nextProposalBatchDay = Day + proposalRandom.Next(14, 22);
+            Mail.Add(new MailEvent
+            {
+                Id = $"ready-proposal-notice-{batchId}",
+                ArrivalDay = Day,
+                From = "PM 기획 지원실",
+                Subject = $"새 제안 후보 {count}건 도착",
+                Body = $"제안서 앱에 바로 제출할 수 있는 후보 {count}건이 들어왔습니다. DAY {expiresDay}까지 하나를 선택할 수 있습니다.",
+                Instruction = "제안서 앱에서 후보를 검토하세요.",
+                Risk = RiskLevel.Low
+            });
+            report?.Lines.Add($"레디메이드 제안 후보 {count}건 도착 · DAY {expiresDay} 소멸");
+        }
+
+        private void RefreshReadyMadeProposals(DayReport report)
+        {
+            ReadyMadeProposals.RemoveAll(item => Day > item.ExpiresDay);
+            if (Day >= nextProposalBatchDay) GenerateReadyMadeProposalBatch(report);
         }
 
         public bool SubmitProposal(string targetId, string[] actionIds, ProposalPitch pitch)
@@ -508,13 +578,15 @@ namespace ProjectW.MilestonePrototype
             {
                 Id = $"proposal-work-{id}",
                 Name = $"{target.Text} 개선 제안",
-                SoftDeadline = estimate.SoftDeadlineDay,
-                HardDeadline = estimate.HardDeadlineDay,
+                SoftDeadline = 0,
+                HardDeadline = 0,
                 Required = false,
                 PredecessorIds = Array.Empty<string>(),
                 State = WorkState.Locked,
                 AwaitingAcceptance = true,
                 ProposalCostCredits = estimate.CostCredits,
+                ProposalSoftDurationDays = estimate.SoftDurationDays,
+                ProposalHardDurationDays = estimate.HardDurationDays,
                 Priority = NextWorkPriority(),
                 RewardCredits = estimate.RewardCredits,
                 SoftPenaltyCredits = balance.RandomWorkSoftPenalty,
@@ -924,6 +996,7 @@ namespace ProjectW.MilestonePrototype
             Day++;
             DeliverMedicalResults();
             DeliverProposalResults(report);
+            RefreshReadyMadeProposals(report);
             RefreshStates();
             ApplyDeadlineResults(report);
             ApplyMidpointReview(report);
@@ -963,9 +1036,9 @@ namespace ProjectW.MilestonePrototype
                     continue;
                 }
                 Resources -= work.ProposalCostCredits;
-                int delay = Math.Max(0, Day - mail.ArrivalDay + 1);
-                work.SoftDeadline += delay;
-                work.HardDeadline += delay;
+                work.SoftDeadline = Day + Math.Max(1, work.ProposalSoftDurationDays);
+                work.HardDeadline = Day + Math.Max(work.ProposalSoftDurationDays + 1,
+                    work.ProposalHardDurationDays);
                 work.AwaitingAcceptance = false;
                 foreach (WorkTask task in Tasks.Where(candidate => candidate.GroupId == work.Id))
                     task.Deadline = work.HardDeadline;
@@ -1474,6 +1547,9 @@ namespace ProjectW.MilestonePrototype
             CompetencyAutoAssignment = CompetencyAutoAssignment,
             HasAutoAssignmentPreference = true,
             Crunch = false,
+            ReadyMadeProposals = ReadyMadeProposals.ToArray(),
+            NextProposalBatchDay = nextProposalBatchDay,
+            NextReadyProposalId = nextReadyProposalId,
             PendingMedicalResults = PendingMedicalResults,
             ActiveCriticalEventId = ActiveCriticalEventId,
             ActiveCriticalNodeId = ActiveCriticalNodeId,
@@ -1511,6 +1587,11 @@ namespace ProjectW.MilestonePrototype
             CompetencyAutoAssignment = snapshot.HasAutoAssignmentPreference
                 ? snapshot.CompetencyAutoAssignment
                 : true;
+            ReadyMadeProposals.Clear();
+            if (snapshot.ReadyMadeProposals != null)
+                ReadyMadeProposals.AddRange(snapshot.ReadyMadeProposals);
+            nextProposalBatchDay = snapshot.NextProposalBatchDay;
+            nextReadyProposalId = snapshot.NextReadyProposalId;
             PendingMedicalResults = snapshot.PendingMedicalResults ?? new MedicalResult[0];
             ActiveCriticalEventId = snapshot.ActiveCriticalEventId;
             ActiveCriticalNodeId = snapshot.ActiveCriticalNodeId;
@@ -1520,6 +1601,7 @@ namespace ProjectW.MilestonePrototype
             if (snapshot.Log != null) SystemLog.AddRange(snapshot.Log);
             MigrateLegacyGeneratedSideMissions();
             NormalizeLoadedData();
+            if (nextProposalBatchDay <= 0) GenerateReadyMadeProposalBatch(null);
             RefreshStates();
             if (HasActiveCriticalEvent && ActiveCriticalNodeArrivalDay <= 0)
                 ActiveCriticalNodeArrivalDay = Day;

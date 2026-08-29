@@ -54,6 +54,7 @@ namespace ProjectW.MilestonePrototype
         private readonly int[] proposalActionIndices = new int[4];
         private ProposalPitch proposalPitch = ProposalPitch.Stability;
         private string proposalNotice;
+        private bool proposalCustomMode;
 
         private MilestoneSimulation game;
         private GUIStyle title;
@@ -388,6 +389,66 @@ namespace ProjectW.MilestonePrototype
                 GUILayout.Label("제안서 구성 데이터가 없습니다.", warning);
                 return;
             }
+            List<MailEvent> questions = game.Mail.Where(mail => mail.IsProposal &&
+                mail.ProposalStage == ProposalStage.Question && !mail.Resolved && mail.ArrivalDay <= game.Day).ToList();
+            foreach (MailEvent question in questions)
+            {
+                GUILayout.Label($"보완 요청 · {question.Subject}", warning);
+                GUILayout.Label(question.Body);
+                GUILayout.BeginHorizontal();
+                if (LayoutButton("안정성 보완")) { game.RespondToProposal(question.Id, ProposalPitch.Stability); SaveCampaign(); }
+                if (LayoutButton("성장성 보완")) { game.RespondToProposal(question.Id, ProposalPitch.Growth); SaveCampaign(); }
+                if (LayoutButton("효율 보완")) { game.RespondToProposal(question.Id, ProposalPitch.Efficiency); SaveCampaign(); }
+                if (LayoutButton("안 맡음 의견")) { game.RespondToProposal(question.Id, ProposalPitch.Decline); SaveCampaign(); }
+                GUILayout.EndHorizontal();
+                DrawSectionRule();
+            }
+            if (!proposalCustomMode)
+            {
+                GUILayout.Label("READY-MADE PROPOSALS", title);
+                GUILayout.Label($"2~3주마다 새로운 후보가 도착합니다. 다음 묶음 예정: DAY {game.NextProposalBatchDay}", small);
+                foreach (ReadyMadeProposal proposal in game.ReadyMadeProposals.OrderBy(item => item.ExpiresDay).ToList())
+                {
+                    RandomTaskTarget target = targets.FirstOrDefault(item => item.Id == proposal.TargetId);
+                    string steps = string.Empty;
+                    foreach (string actionId in proposal.ActionIds)
+                    {
+                        RandomTaskAction action = actions.FirstOrDefault(item => item.Id == actionId);
+                        if (action == null) continue;
+                        if (steps.Length > 0) steps += " → ";
+                        steps += action.Text;
+                    }
+                    GUILayout.BeginVertical(GUI.skin.box);
+                    GUILayout.Label($"{target?.Text ?? "알 수 없는 목표"} 개선안", section);
+                    GUILayout.Label(steps);
+                    GUILayout.Label($"작업량 {proposal.TotalWork:0.0}일 · 투자비 {proposal.CostCredits} · 보상 {proposal.RewardCredits} · 위험 {RiskName(proposal.Risk)}", small);
+                    GUILayout.Label($"DAY {proposal.ExpiresDay} 소멸 · 승인 후 소프트 +{proposal.SoftDurationDays}일 / 하드 +{proposal.HardDurationDays}일", warning);
+                    SetControlEnabled(game.Day <= proposal.ExpiresDay && game.Resources >= proposal.CostCredits);
+                    bool submitted = false;
+                    if (LayoutButton("이 안을 사장에게 제안", GUILayout.Height(38)))
+                    {
+                        submitted = game.SubmitReadyMadeProposal(proposal.Id);
+                        proposalNotice = submitted
+                            ? "제출 완료. 같은 묶음의 다른 후보는 닫혔습니다. 결과는 다음 날 메일로 도착합니다."
+                            : "제출할 수 없습니다. 소멸일·예산·대기 중 제안을 확인하세요.";
+                        SaveCampaign();
+                    }
+                    SetControlEnabled(true);
+                    GUILayout.EndVertical();
+                    if (submitted) break;
+                }
+                if (game.ReadyMadeProposals.Count == 0)
+                    GUILayout.Label("현재 사용 가능한 레디메이드 제안이 없습니다.", small);
+                GUILayout.Space(10);
+                if (LayoutButton("직접 제안서 작성 ›", GUILayout.Height(36))) proposalCustomMode = true;
+                if (!string.IsNullOrEmpty(proposalNotice)) GUILayout.Label(proposalNotice, success);
+                return;
+            }
+            if (LayoutButton("‹ 레디메이드 제안으로 돌아가기", GUILayout.Height(34)))
+            {
+                proposalCustomMode = false;
+                return;
+            }
             proposalTargetIndex = Mathf.Clamp(proposalTargetIndex, 0, targets.Length - 1);
             proposalTaskCount = Mathf.Clamp(proposalTaskCount, 2, 4);
             GUILayout.Label("PM PROJECT PROPOSAL", title);
@@ -430,7 +491,7 @@ namespace ProjectW.MilestonePrototype
             {
                 GUILayout.Space(10);
                 GUILayout.Label($"총 작업량 {estimate.TotalWork:0.0}일  ·  투자비 {estimate.CostCredits}자원  ·  완료 보상 {estimate.RewardCredits}자원", section);
-                GUILayout.Label($"소프트 마감 DAY {estimate.SoftDeadlineDay}  ·  하드 마감 DAY {estimate.HardDeadlineDay}  ·  위험 {RiskName(estimate.Risk)}", small);
+                GUILayout.Label($"승인 후 소프트 +{estimate.SoftDurationDays}일  ·  하드 +{estimate.HardDurationDays}일  ·  위험 {RiskName(estimate.Risk)}", small);
                 SetControlEnabled(game.Resources >= estimate.CostCredits);
                 if (LayoutButton("사장에게 제안서 제출", GUILayout.Height(42)))
                 {
@@ -440,20 +501,6 @@ namespace ProjectW.MilestonePrototype
                     SaveCampaign();
                 }
                 SetControlEnabled(true);
-            }
-            List<MailEvent> questions = game.Mail.Where(mail => mail.IsProposal &&
-                mail.ProposalStage == ProposalStage.Question && !mail.Resolved && mail.ArrivalDay <= game.Day).ToList();
-            foreach (MailEvent question in questions)
-            {
-                GUILayout.Space(12);
-                GUILayout.Label($"보완 요청 · {question.Subject}", warning);
-                GUILayout.Label(question.Body);
-                GUILayout.BeginHorizontal();
-                if (LayoutButton("안정성 보완")) { game.RespondToProposal(question.Id, ProposalPitch.Stability); SaveCampaign(); }
-                if (LayoutButton("성장성 보완")) { game.RespondToProposal(question.Id, ProposalPitch.Growth); SaveCampaign(); }
-                if (LayoutButton("효율 보완")) { game.RespondToProposal(question.Id, ProposalPitch.Efficiency); SaveCampaign(); }
-                if (LayoutButton("안 맡음 의견")) { game.RespondToProposal(question.Id, ProposalPitch.Decline); SaveCampaign(); }
-                GUILayout.EndHorizontal();
             }
             if (!string.IsNullOrEmpty(proposalNotice)) GUILayout.Label(proposalNotice, success);
         }

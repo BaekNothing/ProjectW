@@ -557,9 +557,9 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 - Reveal-day and mail-acceptance gates also block manual, learned, scheduled, and competency
   automatic assignment.
 - The final operation is invisible and unassignable through day 59, then becomes visible on day 60.
-- The dedicated Proposal desktop application lets the PM proactively choose one target, compose two
-  to four ordered execution Tasks, choose a stability, growth, or efficiency framing, preview the
-  resulting workload, investment cost, completion reward, risk, and deadlines, and submit it.
+- The dedicated Proposal desktop application normally presents three to four ready-made proposals.
+  The PM selects one candidate to submit; direct composition of a target and two to four ordered
+  execution Tasks remains available one navigation level deeper.
 - Proposal review results arrive the next morning by mail. Mail is result-only; follow-up answers and
   `안 맡음 의견` are submitted from the Proposal application.
 - Generated side-mission hard-deadline failure deducts resources without setting campaign loss.
@@ -571,8 +571,19 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 
 - Generated side missions are optional Works with the same Work/Task deadline, assignment,
   competency, progress, reward, and penalty rules as authored missions.
+- A first ready-made proposal batch is available at campaign start. Thereafter, three to four
+  randomly composed candidates arrive every 14–21 days and generate a notification mail.
+- Every candidate in a ready-made batch expires seven days after arrival. Submitting one candidate
+  closes the remaining candidates from that batch; expired candidates cannot be submitted.
+- Ready-made candidates expose their target, ordered execution Tasks, workload, investment cost,
+  completion reward, risk, and approval-relative schedule before submission.
+- Full custom proposal composition remains available behind the Proposal application's
+  `직접 제안서 작성` navigation rather than occupying its default screen.
 - A submitted PM proposal stays outside the Gantt while review or a boss-question response is
   pending. The proposal's selected Tasks form a prerequisite chain in the submitted order.
+- Candidate and review states have no calendar deadline. The Work and Task soft/hard deadlines are
+  assigned only when final boss approval is delivered, using the approved day's calendar plus the
+  proposal's displayed schedule duration.
 - Proposal investment and reward are calculated from selected Task difficulty and total workload.
   Investment is charged only when approval is delivered and the Work enters the Gantt. If the
   required resources no longer exist at that moment, the approval is cancelled by result mail.
@@ -608,8 +619,9 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 - On campaign restore, an incomplete legacy generated side-mission Work with only one child Task is
   migrated to the hierarchical form by appending structured dependent Tasks and extending its
   deadlines. Completed and failed historical Works are not rewritten.
-- Empty side-mission inventory does not force a proposal or boss request. The PM can always compose a
-  new proposal while resources and the pending-proposal limit allow it.
+- Empty side-mission inventory does not force a boss request. The PM may wait for the next ready-made
+  batch or open the one-level-deeper custom composer while resources and the pending-proposal limit
+  allow it.
 
 ## Mail and Messenger Ordering
 

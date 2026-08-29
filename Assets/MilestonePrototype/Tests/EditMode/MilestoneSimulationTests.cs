@@ -893,7 +893,8 @@ namespace ProjectW.MilestonePrototype.Tests
             string targetId = game.ProposalTargets[0].Id;
             string[] actionIds = { game.ProposalActions[0].Id, game.ProposalActions[1].Id };
             Assert.That(game.SubmitProposal(targetId, actionIds, ProposalPitch.Stability), Is.True);
-            MailEvent offer = game.Mail.Find(mail => mail.IsProposal && !mail.Resolved);
+            MailEvent offer = game.Mail.Find(mail => mail.IsProposal && !mail.Resolved &&
+                !string.IsNullOrEmpty(mail.TargetWorkId));
             offer.ProposalStage = ProposalStage.Question;
             offer.Subject = "제안 보완 요청";
             game.AdvanceDay();
@@ -927,10 +928,13 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(estimate.TotalWork, Is.GreaterThan(0f));
             Assert.That(estimate.RewardCredits, Is.GreaterThan(estimate.CostCredits));
             Assert.That(game.SubmitProposal(targetId, actionIds, ProposalPitch.Growth), Is.True);
-            MailEvent result = game.Mail.Find(mail => mail.IsProposal && !mail.Resolved);
+            MailEvent result = game.Mail.Find(mail => mail.IsProposal && !mail.Resolved &&
+                !string.IsNullOrEmpty(mail.TargetWorkId));
             result.ProposalStage = ProposalStage.Accepted;
             WorkGroup work = game.Groups.Find(group => group.Id == result.TargetWorkId);
             Assert.That(game.IsWorkVisible(work), Is.False);
+            Assert.That(work.SoftDeadline, Is.Zero);
+            Assert.That(work.HardDeadline, Is.Zero);
 
             game.AdvanceDay();
 
@@ -941,6 +945,44 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(game.IsWorkVisible(work), Is.True);
             Assert.That(game.Tasks.FindAll(task => task.GroupId == work.Id), Has.Count.EqualTo(3));
             Assert.That(work.RewardCredits, Is.EqualTo(estimate.RewardCredits));
+            Assert.That(work.SoftDeadline, Is.EqualTo(game.Day + estimate.SoftDurationDays));
+            Assert.That(work.HardDeadline, Is.EqualTo(game.Day + estimate.HardDurationDays));
+        }
+
+        [Test]
+        public void ReadyMadeProposalBatchHasExpiryAndTwoToThreeWeekCadence()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.RandomWorkLimit = 0;
+            var game = new MilestoneSimulation(data, 23);
+            int firstBatchDay = game.Day;
+            int nextBatchDay = game.NextProposalBatchDay;
+            int expiryDay = game.ReadyMadeProposals[0].ExpiresDay;
+
+            Assert.That(game.ReadyMadeProposals, Has.Count.InRange(3, 4));
+            Assert.That(nextBatchDay - firstBatchDay, Is.InRange(14, 21));
+            Assert.That(game.ReadyMadeProposals.TrueForAll(item => item.ExpiresDay == expiryDay), Is.True);
+            Assert.That(game.Mail.Exists(mail => mail.Subject.Contains("새 제안 후보")), Is.True);
+
+            while (game.Day <= expiryDay) game.AdvanceDay();
+            Assert.That(game.ReadyMadeProposals, Is.Empty);
+            while (game.Day < nextBatchDay) game.AdvanceDay();
+            Assert.That(game.ReadyMadeProposals, Has.Count.InRange(3, 4));
+        }
+
+        [Test]
+        public void SelectingOneReadyMadeProposalClosesTheRestOfItsBatch()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.RandomWorkLimit = 0;
+            var game = new MilestoneSimulation(data, 24);
+            ReadyMadeProposal selected = game.ReadyMadeProposals[0];
+            int batchId = selected.BatchId;
+
+            Assert.That(game.SubmitReadyMadeProposal(selected.Id), Is.True);
+
+            Assert.That(game.ReadyMadeProposals.Exists(item => item.BatchId == batchId), Is.False);
+            Assert.That(game.Groups.Exists(group => group.Id.StartsWith("proposal-work-")), Is.True);
         }
 
         [Test]

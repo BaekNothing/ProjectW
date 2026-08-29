@@ -127,6 +127,8 @@ namespace ProjectW.MilestonePrototype
         public int RevealDay;
         public bool AwaitingAcceptance;
         public int ProposalCostCredits;
+        public int ProposalSoftDurationDays;
+        public int ProposalHardDurationDays;
         public int Priority;
         public bool Urgent;
         public bool AllOut;
@@ -240,7 +242,27 @@ namespace ProjectW.MilestonePrototype
         public int RewardCredits;
         public int SoftDeadlineDay;
         public int HardDeadlineDay;
+        public int SoftDurationDays;
+        public int HardDurationDays;
         public RiskLevel Risk;
+    }
+
+    [Serializable]
+    public sealed class ReadyMadeProposal
+    {
+        public string Id;
+        public int BatchId;
+        public int CreatedDay;
+        public int ExpiresDay;
+        public string TargetId;
+        public string[] ActionIds;
+        public ProposalPitch Pitch;
+        public int CostCredits;
+        public int RewardCredits;
+        public float TotalWork;
+        public RiskLevel Risk;
+        public int SoftDurationDays;
+        public int HardDurationDays;
     }
 
     public sealed class TaskScheduleEstimate
@@ -413,6 +435,9 @@ namespace ProjectW.MilestonePrototype
         public bool CompetencyAutoAssignment;
         public bool HasAutoAssignmentPreference;
         public bool Crunch;
+        public ReadyMadeProposal[] ReadyMadeProposals;
+        public int NextProposalBatchDay;
+        public int NextReadyProposalId;
         public MedicalResult[] PendingMedicalResults;
         public string ActiveCriticalEventId;
         public string ActiveCriticalNodeId;
