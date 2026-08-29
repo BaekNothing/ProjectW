@@ -824,10 +824,9 @@ namespace ProjectW.MilestonePrototype.Tests
             MailEvent offer = game.Mail.Find(mail => mail.TargetWorkId == generated.Id);
             Assert.That(offer, Is.Not.Null);
             Assert.That(offer.ArrivalDay, Is.EqualTo(game.Day));
-            Assert.That(offer.ActivatesWork, Is.False);
-            Assert.That(offer.IsProposal, Is.True);
-            ProposalPitch matchingPitch = (ProposalPitch)offer.BossPreference;
-            Assert.That(game.RespondToProposal(offer.Id, matchingPitch), Is.True);
+            Assert.That(offer.ActivatesWork, Is.True);
+            Assert.That(offer.IsProposal, Is.False);
+            Assert.That(game.ResolveMail(offer.Id), Is.True);
             Assert.That(generated.AwaitingAcceptance, Is.False);
             Assert.That(game.IsWorkVisible(generated), Is.True);
             Assert.That(generatedTask.State, Is.EqualTo(TaskState.Available));
@@ -845,6 +844,7 @@ namespace ProjectW.MilestonePrototype.Tests
             generated.AwaitingAcceptance = true;
             offer.ActivatesWork = true;
             offer.IsProposal = false;
+            offer.IsBossRequest = false;
             offer.ProposalStage = ProposalStage.None;
             offer.Resolved = false;
             generatedTask.GeneratedAdjectiveId = null;
@@ -887,23 +887,60 @@ namespace ProjectW.MilestonePrototype.Tests
         public void ProposalCanAskForARevisionOrBeDeclinedWithoutPenalty()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
-            data.Balance.BaseSideMissionChance = 100;
-            data.Balance.RandomWorkChanceScalePercent = 100;
+            data.Balance.RandomWorkLimit = 0;
             var game = new MilestoneSimulation(data, 4);
             int resources = game.Resources;
-            game.AdvanceDay();
+            string targetId = game.ProposalTargets[0].Id;
+            string[] actionIds = { game.ProposalActions[0].Id, game.ProposalActions[1].Id };
+            Assert.That(game.SubmitProposal(targetId, actionIds, ProposalPitch.Stability), Is.True);
             MailEvent offer = game.Mail.Find(mail => mail.IsProposal && !mail.Resolved);
+            offer.ProposalStage = ProposalStage.Question;
+            offer.Subject = "제안 보완 요청";
+            game.AdvanceDay();
             WorkGroup work = game.Groups.Find(group => group.Id == offer.TargetWorkId);
-            ProposalPitch mismatch = offer.BossPreference == BossPreference.Stability
-                ? ProposalPitch.Growth : ProposalPitch.Stability;
 
-            Assert.That(game.RespondToProposal(offer.Id, mismatch), Is.True);
             Assert.That(offer.ProposalStage, Is.EqualTo(ProposalStage.Question));
             Assert.That(work.AwaitingAcceptance, Is.True);
             Assert.That(game.RespondToProposal(offer.Id, ProposalPitch.Decline), Is.True);
             Assert.That(offer.ProposalStage, Is.EqualTo(ProposalStage.Declined));
             Assert.That(work.State, Is.EqualTo(WorkState.Failed));
             Assert.That(game.Resources, Is.EqualTo(resources));
+        }
+
+        [Test]
+        public void ComposedProposalCalculatesBudgetAndActivatesFromNextDayMail()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.RandomWorkLimit = 0;
+            var game = new MilestoneSimulation(data, 9);
+            string targetId = game.ProposalTargets[0].Id;
+            string[] actionIds =
+            {
+                game.ProposalActions[0].Id,
+                game.ProposalActions[1].Id,
+                game.ProposalActions[2].Id
+            };
+            ProposalEstimate estimate = game.EstimateProposal(targetId, actionIds);
+            int resources = game.Resources;
+
+            Assert.That(estimate.TaskCount, Is.EqualTo(3));
+            Assert.That(estimate.TotalWork, Is.GreaterThan(0f));
+            Assert.That(estimate.RewardCredits, Is.GreaterThan(estimate.CostCredits));
+            Assert.That(game.SubmitProposal(targetId, actionIds, ProposalPitch.Growth), Is.True);
+            MailEvent result = game.Mail.Find(mail => mail.IsProposal && !mail.Resolved);
+            result.ProposalStage = ProposalStage.Accepted;
+            WorkGroup work = game.Groups.Find(group => group.Id == result.TargetWorkId);
+            Assert.That(game.IsWorkVisible(work), Is.False);
+
+            game.AdvanceDay();
+
+            Assert.That(result.ArrivalDay, Is.EqualTo(game.Day));
+            Assert.That(result.Resolved, Is.True);
+            Assert.That(result.Read, Is.False);
+            Assert.That(game.Resources, Is.EqualTo(resources - estimate.CostCredits));
+            Assert.That(game.IsWorkVisible(work), Is.True);
+            Assert.That(game.Tasks.FindAll(task => task.GroupId == work.Id), Has.Count.EqualTo(3));
+            Assert.That(work.RewardCredits, Is.EqualTo(estimate.RewardCredits));
         }
 
         [Test]
@@ -934,6 +971,7 @@ namespace ProjectW.MilestonePrototype.Tests
             int oldHardDeadline = legacyWork.HardDeadline;
             MailEvent legacyOffer = original.Mail.Find(mail => mail.TargetWorkId == legacyWork.Id);
             legacyOffer.IsProposal = false;
+            legacyOffer.IsBossRequest = false;
             legacyOffer.ProposalStage = ProposalStage.None;
             CampaignSnapshot snapshot = original.CreateSnapshot();
             snapshot.Tasks = System.Array.FindAll(snapshot.Tasks, task =>
@@ -974,7 +1012,7 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void ZeroRemainingSideMissionsGenerateOneToThreeMorningOffers()
+        public void ZeroRemainingSideMissionsDoNotForceAnInboundRequest()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
             data.Balance.BaseSideMissionChance = 0;
@@ -990,7 +1028,7 @@ namespace ProjectW.MilestonePrototype.Tests
             int offerCount = game.Mail.FindAll(mail => mail.TargetWorkId != null &&
                 mail.TargetWorkId.StartsWith("random-work-") &&
                 mail.ArrivalDay == game.Day).Count;
-            Assert.That(generatedWorks, Has.Count.InRange(1, 3));
+            Assert.That(generatedWorks, Is.Empty);
             Assert.That(offerCount, Is.EqualTo(generatedWorks.Count));
             foreach (WorkGroup work in generatedWorks)
             {
@@ -1109,6 +1147,7 @@ namespace ProjectW.MilestonePrototype.Tests
             TaskSystemData data = TaskSystemDataLoader.Load();
             UseShortPlanningFixture(data);
             var game = new MilestoneSimulation(data, 1);
+            game.SetCompetencyAutoAssignment(false);
 
             TaskScheduleEstimate today = game.EstimateSchedule("habitat", 0);
             game.AdvanceDay();
@@ -1641,7 +1680,7 @@ namespace ProjectW.MilestonePrototype.Tests
             game.AdvanceDay();
             WorkGroup sideMission = game.Groups.Find(group => group.Id.StartsWith("random-work-"));
             MailEvent offer = game.Mail.Find(mail => mail.TargetWorkId == sideMission.Id);
-            Assert.That(game.RespondToProposal(offer.Id, (ProposalPitch)offer.BossPreference), Is.True);
+            Assert.That(game.ResolveMail(offer.Id), Is.True);
             data.Balance.BaseSideMissionChance = 0;
             sideMission.SoftDeadline = game.Day;
             sideMission.HardDeadline = game.Day;
@@ -1655,15 +1694,9 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(game.Resources, Is.EqualTo(resourcesBeforeFailure -
                 sideMission.SoftPenaltyCredits - sideMission.HardPenaltyCredits));
             Assert.That(game.IsLost, Is.False);
-            List<MailEvent> replacementOffers = game.Mail.FindAll(mail =>
-                mail.TargetWorkId != null && mail.TargetWorkId.StartsWith("random-work-") &&
-                mail.TargetWorkId != sideMission.Id);
             Assert.That(game.Mail.FindAll(mail =>
                     mail.TargetWorkId != null && mail.TargetWorkId.StartsWith("random-work-")),
-                Has.Count.EqualTo(offersBeforeFailure + 1));
-            Assert.That(replacementOffers, Has.Count.EqualTo(1));
-            Assert.That(replacementOffers[0].ArrivalDay, Is.EqualTo(game.Day));
-            Assert.That(replacementOffers[0].Read, Is.False);
+                Has.Count.EqualTo(offersBeforeFailure));
         }
 
         [Test]
@@ -1744,6 +1777,7 @@ namespace ProjectW.MilestonePrototype.Tests
             TaskSystemData data = TaskSystemDataLoader.Load();
             data.StartingResources = 100;
             var game = new MilestoneSimulation(data, 1);
+            game.SetCompetencyAutoAssignment(false);
             int hardDeadline = game.Groups.Find(group => group.Id == "foundation").HardDeadline;
             while (game.Day <= hardDeadline) game.AdvanceDay();
 
@@ -2180,7 +2214,7 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void WeekendRestPausesWorkAndCrunchRestoresWeekendLabor()
+        public void WeekendRestPausesNormalWorkAndAllOutWorkContinues()
         {
             TaskSystemData restingData = TaskSystemDataLoader.Load();
             DisableAccidents(restingData);
@@ -2197,17 +2231,73 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(resting.Crew[1].Fatigue, Is.EqualTo(38));
             Assert.That(resting.Crew[1].Mental, Is.EqualTo(58));
 
-            TaskSystemData crunchData = TaskSystemDataLoader.Load();
-            DisableAccidents(crunchData);
-            ForceSuccessOutcome(crunchData);
-            var crunch = new MilestoneSimulation(crunchData, 13);
-            CampaignSnapshot crunchSnapshot = crunch.CreateSnapshot();
-            crunchSnapshot.Day = 6;
-            Assert.That(crunch.Restore(crunchSnapshot), Is.True);
-            Assert.That(crunch.Assign("survey", 1), Is.True);
-            crunch.SetCrunch(true);
-            crunch.AdvanceDay();
-            Assert.That(crunch.Tasks.Find(task => task.Id == "survey").Progress, Is.GreaterThan(0f));
+            TaskSystemData allOutData = TaskSystemDataLoader.Load();
+            DisableAccidents(allOutData);
+            ForceSuccessOutcome(allOutData);
+            var allOut = new MilestoneSimulation(allOutData, 13);
+            CampaignSnapshot allOutSnapshot = allOut.CreateSnapshot();
+            allOutSnapshot.Day = 6;
+            Assert.That(allOut.Restore(allOutSnapshot), Is.True);
+            Assert.That(allOut.Assign("survey", 1), Is.True);
+            Assert.That(allOut.ConfigureWorkFocus("foundation", false, true), Is.True);
+            allOut.AdvanceDay();
+            Assert.That(allOut.Tasks.Find(task => task.Id == "survey").Progress, Is.GreaterThan(0f));
+        }
+
+        [Test]
+        public void UrgentWorkPullsItsBestWorkerFromLowerPriorityWork()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            DisableAccidents(data);
+            ForceSuccessOutcome(data);
+            var game = new MilestoneSimulation(data, 17);
+            game.SetCompetencyAutoAssignment(false);
+            game.AdvanceDay();
+            WorkTask urgentTask = game.Tasks.Find(task => task.Id == "water-intake-check");
+            WorkTask lowerTask = game.Tasks.Find(task => task.Id == "survey");
+            int bestWorker = 1;
+            foreach (CrewMember member in game.Crew)
+                foreach (int competency in urgentTask.RequiredCompetencies)
+                    member.Competencies[competency] = 0;
+            foreach (int competency in urgentTask.RequiredCompetencies)
+                game.Crew[bestWorker].Competencies[competency] = 7;
+            Assert.That(game.Assign(lowerTask.Id, bestWorker), Is.True);
+            while (game.MoveWorkPriority("water-loop", -1)) { }
+            Assert.That(game.ConfigureWorkFocus("water-loop", true, false), Is.True);
+            Assert.That(game.Groups.Find(group => group.Id == "water-loop").Priority,
+                Is.LessThan(game.Groups.Find(group => group.Id == "foundation").Priority));
+            Assert.That(urgentTask.State, Is.EqualTo(TaskState.Available));
+            game.SetCompetencyAutoAssignment(true);
+
+            game.AdvanceDay();
+
+            Assert.That(game.LastReport.Lines, Has.Some.Contains("우선순위 선점"));
+            Assert.That(urgentTask.AssignedCharacter, Is.EqualTo(bestWorker));
+        }
+
+        [Test]
+        public void AllOutWorkSkipsFridayCheckupForItsAssignedWorker()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            DisableAccidents(data);
+            ForceSuccessOutcome(data);
+            var game = new MilestoneSimulation(data, 18);
+            game.SetCompetencyAutoAssignment(false);
+            CampaignSnapshot snapshot = game.CreateSnapshot();
+            snapshot.Day = 5;
+            Assert.That(game.Restore(snapshot), Is.True);
+            Assert.That(game.Assign("survey", 1), Is.True);
+            Assert.That(game.ConfigureWorkFocus("foundation", false, true), Is.True);
+            float expected = game.Crew[1].DailyOutput *
+                MilestoneSimulation.CompetencyOutputMultiplier(game.Crew[1],
+                    game.Tasks.Find(task => task.Id == "survey"));
+
+            game.AdvanceDay();
+
+            Assert.That(game.Tasks.Find(task => task.Id == "survey").LastOutput,
+                Is.EqualTo(expected).Within(.001f));
+            Assert.That(game.PendingMedicalResults, Has.Length.EqualTo(game.Crew.Count - 1));
+            Assert.That(Array.Exists(game.PendingMedicalResults, result => result.CrewIndex == 1), Is.False);
         }
 
         private static void CompleteSurvey(MilestoneSimulation game)

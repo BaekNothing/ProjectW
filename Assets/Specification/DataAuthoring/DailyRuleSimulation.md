@@ -48,7 +48,6 @@ policy is explicitly supplied as scenario input.
 | `MaximumDay` | integer | yes | Stop day for the simulation, not a victory day |
 | `PolicyId` | string | yes | Stable identity of the player-decision policy |
 | `CompetencyAutoAssignment` | boolean | yes | Initial automatic-assignment setting |
-| `Crunch` | boolean | yes | Initial weekend-work setting |
 | `InitialOverrides` | object | no | Explicit starting state overrides |
 | `ScheduledActions` | array | no | Player actions performed before a named day advances |
 
@@ -66,7 +65,7 @@ A scenario may issue these actions before `AdvanceDay`:
 - regenerate a crew member with explicit inheritance choices;
 - read or resolve mail;
 - choose a critical-event option;
-- enable or disable competency automatic assignment and Crunch.
+- enable or disable competency automatic assignment; set Work priority, `긴급!`, and `총력!` flags.
 
 Rejected actions must be recorded with their rejection reason. A simulator must never silently repair
 an invalid policy command.
@@ -88,7 +87,8 @@ For current day `D`, a conforming simulation performs the following sequence.
 
 1. If resources are zero, return an empty report and do not mutate state.
 2. Determine weekday: Day 1 is Monday and the seven-day cycle repeats.
-3. Determine whether the day is a non-Crunch weekend and whether it is a regular non-Crunch Friday.
+3. Determine whether the day is a weekend or regular Friday and which assigned workers belong to a
+   `총력!` Work.
 4. Apply due scheduled assignments.
 5. Apply learned assignment rules.
 6. Apply competency automatic assignment.
@@ -115,8 +115,9 @@ while deadline checks and newly generated side missions occur after it increment
 ## Calendar and Capacity Rules
 
 - Day 1 is Monday.
-- Saturday and Sunday produce no Task output unless Crunch is enabled.
-- On a non-Crunch Friday, regular checkups are free and multiply Task output by `0.5` for that day.
+- Saturday and Sunday produce no Task output except for workers assigned to a `총력!` Work.
+- On Friday, regular checkups are free and multiply Task output by `0.5`, except for workers assigned
+  to a `총력!` Work; those workers skip the checkup and produce normal output.
 - A worker can hold at most one active primary Task and one eligible parallel Task.
 - A parallel Task is eligible only when its effective remaining work is no greater than
   `Balance.ParallelMaximumRemainingDays`.
@@ -214,7 +215,8 @@ fatigueGain += SoftDeadlineFatigue when parent Work missed its soft deadline
 
 - A worker injured or scheduled to rest at the start of a day produces no output that cycle.
 - Scheduled rest restores `RestRecovery`, clears the rest flag, and preserves assignments.
-- Non-Crunch weekend rest restores `WeekendFatigueRecovery` and `WeekendMentalRecovery`.
+- Weekend rest restores `WeekendFatigueRecovery` and `WeekendMentalRecovery` for workers not assigned
+  to a `총력!` Work.
 - Each injured crew member receives one weekend recovery roll using
   `WeekendInjuryRecoveryChance`.
 - An unscheduled checkup costs `UnscheduledCheckupResourceCost` and pauses the entire day.
@@ -253,7 +255,7 @@ condition is reached.
 2. Learned rules keyed by Task kind, role, difficulty, risk, and importance.
 3. Competency automatic assignment, when enabled.
 
-Competency automatic assignment processes Tasks in external-data order. It selects the eligible crew
+Competency automatic assignment processes Tasks in player-defined Work-priority order. It selects the eligible crew
 member with the highest competency multiplier, then lowest fatigue, then earliest roster position.
 It never interrupts work or consumes a future reservation.
 
@@ -310,7 +312,7 @@ Recommended gates for a content batch are configurable rather than hard-coded, b
 
 A simulator is conforming when it passes fixed scenarios for:
 
-1. weekday, Friday, weekend, and Crunch processing;
+1. weekday, Friday, weekend, and per-Work `총력!` processing;
 2. primary and parallel capacity;
 3. competency multiplier edge cases;
 4. fatigue probability interpolation at 0, 50, and 100;

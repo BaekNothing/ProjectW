@@ -107,14 +107,11 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 - A weekend rest cycle reduces fatigue and improves mental condition using external balance data.
   An injured worker also receives one data-driven recovery roll per resting weekend day. Successful
   recovery clears the injury for the following day; failure leaves the normal injury countdown intact.
-- The Gantt header places a campaign-level `Crunch` checkbox beside competency automatic assignment.
-  When enabled, Saturday and Sunday use the normal weekday work cycle instead of weekend rest.
-  Crunch is preserved in the campaign save.
-- Friday afternoon is the regular medical-checkup period. Unless Crunch is enabled, every worker is
-  examined for no resource cost and can perform only half of their normal Task output that Friday.
-- Crunch skips the regular Friday checkup. A `Check all` option beside Crunch overrides that skip and
-  sends every worker for a checkup. Check-all follows the regular Friday half-day and free-cost rules
-  only on Friday; on any other day it is an unscheduled checkup.
+- Friday afternoon is the regular medical-checkup period. Every worker not assigned to a `총력!`
+  Work is examined for no resource cost and can perform only half normal Task output that Friday.
+- `총력!` is a per-Work crunch flag. Only workers currently assigned to that Work skip Friday's
+  regular checkup and Saturday/Sunday rest and continue the normal work cycle. There is no global
+  Crunch option. `Check all` remains an explicit medical action and does not change this flag.
 - The player may send an individual worker for a checkup on any day. A checkup outside the regular
   Friday period is unscheduled: that worker produces no Task output for the entire day and consumes
   the external-data unscheduled-checkup resource cost. The request fails without changing state when
@@ -195,13 +192,13 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 
 ## Competency Automatic Assignment
 
-- The Gantt header owns a campaign-level `자동배정` checkbox. It is off by default and its value is
+- The Gantt header owns a campaign-level `자동배정` checkbox. It is on by default and its value is
   preserved in the campaign save.
 - At the beginning of a daily cycle, start reservations are applied first, learned assignment rules
   second, and competency automatic assignment third.
 - When enabled, competency automatic assignment considers each unassigned, unscheduled `Available`
-  Task in external data order. It never interrupts an existing assignment or consumes a future
-  reservation.
+  Task in player-defined Work-priority order. It normally never interrupts an existing assignment
+  or consumes a future reservation.
 - `Available` alone is not sufficient for automatic assignment because manual planning may preassign
   a successor under the 30% prerequisite cap. Learned and competency automatic assignment both
   require every predecessor Work and the Task's direct predecessor Task to be `Complete`.
@@ -215,6 +212,21 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
   becomes available only after that cycle's completion/state refresh waits until the next daily cycle.
 - Competency automatic assignments do not create or update learned assignment rules.
 - Turning the checkbox off stops future competency assignments but does not remove existing assignments.
+
+## Work Priority and Focus Flags
+
+- The Priority desktop application lists visible incomplete Works in effective automatic-assignment
+  order. Up/down arrow controls move a Work one position and the order survives campaign save/restore.
+- `긴급!` means staffing may preempt lower-priority work. Before normal automatic assignment, the
+  system finds the highest-competency available worker for the urgent Task; when that worker owns a
+  lower-priority primary Task, that Task is interrupted with normal context cost and the worker is
+  made available to the urgent Work.
+- `총력!` is not a staffing or priority modifier. Workers currently assigned to that Work skip the
+  regular Friday checkup and weekend rest and continue producing Task output. Other workers still
+  receive normal checkups and rest on the same day.
+- `긴급!` and `총력!` are independent and may both be attached to one Work.
+- Completed and failed Works leave the active priority panel. Generated and approved Works enter at
+  the bottom of the current order.
 
 ## Task Scheduling
 
@@ -545,47 +557,47 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 - Reveal-day and mail-acceptance gates also block manual, learned, scheduled, and competency
   automatic assignment.
 - The final operation is invisible and unassignable through day 59, then becomes visible on day 60.
-- A generated opportunity arrives as a PM proposal draft and remains hidden from the task roster
-  until the player submits a proposal that the boss approves. The player chooses whether to frame
-  the proposal around stability, growth, or efficiency. A framing that misses the boss's current
-  preference produces a follow-up question and a chance to revise the answer. The player may instead
-  submit an `안 맡음 의견`; this closes the proposal without reward or deadline penalty.
+- The dedicated Proposal desktop application lets the PM proactively choose one target, compose two
+  to four ordered execution Tasks, choose a stability, growth, or efficiency framing, preview the
+  resulting workload, investment cost, completion reward, risk, and deadlines, and submit it.
+- Proposal review results arrive the next morning by mail. Mail is result-only; follow-up answers and
+  `안 맡음 의견` are submitted from the Proposal application.
 - Generated side-mission hard-deadline failure deducts resources without setting campaign loss.
 - Task completion retains the completing assignee while leaving that worker free for new work.
-- Zero remaining side missions generate one to three next-morning structured offers; urgent
-  missions do not prevent that refill.
-- Each generated offer has one Work row, two to four chained Task rows, and one notification mail.
-- Side-mission failure can trigger same-morning replacement mail, unread mail sorts first, and a
-  messenger question/reply renders as one item in the unified report/conversation stream.
+- Separately, the boss may initiate an inbound Work request. It arrives by mail and enters the Gantt
+  only when accepted. Inbound requests are chance-driven and are never guaranteed by empty inventory.
 
-## Morning Side-Mission Offers
+## PM Proposals and Boss Requests
 
 - Generated side missions are optional Works with the same Work/Task deadline, assignment,
   competency, progress, reward, and penalty rules as authored missions.
-- A generated side mission stays outside the Gantt and task roster while its PM proposal is a draft
-  or is waiting for a boss-question response. Approval reveals it immediately, subject to normal
-  predecessors. Declining it with an `안 맡음 의견` closes it without a penalty.
-- The mail application receives one interactive proposal thread for the generated mission.
+- A submitted PM proposal stays outside the Gantt while review or a boss-question response is
+  pending. The proposal's selected Tasks form a prerequisite chain in the submitted order.
+- Proposal investment and reward are calculated from selected Task difficulty and total workload.
+  Investment is charged only when approval is delivered and the Work enters the Gantt. If the
+  required resources no longer exist at that moment, the approval is cancelled by result mail.
+- A framing that misses the boss's current preference produces a question mail. Any revised framing
+  can be submitted in the Proposal application; its final approval arrives by mail the next day.
+- The player may close a questioned proposal with an `안 맡음 의견` without reward or deadline penalty.
 - Generated offers use materially larger credit rewards than the previous incident baseline. Their
   reward and resource penalties remain externally balanced in `task-system.json`.
 - A generated side mission is never required for campaign victory. Missing its hard deadline fails
   only that Work, applies its configured resource penalty, and cannot directly produce game over.
 - Until the day-60 final-operation reveal, incident handling and accepted generated side missions
   are the primary additional work stream around the authored foundation Work.
-- Generated missions count toward the random-Work limit so unread mail cannot create an unbounded queue.
+- At most three player proposals may wait for approval, preventing an unbounded hidden queue.
 - Remaining side missions are available or active Tasks whose `TaskKind` is `SideMission`
   and whose parent Work is neither complete nor failed. Urgent/incident missions are not side
   missions and never satisfy this inventory check.
-- At the end of a day with zero remaining side missions, the system generates a random batch of one
-  to three structured side-mission Works, bounded by the random-Work limit. Each generated Work uses
-  the existing adjective/target/action structure and arrives with its own next-morning notification mail.
+- The boss may probabilistically send one structured inbound request, bounded by the random-Work
+  limit. Its mail explicitly asks whether the PM will take the Work; accepting activates it.
 - Every generated side-mission Work contains two to four required child Tasks. The Work is the
   mission/table-of-contents row, while its Tasks are separately assignable structured work items.
 - Generated child Tasks use the existing adjective/target/action word pool independently and form a
   prerequisite chain inside the Work. Completing one child unlocks the next; completing all children
   completes the mission Work.
-- A generated mission sends exactly one notification mail, regardless of its child Task count. The
-  mail names the mission and summarizes the number of child work items and total reward.
+- A PM proposal sends one review-result mail per submission or revision. An inbound boss request
+  sends one acceptance mail regardless of child Task count.
 - Urgent/incident generation remains a separate concept. It must not use the side-mission batch,
   side-mission mail, or `TaskKind.SideMission` merely to represent a small random action.
 - Authored non-urgent Works should provide roughly 10–15 working days of chained required workload,
@@ -596,11 +608,8 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 - On campaign restore, an incomplete legacy generated side-mission Work with only one child Task is
   migrated to the hierarchical form by appending structured dependent Tasks and extending its
   deadlines. Completed and failed historical Works are not rewritten.
-- The zero-inventory batch is guaranteed; ordinary chance-based generation is used only while at
-  least one side mission remains.
-- A failed side-mission Work leaves the remaining inventory in the same way as a completed Work.
-  Hard-deadline failure is evaluated before the morning refill check, so a replacement offer can
-  arrive immediately on the newly entered day without an extra empty day.
+- Empty side-mission inventory does not force a proposal or boss request. The PM can always compose a
+  new proposal while resources and the pending-proposal limit allow it.
 
 ## Mail and Messenger Ordering
 

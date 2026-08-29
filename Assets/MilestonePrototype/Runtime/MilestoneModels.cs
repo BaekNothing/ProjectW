@@ -126,6 +126,10 @@ namespace ProjectW.MilestonePrototype
         public bool HardPenaltyApplied;
         public int RevealDay;
         public bool AwaitingAcceptance;
+        public int ProposalCostCredits;
+        public int Priority;
+        public bool Urgent;
+        public bool AllOut;
     }
 
     [Serializable]
@@ -226,6 +230,17 @@ namespace ProjectW.MilestonePrototype
         public int ParallelFatigue;
         public bool CanRunInParallel;
         public float CompetencyMultiplier;
+    }
+
+    public sealed class ProposalEstimate
+    {
+        public int TaskCount;
+        public float TotalWork;
+        public int CostCredits;
+        public int RewardCredits;
+        public int SoftDeadlineDay;
+        public int HardDeadlineDay;
+        public RiskLevel Risk;
     }
 
     public sealed class TaskScheduleEstimate
@@ -342,6 +357,7 @@ namespace ProjectW.MilestonePrototype
           public bool IsMedicalReport;
           public MedicalResult[] MedicalResults;
           public bool IsProposal;
+          public bool IsBossRequest;
           public ProposalStage ProposalStage;
           public BossPreference BossPreference;
     }
@@ -395,6 +411,7 @@ namespace ProjectW.MilestonePrototype
         public string[] DiscoveredCrewTraitSources;
         public bool MidpointReviewIssued;
         public bool CompetencyAutoAssignment;
+        public bool HasAutoAssignmentPreference;
         public bool Crunch;
         public MedicalResult[] PendingMedicalResults;
         public string ActiveCriticalEventId;

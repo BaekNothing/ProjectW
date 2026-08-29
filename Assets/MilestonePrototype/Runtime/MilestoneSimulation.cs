@@ -55,7 +55,6 @@ namespace ProjectW.MilestonePrototype
         public DayReport LastReport { get; private set; } = new DayReport();
         public bool MidpointReviewIssued { get; private set; }
         public bool CompetencyAutoAssignment { get; private set; }
-        public bool Crunch { get; private set; }
         public Weekday CurrentWeekday => (Weekday)((Day - 1) % 7);
         public int UnscheduledCheckupResourceCost => balance.UnscheduledCheckupResourceCost;
         public MedicalResult[] PendingMedicalResults { get; private set; } = new MedicalResult[0];
@@ -83,7 +82,34 @@ namespace ProjectW.MilestonePrototype
         public void SetCompetencyAutoAssignment(bool enabled) =>
             CompetencyAutoAssignment = enabled;
 
-        public void SetCrunch(bool enabled) => Crunch = enabled;
+        public bool MoveWorkPriority(string workId, int direction)
+        {
+            List<WorkGroup> ordered = Groups.Where(IsWorkVisible)
+                .Where(group => group.State != WorkState.Complete && group.State != WorkState.Failed)
+                .OrderBy(group => group.Priority).ThenBy(group => group.Id).ToList();
+            int index = ordered.FindIndex(group => group.Id == workId);
+            int otherIndex = index + direction;
+            if (index < 0 || otherIndex < 0 || otherIndex >= ordered.Count) return false;
+            int priority = ordered[index].Priority;
+            ordered[index].Priority = ordered[otherIndex].Priority;
+            ordered[otherIndex].Priority = priority;
+            if (ordered[index].Priority == ordered[otherIndex].Priority)
+            {
+                ordered[index].Priority = otherIndex;
+                ordered[otherIndex].Priority = index;
+            }
+            NormalizeWorkPriorities();
+            return true;
+        }
+
+        public bool ConfigureWorkFocus(string workId, bool urgent, bool allOut)
+        {
+            WorkGroup work = Groups.FirstOrDefault(group => group.Id == workId && IsWorkVisible(group));
+            if (work == null || work.State == WorkState.Complete || work.State == WorkState.Failed) return false;
+            work.Urgent = urgent;
+            work.AllOut = allOut;
+            return true;
+        }
 
         public static string WeekdayName(Weekday weekday)
         {
@@ -188,6 +214,7 @@ namespace ProjectW.MilestonePrototype
             CampaignEndDay = data.CampaignEndDay;
             MidpointReviewDay = data.MidpointReviewDay;
             Resources = data.StartingResources;
+            CompetencyAutoAssignment = true;
             Groups.AddRange(data.Works);
             Tasks.AddRange(data.Tasks);
             Crew.AddRange(data.Crew);
@@ -431,6 +458,120 @@ namespace ProjectW.MilestonePrototype
             return true;
         }
 
+        public RandomTaskTarget[] ProposalTargets => randomTaskWords.Targets;
+        public RandomTaskAction[] ProposalActions => randomTaskWords.Actions;
+
+        public ProposalEstimate EstimateProposal(string targetId, string[] actionIds)
+        {
+            RandomTaskTarget target = randomTaskWords.Targets.FirstOrDefault(item => item.Id == targetId);
+            if (target == null || actionIds == null || actionIds.Length < 2 || actionIds.Length > 4) return null;
+            float totalWork = 0f;
+            int difficultyTotal = 0;
+            RiskLevel risk = RiskLevel.Low;
+            foreach (string actionId in actionIds)
+            {
+                RandomTaskAction action = randomTaskWords.Actions.FirstOrDefault(item => item.Id == actionId);
+                if (action == null) return null;
+                int difficulty = Math.Max(1, Math.Min(5, target.Difficulty + action.Difficulty));
+                totalWork += 2 + difficulty * .5f;
+                difficultyTotal += difficulty;
+                if (difficulty >= 5) risk = RiskLevel.High;
+                else if (difficulty >= 3 && risk == RiskLevel.Low) risk = RiskLevel.Medium;
+            }
+            int cost = Math.Max(1, CeilPositive(totalWork / 4f) + difficultyTotal / 6);
+            int reward = cost + CeilPositive(totalWork * .75f) + actionIds.Length;
+            int softDays = 14 + Math.Max(0, actionIds.Length - 2) * 3;
+            return new ProposalEstimate
+            {
+                TaskCount = actionIds.Length,
+                TotalWork = totalWork,
+                CostCredits = cost,
+                RewardCredits = reward,
+                SoftDeadlineDay = Day + softDays,
+                HardDeadlineDay = Day + softDays + 7,
+                Risk = risk
+            };
+        }
+
+        public bool SubmitProposal(string targetId, string[] actionIds, ProposalPitch pitch)
+        {
+            if (pitch == ProposalPitch.Decline) return false;
+            int pending = Groups.Count(group => group.Id != null && group.Id.StartsWith("proposal-work-") &&
+                group.AwaitingAcceptance && group.State != WorkState.Failed);
+            if (pending >= 3) return false;
+            RandomTaskTarget target = randomTaskWords.Targets.FirstOrDefault(item => item.Id == targetId);
+            ProposalEstimate estimate = EstimateProposal(targetId, actionIds);
+            if (target == null || estimate == null || Resources < estimate.CostCredits) return false;
+
+            int id = ++nextRandomWorkId;
+            var work = new WorkGroup
+            {
+                Id = $"proposal-work-{id}",
+                Name = $"{target.Text} 개선 제안",
+                SoftDeadline = estimate.SoftDeadlineDay,
+                HardDeadline = estimate.HardDeadlineDay,
+                Required = false,
+                PredecessorIds = Array.Empty<string>(),
+                State = WorkState.Locked,
+                AwaitingAcceptance = true,
+                ProposalCostCredits = estimate.CostCredits,
+                Priority = NextWorkPriority(),
+                RewardCredits = estimate.RewardCredits,
+                SoftPenaltyCredits = balance.RandomWorkSoftPenalty,
+                HardPenaltyCredits = Math.Max(balance.RandomWorkHardPenalty, estimate.CostCredits)
+            };
+            string previousTaskId = null;
+            for (int taskIndex = 0; taskIndex < actionIds.Length; taskIndex++)
+            {
+                RandomTaskAction action = randomTaskWords.Actions.FirstOrDefault(item => item.Id == actionIds[taskIndex]);
+                if (action == null) return false;
+                int difficulty = Math.Max(1, Math.Min(5, target.Difficulty + action.Difficulty));
+                var task = new WorkTask
+                {
+                    Id = $"proposal-task-{id}-{taskIndex + 1}",
+                    Name = $"{target.Text} {action.Text}",
+                    Kind = TaskKind.SideMission,
+                    RequiredRole = action.Role,
+                    RequiredCompetencies = MergeCompetencies(target.RequiredCompetencies, action.RequiredCompetencies),
+                    RequiredWork = 2 + difficulty * .5f,
+                    Required = true,
+                    PrerequisiteId = previousTaskId,
+                    Deadline = work.HardDeadline,
+                    State = TaskState.Locked,
+                    GroupId = work.Id,
+                    Risk = difficulty >= 5 ? RiskLevel.High : difficulty >= 3 ? RiskLevel.Medium : RiskLevel.Low,
+                    Importance = difficulty >= 4 ? ImportanceLevel.High : ImportanceLevel.Medium,
+                    Difficulty = difficulty,
+                    GeneratedTargetId = target.Id,
+                    GeneratedActionId = action.Id
+                };
+                Tasks.Add(task);
+                previousTaskId = task.Id;
+            }
+            BossPreference preference = (BossPreference)random.Next(0, 3);
+            bool approved = (int)pitch == (int)preference;
+            Groups.Add(work);
+            Mail.Add(new MailEvent
+            {
+                Id = $"proposal-result-{id}",
+                ArrivalDay = Day + 1,
+                From = "사장실",
+                Subject = approved ? $"제안 승인: {work.Name}" : $"제안 보완 요청: {work.Name}",
+                Body = approved
+                    ? $"제안이 승인되었습니다. 투자비 자원 {estimate.CostCredits}가 집행되고 프로젝트가 작업 목록에 편입됩니다."
+                    : $"제안의 방향은 이해했지만 {BossQuestion(preference)}에 대한 보완 답변이 필요합니다.",
+                Instruction = approved ? "승인 결과입니다." : "제안서 앱에서 보완 방향을 선택해 다시 제출하세요.",
+                TargetWorkId = work.Id,
+                Risk = estimate.Risk,
+                IsProposal = true,
+                ProposalStage = approved ? ProposalStage.Accepted : ProposalStage.Question,
+                BossPreference = preference
+            });
+            RefreshStates();
+            Log($"제안서 제출: {work.Name} / 비용 {estimate.CostCredits} / 보상 {estimate.RewardCredits}");
+            return true;
+        }
+
         public bool RespondToProposal(string mailId, ProposalPitch pitch)
         {
             MailEvent mail = Mail.FirstOrDefault(item => item.Id == mailId && item.ArrivalDay <= Day);
@@ -452,27 +593,23 @@ namespace ProjectW.MilestonePrototype
                 return true;
             }
 
-            bool answeringQuestion = mail.ProposalStage == ProposalStage.Question;
-            bool matchesPreference = (int)pitch == (int)mail.BossPreference;
-            if (!answeringQuestion && !matchesPreference)
-            {
-                mail.ProposalStage = ProposalStage.Question;
-                mail.Instruction = $"사장 질문: {BossQuestion(mail.BossPreference)} 방향을 보강해서 다시 답해주세요.";
-                Log($"제안 보완 요청: {work.Name}");
-                return true;
-            }
-
-            int acceptanceDelay = Math.Max(0, Day - mail.ArrivalDay);
-            work.SoftDeadline += acceptanceDelay;
-            work.HardDeadline += acceptanceDelay;
-            work.AwaitingAcceptance = false;
-            foreach (WorkTask task in Tasks.Where(candidate => candidate.GroupId == work.Id))
-                task.Deadline = work.HardDeadline;
-            mail.ProposalStage = ProposalStage.Accepted;
-            mail.Instruction = answeringQuestion ? "보완 답변이 승인되었습니다. 계획에 편입되었습니다." : "제안서가 승인되어 계획에 편입되었습니다.";
+            if (mail.ProposalStage != ProposalStage.Question) return false;
             mail.Resolved = true;
-            RefreshStates();
-            Log($"PM 제안 승인: {work.Name}");
+            Mail.Add(new MailEvent
+            {
+                Id = $"proposal-revision-result-{work.Id}-{Day}-{Mail.Count}",
+                ArrivalDay = Day + 1,
+                From = "사장실",
+                Subject = $"보완 제안 승인: {work.Name}",
+                Body = $"보완 답변을 확인했습니다. 투자비 자원 {work.ProposalCostCredits}를 집행하고 프로젝트를 편입합니다.",
+                Instruction = "승인 결과입니다.",
+                TargetWorkId = work.Id,
+                Risk = mail.Risk,
+                IsProposal = true,
+                ProposalStage = ProposalStage.Accepted,
+                BossPreference = mail.BossPreference
+            });
+            Log($"제안 보완 답변 제출: {work.Name}");
             return true;
         }
 
@@ -738,9 +875,10 @@ namespace ProjectW.MilestonePrototype
             var report = new DayReport();
             if (IsLost) return report;
 
-            bool weekendRest = (CurrentWeekday == Weekday.Saturday || CurrentWeekday == Weekday.Sunday) && !Crunch;
-            bool regularFridayCheckup = CurrentWeekday == Weekday.Friday && !Crunch;
+            bool weekendRest = CurrentWeekday == Weekday.Saturday || CurrentWeekday == Weekday.Sunday;
+            bool regularFridayCheckup = CurrentWeekday == Weekday.Friday;
             ApplyScheduledAssignments(report);
+            ApplyPriorityPreemption(report);
             ApplyLearnedAssignments(report);
             ApplyCompetencyAssignments(report);
             var pausedCrew = new bool[Crew.Count];
@@ -748,12 +886,15 @@ namespace ProjectW.MilestonePrototype
             for (int crewIndex = 0; crewIndex < Crew.Count; crewIndex++)
             {
                 CrewMember member = Crew[crewIndex];
+                bool allOutAssignment = HasAllOutAssignment(crewIndex);
                 bool medicalLeave = member.MedicalLeaveDay == Day;
-                pausedCrew[crewIndex] = weekendRest || medicalLeave || member.InjuryDays > 0 || member.RestScheduled;
+                pausedCrew[crewIndex] = weekendRest && !allOutAssignment ||
+                                        medicalLeave && !allOutAssignment ||
+                                        member.InjuryDays > 0 || member.RestScheduled;
                 pausedConditions[crewIndex] = member.Condition;
-                if (regularFridayCheckup) RecordMedicalResult(crewIndex);
+                if (regularFridayCheckup && !allOutAssignment) RecordMedicalResult(crewIndex);
                 if (member.InjuryDays > 0) member.InjuryDays--;
-                if (weekendRest)
+                if (weekendRest && !allOutAssignment)
                 {
                     member.Fatigue = Math.Max(0, member.Fatigue - balance.WeekendFatigueRecovery);
                     member.Mental = Math.Min(100, member.Mental + balance.WeekendMentalRecovery);
@@ -776,11 +917,13 @@ namespace ProjectW.MilestonePrototype
                          .OrderBy(candidate => candidate.IsParallelAssignment).ToList())
                 ProcessTask(task, report, pausedCrew[task.AssignedCharacter],
                     pausedConditions[task.AssignedCharacter],
-                    regularFridayCheckup || Crew[task.AssignedCharacter].MedicalHalfDay == Day ? .5f : 1f);
+                    !HasAllOutAssignment(task.AssignedCharacter) &&
+                    (regularFridayCheckup || Crew[task.AssignedCharacter].MedicalHalfDay == Day) ? .5f : 1f);
 
             ApplyPayroll(report);
             Day++;
             DeliverMedicalResults();
+            DeliverProposalResults(report);
             RefreshStates();
             ApplyDeadlineResults(report);
             ApplyMidpointReview(report);
@@ -792,6 +935,43 @@ namespace ProjectW.MilestonePrototype
             if (report.Lines.Count == 0) report.Lines.Add("특이사항 없이 하루가 지났습니다.");
             foreach (string line in report.Lines) Log(line);
             return report;
+        }
+
+        private void DeliverProposalResults(DayReport report)
+        {
+            foreach (MailEvent mail in Mail.Where(item => item.IsProposal &&
+                         item.ProposalStage == ProposalStage.Accepted && !item.Resolved &&
+                         item.ArrivalDay <= Day).ToList())
+            {
+                WorkGroup work = Groups.FirstOrDefault(group => group.Id == mail.TargetWorkId);
+                if (work == null || !work.AwaitingAcceptance)
+                {
+                    mail.Resolved = true;
+                    continue;
+                }
+                if (Resources < work.ProposalCostCredits)
+                {
+                    work.State = WorkState.Failed;
+                    work.AwaitingAcceptance = false;
+                    foreach (WorkTask task in Tasks.Where(candidate => candidate.GroupId == work.Id))
+                        task.State = TaskState.Failed;
+                    mail.Subject = $"예산 부족으로 승인 취소: {work.Name}";
+                    mail.Body = $"필요 투자비 자원 {work.ProposalCostCredits}를 확보하지 못해 프로젝트 편입이 취소되었습니다.";
+                    mail.ProposalStage = ProposalStage.Declined;
+                    mail.Resolved = true;
+                    report.Lines.Add($"제안 승인 취소: {work.Name} / 예산 부족");
+                    continue;
+                }
+                Resources -= work.ProposalCostCredits;
+                int delay = Math.Max(0, Day - mail.ArrivalDay + 1);
+                work.SoftDeadline += delay;
+                work.HardDeadline += delay;
+                work.AwaitingAcceptance = false;
+                foreach (WorkTask task in Tasks.Where(candidate => candidate.GroupId == work.Id))
+                    task.Deadline = work.HardDeadline;
+                mail.Resolved = true;
+                report.Lines.Add($"제안 승인 및 편입: {work.Name} / 투자비 -{work.ProposalCostCredits}");
+            }
         }
 
         public bool SendForMedicalCheckup(int crewIndex)
@@ -1292,7 +1472,8 @@ namespace ProjectW.MilestonePrototype
             DiscoveredCrewTraitSources = DiscoveredCrewTraitSources.ToArray(),
             MidpointReviewIssued = MidpointReviewIssued,
             CompetencyAutoAssignment = CompetencyAutoAssignment,
-            Crunch = Crunch,
+            HasAutoAssignmentPreference = true,
+            Crunch = false,
             PendingMedicalResults = PendingMedicalResults,
             ActiveCriticalEventId = ActiveCriticalEventId,
             ActiveCriticalNodeId = ActiveCriticalNodeId,
@@ -1327,8 +1508,9 @@ namespace ProjectW.MilestonePrototype
                 snapshot.DiscoveredCrewTraitSources);
             DiscoverCurrentCrewTraits();
             MidpointReviewIssued = snapshot.MidpointReviewIssued;
-            CompetencyAutoAssignment = snapshot.CompetencyAutoAssignment;
-            Crunch = snapshot.Crunch;
+            CompetencyAutoAssignment = snapshot.HasAutoAssignmentPreference
+                ? snapshot.CompetencyAutoAssignment
+                : true;
             PendingMedicalResults = snapshot.PendingMedicalResults ?? new MedicalResult[0];
             ActiveCriticalEventId = snapshot.ActiveCriticalEventId;
             ActiveCriticalNodeId = snapshot.ActiveCriticalNodeId;
@@ -1710,22 +1892,14 @@ namespace ProjectW.MilestonePrototype
                 return parent != null && parent.State != WorkState.Complete &&
                        parent.State != WorkState.Failed;
             });
-            int batchSize;
-            if (remainingSideMissions == 0)
-            {
-                batchSize = Math.Min(availableSlots, random.Next(1, 4));
-            }
-            else
-            {
-                int overdue = Groups.Count(group => group.SoftDeadlineMissed &&
-                                                    group.State != WorkState.Complete);
-                int exhausted = Crew.Count(member => member.Fatigue >= 55);
-                int rawChance = balance.BaseSideMissionChance + overdue * 16 + exhausted * 8;
-                int scaledChanceBasisPoints = Math.Min(100, rawChance) *
-                                              balance.RandomWorkChanceScalePercent;
-                if (random.Next(10000) >= scaledChanceBasisPoints) return;
-                batchSize = 1;
-            }
+            int overdue = Groups.Count(group => group.SoftDeadlineMissed &&
+                                                group.State != WorkState.Complete);
+            int exhausted = Crew.Count(member => member.Fatigue >= 55);
+            int rawChance = balance.BaseSideMissionChance + overdue * 8 + exhausted * 4;
+            int scaledChanceBasisPoints = Math.Min(100, rawChance) *
+                                          balance.RandomWorkChanceScalePercent;
+            if (random.Next(10000) >= scaledChanceBasisPoints) return;
+            int batchSize = 1;
 
             for (int i = 0; i < batchSize; i++) CreateRandomWork(report);
         }
@@ -1751,6 +1925,7 @@ namespace ProjectW.MilestonePrototype
                 PredecessorIds = Array.Empty<string>(),
                 State = WorkState.Locked,
                 AwaitingAcceptance = true,
+                Priority = NextWorkPriority(),
                 RewardCredits = reward,
                 SoftPenaltyCredits = balance.RandomWorkSoftPenalty,
                 HardPenaltyCredits = balance.RandomWorkHardPenalty
@@ -1805,20 +1980,20 @@ namespace ProjectW.MilestonePrototype
             {
                 Id = $"side-mission-offer-{id}",
                 ArrivalDay = Day,
-                From = "외행성 개척 관제국",
-                Subject = $"PM 제안서 초안: {work.Name}",
-                Body = $"PM이 발견한 기회입니다. {taskCount}개 실행 단계, 성공 보상 자원 {reward}, 실패 시 손실 자원 {work.HardPenaltyCredits}로 예상합니다.",
-                Instruction = "사장에게 올릴 제안 논리를 고르거나, 엉뚱한 일이라면 안 맡음 의견을 남기세요.",
+                From = "사장실",
+                Subject = $"업무 문의: {work.Name}",
+                Body = $"사장실에서 {taskCount}개 실행 단계로 구성된 업무를 맡을 수 있는지 물어왔습니다. 성공 보상은 자원 {reward}입니다.",
+                Instruction = $"맡으려면 수락하세요. 실패 시 자원 {work.HardPenaltyCredits}가 차감됩니다.",
                 TargetTaskId = firstTask.Id,
                 TargetWorkId = work.Id,
                 Risk = missionRisk,
-                ActivatesWork = false,
-                IsProposal = true,
-                ProposalStage = ProposalStage.Draft,
-                BossPreference = (BossPreference)random.Next(0, 3)
+                ActivatesWork = true,
+                IsProposal = false,
+                IsBossRequest = true,
+                ProposalStage = ProposalStage.None
             });
             RefreshStates();
-            report.Lines.Add($"PM 제안서 초안 작성: {work.Name} ({taskCount}개 실행 단계)");
+            report.Lines.Add($"사장실 업무 문의 도착: {work.Name} ({taskCount}개 실행 단계)");
         }
 
         private RandomTaskAction SelectRandomAction(WorkRole role)
@@ -1912,7 +2087,9 @@ namespace ProjectW.MilestonePrototype
             foreach (WorkTask task in Tasks.Where(candidate =>
                          candidate.AssignedCharacter < 0 &&
                          candidate.ScheduledDay <= 0 &&
-                         candidate.State == TaskState.Available).ToList())
+                         candidate.State == TaskState.Available)
+                         .OrderBy(candidate => ParentWork(candidate)?.Priority ?? int.MaxValue)
+                         .ThenBy(candidate => candidate.Id).ToList())
             {
                 AssignmentRule rule = AssignmentRules.FirstOrDefault(candidate => candidate.Matches(task));
                 if (rule == null || !AutomaticDependenciesComplete(task)) continue;
@@ -1926,7 +2103,8 @@ namespace ProjectW.MilestonePrototype
         private void ApplyCompetencyAssignments(DayReport report)
         {
             if (!CompetencyAutoAssignment) return;
-            foreach (WorkTask task in Tasks)
+            foreach (WorkTask task in Tasks.OrderBy(candidate =>
+                         ParentWork(candidate)?.Priority ?? int.MaxValue).ThenBy(candidate => candidate.Id))
             {
                 if (task.AssignedCharacter >= 0 || task.ScheduledDay > 0 ||
                     task.State != TaskState.Available || !AutomaticDependenciesComplete(task)) continue;
@@ -1948,6 +2126,45 @@ namespace ProjectW.MilestonePrototype
                 if (bestWorker < 0 || !AssignPrimary(task, bestWorker)) continue;
                 report.Lines.Add(
                     $"역량 자동 배정: {Crew[bestWorker].Name} → {task.Name} (×{bestMultiplier:0.##})");
+            }
+        }
+
+        private void ApplyPriorityPreemption(DayReport report)
+        {
+            foreach (WorkGroup work in Groups.Where(group => IsWorkVisible(group) &&
+                         group.Urgent &&
+                         group.State != WorkState.Complete && group.State != WorkState.Failed)
+                         .OrderBy(group => group.Priority).ToList())
+            {
+                List<WorkTask> eligible = Tasks.Where(task => task.GroupId == work.Id &&
+                    task.AssignedCharacter < 0 && task.State == TaskState.Available &&
+                    AutomaticDependenciesComplete(task)).ToList();
+                foreach (WorkTask target in eligible)
+                {
+                    int bestWorker = -1;
+                    float bestMultiplier = -1f;
+                    for (int worker = 0; worker < Crew.Count; worker++)
+                    {
+                        if (!Crew[worker].Available) continue;
+                        float multiplier = CompetencyOutputMultiplier(Crew[worker], target);
+                        if (multiplier <= bestMultiplier) continue;
+                        WorkTask current = Tasks.FirstOrDefault(task => task.AssignedCharacter == worker &&
+                            !task.IsParallelAssignment && IsOngoingAssignment(task));
+                        if (current != null && (ParentWork(current)?.Priority ?? int.MaxValue) <= work.Priority)
+                            continue;
+                        bestWorker = worker;
+                        bestMultiplier = multiplier;
+                    }
+                    if (bestWorker < 0 || WorkerCanTakePrimary(bestWorker)) continue;
+                    WorkTask interrupted = Tasks.FirstOrDefault(task => task.AssignedCharacter == bestWorker &&
+                        !task.IsParallelAssignment && IsOngoingAssignment(task));
+                    if (interrupted == null) break;
+                    int interruptedWorker = interrupted.AssignedCharacter;
+                    if (!AssignPrimary(interrupted, -1)) break;
+                    report.Lines.Add($"우선순위 선점: {Crew[interruptedWorker].Name}의 {interrupted.Name} 중단 → {work.Name}");
+                    if (AssignPrimary(target, interruptedWorker))
+                        report.Lines.Add($"긴급 자동 배정: {Crew[interruptedWorker].Name} → {target.Name}");
+                }
             }
         }
 
@@ -1977,6 +2194,12 @@ namespace ProjectW.MilestonePrototype
                                            IsOngoingAssignment(candidate));
         }
 
+        private bool HasAllOutAssignment(int worker)
+        {
+            return Tasks.Any(task => task.AssignedCharacter == worker && IsOngoingAssignment(task) &&
+                ParentWork(task)?.AllOut == true);
+        }
+
         private void ApplyMidpointReview(DayReport report)
         {
             if (MidpointReviewIssued || Day < MidpointReviewDay) return;
@@ -1991,6 +2214,9 @@ namespace ProjectW.MilestonePrototype
 
         private void NormalizeLoadedData()
         {
+            if (Groups.All(group => group.Priority == 0))
+                for (int i = 0; i < Groups.Count; i++) Groups[i].Priority = i;
+            NormalizeWorkPriorities();
             foreach (WorkGroup group in Groups)
                 if (group.PredecessorIds == null) group.PredecessorIds = Array.Empty<string>();
             foreach (WorkTask task in Tasks)
@@ -2051,10 +2277,27 @@ namespace ProjectW.MilestonePrototype
                 member.RestScheduled = false;
             }
             int highestRandomWorkId = Groups.Where(group => group.Id != null &&
-                                                            group.Id.StartsWith("random-work-"))
-                .Select(group => int.TryParse(group.Id.Substring(12), out int value) ? value : 0)
+                    (group.Id.StartsWith("random-work-") || group.Id.StartsWith("proposal-work-")))
+                .Select(group => group.Id.StartsWith("random-work-")
+                    ? int.TryParse(group.Id.Substring(12), out int randomValue) ? randomValue : 0
+                    : int.TryParse(group.Id.Substring(14), out int proposalValue) ? proposalValue : 0)
                 .DefaultIfEmpty(0).Max();
             nextRandomWorkId = highestRandomWorkId;
+        }
+
+        private void NormalizeWorkPriorities()
+        {
+            List<WorkGroup> ordered = Groups.OrderBy(group => group.Priority)
+                .ThenBy(group => group.Id).ToList();
+            for (int i = 0; i < ordered.Count; i++) ordered[i].Priority = i;
+        }
+
+        private int NextWorkPriority()
+        {
+            int highest = -1;
+            foreach (WorkGroup group in Groups)
+                if (group.Priority > highest) highest = group.Priority;
+            return highest + 1;
         }
 
         private void MigrateLegacyGeneratedSideMissions()
@@ -2064,7 +2307,7 @@ namespace ProjectW.MilestonePrototype
                 if (group.Id == null || !group.Id.StartsWith("random-work-") ||
                     group.State == WorkState.Complete || group.State == WorkState.Failed) continue;
                 MailEvent offer = Mail.FirstOrDefault(mail => mail.TargetWorkId == group.Id);
-                if (offer != null && offer.IsProposal) continue;
+                if (offer != null && (offer.IsProposal || offer.IsBossRequest)) continue;
                 group.AwaitingAcceptance = false;
                 if (offer != null)
                 {

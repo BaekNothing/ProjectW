@@ -39,6 +39,8 @@ namespace ProjectW.MilestonePrototype
             { "messenger", "MESSENGER / 메신저" },
             { "worker-detail", "CREW PROFILE / 대원 상세" },
             { "task-detail", "TASK DETAIL / 작업 상세" },
+            { "proposal", "PROPOSAL / 제안서" },
+            { "priority", "PRIORITY / 우선순위" },
             { "options", "OPTIONS / 옵션" }
         };
         private readonly string[] desktopBadgeAppIds =
@@ -47,6 +49,11 @@ namespace ProjectW.MilestonePrototype
             "codex", "messenger", "profile", "options"
         };
         private readonly int[] desktopBadgeCounts = new int[10];
+        private int proposalTargetIndex;
+        private int proposalTaskCount = 2;
+        private readonly int[] proposalActionIndices = new int[4];
+        private ProposalPitch proposalPitch = ProposalPitch.Stability;
+        private string proposalNotice;
 
         private MilestoneSimulation game;
         private GUIStyle title;
@@ -196,7 +203,7 @@ namespace ProjectW.MilestonePrototype
                 "PROJECT W  /  OPERATIONS DESK", title);
             GUI.Label(new Rect(logicalWidth - 250, 18, 225, 25),
                 $"DAY {game.Day:00} ({MilestoneSimulation.WeekdayName(game.CurrentWeekday)})  ·  생존 기록", small);
-            string[] ids = { "mail", "gantt", "milestone", "workers", "report", "codex", "messenger", "profile", "options", "data" };
+            string[] ids = { "mail", "proposal", "priority", "gantt", "milestone", "workers", "report", "codex", "messenger", "profile", "options", "data" };
             RefreshDesktopBadges();
             for (int i = 0; i < ids.Length; i++)
             {
@@ -264,6 +271,8 @@ namespace ProjectW.MilestonePrototype
             switch (window.Id)
             {
                 case "mail": DrawMail(window); break;
+                case "proposal": DrawProposal(window); break;
+                case "priority": DrawPriority(window); break;
                 case "gantt": DrawGantt(window); break;
                 case "milestone": DrawMilestones(window); break;
                 case "workers": DrawWorkers(window); break;
@@ -346,26 +355,8 @@ namespace ProjectW.MilestonePrototype
                 {
                     if (mail.IsProposal && !mail.Resolved)
                     {
-                        string lead = mail.ProposalStage == ProposalStage.Question ? "보완 답변" : "제안서 제출";
-                        GUILayout.Label(mail.ProposalStage == ProposalStage.Question
-                            ? "사장이 제안의 관점을 되물었습니다. 답변 방향을 선택하세요."
-                            : "어떤 논리로 사장에게 제안할지 선택하세요.", small);
-                        if (LayoutButton($"{lead}: 안정성과 위험 통제", GUILayout.Height(34)))
-                        {
-                            game.RespondToProposal(mail.Id, ProposalPitch.Stability); SaveCampaign();
-                        }
-                        if (LayoutButton($"{lead}: 장기 성과와 성장", GUILayout.Height(34)))
-                        {
-                            game.RespondToProposal(mail.Id, ProposalPitch.Growth); SaveCampaign();
-                        }
-                        if (LayoutButton($"{lead}: 비용 대비 효율", GUILayout.Height(34)))
-                        {
-                            game.RespondToProposal(mail.Id, ProposalPitch.Efficiency); SaveCampaign();
-                        }
-                        if (LayoutButton("안 맡음 의견", GUILayout.Height(34)))
-                        {
-                            game.RespondToProposal(mail.Id, ProposalPitch.Decline); SaveCampaign();
-                        }
+                        GUILayout.Label("이 메일은 검토 결과입니다. 답변이나 수정 제출은 제안서 앱에서 진행하세요.", small);
+                        if (LayoutButton("제안서 앱 열기", GUILayout.Height(38))) Open("proposal");
                         GUILayout.EndVertical();
                         GUILayout.EndHorizontal();
                         return;
@@ -388,6 +379,123 @@ namespace ProjectW.MilestonePrototype
             GUILayout.EndHorizontal();
         }
 
+        private void DrawProposal(DeskWindow window)
+        {
+            RandomTaskTarget[] targets = game.ProposalTargets;
+            RandomTaskAction[] actions = game.ProposalActions;
+            if (targets == null || targets.Length == 0 || actions == null || actions.Length == 0)
+            {
+                GUILayout.Label("제안서 구성 데이터가 없습니다.", warning);
+                return;
+            }
+            proposalTargetIndex = Mathf.Clamp(proposalTargetIndex, 0, targets.Length - 1);
+            proposalTaskCount = Mathf.Clamp(proposalTaskCount, 2, 4);
+            GUILayout.Label("PM PROJECT PROPOSAL", title);
+            GUILayout.Label("목표와 실행 단계를 구성하면 투자비·보상·일정이 자동 산정됩니다.", small);
+            DrawSectionRule();
+            GUILayout.Label("1. 제안 목표", section);
+            GUILayout.BeginHorizontal();
+            if (LayoutButton("<", GUILayout.Width(42))) proposalTargetIndex = (proposalTargetIndex + targets.Length - 1) % targets.Length;
+            GUILayout.Label(targets[proposalTargetIndex].Text, GUILayout.MinWidth(220));
+            if (LayoutButton(">", GUILayout.Width(42))) proposalTargetIndex = (proposalTargetIndex + 1) % targets.Length;
+            GUILayout.EndHorizontal();
+            GUILayout.Space(8);
+            GUILayout.BeginHorizontal();
+            GUILayout.Label($"2. 실행 단계  {proposalTaskCount}개", section);
+            if (LayoutButton("단계 -", GUILayout.Width(75))) proposalTaskCount = Mathf.Max(2, proposalTaskCount - 1);
+            if (LayoutButton("단계 +", GUILayout.Width(75))) proposalTaskCount = Mathf.Min(4, proposalTaskCount + 1);
+            GUILayout.EndHorizontal();
+            var selectedActionIds = new string[proposalTaskCount];
+            for (int i = 0; i < proposalTaskCount; i++)
+            {
+                proposalActionIndices[i] = Mathf.Clamp(proposalActionIndices[i], 0, actions.Length - 1);
+                selectedActionIds[i] = actions[proposalActionIndices[i]].Id;
+                GUILayout.BeginHorizontal();
+                GUILayout.Label($"{i + 1}.", GUILayout.Width(28));
+                if (LayoutButton("<", GUILayout.Width(42))) proposalActionIndices[i] = (proposalActionIndices[i] + actions.Length - 1) % actions.Length;
+                GUILayout.Label($"{actions[proposalActionIndices[i]].Text}  ·  {RoleName(actions[proposalActionIndices[i]].Role)}", GUILayout.MinWidth(260));
+                if (LayoutButton(">", GUILayout.Width(42))) proposalActionIndices[i] = (proposalActionIndices[i] + 1) % actions.Length;
+                GUILayout.EndHorizontal();
+                selectedActionIds[i] = actions[proposalActionIndices[i]].Id;
+            }
+            GUILayout.Space(8);
+            GUILayout.Label("3. 제안 논리", section);
+            GUILayout.BeginHorizontal();
+            if (LayoutButton(proposalPitch == ProposalPitch.Stability ? "[안정성]" : "안정성")) proposalPitch = ProposalPitch.Stability;
+            if (LayoutButton(proposalPitch == ProposalPitch.Growth ? "[장기 성장]" : "장기 성장")) proposalPitch = ProposalPitch.Growth;
+            if (LayoutButton(proposalPitch == ProposalPitch.Efficiency ? "[비용 효율]" : "비용 효율")) proposalPitch = ProposalPitch.Efficiency;
+            GUILayout.EndHorizontal();
+            ProposalEstimate estimate = game.EstimateProposal(targets[proposalTargetIndex].Id, selectedActionIds);
+            if (estimate != null)
+            {
+                GUILayout.Space(10);
+                GUILayout.Label($"총 작업량 {estimate.TotalWork:0.0}일  ·  투자비 {estimate.CostCredits}자원  ·  완료 보상 {estimate.RewardCredits}자원", section);
+                GUILayout.Label($"소프트 마감 DAY {estimate.SoftDeadlineDay}  ·  하드 마감 DAY {estimate.HardDeadlineDay}  ·  위험 {RiskName(estimate.Risk)}", small);
+                SetControlEnabled(game.Resources >= estimate.CostCredits);
+                if (LayoutButton("사장에게 제안서 제출", GUILayout.Height(42)))
+                {
+                    proposalNotice = game.SubmitProposal(targets[proposalTargetIndex].Id, selectedActionIds, proposalPitch)
+                        ? "제출 완료. 다음 날 사장실 메일로 결과가 도착합니다."
+                        : "제출할 수 없습니다. 예산 또는 대기 중 제안 수를 확인하세요.";
+                    SaveCampaign();
+                }
+                SetControlEnabled(true);
+            }
+            List<MailEvent> questions = game.Mail.Where(mail => mail.IsProposal &&
+                mail.ProposalStage == ProposalStage.Question && !mail.Resolved && mail.ArrivalDay <= game.Day).ToList();
+            foreach (MailEvent question in questions)
+            {
+                GUILayout.Space(12);
+                GUILayout.Label($"보완 요청 · {question.Subject}", warning);
+                GUILayout.Label(question.Body);
+                GUILayout.BeginHorizontal();
+                if (LayoutButton("안정성 보완")) { game.RespondToProposal(question.Id, ProposalPitch.Stability); SaveCampaign(); }
+                if (LayoutButton("성장성 보완")) { game.RespondToProposal(question.Id, ProposalPitch.Growth); SaveCampaign(); }
+                if (LayoutButton("효율 보완")) { game.RespondToProposal(question.Id, ProposalPitch.Efficiency); SaveCampaign(); }
+                if (LayoutButton("안 맡음 의견")) { game.RespondToProposal(question.Id, ProposalPitch.Decline); SaveCampaign(); }
+                GUILayout.EndHorizontal();
+            }
+            if (!string.IsNullOrEmpty(proposalNotice)) GUILayout.Label(proposalNotice, success);
+        }
+
+        private void DrawPriority(DeskWindow window)
+        {
+            GUILayout.Label("WORK PRIORITY", title);
+            GUILayout.Label("자동배정은 위에서 아래 순서로 가용 작업을 검토합니다.", small);
+            GUILayout.Label("긴급! = 최적 담당자를 낮은 우선순위 일에서 빼와 선점 · 총력! = 해당 일 담당자의 검진과 주말 휴식 생략", warning);
+            DrawSectionRule();
+            List<WorkGroup> works = game.Groups.Where(group => game.IsWorkVisible(group) &&
+                    group.State != WorkState.Complete && group.State != WorkState.Failed)
+                .OrderBy(group => group.Priority).ThenBy(group => group.Id).ToList();
+            for (int i = 0; i < works.Count; i++)
+            {
+                WorkGroup work = works[i];
+                GUILayout.BeginVertical(GUI.skin.box);
+                GUILayout.BeginHorizontal();
+                GUILayout.Label($"{i + 1}. {work.Name}", section, GUILayout.MinWidth(260));
+                GUILayout.FlexibleSpace();
+                SetControlEnabled(i > 0);
+                if (LayoutButton("↑", GUILayout.Width(44))) { game.MoveWorkPriority(work.Id, -1); SaveCampaign(); }
+                SetControlEnabled(i < works.Count - 1);
+                if (LayoutButton("↓", GUILayout.Width(44))) { game.MoveWorkPriority(work.Id, 1); SaveCampaign(); }
+                SetControlEnabled(true);
+                GUILayout.EndHorizontal();
+                GUILayout.BeginHorizontal();
+                if (LayoutButton(work.Urgent ? "[긴급!]" : "긴급!", GUILayout.Width(100)))
+                {
+                    game.ConfigureWorkFocus(work.Id, !work.Urgent, work.AllOut); SaveCampaign();
+                }
+                if (LayoutButton(work.AllOut ? "[총력!]" : "총력!", GUILayout.Width(100)))
+                {
+                    game.ConfigureWorkFocus(work.Id, work.Urgent, !work.AllOut); SaveCampaign();
+                }
+                GUILayout.Label($"마감 {work.SoftDeadline}/{work.HardDeadline}  ·  보상 {work.RewardCredits}  ·  상태 {WorkStateName(work.State)}", small);
+                GUILayout.EndHorizontal();
+                GUILayout.EndVertical();
+            }
+            if (works.Count == 0) GUILayout.Label("우선순위를 조정할 진행 가능 일이 없습니다.");
+        }
+
         private void DrawGantt(DeskWindow window)
         {
             GUILayout.BeginHorizontal();
@@ -397,12 +505,6 @@ namespace ProjectW.MilestonePrototype
                     GUILayout.Width(125f), GUILayout.Height(30f)))
             {
                 game.SetCompetencyAutoAssignment(!game.CompetencyAutoAssignment);
-                SaveCampaign();
-            }
-            if (LayoutButton(game.Crunch ? "[✓] 크런치" : "[ ] 크런치",
-                    GUILayout.Width(105f), GUILayout.Height(30f)))
-            {
-                game.SetCrunch(!game.Crunch);
                 SaveCampaign();
             }
             if (LayoutButton("검진 일괄", GUILayout.Width(95f), GUILayout.Height(30f)))
@@ -2367,6 +2469,8 @@ namespace ProjectW.MilestonePrototype
             switch (id)
             {
                 case "mail": return "통신";
+                case "proposal": return "제안서";
+                case "priority": return "우선순위";
                 case "gantt": return "작업";
                 case "milestone": return "마일스톤";
                 case "workers": return "대원";
@@ -2384,6 +2488,8 @@ namespace ProjectW.MilestonePrototype
             switch (id)
             {
                 case "mail": return "MAIL";
+                case "proposal": return "PROP";
+                case "priority": return "PRIO";
                 case "gantt": return "TASK";
                 case "milestone": return "MILE";
                 case "workers": return "CREW";
