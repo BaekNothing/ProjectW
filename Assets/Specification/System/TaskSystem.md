@@ -545,8 +545,11 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 - Reveal-day and mail-acceptance gates also block manual, learned, scheduled, and competency
   automatic assignment.
 - The final operation is invisible and unassignable through day 59, then becomes visible on day 60.
-- A generated side mission is automatically added to the visible task roster when its next-morning
-  notification mail arrives and follows normal Work/Task state rules without an acceptance gate.
+- A generated opportunity arrives as a PM proposal draft and remains hidden from the task roster
+  until the player submits a proposal that the boss approves. The player chooses whether to frame
+  the proposal around stability, growth, or efficiency. A framing that misses the boss's current
+  preference produces a follow-up question and a chance to revise the answer. The player may instead
+  submit an `안 맡음 의견`; this closes the proposal without reward or deadline penalty.
 - Generated side-mission hard-deadline failure deducts resources without setting campaign loss.
 - Task completion retains the completing assignee while leaving that worker free for new work.
 - Zero remaining side missions generate one to three next-morning structured offers; urgent
@@ -559,10 +562,10 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 
 - Generated side missions are optional Works with the same Work/Task deadline, assignment,
   competency, progress, reward, and penalty rules as authored missions.
-- A generated side mission is automatically added to the Gantt and task roster on the morning after
-  generation. It can receive an assignment immediately, subject to normal predecessors.
-- The mail application receives one notification for the generated mission. Resolving the mail only
-  acknowledges the notification and is not an acceptance gate.
+- A generated side mission stays outside the Gantt and task roster while its PM proposal is a draft
+  or is waiting for a boss-question response. Approval reveals it immediately, subject to normal
+  predecessors. Declining it with an `안 맡음 의견` closes it without a penalty.
+- The mail application receives one interactive proposal thread for the generated mission.
 - Generated offers use materially larger credit rewards than the previous incident baseline. Their
   reward and resource penalties remain externally balanced in `task-system.json`.
 - A generated side mission is never required for campaign victory. Missing its hard deadline fails
@@ -585,6 +588,9 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
   mail names the mission and summarizes the number of child work items and total reward.
 - Urgent/incident generation remains a separate concept. It must not use the side-mission batch,
   side-mission mail, or `TaskKind.SideMission` merely to represent a small random action.
+- Authored non-urgent Works should provide roughly 10–15 working days of chained required workload,
+  with soft and hard deadlines sized for a two-to-three-week planning tempo. Urgent/incident work
+  remains a short two-to-three-day response and is balanced separately.
 - The generated Work deadline includes additional schedule allowance for its child count so the
   hierarchy is not balanced as though it were a single Task.
 - On campaign restore, an incomplete legacy generated side-mission Work with only one child Task is

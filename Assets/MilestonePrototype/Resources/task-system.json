@@ -696,7 +696,7 @@
         1,
         3
       ],
-      "RequiredWork": 3,
+      "RequiredWork": 6,
       "Required": true,
       "PrerequisiteId": "",
       "AssignedCharacter": -1,
@@ -714,7 +714,7 @@
         0,
         2
       ],
-      "RequiredWork": 4,
+      "RequiredWork": 7,
       "Required": true,
       "PrerequisiteId": "survey",
       "AssignedCharacter": -1,
@@ -733,7 +733,7 @@
         4,
         2
       ],
-      "RequiredWork": 4,
+      "RequiredWork": 7,
       "Required": true,
       "PrerequisiteId": "survey",
       "AssignedCharacter": -1,
@@ -752,7 +752,7 @@
         4,
         1
       ],
-      "RequiredWork": 1,
+      "RequiredWork": 4,
       "Required": false,
       "PrerequisiteId": "power",
       "AssignedCharacter": -1,
@@ -771,7 +771,7 @@
         3,
         5
       ],
-      "RequiredWork": 3,
+      "RequiredWork": 12,
       "Required": true,
       "PrerequisiteId": "",
       "AssignedCharacter": -1,
@@ -789,7 +789,7 @@
         1,
         4
       ],
-      "RequiredWork": 2,
+      "RequiredWork": 5,
       "Required": true,
       "PrerequisiteId": "",
       "AssignedCharacter": -1,
@@ -807,7 +807,7 @@
         0,
         4
       ],
-      "RequiredWork": 3,
+      "RequiredWork": 6,
       "Required": true,
       "PrerequisiteId": "water-intake-check",
       "AssignedCharacter": -1,
@@ -825,7 +825,7 @@
         0,
         5
       ],
-      "RequiredWork": 2,
+      "RequiredWork": 5,
       "Required": true,
       "PrerequisiteId": "",
       "AssignedCharacter": -1,
@@ -843,7 +843,7 @@
         1,
         5
       ],
-      "RequiredWork": 3,
+      "RequiredWork": 6,
       "Required": true,
       "PrerequisiteId": "comms-mast-inspection",
       "AssignedCharacter": -1,
@@ -861,7 +861,7 @@
         1,
         3
       ],
-      "RequiredWork": 2,
+      "RequiredWork": 5,
       "Required": true,
       "PrerequisiteId": "",
       "AssignedCharacter": -1,
@@ -880,7 +880,7 @@
         3,
         4
       ],
-      "RequiredWork": 3,
+      "RequiredWork": 6,
       "Required": true,
       "PrerequisiteId": "thermal-map-survey",
       "AssignedCharacter": -1,
@@ -898,7 +898,7 @@
         1,
         4
       ],
-      "RequiredWork": 2,
+      "RequiredWork": 5,
       "Required": true,
       "PrerequisiteId": "",
       "AssignedCharacter": -1,
@@ -916,7 +916,7 @@
         3,
         4
       ],
-      "RequiredWork": 3,
+      "RequiredWork": 6,
       "Required": true,
       "PrerequisiteId": "food-culture-sample",
       "AssignedCharacter": -1,
@@ -934,7 +934,7 @@
         1,
         3
       ],
-      "RequiredWork": 2,
+      "RequiredWork": 5,
       "Required": true,
       "PrerequisiteId": "",
       "AssignedCharacter": -1,
@@ -952,7 +952,7 @@
         0,
         3
       ],
-      "RequiredWork": 3,
+      "RequiredWork": 6,
       "Required": true,
       "PrerequisiteId": "dust-seal-inspection",
       "AssignedCharacter": -1,
@@ -970,7 +970,7 @@
         2,
         5
       ],
-      "RequiredWork": 2,
+      "RequiredWork": 5,
       "Required": true,
       "PrerequisiteId": "",
       "AssignedCharacter": -1,
@@ -988,7 +988,7 @@
         2,
         5
       ],
-      "RequiredWork": 2,
+      "RequiredWork": 5,
       "Required": true,
       "PrerequisiteId": "storage-inventory-audit",
       "AssignedCharacter": -1,
@@ -1006,7 +1006,7 @@
         1,
         4
       ],
-      "RequiredWork": 2,
+      "RequiredWork": 5,
       "Required": true,
       "PrerequisiteId": "",
       "AssignedCharacter": -1,
@@ -1025,7 +1025,7 @@
         4,
         5
       ],
-      "RequiredWork": 2,
+      "RequiredWork": 5,
       "Required": true,
       "PrerequisiteId": "med-bay-audit",
       "AssignedCharacter": -1,
@@ -1043,7 +1043,7 @@
         1,
         3
       ],
-      "RequiredWork": 2,
+      "RequiredWork": 5,
       "Required": true,
       "PrerequisiteId": "",
       "AssignedCharacter": -1,
@@ -1062,7 +1062,7 @@
         3,
         5
       ],
-      "RequiredWork": 3,
+      "RequiredWork": 6,
       "Required": true,
       "PrerequisiteId": "relay-site-survey",
       "AssignedCharacter": -1,
@@ -1080,7 +1080,7 @@
         1,
         3
       ],
-      "RequiredWork": 3,
+      "RequiredWork": 6,
       "Required": true,
       "PrerequisiteId": "",
       "AssignedCharacter": -1,
@@ -1098,7 +1098,7 @@
         1,
         3
       ],
-      "RequiredWork": 3,
+      "RequiredWork": 6,
       "Required": true,
       "PrerequisiteId": "red-sector-map",
       "AssignedCharacter": -1,
@@ -1116,7 +1116,7 @@
         0,
         2
       ],
-      "RequiredWork": 2,
+      "RequiredWork": 5,
       "Required": true,
       "PrerequisiteId": "",
       "AssignedCharacter": -1,
@@ -1135,7 +1135,7 @@
         2,
         4
       ],
-      "RequiredWork": 3,
+      "RequiredWork": 6,
       "Required": true,
       "PrerequisiteId": "reserve-load-analysis",
       "AssignedCharacter": -1,
@@ -1153,7 +1153,7 @@
         2,
         5
       ],
-      "RequiredWork": 2,
+      "RequiredWork": 5,
       "Required": true,
       "PrerequisiteId": "",
       "AssignedCharacter": -1,
@@ -1170,7 +1170,7 @@
       "RequiredCompetencies": [
         5
       ],
-      "RequiredWork": 2,
+      "RequiredWork": 5,
       "Required": true,
       "PrerequisiteId": "training-gap-analysis",
       "AssignedCharacter": -1,
@@ -1188,7 +1188,7 @@
         1,
         4
       ],
-      "RequiredWork": 2,
+      "RequiredWork": 5,
       "Required": true,
       "PrerequisiteId": "",
       "AssignedCharacter": -1,
@@ -1206,7 +1206,7 @@
         0,
         4
       ],
-      "RequiredWork": 3,
+      "RequiredWork": 6,
       "Required": true,
       "PrerequisiteId": "biofilter-diagnostic",
       "AssignedCharacter": -1,
@@ -1224,7 +1224,7 @@
         2,
         3
       ],
-      "RequiredWork": 2,
+      "RequiredWork": 5,
       "Required": true,
       "PrerequisiteId": "",
       "AssignedCharacter": -1,
@@ -1242,7 +1242,7 @@
         2,
         5
       ],
-      "RequiredWork": 3,
+      "RequiredWork": 6,
       "Required": true,
       "PrerequisiteId": "route-risk-analysis",
       "AssignedCharacter": -1,
@@ -1260,7 +1260,7 @@
         1,
         5
       ],
-      "RequiredWork": 3,
+      "RequiredWork": 6,
       "Required": true,
       "PrerequisiteId": "",
       "AssignedCharacter": -1,
@@ -1278,7 +1278,7 @@
         3,
         5
       ],
-      "RequiredWork": 2,
+      "RequiredWork": 5,
       "Required": true,
       "PrerequisiteId": "signal-spectrum-analysis",
       "AssignedCharacter": -1,
@@ -1296,7 +1296,7 @@
         0,
         4
       ],
-      "RequiredWork": 2,
+      "RequiredWork": 5,
       "Required": true,
       "PrerequisiteId": "",
       "AssignedCharacter": -1,
@@ -1315,7 +1315,7 @@
         2,
         4
       ],
-      "RequiredWork": 3,
+      "RequiredWork": 6,
       "Required": true,
       "PrerequisiteId": "habitat-frame-plan",
       "AssignedCharacter": -1,
@@ -1334,7 +1334,7 @@
         1,
         4
       ],
-      "RequiredWork": 3,
+      "RequiredWork": 6,
       "Required": true,
       "PrerequisiteId": "",
       "AssignedCharacter": -1,
@@ -1352,7 +1352,7 @@
         2,
         5
       ],
-      "RequiredWork": 2,
+      "RequiredWork": 5,
       "Required": true,
       "PrerequisiteId": "prelaunch-system-audit",
       "AssignedCharacter": -1,
@@ -3096,7 +3096,7 @@
       "Id": "guide-side-mission",
       "Category": "일과 작업",
       "Name": "생성형 사이드 미션",
-      "Description": "남은 사이드 미션이 0개가 되면 다음 아침에 1~3개의 제안이 보장 생성됩니다. 각 제안은 수락 절차 없이 간트와 작업 목록에 자동 편성되며 즉시 배정할 수 있습니다. 메일은 새 임무가 편성되었다는 알림으로 한 번 도착합니다.\n\n한 미션은 2~4개의 필수 작업으로 구성되며 내부 선행 사슬을 가집니다. 이름은 형용사+대상+행동 단어 풀에서 조합됩니다. 기본 보상은 6~10자원, 소프트 패널티 1, 하드 패널티 4이며 생성 중 미완료 미션은 최대 3개입니다. 완료한 단어는 도감에 해금됩니다."
+      "Description": "남은 사이드 미션이 0개가 되면 다음 아침에 1~3개의 PM 제안서 초안이 보장 생성됩니다. 초안은 간트에서 숨겨지며, 플레이어가 안정성·장기 성장·비용 효율 중 제안 논리를 선택해 사장에게 올립니다. 사장 성향과 맞지 않으면 보완 질문이 돌아오며 다시 답할 수 있습니다. 엉뚱한 제안에는 안 맡음 의견을 내서 보상과 패널티 없이 닫을 수 있습니다. 승인된 제안만 즉시 작업 목록에 편입됩니다.\n\n한 미션은 2~4개의 필수 작업으로 구성되며 내부 선행 사슬을 가집니다. 이름은 형용사+대상+행동 단어 풀에서 조합됩니다. 기본 보상은 6~10자원, 소프트 패널티 1, 하드 패널티 4이며 생성 중 미완료 미션은 최대 3개입니다. 완료한 단어는 도감에 해금됩니다. 일반 업무는 2~3주 계획 템포를 사용하고 긴급대응은 짧은 2~3일 단위로 별도 유지합니다."
     },
     {
       "Id": "guide-worker-profile",

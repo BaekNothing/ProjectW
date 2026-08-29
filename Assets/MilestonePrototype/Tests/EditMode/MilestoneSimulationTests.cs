@@ -585,6 +585,7 @@ namespace ProjectW.MilestonePrototype.Tests
         public void UnchangedAssigneeWorksUntilOutputCompletesTaskAndRecordsDates()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
+            UseShortPlanningFixture(data);
             data.Balance.LowOutputChance = 0;
             data.Balance.HighOutputChance = 0;
             data.Balance.FreshLowOutputChance = 0;
@@ -817,14 +818,16 @@ namespace ProjectW.MilestonePrototype.Tests
             for (int taskIndex = 1; taskIndex < generatedTasks.Count; taskIndex++)
                 Assert.That(generatedTasks[taskIndex].PrerequisiteId,
                     Is.EqualTo(generatedTasks[taskIndex - 1].Id));
-            Assert.That(generated.AwaitingAcceptance, Is.False);
-            Assert.That(game.IsWorkVisible(generated), Is.True);
-            Assert.That(generatedTask.State, Is.EqualTo(TaskState.Available));
+            Assert.That(generated.AwaitingAcceptance, Is.True);
+            Assert.That(game.IsWorkVisible(generated), Is.False);
+            Assert.That(generatedTask.State, Is.EqualTo(TaskState.Locked));
             MailEvent offer = game.Mail.Find(mail => mail.TargetWorkId == generated.Id);
             Assert.That(offer, Is.Not.Null);
             Assert.That(offer.ArrivalDay, Is.EqualTo(game.Day));
             Assert.That(offer.ActivatesWork, Is.False);
-            Assert.That(game.ResolveMail(offer.Id), Is.True);
+            Assert.That(offer.IsProposal, Is.True);
+            ProposalPitch matchingPitch = (ProposalPitch)offer.BossPreference;
+            Assert.That(game.RespondToProposal(offer.Id, matchingPitch), Is.True);
             Assert.That(generated.AwaitingAcceptance, Is.False);
             Assert.That(game.IsWorkVisible(generated), Is.True);
             Assert.That(generatedTask.State, Is.EqualTo(TaskState.Available));
@@ -841,6 +844,9 @@ namespace ProjectW.MilestonePrototype.Tests
             CampaignSnapshot legacySnapshot = game.CreateSnapshot();
             generated.AwaitingAcceptance = true;
             offer.ActivatesWork = true;
+            offer.IsProposal = false;
+            offer.ProposalStage = ProposalStage.None;
+            offer.Resolved = false;
             generatedTask.GeneratedAdjectiveId = null;
             generatedTask.GeneratedTargetId = null;
             generatedTask.GeneratedActionId = null;
@@ -878,6 +884,29 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void ProposalCanAskForARevisionOrBeDeclinedWithoutPenalty()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.BaseSideMissionChance = 100;
+            data.Balance.RandomWorkChanceScalePercent = 100;
+            var game = new MilestoneSimulation(data, 4);
+            int resources = game.Resources;
+            game.AdvanceDay();
+            MailEvent offer = game.Mail.Find(mail => mail.IsProposal && !mail.Resolved);
+            WorkGroup work = game.Groups.Find(group => group.Id == offer.TargetWorkId);
+            ProposalPitch mismatch = offer.BossPreference == BossPreference.Stability
+                ? ProposalPitch.Growth : ProposalPitch.Stability;
+
+            Assert.That(game.RespondToProposal(offer.Id, mismatch), Is.True);
+            Assert.That(offer.ProposalStage, Is.EqualTo(ProposalStage.Question));
+            Assert.That(work.AwaitingAcceptance, Is.True);
+            Assert.That(game.RespondToProposal(offer.Id, ProposalPitch.Decline), Is.True);
+            Assert.That(offer.ProposalStage, Is.EqualTo(ProposalStage.Declined));
+            Assert.That(work.State, Is.EqualTo(WorkState.Failed));
+            Assert.That(game.Resources, Is.EqualTo(resources));
+        }
+
+        [Test]
         public void RandomWorkChanceScaleCanSuppressOtherwiseGuaranteedMission()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
@@ -903,6 +932,9 @@ namespace ProjectW.MilestonePrototype.Tests
             WorkTask legacyTask = original.Tasks.Find(task => task.GroupId == legacyWork.Id);
             int oldSoftDeadline = legacyWork.SoftDeadline;
             int oldHardDeadline = legacyWork.HardDeadline;
+            MailEvent legacyOffer = original.Mail.Find(mail => mail.TargetWorkId == legacyWork.Id);
+            legacyOffer.IsProposal = false;
+            legacyOffer.ProposalStage = ProposalStage.None;
             CampaignSnapshot snapshot = original.CreateSnapshot();
             snapshot.Tasks = System.Array.FindAll(snapshot.Tasks, task =>
                 task.GroupId != legacyWork.Id || task.Id == legacyTask.Id);
@@ -964,9 +996,9 @@ namespace ProjectW.MilestonePrototype.Tests
             {
                 List<WorkTask> childTasks = game.Tasks.FindAll(task => task.GroupId == work.Id);
                 Assert.That(childTasks, Has.Count.InRange(2, 4));
-                Assert.That(work.AwaitingAcceptance, Is.False);
-                Assert.That(game.IsWorkVisible(work), Is.True);
-                Assert.That(childTasks[0].State, Is.EqualTo(TaskState.Available));
+                Assert.That(work.AwaitingAcceptance, Is.True);
+                Assert.That(game.IsWorkVisible(work), Is.False);
+                Assert.That(childTasks[0].State, Is.EqualTo(TaskState.Locked));
                 Assert.That(game.Mail.FindAll(mail => mail.TargetWorkId == work.Id), Has.Count.EqualTo(1));
             }
             Assert.That(game.Groups.Find(group => group.Id == "incident").Required, Is.False);
@@ -1043,7 +1075,9 @@ namespace ProjectW.MilestonePrototype.Tests
         [Test]
         public void IdleWorkerScheduleStartsTodayAndDividesWorkByExpectedOutput()
         {
-            var game = new MilestoneSimulation(1);
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            UseShortPlanningFixture(data);
+            var game = new MilestoneSimulation(data, 1);
 
             TaskScheduleEstimate estimate = game.EstimateSchedule("survey", 1);
 
@@ -1057,7 +1091,9 @@ namespace ProjectW.MilestonePrototype.Tests
         [Test]
         public void AssignedBlockerAndBusyWorkerPushSuccessorAfterExpectedCompletion()
         {
-            var game = new MilestoneSimulation(1);
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            UseShortPlanningFixture(data);
+            var game = new MilestoneSimulation(data, 1);
             Assert.That(game.Assign("survey", 1), Is.True);
 
             TaskScheduleEstimate estimate = game.EstimateSchedule("habitat", 1);
@@ -1070,7 +1106,9 @@ namespace ProjectW.MilestonePrototype.Tests
         [Test]
         public void UnassignedBlockerUsesBaselinePreviewAndMovesWithCurrentDay()
         {
-            var game = new MilestoneSimulation(1);
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            UseShortPlanningFixture(data);
+            var game = new MilestoneSimulation(data, 1);
 
             TaskScheduleEstimate today = game.EstimateSchedule("habitat", 0);
             game.AdvanceDay();
@@ -1086,6 +1124,7 @@ namespace ProjectW.MilestonePrototype.Tests
         public void FasterWorkerProducesShorterExpectedDuration()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
+            UseShortPlanningFixture(data);
             data.Crew[1].DailyOutput = 2f;
             var game = new MilestoneSimulation(data, 1);
 
@@ -1099,7 +1138,9 @@ namespace ProjectW.MilestonePrototype.Tests
         [Test]
         public void UnassignedTasksPreviewAtOneWorkPerDayInDependencyOrder()
         {
-            var game = new MilestoneSimulation(1);
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            UseShortPlanningFixture(data);
+            var game = new MilestoneSimulation(data, 1);
 
             TaskScheduleEstimate survey = game.EstimatePreviewSchedule("survey");
             TaskScheduleEstimate power = game.EstimatePreviewSchedule("power");
@@ -1118,7 +1159,9 @@ namespace ProjectW.MilestonePrototype.Tests
         [Test]
         public void WorkPredecessorPreviewStartsAfterLatestRequiredTask()
         {
-            var game = new MilestoneSimulation(1);
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            UseShortPlanningFixture(data);
+            var game = new MilestoneSimulation(data, 1);
 
             TaskScheduleEstimate launch = game.EstimatePreviewSchedule("launch");
 
@@ -1130,6 +1173,7 @@ namespace ProjectW.MilestonePrototype.Tests
         public void AssignedPredecessorOutputMovesUnassignedSuccessorPreview()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
+            UseShortPlanningFixture(data);
             data.Crew[1].DailyOutput = 2f;
             var game = new MilestoneSimulation(data, 1);
             game.Assign("survey", 1);
@@ -1597,7 +1641,7 @@ namespace ProjectW.MilestonePrototype.Tests
             game.AdvanceDay();
             WorkGroup sideMission = game.Groups.Find(group => group.Id.StartsWith("random-work-"));
             MailEvent offer = game.Mail.Find(mail => mail.TargetWorkId == sideMission.Id);
-            Assert.That(game.ResolveMail(offer.Id), Is.True);
+            Assert.That(game.RespondToProposal(offer.Id, (ProposalPitch)offer.BossPreference), Is.True);
             data.Balance.BaseSideMissionChance = 0;
             sideMission.SoftDeadline = game.Day;
             sideMission.HardDeadline = game.Day;
@@ -1638,6 +1682,7 @@ namespace ProjectW.MilestonePrototype.Tests
         public void SmallTaskCanRunInParallelForAdditionalFatigue()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
+            UseShortPlanningFixture(data);
             data.Balance.RandomWorkLimit = 0;
             foreach (CrewMember member in data.Crew) member.DailyOutput = 1f;
             ForceSuccessOutcome(data);
@@ -1657,9 +1702,10 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void InterruptingFourDayTaskAddsOneDayContextCost()
+        public void InterruptingTaskAddsOneDayContextCost()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
+            UseShortPlanningFixture(data);
             data.Balance.RandomWorkLimit = 0;
             foreach (CrewMember member in data.Crew) member.DailyOutput = 1f;
             ForceSuccessOutcome(data);
@@ -1672,7 +1718,7 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(game.Assign(habitat.Id, -1), Is.True);
             Assert.That(habitat.Progress, Is.EqualTo(1.25f));
             Assert.That(habitat.ContextCostDays, Is.EqualTo(1f));
-            Assert.That(habitat.EffectiveRequiredWork, Is.EqualTo(5f));
+            Assert.That(habitat.EffectiveRequiredWork, Is.EqualTo(habitat.RequiredWork + 1f));
             Assert.That(habitat.SplitCount, Is.EqualTo(1));
         }
 
@@ -1695,7 +1741,9 @@ namespace ProjectW.MilestonePrototype.Tests
         [Test]
         public void MissingHardDeadlineFailsRequiredWorkWithoutEndingTheRun()
         {
-            var game = new MilestoneSimulation(1);
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.StartingResources = 100;
+            var game = new MilestoneSimulation(data, 1);
             int hardDeadline = game.Groups.Find(group => group.Id == "foundation").HardDeadline;
             while (game.Day <= hardDeadline) game.AdvanceDay();
 
@@ -2168,6 +2216,15 @@ namespace ProjectW.MilestonePrototype.Tests
             for (int i = 0; i < 8 && game.Tasks.Find(task => task.Id == "survey").State != TaskState.Complete; i++)
                 game.AdvanceDay();
             Assert.That(game.Tasks.Find(task => task.Id == "survey").State, Is.EqualTo(TaskState.Complete));
+        }
+
+        private static void UseShortPlanningFixture(TaskSystemData data)
+        {
+            Array.Find(data.Tasks, task => task.Id == "survey").RequiredWork = 3f;
+            Array.Find(data.Tasks, task => task.Id == "power").RequiredWork = 4f;
+            Array.Find(data.Tasks, task => task.Id == "habitat").RequiredWork = 4f;
+            Array.Find(data.Tasks, task => task.Id == "safety").RequiredWork = 1f;
+            Array.Find(data.Tasks, task => task.Id == "launch").RequiredWork = 3f;
         }
 
         private static void DisableAccidents(TaskSystemData data)

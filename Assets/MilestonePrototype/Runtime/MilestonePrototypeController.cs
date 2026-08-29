@@ -344,6 +344,32 @@ namespace ProjectW.MilestonePrototype
                 }
                 else
                 {
+                    if (mail.IsProposal && !mail.Resolved)
+                    {
+                        string lead = mail.ProposalStage == ProposalStage.Question ? "보완 답변" : "제안서 제출";
+                        GUILayout.Label(mail.ProposalStage == ProposalStage.Question
+                            ? "사장이 제안의 관점을 되물었습니다. 답변 방향을 선택하세요."
+                            : "어떤 논리로 사장에게 제안할지 선택하세요.", small);
+                        if (LayoutButton($"{lead}: 안정성과 위험 통제", GUILayout.Height(34)))
+                        {
+                            game.RespondToProposal(mail.Id, ProposalPitch.Stability); SaveCampaign();
+                        }
+                        if (LayoutButton($"{lead}: 장기 성과와 성장", GUILayout.Height(34)))
+                        {
+                            game.RespondToProposal(mail.Id, ProposalPitch.Growth); SaveCampaign();
+                        }
+                        if (LayoutButton($"{lead}: 비용 대비 효율", GUILayout.Height(34)))
+                        {
+                            game.RespondToProposal(mail.Id, ProposalPitch.Efficiency); SaveCampaign();
+                        }
+                        if (LayoutButton("안 맡음 의견", GUILayout.Height(34)))
+                        {
+                            game.RespondToProposal(mail.Id, ProposalPitch.Decline); SaveCampaign();
+                        }
+                        GUILayout.EndVertical();
+                        GUILayout.EndHorizontal();
+                        return;
+                    }
                     SetControlEnabled(!mail.Resolved);
                     string actionLabel = mail.ActivatesWork
                         ? mail.Resolved ? "미션 수락 완료" : "미션 수락"

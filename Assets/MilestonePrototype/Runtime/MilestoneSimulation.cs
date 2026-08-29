@@ -375,7 +375,7 @@ namespace ProjectW.MilestonePrototype
         public bool ResolveMail(string mailId)
         {
             MailEvent mail = Mail.FirstOrDefault(item => item.Id == mailId && item.ArrivalDay <= Day);
-            if (mail == null || mail.Resolved || mail.IsCritical) return false;
+            if (mail == null || mail.Resolved || mail.IsCritical || mail.IsProposal) return false;
             mail.Read = true;
 
             if (mail.IsMedicalReport)
@@ -429,6 +429,58 @@ namespace ProjectW.MilestonePrototype
             mail.Resolved = true;
             Log($"메일 처리: {mail.Subject}");
             return true;
+        }
+
+        public bool RespondToProposal(string mailId, ProposalPitch pitch)
+        {
+            MailEvent mail = Mail.FirstOrDefault(item => item.Id == mailId && item.ArrivalDay <= Day);
+            if (mail == null || !mail.IsProposal || mail.Resolved || mail.IsCritical) return false;
+            WorkGroup work = Groups.FirstOrDefault(group => group.Id == mail.TargetWorkId);
+            if (work == null || !work.AwaitingAcceptance) return false;
+            mail.Read = true;
+
+            if (pitch == ProposalPitch.Decline)
+            {
+                work.State = WorkState.Failed;
+                work.AwaitingAcceptance = false;
+                foreach (WorkTask task in Tasks.Where(candidate => candidate.GroupId == work.Id))
+                    task.State = TaskState.Failed;
+                mail.ProposalStage = ProposalStage.Declined;
+                mail.Instruction = "PM 의견: 지금 맡을 일이 아닙니다. 일정과 자원에 반영하지 않았습니다.";
+                mail.Resolved = true;
+                Log($"제안 보류 의견: {work.Name}");
+                return true;
+            }
+
+            bool answeringQuestion = mail.ProposalStage == ProposalStage.Question;
+            bool matchesPreference = (int)pitch == (int)mail.BossPreference;
+            if (!answeringQuestion && !matchesPreference)
+            {
+                mail.ProposalStage = ProposalStage.Question;
+                mail.Instruction = $"사장 질문: {BossQuestion(mail.BossPreference)} 방향을 보강해서 다시 답해주세요.";
+                Log($"제안 보완 요청: {work.Name}");
+                return true;
+            }
+
+            int acceptanceDelay = Math.Max(0, Day - mail.ArrivalDay);
+            work.SoftDeadline += acceptanceDelay;
+            work.HardDeadline += acceptanceDelay;
+            work.AwaitingAcceptance = false;
+            foreach (WorkTask task in Tasks.Where(candidate => candidate.GroupId == work.Id))
+                task.Deadline = work.HardDeadline;
+            mail.ProposalStage = ProposalStage.Accepted;
+            mail.Instruction = answeringQuestion ? "보완 답변이 승인되었습니다. 계획에 편입되었습니다." : "제안서가 승인되어 계획에 편입되었습니다.";
+            mail.Resolved = true;
+            RefreshStates();
+            Log($"PM 제안 승인: {work.Name}");
+            return true;
+        }
+
+        private static string BossQuestion(BossPreference preference)
+        {
+            if (preference == BossPreference.Stability) return "실패 위험과 안전장치는 무엇인가";
+            if (preference == BossPreference.Growth) return "이 일이 장기 성과를 얼마나 키우는가";
+            return "투입 자원 대비 효과가 충분한가";
         }
 
         public void MarkMailRead(string mailId)
@@ -1697,8 +1749,8 @@ namespace ProjectW.MilestonePrototype
                 HardDeadline = Day + softDays + balance.RandomWorkHardDeadlineDays,
                 Required = false,
                 PredecessorIds = Array.Empty<string>(),
-                State = WorkState.Available,
-                AwaitingAcceptance = false,
+                State = WorkState.Locked,
+                AwaitingAcceptance = true,
                 RewardCredits = reward,
                 SoftPenaltyCredits = balance.RandomWorkSoftPenalty,
                 HardPenaltyCredits = balance.RandomWorkHardPenalty
@@ -1754,16 +1806,19 @@ namespace ProjectW.MilestonePrototype
                 Id = $"side-mission-offer-{id}",
                 ArrivalDay = Day,
                 From = "외행성 개척 관제국",
-                Subject = $"사이드 미션 제안: {work.Name}",
-                Body = $"{taskCount}개 하위 일감으로 구성된 개척 임무입니다. 성공 보상은 자원 {reward}입니다.",
-                Instruction = $"작업 목록에 자동 편성되었습니다. 실패 페널티: 자원 {work.HardPenaltyCredits}",
+                Subject = $"PM 제안서 초안: {work.Name}",
+                Body = $"PM이 발견한 기회입니다. {taskCount}개 실행 단계, 성공 보상 자원 {reward}, 실패 시 손실 자원 {work.HardPenaltyCredits}로 예상합니다.",
+                Instruction = "사장에게 올릴 제안 논리를 고르거나, 엉뚱한 일이라면 안 맡음 의견을 남기세요.",
                 TargetTaskId = firstTask.Id,
                 TargetWorkId = work.Id,
                 Risk = missionRisk,
-                ActivatesWork = false
+                ActivatesWork = false,
+                IsProposal = true,
+                ProposalStage = ProposalStage.Draft,
+                BossPreference = (BossPreference)random.Next(0, 3)
             });
             RefreshStates();
-            report.Lines.Add($"아침 사이드 미션 자동 편성: {work.Name} ({taskCount}개 일감)");
+            report.Lines.Add($"PM 제안서 초안 작성: {work.Name} ({taskCount}개 실행 단계)");
         }
 
         private RandomTaskAction SelectRandomAction(WorkRole role)
@@ -2008,8 +2063,9 @@ namespace ProjectW.MilestonePrototype
             {
                 if (group.Id == null || !group.Id.StartsWith("random-work-") ||
                     group.State == WorkState.Complete || group.State == WorkState.Failed) continue;
-                group.AwaitingAcceptance = false;
                 MailEvent offer = Mail.FirstOrDefault(mail => mail.TargetWorkId == group.Id);
+                if (offer != null && offer.IsProposal) continue;
+                group.AwaitingAcceptance = false;
                 if (offer != null)
                 {
                     offer.ActivatesWork = false;

@@ -12,6 +12,9 @@ namespace ProjectW.MilestonePrototype
     public enum RecordKind { Output, Note, Issue }
     public enum TaskOutcome { None, Failure, Success, GreatSuccess }
     public enum Weekday { Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday }
+    public enum ProposalStage { None, Draft, Question, Accepted, Declined }
+    public enum ProposalPitch { Stability, Growth, Efficiency, Decline }
+    public enum BossPreference { Stability, Growth, Efficiency }
 
     [Serializable]
     public sealed class WorkTask
@@ -338,6 +341,9 @@ namespace ProjectW.MilestonePrototype
           public string CriticalNodeId;
           public bool IsMedicalReport;
           public MedicalResult[] MedicalResults;
+          public bool IsProposal;
+          public ProposalStage ProposalStage;
+          public BossPreference BossPreference;
     }
 
     [Serializable]
