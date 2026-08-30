@@ -720,8 +720,8 @@ or the mouse wheel.
   and raises its window above every other application window.
 - Pressing or beginning a drag, resize, or pinch gesture on a visible part of a window gives that
   window focus and raises its stable GUI window ID above every other application window.
-- Desktop application icons use a six-column grid, with each name tucked slightly upward beneath
-  its icon so the label remains fully visible.
+- Desktop application icons use a six-column grid, with each name tucked upward into a taller label
+  area beneath its icon so the bottom of the text remains fully visible.
 - Minimize and close keep their visual size but use hit areas twice their width and height.
 - Escape closes the active non-minimized window, then the next active window on another press.
 - Nested scroll regions use the region where the gesture began and do not transfer the gesture mid-drag.

@@ -1897,7 +1897,7 @@ namespace ProjectW.MilestonePrototype
         public static Rect DesktopIconLabelRect(int index, float width)
         {
             Rect icon = DesktopIconRect(index, width);
-            return new Rect(icon.x, icon.yMax - 3f, icon.width, 18f);
+            return new Rect(icon.x, icon.yMax - 8f, icon.width, 22f);
         }
 
         public static Rect DesktopIconBadgeRect(int index, float width)

@@ -2177,7 +2177,8 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(second.x - first.xMax, Is.EqualTo(first.width / 3f).Within(.001f));
             Assert.That(sixth.y, Is.EqualTo(first.y));
             Assert.That(nextRow.x, Is.EqualTo(first.x));
-            Assert.That(firstLabel.y, Is.EqualTo(first.yMax - 3f));
+            Assert.That(firstLabel.y, Is.EqualTo(first.yMax - 8f));
+            Assert.That(firstLabel.height, Is.EqualTo(22f));
             Assert.That(nextRow.y - first.yMax - 18f, Is.EqualTo(first.height / 3f).Within(.001f));
         }
 
