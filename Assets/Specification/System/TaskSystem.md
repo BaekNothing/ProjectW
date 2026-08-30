@@ -340,12 +340,14 @@ through data without redefining Task ownership.
 ## Critical Choice Event Chains
 
 - A critical event arrives through mail with a `[!중요!]` subject prefix.
-- Entering a critical event activates exactly one event chain. Until its current node is resolved,
-  the player cannot advance the day. Unrelated mail remains visible and can be read from the same
-  list while the critical choice is pending.
+- Entering a critical event activates exactly one event chain. Each arrived node has a seven-day
+  response window including its arrival day. The player may advance normally during that window,
+  but must resolve the node before advancing beyond the seventh day. Unrelated mail remains visible
+  and can be read from the same list while the critical choice is pending.
 - After a node is resolved, its follow-up node arrives 2 or 3 days later. During this waiting period
   normal day advancement is allowed, but the same event retains the exclusive critical-event slot.
-- Day advancement is locked only while an arrived critical node is waiting for a player choice.
+- Day advancement is locked only when an arrived critical node reaches the last day of its response
+  window without a player choice.
 - A chain contains one or more nodes. Every node presents explicit player choices, and every choice
   contains one or more weighted outcomes.
 - An outcome applies data-defined resource, fatigue, and task-success modifiers, then names the next

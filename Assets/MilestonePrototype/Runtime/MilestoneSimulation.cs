@@ -6,6 +6,7 @@ namespace ProjectW.MilestonePrototype
 {
     public sealed class MilestoneSimulation
     {
+        public const int CriticalResponseWindowDays = 7;
         public const int TeamSize = 4;
         private readonly Random random;
         private readonly Random proposalRandom;
@@ -79,6 +80,10 @@ namespace ProjectW.MilestonePrototype
                 return false;
             }
         }
+        public int CriticalResponseDeadlineDay =>
+            ActiveCriticalNodeArrivalDay + CriticalResponseWindowDays - 1;
+        public bool MustResolveCriticalChoice =>
+            HasPendingCriticalChoice && Day >= CriticalResponseDeadlineDay;
         public bool CanForceCriticalEvent => !IsLost && !HasActiveCriticalEvent && criticalEvents.Length > 0;
 
         public bool IsWorkVisible(WorkGroup group) => group != null &&
@@ -841,7 +846,7 @@ namespace ProjectW.MilestonePrototype
                 From = node.From,
                 Subject = $"[!중요!] {node.Subject}",
                 Body = node.Body,
-                Instruction = "결정을 내려야 다음 날로 진행할 수 있습니다.",
+                Instruction = $"DAY {CriticalResponseDeadlineDay}까지 회신해야 합니다.",
                 Risk = node.Risk,
                 IsCritical = true,
                 CriticalEventId = ActiveCriticalEventId,

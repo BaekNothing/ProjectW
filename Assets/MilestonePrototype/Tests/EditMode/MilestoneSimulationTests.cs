@@ -38,6 +38,29 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void CriticalEventCanBeAnsweredAnyTimeDuringItsSevenDayWindow()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.CriticalEvents = CriticalEventFixture();
+            var game = new MilestoneSimulation(data, 7);
+
+            Assert.That(game.Day, Is.EqualTo(1));
+            Assert.That(game.CriticalResponseDeadlineDay, Is.EqualTo(7));
+            Assert.That(game.MustResolveCriticalChoice, Is.False);
+            Assert.That(game.Mail.Find(mail => mail.IsCritical).Instruction, Does.Contain("DAY 7"));
+
+            for (int day = 1; day < 7; day++) game.AdvanceDay();
+
+            Assert.That(game.Day, Is.EqualTo(7));
+            Assert.That(game.MustResolveCriticalChoice, Is.True);
+
+            Assert.That(game.ChooseCriticalEvent("commit"), Is.True);
+            Assert.That(game.MustResolveCriticalChoice, Is.False);
+            game.AdvanceDay();
+            Assert.That(game.Day, Is.EqualTo(8));
+        }
+
+        [Test]
         public void OnlyOneDueCriticalEventCanBeActiveAtATime()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
