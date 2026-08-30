@@ -2101,7 +2101,7 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void OptionsIconRemainsInTwoRowGridAtMaximumScale()
+        public void OptionsIconRemainsInTwoRowSixColumnGridAtMaximumScale()
         {
             float width = 1280 / MilestonePrototypeController.CalculateUiScale(1280, 2.2f);
             Rect options = MilestonePrototypeController.DesktopIconRect(9, width);
@@ -2117,13 +2117,16 @@ namespace ProjectW.MilestonePrototype.Tests
         {
             Rect first = MilestonePrototypeController.DesktopIconRect(0, 1280);
             Rect second = MilestonePrototypeController.DesktopIconRect(1, 1280);
-            Rect nextRow = MilestonePrototypeController.DesktopIconRect(5, 1280);
+            Rect sixth = MilestonePrototypeController.DesktopIconRect(5, 1280);
+            Rect nextRow = MilestonePrototypeController.DesktopIconRect(6, 1280);
             Rect firstLabel = MilestonePrototypeController.DesktopIconLabelRect(0, 1280);
 
             Assert.That(first.width, Is.EqualTo(first.height));
             Assert.That(second.x - first.xMax, Is.EqualTo(first.width / 3f).Within(.001f));
-            Assert.That(firstLabel.y, Is.EqualTo(first.yMax));
-            Assert.That(nextRow.y - firstLabel.yMax, Is.EqualTo(first.height / 3f).Within(.001f));
+            Assert.That(sixth.y, Is.EqualTo(first.y));
+            Assert.That(nextRow.x, Is.EqualTo(first.x));
+            Assert.That(firstLabel.y, Is.EqualTo(first.yMax - 3f));
+            Assert.That(nextRow.y - first.yMax - 18f, Is.EqualTo(first.height / 3f).Within(.001f));
         }
 
         [Test]

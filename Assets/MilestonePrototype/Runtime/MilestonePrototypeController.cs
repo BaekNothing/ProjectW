@@ -1855,11 +1855,11 @@ namespace ProjectW.MilestonePrototype
 
         public static Rect DesktopIconRect(int index, float width)
         {
-            const int columns = 5;
+            const int columns = 6;
             const float maximumSize = 58f;
             const float labelHeight = 18f;
             float availableWidth = Mathf.Max(0f, width - 40f);
-            float iconSize = Mathf.Min(maximumSize, availableWidth * 3f / 19f);
+            float iconSize = Mathf.Min(maximumSize, availableWidth * 3f / 23f);
             float gap = iconSize / 3f;
             int column = index % columns;
             int row = index / columns;
@@ -1873,7 +1873,7 @@ namespace ProjectW.MilestonePrototype
         public static Rect DesktopIconLabelRect(int index, float width)
         {
             Rect icon = DesktopIconRect(index, width);
-            return new Rect(icon.x, icon.yMax, icon.width, 18f);
+            return new Rect(icon.x, icon.yMax - 3f, icon.width, 18f);
         }
 
         public static Rect DesktopIconBadgeRect(int index, float width)

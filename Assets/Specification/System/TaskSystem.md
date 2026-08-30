@@ -711,6 +711,8 @@ or the mouse wheel.
 - The window-title drag hit area is twice the visible title-bar height.
 - Pressing a desktop icon for an already-open application restores it when minimized
   and raises its window above every other application window.
+- Desktop application icons use a six-column grid, with each name tucked slightly upward beneath
+  its icon so the label remains fully visible.
 - Minimize and close keep their visual size but use hit areas twice their width and height.
 - Escape closes the active non-minimized window, then the next active window on another press.
 - Nested scroll regions use the region where the gesture began and do not transfer the gesture mid-drag.
