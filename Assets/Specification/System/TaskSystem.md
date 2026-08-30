@@ -227,6 +227,8 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 - `긴급!` and `총력!` are independent and may both be attached to one Work.
 - Completed and failed Works leave the active priority panel. Generated and approved Works enter at
   the bottom of the current order.
+- Each active priority row shows its hard-deadline D-day and both total and remaining WorkTask
+  workload in workdays.
 
 ## Task Scheduling
 
@@ -648,6 +650,9 @@ The Task application must present schedule information as a time-based Gantt vie
   never move forward with the current day.
 - Unstarted Tasks show their reservation or projected start; active Tasks project only their
   remaining duration from today.
+- Visible incomplete Works are ordered by the same player-defined priority used by automatic
+  assignment. The projected segments reserve current assignees first, then place unassigned Tasks
+  into future worker-availability slots in Work-priority and dependency order.
 - Completed progress and projected remaining work use distinguishable portions of the same bar.
 - Locked Tasks remain visible and state why they cannot be entered.
 - The Task application is Gantt-only; it does not combine a Task detail panel with the timeline.

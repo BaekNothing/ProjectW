@@ -1901,6 +1901,22 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void PrioritySchedulePlacesDependentTasksAfterTheirForecastPredecessor()
+        {
+            var game = new MilestoneSimulation(41);
+            WorkTask survey = game.Tasks.Find(task => task.Id == "survey");
+            WorkTask habitat = game.Tasks.Find(task => task.Id == "habitat");
+
+            TaskScheduleEstimate[] schedule = game.BuildPrioritySchedule();
+            TaskScheduleEstimate surveyPlan = Array.Find(schedule, item => item.TaskId == survey.Id);
+            TaskScheduleEstimate habitatPlan = Array.Find(schedule, item => item.TaskId == habitat.Id);
+
+            Assert.That(surveyPlan, Is.Not.Null);
+            Assert.That(habitatPlan, Is.Not.Null);
+            Assert.That(habitatPlan.StartDay, Is.GreaterThan(surveyPlan.CompletionDay));
+        }
+
+        [Test]
         public void OperationsReportCountsDynamicRiskAndLoad()
         {
             var game = new MilestoneSimulation(1);

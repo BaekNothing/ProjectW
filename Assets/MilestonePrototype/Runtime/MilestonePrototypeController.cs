@@ -538,7 +538,14 @@ namespace ProjectW.MilestonePrototype
                 {
                     game.ConfigureWorkFocus(work.Id, work.Urgent, !work.AllOut); SaveCampaign();
                 }
-                GUILayout.Label($"마감 {work.SoftDeadline}/{work.HardDeadline}  ·  보상 {work.RewardCredits}  ·  상태 {WorkStateName(work.State)}", small);
+                List<WorkTask> workTasks = game.Tasks.Where(task => task.GroupId == work.Id &&
+                    task.State != TaskState.Failed).ToList();
+                float totalWork = workTasks.Sum(task => task.EffectiveRequiredWork);
+                float remainingWork = workTasks.Sum(task => task.RemainingWork);
+                int dDay = work.HardDeadline - game.Day;
+                string dDayText = dDay >= 0 ? $"D-{dDay}" : $"D+{-dDay}";
+                GUILayout.Label($"{dDayText}  ·  전체 {totalWork:0.#} 워크데이 (잔여 {remainingWork:0.#})  ·  " +
+                                $"마감 {work.SoftDeadline}/{work.HardDeadline}  ·  상태 {WorkStateName(work.State)}", small);
                 GUILayout.EndHorizontal();
                 GUILayout.EndVertical();
             }
@@ -579,7 +586,10 @@ namespace ProjectW.MilestonePrototype
             const float labelWidth = 285f;
             const float dayWidth = 28f;
             const float rowHeight = 48f;
-            List<WorkGroup> visibleGroups = game.Groups.Where(game.IsWorkVisible).ToList();
+            List<WorkGroup> visibleGroups = game.Groups.Where(game.IsWorkVisible)
+                .OrderBy(group => group.State == WorkState.Complete || group.State == WorkState.Failed ? 1 : 0)
+                .ThenBy(group => group.Priority).ThenBy(group => group.Id).ToList();
+            TaskScheduleEstimate[] prioritySchedule = game.BuildPrioritySchedule();
             int rowCount = visibleGroups.Sum(group =>
                 1 + game.Tasks.Count(task => task.GroupId == group.Id));
             int planningHorizonDay = game.PlanningHorizonDay;
@@ -617,7 +627,8 @@ namespace ProjectW.MilestonePrototype
 
                 foreach (WorkTask task in tasks)
                 {
-                    TaskScheduleEstimate preview = game.EstimatePreviewSchedule(task.Id);
+                    TaskScheduleEstimate preview = FindPrioritySchedule(prioritySchedule, task.Id) ??
+                                                   game.EstimatePreviewSchedule(task.Id);
                     int actualDays = TaskActualDurationDays(task, game.Day);
                     int startDay = task.StartedDay > 0
                         ? task.StartedDay
@@ -669,6 +680,14 @@ namespace ProjectW.MilestonePrototype
                 DrawSolid(new Rect(0, y - 1, labelWidth, 1), GrayColor);
             }
             GUI.EndGroup();
+        }
+
+        private static TaskScheduleEstimate FindPrioritySchedule(
+            TaskScheduleEstimate[] schedule, string taskId)
+        {
+            for (int index = 0; index < schedule.Length; index++)
+                if (schedule[index]?.TaskId == taskId) return schedule[index];
+            return null;
         }
 
         private void DrawCurrentWorkerSlot(WorkTask task, float y, float rowHeight, float dayWidth)

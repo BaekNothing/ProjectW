@@ -267,6 +267,7 @@ namespace ProjectW.MilestonePrototype
 
     public sealed class TaskScheduleEstimate
     {
+        public string TaskId;
         public int WorkerIndex;
         public float ExpectedDailyOutput;
         public float EstimatedWork;

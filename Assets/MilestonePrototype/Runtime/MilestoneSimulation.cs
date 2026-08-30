@@ -1336,6 +1336,164 @@ namespace ProjectW.MilestonePrototype
             };
         }
 
+        public TaskScheduleEstimate[] BuildPrioritySchedule()
+        {
+            var estimates = new TaskScheduleEstimate[Tasks.Count];
+            int estimateCount = 0;
+            var workerFreeDay = new int[Crew.Count];
+            for (int worker = 0; worker < workerFreeDay.Length; worker++)
+                workerFreeDay[worker] = Day;
+
+            foreach (WorkTask task in Tasks.Where(candidate => candidate.State == TaskState.Complete))
+                estimates[estimateCount++] = new TaskScheduleEstimate
+                {
+                    TaskId = task.Id,
+                    WorkerIndex = task.LastWorker,
+                    StartDay = task.StartedDay,
+                    CompletionDay = task.CompletedDay,
+                    StartReason = "완료된 실제 일정"
+                };
+
+            foreach (WorkTask task in Tasks.Where(candidate => candidate.AssignedCharacter >= 0 &&
+                         candidate.State != TaskState.Complete && candidate.State != TaskState.Failed))
+            {
+                int worker = task.AssignedCharacter;
+                float output = ExpectedDailyOutput(task, worker);
+                int duration = CeilPositive(task.RemainingWork / output);
+                int completion = Day + Math.Max(0, duration - 1);
+                estimates[estimateCount++] = new TaskScheduleEstimate
+                {
+                    TaskId = task.Id,
+                    WorkerIndex = worker,
+                    ExpectedDailyOutput = output,
+                    EstimatedWork = task.RemainingWork,
+                    DurationDays = duration,
+                    StartDay = Day,
+                    CompletionDay = completion,
+                    StartReason = "현재 담당자의 진행 일정"
+                };
+                if (!task.IsParallelAssignment)
+                    workerFreeDay[worker] = Math.Max(workerFreeDay[worker], completion + 1);
+            }
+
+            List<WorkTask> pending = Tasks.Where(task => task.AssignedCharacter < 0 &&
+                    task.State != TaskState.Complete && task.State != TaskState.Failed &&
+                    IsWorkVisible(ParentWork(task)))
+                .OrderBy(task => ParentWork(task)?.Priority ?? int.MaxValue)
+                .ThenBy(task => task.Id).ToList();
+            int safety = pending.Count + 1;
+            while (pending.Count > 0 && safety-- > 0)
+            {
+                bool plannedAny = false;
+                foreach (WorkTask task in pending.ToList())
+                {
+                    int dependencyDay;
+                    if (!TryPriorityDependencyDay(task, estimates, estimateCount, out dependencyDay)) continue;
+                    int worker = PriorityScheduleWorker(task, workerFreeDay);
+                    float output = worker >= 0 ? ExpectedDailyOutput(task, worker) : 1f;
+                    int start = Math.Max(Day, dependencyDay);
+                    if (task.ScheduledDay > 0) start = Math.Max(start, task.ScheduledDay);
+                    if (worker >= 0) start = Math.Max(start, workerFreeDay[worker]);
+                    int duration = CeilPositive(task.RemainingWork / output);
+                    int completion = start + Math.Max(0, duration - 1);
+                    estimates[estimateCount++] = new TaskScheduleEstimate
+                    {
+                        TaskId = task.Id,
+                        WorkerIndex = worker,
+                        ExpectedDailyOutput = output,
+                        EstimatedWork = task.RemainingWork,
+                        DurationDays = duration,
+                        StartDay = start,
+                        CompletionDay = completion,
+                        StartReason = "작업 우선순위와 인력 가용일 기준 예상"
+                    };
+                    if (worker >= 0) workerFreeDay[worker] = completion + 1;
+                    pending.Remove(task);
+                    plannedAny = true;
+                }
+                if (!plannedAny) break;
+            }
+
+            foreach (WorkTask task in pending)
+            {
+                TaskScheduleEstimate fallback = EstimatePreviewSchedule(task.Id);
+                if (fallback == null) continue;
+                fallback.TaskId = task.Id;
+                estimates[estimateCount++] = fallback;
+            }
+            return estimates;
+        }
+
+        private bool TryPriorityDependencyDay(
+            WorkTask task, TaskScheduleEstimate[] estimates, int estimateCount, out int dependencyDay)
+        {
+            dependencyDay = Day;
+            if (!string.IsNullOrEmpty(task.PrerequisiteId))
+            {
+                WorkTask blocker = Tasks.FirstOrDefault(item => item.Id == task.PrerequisiteId);
+                if (blocker != null && blocker.State != TaskState.Complete)
+                {
+                    TaskScheduleEstimate estimate = FindPriorityEstimate(estimates, estimateCount, blocker.Id);
+                    if (estimate == null) return false;
+                    dependencyDay = Math.Max(dependencyDay, estimate.CompletionDay + 1);
+                }
+            }
+            WorkGroup group = ParentWork(task);
+            if (group?.PredecessorIds == null) return true;
+            foreach (string predecessorId in group.PredecessorIds)
+            {
+                WorkGroup predecessor = Groups.FirstOrDefault(item => item.Id == predecessorId);
+                if (predecessor == null || predecessor.State == WorkState.Complete) continue;
+                foreach (WorkTask blocker in Tasks.Where(item => item.GroupId == predecessorId &&
+                             item.Required && item.State != TaskState.Complete))
+                {
+                    TaskScheduleEstimate estimate = FindPriorityEstimate(estimates, estimateCount, blocker.Id);
+                    if (estimate == null) return false;
+                    dependencyDay = Math.Max(dependencyDay, estimate.CompletionDay + 1);
+                }
+            }
+            return true;
+        }
+
+        private static TaskScheduleEstimate FindPriorityEstimate(
+            TaskScheduleEstimate[] estimates, int count, string taskId)
+        {
+            for (int index = 0; index < count; index++)
+                if (estimates[index]?.TaskId == taskId) return estimates[index];
+            return null;
+        }
+
+        private int PriorityScheduleWorker(WorkTask task, int[] workerFreeDay)
+        {
+            if (task.ScheduledWorker >= 0 && task.ScheduledWorker < Crew.Count)
+                return task.ScheduledWorker;
+            AssignmentRule rule = AssignmentRules.FirstOrDefault(candidate => candidate.Matches(task));
+            if (rule != null)
+            {
+                int learned = Crew.FindIndex(member => member.Name == rule.CrewName);
+                if (learned >= 0 && learned < Crew.Count && Crew[learned].Available) return learned;
+            }
+            if (!CompetencyAutoAssignment) return -1;
+            int earliest = int.MaxValue;
+            for (int worker = 0; worker < Crew.Count; worker++)
+                if (Crew[worker].Available) earliest = Math.Min(earliest, workerFreeDay[worker]);
+            int best = -1;
+            float bestMultiplier = -1f;
+            int bestFatigue = int.MaxValue;
+            for (int worker = 0; worker < Crew.Count; worker++)
+            {
+                if (!Crew[worker].Available || workerFreeDay[worker] != earliest) continue;
+                float multiplier = CompetencyOutputMultiplier(Crew[worker], task);
+                if (multiplier < bestMultiplier ||
+                    Math.Abs(multiplier - bestMultiplier) < .001f && Crew[worker].Fatigue >= bestFatigue)
+                    continue;
+                best = worker;
+                bestMultiplier = multiplier;
+                bestFatigue = Crew[worker].Fatigue;
+            }
+            return best;
+        }
+
         private float ExpectedDailyOutput(WorkTask task, int crewIndex)
         {
             int lowChance;
