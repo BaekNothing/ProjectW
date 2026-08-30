@@ -718,6 +718,8 @@ or the mouse wheel.
 - The window-title drag hit area is twice the visible title-bar height.
 - Pressing a desktop icon for an already-open application restores it when minimized
   and raises its window above every other application window.
+- Pressing or beginning a drag, resize, or pinch gesture on a visible part of a window gives that
+  window focus and raises its stable GUI window ID above every other application window.
 - Desktop application icons use a six-column grid, with each name tucked slightly upward beneath
   its icon so the label remains fully visible.
 - Minimize and close keep their visual size but use hit areas twice their width and height.

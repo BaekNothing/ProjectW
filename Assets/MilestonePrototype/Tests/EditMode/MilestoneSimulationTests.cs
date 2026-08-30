@@ -2017,6 +2017,19 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void WindowGuiIdsRemainStableWhenFocusOrderChanges()
+        {
+            int nextGuiId = 100;
+
+            int first = MilestonePrototypeController.AllocateStableWindowGuiId(ref nextGuiId);
+            int second = MilestonePrototypeController.AllocateStableWindowGuiId(ref nextGuiId);
+
+            Assert.That(first, Is.EqualTo(100));
+            Assert.That(second, Is.EqualTo(101));
+            Assert.That(first, Is.Not.EqualTo(second));
+        }
+
+        [Test]
         public void WindowResizeHonorsMinimumSize()
         {
             Rect result = MilestonePrototypeController.CalculateResizedWindowRect(

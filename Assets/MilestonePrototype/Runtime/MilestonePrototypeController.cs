@@ -12,6 +12,7 @@ namespace ProjectW.MilestonePrototype
     {
         private sealed class DeskWindow
         {
+            public int GuiId;
             public string Id;
             public string Title;
             public Rect Rect;
@@ -62,6 +63,7 @@ namespace ProjectW.MilestonePrototype
         private GUIStyle desktopIconLabel;
         private GUIStyle desktopBadge;
         private DeskWindow frontWindow;
+        private int nextWindowGuiId = 100;
         private GUIStyle section;
         private GUIStyle small;
         private GUIStyle warning;
@@ -246,11 +248,10 @@ namespace ProjectW.MilestonePrototype
                 window.Rect = ClampRect(window.Rect);
                 inputLayerBlocked = IsPointerBlockedBelowWindow(i);
                 GUI.enabled = !inputLayerBlocked;
-                window.Rect = GUI.Window(100 + i, window.Rect, _ => DrawWindow(window), window.Title);
+                window.Rect = GUI.Window(window.GuiId, window.Rect, _ => DrawWindow(window), window.Title);
             }
-            if (frontWindow != null && !frontWindow.Minimized && windows.Count > 0 &&
-                windows[windows.Count - 1] == frontWindow)
-                GUI.BringWindowToFront(99 + windows.Count);
+            if (frontWindow != null && !frontWindow.Minimized)
+                GUI.BringWindowToFront(frontWindow.GuiId);
             inputLayerBlocked = false;
             GUI.enabled = true;
         }
@@ -264,6 +265,7 @@ namespace ProjectW.MilestonePrototype
             if (ExpandedHitButton(minimizeRect, "—"))
             {
                 window.Minimized = true;
+                ActivateFrontmostVisibleWindow();
                 SaveDesktop();
             }
             if (ExpandedHitButton(closeRect, "X")) { Close(window.Id); return; }
@@ -1825,7 +1827,8 @@ namespace ProjectW.MilestonePrototype
                 if (Button(new Rect(x, logicalHeight - 38, 118, 31), window.Title))
                 {
                     window.Minimized = !window.Minimized;
-                    Focus(window);
+                    if (window.Minimized) ActivateFrontmostVisibleWindow();
+                    else Focus(window);
                     SaveDesktop();
                 }
                 x += 122;
@@ -1922,10 +1925,13 @@ namespace ProjectW.MilestonePrototype
             int offset = windows.Count * 22;
             var window = new DeskWindow
             {
-                Id = id, Title = appTitles[id], Rect = new Rect(490 + offset, 55 + offset, 710, 500)
+                GuiId = AllocateStableWindowGuiId(ref nextWindowGuiId),
+                Id = id, Title = appTitles[id],
+                Rect = new Rect(490 + offset, 55 + offset, 710, 500)
             };
             windows.Add(window);
             window.Rect = ClampRect(window.Rect);
+            Focus(window);
             SaveDesktop();
         }
 
@@ -1966,7 +1972,9 @@ namespace ProjectW.MilestonePrototype
 
         private void Close(string id)
         {
+            bool closedFrontWindow = frontWindow != null && frontWindow.Id == id;
             windows.RemoveAll(w => w.Id == id);
+            if (closedFrontWindow) ActivateFrontmostVisibleWindow();
             SaveDesktop();
         }
 
@@ -1975,6 +1983,24 @@ namespace ProjectW.MilestonePrototype
             windows.Remove(window);
             windows.Add(window);
             frontWindow = window;
+        }
+
+        private void ActivateFrontmostVisibleWindow()
+        {
+            frontWindow = null;
+            for (int i = windows.Count - 1; i >= 0; i--)
+            {
+                if (windows[i].Minimized) continue;
+                frontWindow = windows[i];
+                return;
+            }
+        }
+
+        public static int AllocateStableWindowGuiId(ref int nextGuiId)
+        {
+            int allocated = nextGuiId;
+            nextGuiId++;
+            return allocated;
         }
 
         private void HandleWindowInput()
@@ -2376,6 +2402,7 @@ namespace ProjectW.MilestonePrototype
                 if (!appTitles.ContainsKey(saved.Id)) continue;
                 windows.Add(new DeskWindow
                 {
+                    GuiId = AllocateStableWindowGuiId(ref nextWindowGuiId),
                     Id = saved.Id, Title = appTitles[saved.Id],
                     Rect = new Rect(saved.X, saved.Y,
                         saved.Width > 0f ? saved.Width : 710f,
@@ -2383,6 +2410,7 @@ namespace ProjectW.MilestonePrototype
                     Minimized = saved.Minimized
                 });
             }
+            ActivateFrontmostVisibleWindow();
         }
 
         private void SaveAll() { SaveCampaign(); SaveDesktop(); }
