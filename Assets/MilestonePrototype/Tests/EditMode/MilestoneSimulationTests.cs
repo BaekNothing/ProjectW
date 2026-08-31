@@ -1561,7 +1561,35 @@ namespace ProjectW.MilestonePrototype.Tests
         [Test]
         public void BaseVersionMatchesCurrentAotBaseline()
         {
-            Assert.That(PatchBootstrapper.BaseVersion, Is.EqualTo(9));
+            Assert.That(PatchBootstrapper.BaseVersion, Is.EqualTo(10));
+        }
+
+        [Test]
+        public void TimedPopupAndToastExpireIndependently()
+        {
+            var presenter = new TimedNotificationPresenter();
+            presenter.ShowPopup(new TimedPopupData { DurationSeconds = 5f }, 10f);
+            presenter.ShowToast(new TimedToastData { DurationSeconds = 3f }, 10f);
+
+            presenter.Update(12.99f);
+            Assert.That(presenter.HasPopup, Is.True);
+            Assert.That(presenter.HasToast, Is.True);
+            presenter.Update(13f);
+            Assert.That(presenter.HasPopup, Is.True);
+            Assert.That(presenter.HasToast, Is.False);
+            presenter.Update(15f);
+            Assert.That(presenter.HasPopup, Is.False);
+        }
+
+        [Test]
+        public void ZeroDurationPopupWaitsForAButton()
+        {
+            var presenter = new TimedNotificationPresenter();
+            presenter.ShowPopup(new TimedPopupData { DurationSeconds = 0f }, 2f);
+
+            presenter.Update(999f);
+
+            Assert.That(presenter.HasPopup, Is.True);
         }
 
         [Test]

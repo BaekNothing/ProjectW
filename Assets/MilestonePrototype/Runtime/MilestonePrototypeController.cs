@@ -88,6 +88,7 @@ namespace ProjectW.MilestonePrototype
         public const float DefaultUiMagnification = 1.8f;
         private float uiMagnification = DefaultUiMagnification;
         private bool inputLayerBlocked;
+        private bool modalInputBlocked;
         private float logicalWidth;
         private float logicalHeight;
         private DeskWindow pinchWindow;
@@ -104,6 +105,7 @@ namespace ProjectW.MilestonePrototype
         private TaskSystemData editorData;
         private string editorNotice;
         private string categoryTransferText = string.Empty;
+        private readonly TimedNotificationPresenter notifications = new TimedNotificationPresenter();
         public const float WindowTitleBarHeight = 25f;
         public const float WindowContentTopSpacing = 6f;
         public const float GanttWindowChromeReserve = 110f;
@@ -141,16 +143,21 @@ namespace ProjectW.MilestonePrototype
                 DrawTitleScreen();
                 return;
             }
-            HandleWindowInput();
+            float notificationTime = Time.unscaledTime;
+            notifications.Update(notificationTime);
+            modalInputBlocked = notifications.HasPopup;
+            if (!modalInputBlocked) HandleWindowInput();
             inputLayerBlocked = IsPointerBlockedBelowWindow(-1);
-            GUI.enabled = !inputLayerBlocked;
+            GUI.enabled = !inputLayerBlocked && !modalInputBlocked;
             DrawDesktop();
             DrawWindows();
             inputLayerBlocked = IsPointerBlockedBelowWindow(-1);
-            GUI.enabled = !inputLayerBlocked;
+            GUI.enabled = !inputLayerBlocked && !modalInputBlocked;
             DrawTaskbar();
             inputLayerBlocked = false;
             GUI.enabled = true;
+            notifications.Draw(logicalWidth, logicalHeight, notificationTime);
+            modalInputBlocked = false;
             if (Event.current.type == EventType.MouseUp) SaveDesktop();
         }
 
@@ -247,13 +254,13 @@ namespace ProjectW.MilestonePrototype
                 if (window.Minimized) continue;
                 window.Rect = ClampRect(window.Rect);
                 inputLayerBlocked = IsPointerBlockedBelowWindow(i);
-                GUI.enabled = !inputLayerBlocked;
+                GUI.enabled = !inputLayerBlocked && !modalInputBlocked;
                 window.Rect = GUI.Window(window.GuiId, window.Rect, _ => DrawWindow(window), window.Title);
             }
             if (frontWindow != null && !frontWindow.Minimized)
                 GUI.BringWindowToFront(frontWindow.GuiId);
             inputLayerBlocked = false;
-            GUI.enabled = true;
+            GUI.enabled = !modalInputBlocked;
         }
 
         private void DrawWindow(DeskWindow window)
@@ -1542,6 +1549,18 @@ namespace ProjectW.MilestonePrototype
                 Open("log");
             GUILayout.Space(16);
             GUILayout.Label("디버그", section);
+            GUILayout.Label("팝업 / 알림 이펙트", small);
+            if (LayoutButton("[데모] 5초 팝업", GUILayout.Height(38))) ShowPopupDemo();
+            if (LayoutButton("[데모] 우하단 3초 알림", GUILayout.Height(38)))
+            {
+                notifications.ShowToast(new TimedToastData
+                {
+                    Title = "새 알림",
+                    Message = "시간이 지나면 자동으로 사라지는 우하단 알림입니다.",
+                    DurationSeconds = 3f
+                }, Time.unscaledTime);
+            }
+            GUILayout.Space(10);
             GUILayout.Label("가장 이른 중요 이벤트를 현재 날짜에 즉시 시작합니다. 완료한 이벤트도 다시 시험할 수 있습니다.", small);
             SetControlEnabled(game.CanForceCriticalEvent);
             if (LayoutButton("[디버그] 중요 이벤트 강제 발생", GUILayout.Height(38)))
@@ -1567,6 +1586,24 @@ namespace ProjectW.MilestonePrototype
                 game = new MilestoneSimulation();
                 SaveCampaign();
             }
+        }
+
+        private void ShowPopupDemo()
+        {
+            notifications.ShowPopup(new TimedPopupData
+            {
+                Title = "보급품 획득",
+                Message = "방사광, 반짝이, 가변 아이콘과 선택 버튼을 시험하는 범용 팝업입니다.",
+                DurationSeconds = 5f,
+                RotationSeconds = 2.5f,
+                Icons = new[]
+                {
+                    new PopupIconData { Glyph = "R", Label = "자원 +20", EffectColor = new Color(.96f, .72f, .18f, .82f) },
+                    new PopupIconData { Glyph = "C", Label = "대원 회복", EffectColor = new Color(.28f, .72f, .9f, .78f) },
+                    new PopupIconData { Glyph = "!", Label = "신규 정보", EffectColor = new Color(.86f, .38f, .32f, .76f) }
+                },
+                Buttons = new[] { "1", "2", "3" }
+            }, Time.unscaledTime);
         }
 
         private void DrawUpdateControls()
@@ -2226,7 +2263,7 @@ namespace ProjectW.MilestonePrototype
             !minimized && panel.Contains(point);
 
         private void SetControlEnabled(bool enabled) =>
-            GUI.enabled = !inputLayerBlocked && enabled;
+            GUI.enabled = !inputLayerBlocked && !modalInputBlocked && enabled;
 
         private static bool ExpandedHitButton(Rect visualRect, string label)
         {

@@ -231,5 +231,30 @@ opening the virtual keyboard, and may read `GUISkin.textField` to set text color
 already-used `GUIStyle` state surface. This authorization does not extend to `TextEditor`, control
 IDs, keyboard-control mutation, synthetic events, or programmatic text selection.
 
-Base APK v9 is the current installed baseline for the active development channel. Current manifests
-must declare `minBaseVersion = 9` unless a later reviewed base rebuild supersedes this section.
+## Base APK v10 AOT Baseline
+
+Base APK v10 adds the time and cached-texture surface required by HotUpdate-owned timed popups,
+bottom-right toast notifications, rotating radial rays, pulsing glow, and small sparkle effects.
+
+It must bundle:
+
+- `BaseVersion = 10`
+- the latest embedded `ProjectW.HotUpdate.dll.bytes` and `task-system.json`
+- regenerated Android AOT metadata
+- stable linker preservation for `UnityEngine.Time`, `UnityEngine.Texture`, `UnityEngine.Texture2D`,
+  and `UnityEngine.TextureFormat`
+- the complete v9 preservation surface
+
+The approved new HotUpdate-facing members are `Time.unscaledTime`, the `Texture2D(int, int,
+TextureFormat, bool)` constructor, `Texture2D.SetPixels(Color[])`, and `Texture2D.Apply(bool, bool)`.
+The effect renderer may also use the already-preserved `GUIUtility.RotateAroundPivot(float,
+Vector2)`, `GUI.DrawTexture(Rect, Texture)`, `GUI.matrix`, and `Texture2D.whiteTexture` members.
+This authorization does not extend to arbitrary shaders, materials, particle systems, render
+textures, Resources-loaded visual assets, or unrelated time and texture APIs.
+
+The generated radial and sparkle textures are created once and shared. Per-effect data controls
+duration, rotation, pulse, sparkle count, color, and visibility; it must not regenerate texture
+pixels every frame.
+
+Base APK v10 is the current installed baseline for the active development channel. Current manifests
+must declare `minBaseVersion = 10` unless a later reviewed base rebuild supersedes this section.

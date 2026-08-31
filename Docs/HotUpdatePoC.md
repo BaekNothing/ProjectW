@@ -37,15 +37,15 @@ native plugins, Android settings, Unity, or HybridCLR change.
 
 ### Current base APK
 
-- Base version: `9`
+- Base version: `10`
 - Artifact: `APK/ProjectW-HybridCLR.apk`
-- Size: `50,392,904` bytes
-- SHA-256: `f1fb37a1b51c631581bf8dae32b17028d16966ce1881f76262390d3c28825383`
-- Required for: the title/startup operations, user-requested patch checks, local gameplay-data
-  spreadsheet editing/reload, and the earlier diagnostics and desktop-window operations
+- Size: `50,454,632` bytes
+- SHA-256: `b385371458363472746a8655240e5247652b94be96bb4af9aca102c30a0394f8`
+- Required for: timed modal popups, bottom-right toast notifications, cached radial/sparkle effects,
+  and the earlier title, update, gameplay-data, diagnostics, and desktop-window operations
 
-Older base APKs reject manifests whose `minBaseVersion` is `9`. Install base APK v9 once before
-consuming patches that use the update-request contract or gameplay-data editor text-entry surface.
+Older base APKs reject manifests whose `minBaseVersion` is `10`. Install base APK v10 once before
+consuming patches that use the timed notification and cached texture-effect surface.
 
 ## Routine code patch workflow
 

@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <linker>
+  <assembly fullname="UnityEngine.CoreModule">
+    <type fullname="UnityEngine.Time" preserve="all" />
+    <type fullname="UnityEngine.Texture" preserve="all" />
+    <type fullname="UnityEngine.Texture2D" preserve="all" />
+    <type fullname="UnityEngine.TextureFormat" preserve="all" />
+  </assembly>
   <assembly fullname="UnityEngine.IMGUIModule">
     <type fullname="UnityEngine.Event" preserve="all" />
     <type fullname="UnityEngine.GUI" preserve="all" />
