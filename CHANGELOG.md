@@ -1,5 +1,16 @@
 # 변경 로그
 
+## 2026-08-31 — 현재 사양과 문서 기준선 정리
+
+- Task System 문서를 v4.0으로 갱신하고 무한 운영, 월요일 주간 현장 메일, base APK v9
+  기준을 문서 전반에 통일했습니다.
+- 일일 시뮬레이션 순서를 현재 `MilestoneSimulation` 처리 순서와 맞췄습니다.
+- 제거된 `CaseReviewGame` 계열 설명과 과거 90일 승패 구조를 README와 완성도 지도에서
+  제거했습니다.
+- 현재 production 데이터 규모와 authoring/runtime 경계를 명시했습니다.
+- 데이터 저작 템플릿의 필수 일 실패, 전원 부상, 자원 0, 사이드 미션, 중요 메일,
+  저장 schema 및 base APK 설명을 최신화했습니다.
+
 ## 2026-07-20 — 마일스톤 운영 프로토타입 리셋
 
 - 기존 CaseReview 프로토타입의 코드, 씬, 리소스, 테스트 및 스펙 문서를 제거했습니다.
@@ -16,4 +27,3 @@
 - Unity `6000.3.8f1` 스크립트 컴파일 성공
 - EditMode 테스트: 4개 통과, 실패 0개
 - 시작 씬: `Assets/MilestonePrototype/Scenes/MilestonePrototype.unity`
-

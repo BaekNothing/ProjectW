@@ -1,112 +1,66 @@
 # ProjectW
 
+Working title: **외행성재척지원실 3과**
+
+ProjectW is a Unity 6 operations-management prototype. The player assigns a four-person field team
+to interdependent Works and Tasks, manages fatigue and resource pressure, and survives an endless
+day-based run. There is no victory state or fixed campaign ending; resource depletion ends the run
+and the reached day is the score.
+
 ## Current authority
 
-- Working title: **외행성재척지원실 3과**
-- Current implementation and completion map: `Docs/GameCompletionMap.md`
-- AI entry point: `Assets/Specification/Project_W – System Index (AI Entry Point).md`
-- Build/push guide for AI sessions: `Assets/Specification/AI Build and Git Push Guide.md`
+Use documents in this order:
 
-## SSOT implementation status
+1. `Assets/Specification/System/TaskSystem.md` — gameplay and UI SSOT
+2. `Assets/Specification/DataAuthoring/` — simulation and content-authoring SSOT
+3. `Assets/Specification/Operation/HotUpdateAotSafety.md` — mandatory patch safety boundary
+4. `Docs/GameCompletionMap.md` — implementation/completion snapshot
+5. Runtime code and Git history
 
-Update this section whenever an SSOT gains or loses an implementation.
+`task-system.json` is the production gameplay-data source. The Markdown authoring template is a
+draft/interchange aid and is not loaded by the game.
 
-| SSOT area | Current implementation status |
-|-----------|-------------------------------|
-| Ingame daily work loop | Partially implemented in `CaseReviewGame` command loop |
-| Work data and dynamic generation | Initial `WorkDefinition` / `WorkGenerationSystem` implemented |
-| Character base/runtime data | Initial ScriptableObject pipeline implemented |
-| Character cards/perks/memory/relationships | Data and mutation interfaces partially implemented |
-| Merit token approval flow | Partially implemented in `CaseReviewGame`, `CaseReviewRules`, and MVP character profiling UI for regeneration requests |
-| Script Presentation scenario events | Google Sheets full-snapshot replacement uses JSON-free character/work/scenario detail rows, documented by the `info` tab, with row-based scenario playback and choice jumps |
-| Long loop: weekly audit, monthly/quarterly evaluation, yearly settlement | SSOT only; no runtime system yet |
-| Boss events and AI-baseline audit scoring | SSOT only; no runtime scoring system yet |
-| Outgame systems | SSOT only; no Unity runtime module yet |
-| Clone disposal/regeneration loop | Partially implemented through merit-token regeneration approval; no complete long-loop clone lifecycle yet |
+## Current implementation
 
-README update rule:
+| Area | Status |
+|---|---|
+| Day loop | Implemented: Monday–Sunday calendar, weekend rest, Friday checkups, payroll, endless survival |
+| Work and Task | Implemented: hierarchy, prerequisites, deadlines, priorities, focus flags, assignments, reservations, Gantt |
+| People | Implemented core: competencies, fatigue, injury, medical files, experience, salary, regeneration, trust display |
+| Outcomes | Implemented: fatigue-driven failure/success/great-success, accidents, rewards and resource penalties |
+| Mail and events | Implemented: critical chains, PM proposals, boss requests, Monday field-status digest, medical results |
+| Automation | Implemented: learned assignment and competency assignment with reservation/priority constraints |
+| Content | 20 authored Works, 39 Tasks, 20 authored mail entries, 7 critical-event chains, generated missions |
+| Save | Implemented: campaign schema 2 and separate desktop schema 1, with selected legacy backfills |
+| Data operations | Implemented: local JSON category editing, validation, working-copy reload, clipboard export |
+| Patch delivery | Implemented: HybridCLR download, SHA-256/size verification, promotion and rollback |
+| Presentation depth | Partial: functional IMGUI desktop and placeholders; final art/audio and deeper feedback are pending |
+| Long-run validation | Partial: automated tests and endurance tooling exist; full on-device long-run QA is pending |
 
-- If a new SSOT section is added without implementation, add it to the table as `SSOT only`.
-- If code implements an SSOT section, update the status in the same commit.
-- If an implementation is partial, name the concrete implemented types and the missing runtime surface.
-- Keep every `SSOT only` or partially implemented item visible here so another AI session can identify docs-without-code immediately from README.
+The obsolete `CaseReviewGame` and `RoutineObservationMvpSession` prototypes were removed on
+2026-07-20. `Assets/MilestonePrototype` is the only current gameplay implementation.
 
-## Visual pipeline (current)
+## Runtime and deployment boundary
 
-- **Characters**: Unity `Animator` based pipeline (`RoutineCharacterAnimatorDriver` bridge).
-- **Objects/Zones**: Sprite animation pipeline (`RoutineObjectSpriteAnimationPlayer`) for low-cost looping frames.
-- Side view uses left/right flip via transform X sign.
+- Fixed in base APK: `ProjectW.Bootstrap`, `ProjectW.Contracts`, Unity/package/native integration,
+  PlayerSettings, and HybridCLR configuration.
+- Patchable: `ProjectW.HotUpdate`, currently rooted at `Assets/MilestonePrototype/Runtime`, plus
+  manifest-listed gameplay data.
+- Current required base: **base APK v9**.
+- Active channel:
+  `https://raw.githubusercontent.com/BaekNothing/ProjectW/ai-integration/PatchChannels/dev.json`
+- Remote Addressables content delivery is not implemented. New scenes, prefabs, textures, and audio
+  still require a base APK unless a future reviewed content pipeline changes that boundary.
 
-### Character Animator setup (next step ready)
+See `Docs/HotUpdatePoC.md` for build and release operations. Never publish a HotUpdate patch without
+the AOT preflight in `Assets/Specification/Operation/HotUpdateAotSafety.md`.
 
-1. In Unity menu, run:
-   - `ProjectW/Animation/Create Default Character Animator Controller`
-2. This generates:
-   - `Assets/Resources/AnimatorControllers/routine_character_default.controller`
-   - Placeholder loop clips under `Assets/Resources/AnimatorControllers/Clips/`
-3. `RoutineObservationMvpSession` auto-loads this controller from Resources when no controller is assigned.
+## Development baseline
 
-Animator parameters expected by runtime bridge:
-- `IsMoving` (bool)
-- `Speed` (float)
-- `CurrentAction` (int)
-- `IntendedAction` (int)
-- `FacingX` (float)
+- Unity: `6000.3.8f1`
+- Persistent development/deployment branch: `ai-integration`
+- Base APK artifact: `APK/ProjectW-HybridCLR.apk`
+- Gameplay data: `Assets/MilestonePrototype/Resources/task-system.json`
+- Main EditMode suite: `Assets/MilestonePrototype/Tests/EditMode/MilestoneSimulationTests.cs`
 
-## Placeholder visual resources
-
-You can replace object visuals by editing files in:
-
-- `Assets/Resources/PlaceholderSprites/`
-
-Current dummy white PNG files (editable in-place):
-
-- Characters: `character_a.png`, `character_b.png`, `character_c.png`
-- Zones: `zone_mission.png`, `zone_cafeteria.png`, `zone_sleep.png`
-- Item tags: `item_desk.png`, `item_computer.png`, `item_bed.png`, `item_pillow.png`, `item_blanket.png`, `item_table.png`, `item_tray.png`, `item_cup.png`
-
-`RoutineObservationMvpSession` auto-loads these sprites (runtime square fallback if missing).
-
-
-## Runtime crash/error console (build)
-
-- A runtime log overlay is auto-created by `RuntimeErrorConsole` in builds and editor play mode.
-- Toggle overlay with **` (BackQuote)** or **F1**.
-- It captures `Debug.Log*`, warnings, exceptions, and unhandled exceptions.
-- Logs are also saved to `Application.persistentDataPath/runtime-log-YYYYMMDD-HHMMSS.txt`.
-
-## GitHub PR flow
-
-- PRs with base branch `ai-integration` automatically get `auto-merge` enabled via `.github/workflows/auto-merge-ai-integration.yml`.
-- Merge method is `squash`.
-- Keep `main` updates manual by merging from `ai-integration` when ready.
-
-## Recommended branch strategy
-
-If your repository currently only has `main`, create `ai-integration` first and use it as the default PR base for AI-generated changes.
-
-### 1) Create `ai-integration`
-
-```bash
-git checkout main
-git pull origin main
-git checkout -b ai-integration
-git push -u origin ai-integration
-```
-
-### 2) Protect branches (GitHub Settings)
-
-- `main` (strict):
-  - Require pull request before merging
-  - Require approvals (at least 1)
-  - Optionally restrict who can push
-  - Optionally include administrators
-- `ai-integration` (operational):
-  - Keep required checks aligned with your CI
-  - Allow auto-merge to complete after checks pass
-
-This keeps `main` hard to modify by mistake while still allowing fast AI iteration on `ai-integration`.
-
-### 3) Open PRs with base=`ai-integration`
-
-The workflow `.github/workflows/auto-merge-ai-integration.yml` triggers only when the PR base branch is `ai-integration`.
+Read `AGENTS.md` before changing code, data, Unity settings, builds, patches, or releases.
