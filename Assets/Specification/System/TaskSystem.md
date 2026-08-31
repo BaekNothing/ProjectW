@@ -2,12 +2,13 @@
 
 ## Document Control
 
-- Version: 3.8
+- Version: 3.9
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
 - Rationale: Define resources as the run's life, remove victory and fixed-duration endings, support
-  endurance balance simulation, and provide title, update, reset, and live gameplay-data operations.
+  endurance balance simulation, provide title, update, reset, and live gameplay-data operations,
+  and defer ordinary schedule-changing field incidents to a weekly approval digest.
 - Idea references: `IDEA.md` items 1, 2, 4, and 8
 
 ## Scope
@@ -633,6 +634,14 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
   read state, newer arrival days appear first while equal-day insertion order remains stable.
 - Critical mail is listed together with all other arrived mail, including while its choice is
   pending. Resolved mail rows are visually dimmed while remaining available for reference.
+- Ordinary mini incidents whose only Work effect is to increase or decrease its schedule are not
+  delivered as individual mail. They are collected into one Monday mail titled
+  `주간현장 현황공유`.
+- The weekly field-status mail lists every collected incident separately. Each item exposes
+  `승인` and `무시`; approving applies that item's schedule delta at the time of approval, while
+  ignoring closes it without changing the schedule. Undecided items remain pending in that digest.
+- Critical missions remain separate mail. Boss requests and every other mission that grants a Work
+  or one or more mini Tasks also remain separate mail and never enter the weekly field-status digest.
 - A messenger question and its worker reply are stored and rendered as one conversation item, not
   two detached bubbles.
 - Worker reports and question/reply items share one day-ordered messenger stream. Task records remain
