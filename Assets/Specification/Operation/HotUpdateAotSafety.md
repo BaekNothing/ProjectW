@@ -247,14 +247,15 @@ It must bundle:
 
 The approved new HotUpdate-facing members are `Time.unscaledTime`, the `Texture2D(int, int,
 TextureFormat, bool)` constructor, `Texture2D.SetPixels(Color[])`, and `Texture2D.Apply(bool, bool)`.
-The effect renderer may also use the already-preserved `GUIUtility.RotateAroundPivot(float,
-Vector2)`, `GUI.DrawTexture(Rect, Texture)`, `GUI.matrix`, and `Texture2D.whiteTexture` members.
+The effect renderer may also use the already-preserved `GUI.Window`, `GUI.BringWindowToFront(int)`,
+`GUI.DrawTexture(Rect, Texture)`, `GUIStyle`, and `Texture2D.whiteTexture` members.
 This authorization does not extend to arbitrary shaders, materials, particle systems, render
 textures, Resources-loaded visual assets, or unrelated time and texture APIs.
 
-The generated radial and sparkle textures are created once and shared. Per-effect data controls
-duration, rotation, pulse, sparkle count, color, and visibility; it must not regenerate texture
-pixels every frame.
+The generated radial animation frames and sparkle texture are created once and shared. Per-effect
+data controls duration, rotation, pulse, sparkle count, color, and visibility; it must not regenerate
+texture pixels every frame. Notification windows must render in their own frontmost GUI windows,
+and effect rectangles must use that window's local coordinates so UI scaling cannot displace them.
 
 Base APK v10 is the current installed baseline for the active development channel. Current manifests
 must declare `minBaseVersion = 10` unless a later reviewed base rebuild supersedes this section.

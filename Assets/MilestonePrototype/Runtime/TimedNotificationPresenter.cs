@@ -33,12 +33,16 @@ namespace ProjectW.MilestonePrototype
 
     public sealed class TimedNotificationPresenter
     {
+        private const int ToastWindowId = 910010;
+        private const int PopupWindowId = 910011;
+        private const int RadialFrameCount = 48;
         private TimedPopupData popup;
         private TimedToastData toast;
         private float popupStartedAt;
         private float toastStartedAt;
-        private Texture2D radialTexture;
+        private Texture2D[] radialFrames;
         private Texture2D sparkleTexture;
+        private GUIStyle overlayWindow;
         private GUIStyle popupTitle;
         private GUIStyle popupBody;
         private GUIStyle iconGlyph;
@@ -74,8 +78,19 @@ namespace ProjectW.MilestonePrototype
         public void Draw(float width, float height, float now)
         {
             EnsureResources();
-            if (toast != null) DrawToast(width, height);
-            if (popup != null) DrawPopup(width, height, now);
+            if (toast != null)
+            {
+                Rect toastRect = ToastRect(width, height);
+                GUI.Window(ToastWindowId, toastRect, _ => DrawToast(toastRect.width, toastRect.height),
+                    string.Empty, overlayWindow);
+                GUI.BringWindowToFront(ToastWindowId);
+            }
+            if (popup != null)
+            {
+                GUI.Window(PopupWindowId, new Rect(0f, 0f, width, height),
+                    _ => DrawPopup(width, height, now), string.Empty, overlayWindow);
+                GUI.BringWindowToFront(PopupWindowId);
+            }
         }
 
         private void DrawPopup(float width, float height, float now)
@@ -129,12 +144,17 @@ namespace ProjectW.MilestonePrototype
             }
         }
 
-        private void DrawToast(float width, float height)
+        private static Rect ToastRect(float width, float height)
         {
             const float toastWidth = 360f;
             const float toastHeight = 92f;
-            Rect rect = new Rect(Mathf.Max(16f, width - toastWidth - 20f),
+            return new Rect(Mathf.Max(16f, width - toastWidth - 20f),
                 Mathf.Max(16f, height - toastHeight - 22f), toastWidth, toastHeight);
+        }
+
+        private void DrawToast(float width, float height)
+        {
+            Rect rect = new Rect(0f, 0f, width, height);
             DrawSolid(rect, new Color(.12f, .12f, .12f, .94f));
             DrawBorder(rect, new Color(.85f, .68f, .24f, 1f));
             GUI.Label(new Rect(rect.x + 16f, rect.y + 10f, rect.width - 32f, 26f),
@@ -150,15 +170,13 @@ namespace ProjectW.MilestonePrototype
             if (icon.ShowRadial)
             {
                 float seconds = Mathf.Max(.1f, rotationSeconds);
-                float angle = (now / seconds * 360f) % 360f;
-                Matrix4x4 previousMatrix = GUI.matrix;
+                int frame = (int)(Mathf.Repeat(now / seconds, 1f) * radialFrames.Length);
+                frame = Mathf.Clamp(frame, 0, radialFrames.Length - 1);
                 Color previousColor = GUI.color;
-                GUIUtility.RotateAroundPivot(angle, rect.center);
                 GUI.color = new Color(icon.EffectColor.r, icon.EffectColor.g, icon.EffectColor.b,
                     icon.EffectColor.a * pulse);
-                GUI.DrawTexture(rect, radialTexture);
+                GUI.DrawTexture(rect, radialFrames[frame]);
                 GUI.color = previousColor;
-                GUI.matrix = previousMatrix;
             }
 
             DrawSparkles(rect, icon, now, iconIndex);
@@ -189,10 +207,16 @@ namespace ProjectW.MilestonePrototype
 
         private void EnsureResources()
         {
-            if (radialTexture == null) radialTexture = CreateRadialTexture(128, 16);
+            if (radialFrames == null)
+            {
+                radialFrames = new Texture2D[RadialFrameCount];
+                for (int i = 0; i < radialFrames.Length; i++)
+                    radialFrames[i] = CreateRadialTexture(128, 16, i * Mathf.PI * 2f / radialFrames.Length);
+            }
             if (sparkleTexture == null) sparkleTexture = CreateSparkleTexture(24);
             if (popupTitle != null) return;
             Color ink = new Color(.16f, .16f, .16f, 1f);
+            overlayWindow = new GUIStyle(GUIStyle.none);
             popupTitle = new GUIStyle(GUI.skin.label)
             {
                 fontSize = 24, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter
@@ -220,7 +244,7 @@ namespace ProjectW.MilestonePrototype
             toastBody.normal.textColor = new Color(.92f, .92f, .92f, 1f);
         }
 
-        public static Texture2D CreateRadialTexture(int size, int rayCount)
+        public static Texture2D CreateRadialTexture(int size, int rayCount, float phase = 0f)
         {
             int safeSize = Mathf.Max(8, size);
             int safeRays = Mathf.Max(2, rayCount);
@@ -234,8 +258,14 @@ namespace ProjectW.MilestonePrototype
                     float nx = (x - center) / center;
                     float ny = (y - center) / center;
                     float radius = Mathf.Sqrt(nx * nx + ny * ny);
-                    float angle = Mathf.Atan2(ny, nx);
-                    float ray = Mathf.Pow(Mathf.Max(0f, Mathf.Cos(angle * safeRays * .5f)), 5f);
+                    float angle = Mathf.Repeat(Mathf.Atan2(ny, nx) - phase + Mathf.PI * 2f,
+                        Mathf.PI * 2f);
+                    float rayPosition = angle * safeRays / (Mathf.PI * 2f);
+                    int rayIndex = (int)rayPosition;
+                    float rayCenterDistance = Mathf.Abs(Mathf.Repeat(rayPosition + .5f, 1f) - .5f) * 2f;
+                    float rayShape = Mathf.Pow(Mathf.Clamp01(1f - rayCenterDistance), 5f);
+                    float rayVariation = .55f + Mathf.Repeat((rayIndex + 1) * .6180339f, 1f) * .45f;
+                    float ray = rayShape * rayVariation;
                     float inner = Mathf.Clamp01(radius * 5f);
                     float outer = Mathf.Clamp01((1f - radius) * 1.35f);
                     pixels[y * safeSize + x] = new Color(1f, 1f, 1f, ray * inner * outer * .8f);

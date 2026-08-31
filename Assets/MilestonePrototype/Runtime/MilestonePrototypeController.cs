@@ -1550,7 +1550,7 @@ namespace ProjectW.MilestonePrototype
             GUILayout.Space(16);
             GUILayout.Label("디버그", section);
             GUILayout.Label("팝업 / 알림 이펙트", small);
-            if (LayoutButton("[데모] 5초 팝업", GUILayout.Height(38))) ShowPopupDemo();
+            if (LayoutButton("[데모] 버튼으로 닫는 팝업", GUILayout.Height(38))) ShowPopupDemo();
             if (LayoutButton("[데모] 우하단 3초 알림", GUILayout.Height(38)))
             {
                 notifications.ShowToast(new TimedToastData
@@ -1594,7 +1594,7 @@ namespace ProjectW.MilestonePrototype
             {
                 Title = "보급품 획득",
                 Message = "방사광, 반짝이, 가변 아이콘과 선택 버튼을 시험하는 범용 팝업입니다.",
-                DurationSeconds = 5f,
+                DurationSeconds = 0f,
                 RotationSeconds = 2.5f,
                 Icons = new[]
                 {
