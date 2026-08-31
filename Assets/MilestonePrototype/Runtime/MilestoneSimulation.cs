@@ -237,6 +237,7 @@ namespace ProjectW.MilestonePrototype
             RefreshStates();
             LastReport.Lines.Add("첫 번째 개척 기지가 가동되었습니다.");
             Log("캠페인을 시작했습니다.");
+            DeliverWeeklyFieldReport();
             TriggerCriticalEvent();
         }
 
@@ -414,7 +415,8 @@ namespace ProjectW.MilestonePrototype
         public bool ResolveMail(string mailId)
         {
             MailEvent mail = Mail.FirstOrDefault(item => item.Id == mailId && item.ArrivalDay <= Day);
-            if (mail == null || mail.Resolved || mail.IsCritical || mail.IsProposal) return false;
+            if (mail == null || mail.Resolved || mail.IsCritical || mail.IsProposal ||
+                mail.IsWeeklyFieldReport || IsWeeklyFieldIncidentMail(mail)) return false;
             mail.Read = true;
 
             if (mail.IsMedicalReport)
@@ -436,6 +438,14 @@ namespace ProjectW.MilestonePrototype
                 return true;
             }
 
+            ApplyStandardMailEffect(mail);
+            mail.Resolved = true;
+            Log($"메일 처리: {mail.Subject}");
+            return true;
+        }
+
+        private void ApplyStandardMailEffect(MailEvent mail)
+        {
             WorkGroup targetWork = Groups.FirstOrDefault(group => group.Id == mail.TargetWorkId);
             if (targetWork == null && !string.IsNullOrWhiteSpace(mail.TargetTaskId))
             {
@@ -465,9 +475,77 @@ namespace ProjectW.MilestonePrototype
                 RefreshStates();
             }
             Resources = Math.Max(0, Resources + mail.ResourceDelta);
-            mail.Resolved = true;
-            Log($"메일 처리: {mail.Subject}");
+        }
+
+        public bool IsWeeklyFieldIncidentMail(MailEvent mail) => mail != null &&
+            mail.DeadlineDelta != 0 && !mail.IsCritical && !mail.IsProposal &&
+            !mail.ActivatesWork && !mail.IsBossRequest && !mail.IsWeeklyFieldReport;
+
+        public bool DecideWeeklyFieldItem(string reportId, string sourceMailId, bool approve)
+        {
+            MailEvent report = Mail.FirstOrDefault(mail => mail.Id == reportId &&
+                mail.IsWeeklyFieldReport && mail.ArrivalDay <= Day);
+            if (report == null || report.WeeklyFieldItems == null) return false;
+            WeeklyFieldDecisionItem item = null;
+            foreach (WeeklyFieldDecisionItem candidate in report.WeeklyFieldItems)
+                if (candidate.SourceMailId == sourceMailId) item = candidate;
+            if (item == null || item.Decided) return false;
+            MailEvent source = Mail.FirstOrDefault(mail => mail.Id == sourceMailId &&
+                IsWeeklyFieldIncidentMail(mail));
+            if (source == null || source.Resolved) return false;
+
+            source.Read = true;
+            source.Resolved = true;
+            item.Decided = true;
+            item.Approved = approve;
+            if (approve) ApplyStandardMailEffect(source);
+            report.Read = true;
+            report.Resolved = true;
+            foreach (WeeklyFieldDecisionItem candidate in report.WeeklyFieldItems)
+                if (!candidate.Decided) report.Resolved = false;
+            Log($"주간 현장 안건 {(approve ? "승인" : "무시")}: {source.Subject}");
             return true;
+        }
+
+        private void DeliverWeeklyFieldReport()
+        {
+            if (CurrentWeekday != Weekday.Monday) return;
+            List<MailEvent> pending = Mail.Where(mail => IsWeeklyFieldIncidentMail(mail) &&
+                mail.ArrivalDay <= Day && !mail.Resolved && !mail.IncludedInWeeklyFieldReport)
+                .OrderBy(mail => mail.ArrivalDay).ToList();
+            if (pending.Count == 0) return;
+
+            var items = new WeeklyFieldDecisionItem[pending.Count];
+            RiskLevel reportRisk = RiskLevel.Low;
+            for (int i = 0; i < pending.Count; i++)
+            {
+                MailEvent source = pending[i];
+                source.IncludedInWeeklyFieldReport = true;
+                if ((int)source.Risk > (int)reportRisk) reportRisk = source.Risk;
+                items[i] = new WeeklyFieldDecisionItem
+                {
+                    SourceMailId = source.Id,
+                    From = source.From,
+                    Subject = source.Subject,
+                    Body = source.Body,
+                    Instruction = source.Instruction,
+                    TargetWorkId = source.TargetWorkId,
+                    DeadlineDelta = source.DeadlineDelta,
+                    Risk = source.Risk
+                };
+            }
+            Mail.Add(new MailEvent
+            {
+                Id = $"weekly-field-{Day}",
+                ArrivalDay = Day,
+                From = "현장 운영실",
+                Subject = "주간현장 현황공유",
+                Body = $"이번 주 일정 변경 검토 안건 {items.Length}건입니다.",
+                Instruction = "각 안건을 승인 또는 무시하세요. 승인한 안건만 즉시 일정에 반영됩니다.",
+                Risk = reportRisk,
+                IsWeeklyFieldReport = true,
+                WeeklyFieldItems = items
+            });
         }
 
         public RandomTaskTarget[] ProposalTargets => randomTaskWords.Targets;
@@ -999,6 +1077,7 @@ namespace ProjectW.MilestonePrototype
 
             ApplyPayroll(report);
             Day++;
+            DeliverWeeklyFieldReport();
             DeliverMedicalResults();
             DeliverProposalResults(report);
             RefreshReadyMadeProposals(report);
@@ -1769,6 +1848,7 @@ namespace ProjectW.MilestonePrototype
             if (HasActiveCriticalEvent && ActiveCriticalNodeArrivalDay <= 0)
                 ActiveCriticalNodeArrivalDay = Day;
             DeliverScheduledCriticalMail();
+            DeliverWeeklyFieldReport();
             if (!HasActiveCriticalEvent) TriggerCriticalEvent();
             return true;
         }

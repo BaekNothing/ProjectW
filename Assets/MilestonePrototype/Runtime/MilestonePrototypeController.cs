@@ -300,7 +300,8 @@ namespace ProjectW.MilestonePrototype
 
         private void DrawMail(DeskWindow window)
         {
-            List<MailEvent> arrived = game.Mail.Where(m => m.ArrivalDay <= game.Day)
+            List<MailEvent> arrived = game.Mail.Where(m => m.ArrivalDay <= game.Day &&
+                    !game.IsWeeklyFieldIncidentMail(m))
                 .OrderBy(m => m.Read ? 1 : 0)
                 .ThenByDescending(m => m.ArrivalDay)
                 .ToList();
@@ -358,6 +359,13 @@ namespace ProjectW.MilestonePrototype
                 }
                 else
                 {
+                    if (mail.IsWeeklyFieldReport)
+                    {
+                        DrawWeeklyFieldReport(mail);
+                        GUILayout.EndVertical();
+                        GUILayout.EndHorizontal();
+                        return;
+                    }
                     if (mail.IsProposal && !mail.Resolved)
                     {
                         GUILayout.Label("이 메일은 검토 결과입니다. 답변이나 수정 제출은 제안서 앱에서 진행하세요.", small);
@@ -382,6 +390,40 @@ namespace ProjectW.MilestonePrototype
             }
             GUILayout.EndVertical();
             GUILayout.EndHorizontal();
+        }
+
+        private void DrawWeeklyFieldReport(MailEvent mail)
+        {
+            if (mail.WeeklyFieldItems == null || mail.WeeklyFieldItems.Length == 0)
+            {
+                GUILayout.Label("검토할 현장 안건이 없습니다.", small);
+                return;
+            }
+            foreach (WeeklyFieldDecisionItem item in mail.WeeklyFieldItems)
+            {
+                GUILayout.Space(6);
+                string state = item.Decided ? item.Approved ? "[승인]" : "[무시]" : "[대기]";
+                GUILayout.Label($"{state} {item.Subject}", section);
+                GUILayout.Label($"{item.From} · 일정 {(item.DeadlineDelta > 0 ? "+" : "")}{item.DeadlineDelta}일", small);
+                GUILayout.Label(item.Body);
+                GUILayout.Label(item.Instruction, warning);
+                if (!item.Decided)
+                {
+                    GUILayout.BeginHorizontal();
+                    if (LayoutButton("승인", GUILayout.Height(34)))
+                    {
+                        game.DecideWeeklyFieldItem(mail.Id, item.SourceMailId, true);
+                        SaveCampaign();
+                    }
+                    if (LayoutButton("무시", GUILayout.Height(34)))
+                    {
+                        game.DecideWeeklyFieldItem(mail.Id, item.SourceMailId, false);
+                        SaveCampaign();
+                    }
+                    GUILayout.EndHorizontal();
+                }
+                DrawSectionRule();
+            }
         }
 
         private void DrawProposal(DeskWindow window)

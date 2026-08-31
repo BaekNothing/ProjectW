@@ -1649,14 +1649,51 @@ namespace ProjectW.MilestonePrototype.Tests
             int softDeadline = foundation.SoftDeadline;
             int hardDeadline = foundation.HardDeadline;
 
-            Assert.That(game.ResolveMail("mail-1"), Is.True);
+            MailEvent weekly = game.Mail.Find(mail => mail.IsWeeklyFieldReport);
+            Assert.That(weekly, Is.Not.Null);
+            Assert.That(weekly.Subject, Is.EqualTo("주간현장 현황공유"));
+            Assert.That(game.ResolveMail("mail-1"), Is.False);
+            Assert.That(game.DecideWeeklyFieldItem(weekly.Id, "mail-1", true), Is.True);
             Assert.That(foundation.SoftDeadline, Is.EqualTo(softDeadline - 1));
             Assert.That(foundation.HardDeadline, Is.EqualTo(hardDeadline - 1));
             WorkTask survey = game.Tasks.Find(t => t.Id == "survey");
             Assert.That(survey.Importance, Is.EqualTo(ImportanceLevel.High));
             Assert.That(survey.Records, Has.Count.EqualTo(1));
-            Assert.That(game.ResolveMail("mail-1"), Is.False);
+            Assert.That(game.DecideWeeklyFieldItem(weekly.Id, "mail-1", true), Is.False);
             Assert.That(foundation.HardDeadline, Is.EqualTo(hardDeadline - 1));
+        }
+
+        [Test]
+        public void WeeklyFieldIncidentCanBeIgnoredWithoutChangingSchedule()
+        {
+            var game = new MilestoneSimulation(1);
+            WorkGroup foundation = game.Groups.Find(group => group.Id == "foundation");
+            int softDeadline = foundation.SoftDeadline;
+            int hardDeadline = foundation.HardDeadline;
+            MailEvent weekly = game.Mail.Find(mail => mail.IsWeeklyFieldReport);
+
+            Assert.That(game.DecideWeeklyFieldItem(weekly.Id, "mail-1", false), Is.True);
+            Assert.That(foundation.SoftDeadline, Is.EqualTo(softDeadline));
+            Assert.That(foundation.HardDeadline, Is.EqualTo(hardDeadline));
+            Assert.That(weekly.Resolved, Is.True);
+        }
+
+        [Test]
+        public void ScheduleIncidentsWaitForMondayDigestWhileMissionMailStaysSeparate()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.BaseSideMissionChance = 100;
+            data.Balance.RandomWorkChanceScalePercent = 100;
+            data.Balance.RandomWorkLimit = 1;
+            var game = new MilestoneSimulation(data, 1);
+
+            while (game.Day < 8) game.AdvanceDay();
+
+            MailEvent weekly = game.Mail.Find(mail => mail.Id == "weekly-field-8");
+            Assert.That(weekly, Is.Not.Null);
+            Assert.That(weekly.WeeklyFieldItems, Has.Length.EqualTo(1));
+            Assert.That(weekly.WeeklyFieldItems[0].SourceMailId, Is.EqualTo("mail-4"));
+            Assert.That(game.Mail.Exists(mail => mail.IsBossRequest && !mail.IsWeeklyFieldReport), Is.True);
         }
 
         [Test]
@@ -1672,7 +1709,8 @@ namespace ProjectW.MilestonePrototype.Tests
             var original = new MilestoneSimulation(1);
             original.Assign("survey", 1);
             original.AdvanceDay();
-            original.ResolveMail("mail-1");
+            MailEvent weekly = original.Mail.Find(mail => mail.IsWeeklyFieldReport);
+            original.DecideWeeklyFieldItem(weekly.Id, "mail-1", true);
 
             var restored = new MilestoneSimulation(99);
             Assert.That(restored.Restore(original.CreateSnapshot()), Is.True);
@@ -2239,7 +2277,8 @@ namespace ProjectW.MilestonePrototype.Tests
             try
             {
                 var game = new MilestoneSimulation(1);
-                game.ResolveMail("mail-1");
+                MailEvent weekly = game.Mail.Find(mail => mail.IsWeeklyFieldReport);
+                game.DecideWeeklyFieldItem(weekly.Id, "mail-1", true);
                 Assert.That(ProjectWSaveStore.SaveCampaign(key, game.CreateSnapshot()), Is.True);
                 Assert.That(ProjectWSaveStore.TryLoadCampaign(key, out CampaignSnapshot loaded), Is.True);
                 Assert.That(loaded.Mail[0].Resolved, Is.True);

@@ -383,6 +383,24 @@ namespace ProjectW.MilestonePrototype
           public bool IsBossRequest;
           public ProposalStage ProposalStage;
           public BossPreference BossPreference;
+          public bool IncludedInWeeklyFieldReport;
+          public bool IsWeeklyFieldReport;
+          public WeeklyFieldDecisionItem[] WeeklyFieldItems;
+    }
+
+    [Serializable]
+    public sealed class WeeklyFieldDecisionItem
+    {
+        public string SourceMailId;
+        public string From;
+        public string Subject;
+        public string Body;
+        public string Instruction;
+        public string TargetWorkId;
+        public int DeadlineDelta;
+        public RiskLevel Risk;
+        public bool Decided;
+        public bool Approved;
     }
 
     [Serializable]
