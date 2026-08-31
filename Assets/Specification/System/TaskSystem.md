@@ -2,9 +2,9 @@
 
 ## Document Control
 
-- Version: 3.9
+- Version: 4.0
 - Status: Approved for implementation
-- Action: Create
+- Action: Update
 - SSOT Change: Yes
 - Rationale: Define resources as the run's life, remove victory and fixed-duration endings, support
   endurance balance simulation, provide title, update, reset, and live gameplay-data operations,
@@ -796,6 +796,17 @@ Base APK v6 uses the project's active Input System package rather than the disab
   touch-control slots.
 - Base APK v6 preserves the required `Unity.InputSystem` types and embeds the same behavior for
   offline fallback.
+
+### Current Base APK v9 Activation
+
+- The currently supported installed baseline is base APK v9. Base APK v7 added patch diagnostics,
+  v8 added stable window-front ordering, and v9 added update requests and the gameplay-data editor's
+  approved text-editing surface.
+- Current development patches declare `minBaseVersion = 9`. Earlier base compatibility notes in
+  this document are historical constraints, not supported alternatives for the active dev channel.
+- The exact approved AOT and Contracts surface remains authoritative in
+  `Assets/Specification/Operation/HotUpdateAotSafety.md`; this section does not authorize additional
+  Unity, package, platform, native, reflection, serialization, delegate, or generic dependencies.
 - Saturday and Sunday columns use a distinct background treatment and weekday labels so the
   non-working weekend cadence remains identifiable across the full planning horizon.
 - An unassigned Task row shows its next automatic-assignment candidate when one can currently be

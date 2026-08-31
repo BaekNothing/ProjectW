@@ -2,8 +2,12 @@
 
 ## Document Control
 
-- Version: 1.0
+- Version: 1.1
 - Status: Authoring specification
+- Action: Update
+- SSOT Change: Yes
+- Rationale: Record the current production-data baseline and clarify that weekly digest decision
+  state is runtime-owned rather than core mail authoring input.
 - Runtime schema: `ProjectW.MilestonePrototype.TaskSystemData`, schema version 1
 - Runtime artifact: `Assets/MilestonePrototype/Resources/task-system.json`
 - Authoring template: `Docs/DataAuthoring/ProjectW-CoreAuthoringTemplate.md`
@@ -329,6 +333,16 @@ The current loader requires:
 - non-empty, uniquely identified Codex entries;
 - a valid first node, non-empty choices, positive total outcome weight, and valid next-node references
   for each critical event.
+
+The production data snapshot as of 2026-08-31 contains 20 Works, 39 Tasks, 4 crew members, 20
+authored mail entries, 7 critical-event chains, 32 Codex entries, and random word pools containing
+10 adjectives, 16 targets, and 16 actions. These counts describe the current artifact and are not
+schema limits.
+
+Weekly field-status report rows and their approval state are generated runtime state. Authors keep
+ordinary schedule-change incidents as normal `CoreMail` definitions with a non-zero deadline delta;
+the runtime groups eligible incidents each Monday. Critical events, boss requests, and mission mail
+remain separate and must not be authored as weekly report rows.
 
 The current runtime validator does not yet enforce every proposed authoring rule, including all Work,
 Task, Mail, dependency, identity, difficulty, deadline, and workload checks. The future compiler must

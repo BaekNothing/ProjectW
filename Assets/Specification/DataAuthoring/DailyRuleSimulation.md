@@ -2,8 +2,12 @@
 
 ## Document Control
 
-- Version: 1.0
+- Version: 1.1
 - Status: Authoring specification
+- Action: Update
+- SSOT Change: Yes
+- Rationale: Align simulation commands and day processing order with Task System v4.0, including
+  Work focus preemption and the Monday weekly field-status decision digest.
 - SSOT relationship: This document explains how to simulate the day cycle defined by
   `Assets/Specification/System/TaskSystem.md` and implemented by `MilestoneSimulation`.
 - Runtime data source: `Assets/MilestonePrototype/Resources/task-system.json`
@@ -64,6 +68,7 @@ A scenario may issue these actions before `AdvanceDay`:
 - request one or all medical checkups;
 - regenerate a crew member with explicit inheritance choices;
 - read or resolve mail;
+- approve or ignore one item in a Monday `주간현장 현황공유` mail;
 - choose a critical-event option;
 - enable or disable competency automatic assignment; set Work priority, `긴급!`, and `총력!` flags.
 
@@ -90,27 +95,30 @@ For current day `D`, a conforming simulation performs the following sequence.
 3. Determine whether the day is a weekend or regular Friday and which assigned workers belong to a
    `총력!` Work.
 4. Apply due scheduled assignments.
-5. Apply learned assignment rules.
-6. Apply competency automatic assignment.
-7. Snapshot each crew member's paused condition for the day.
-8. Record regular Friday medical results when applicable.
-9. Decrement existing injury duration.
-10. Apply weekend recovery, medical leave, or scheduled-rest recovery.
-11. Process assigned incomplete Tasks, primary Tasks before parallel Tasks.
-12. Charge payroll when `D` is a configured payroll interval.
-13. Increment the calendar from `D` to `D + 1`.
-14. Deliver due medical results.
-15. Refresh Work and Task states.
-16. Apply soft- and hard-deadline results against the new current day.
-17. Issue the midpoint review when due.
-18. Refresh states again.
-19. Deliver due PM proposal review results, assigning accepted Work deadlines relative to this day.
-20. Remove expired ready-made proposal candidates and generate a three-to-four-item batch when its
+5. Apply player-defined Work-priority preemption for `긴급!` and related focus rules.
+6. Apply learned assignment rules.
+7. Apply competency automatic assignment.
+8. Snapshot each crew member's paused condition for the day.
+9. Record regular Friday medical results when applicable.
+10. Decrement existing injury duration.
+11. Apply weekend recovery, medical leave, or scheduled-rest recovery.
+12. Process assigned incomplete Tasks, primary Tasks before parallel Tasks.
+13. Charge payroll when `D` is a configured payroll interval.
+14. Increment the calendar from `D` to `D + 1`.
+15. On Monday, collect due ordinary schedule-changing mini incidents into one
+    `주간현장 현황공유` mail. Do not apply their schedule deltas before item approval.
+16. Deliver due medical results.
+17. Deliver due PM proposal review results, assigning accepted Work deadlines relative to this day.
+18. Remove expired ready-made proposal candidates and generate a three-to-four-item batch when its
     randomized 14–21-day cadence is due; send one arrival notification mail for a new batch.
-21. Generate random side missions when eligible.
-22. Deliver scheduled critical-event mail.
-23. Trigger an eligible critical event.
-24. Persist the report and derived state.
+19. Refresh Work and Task states.
+20. Apply soft- and hard-deadline results against the new current day.
+21. Issue the midpoint review when due.
+22. Refresh states again.
+23. Generate random side missions when eligible.
+24. Deliver scheduled critical-event mail.
+25. Trigger an eligible critical event.
+26. Persist the report and derived state.
 
 The order is observable. In particular, daily output and payroll occur before the day increments,
 while deadline checks and newly generated side missions occur after it increments.
@@ -235,8 +243,8 @@ fatigueGain += SoftDeadlineFatigue when parent Work missed its soft deadline
 - When current day becomes greater than `HardDeadline`, fail the Work, apply `HardPenaltyCredits`
   once, fail all incomplete child Tasks, and clear their assignments and reservations.
 - Resource deductions clamp at zero.
-- A required authored Work failure and other campaign-loss conditions must be reported separately
-  from optional generated side-mission failure.
+- Required and optional Work failures are reported as Work outcomes and resource pressure. Neither
+  is itself a run-ending condition; only resource depletion ends the run.
 
 ## Payroll and Run End
 
@@ -328,3 +336,4 @@ A simulator is conforming when it passes fixed scenarios for:
 11. critical-event blocking and follow-up delivery;
 12. fixed-seed replay equality;
 13. resources reaching zero without becoming negative.
+14. Monday field-status aggregation, per-item approval/ignore, and separate mission mail delivery.

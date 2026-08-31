@@ -2,9 +2,9 @@
 
 ## Document Control
 
-- Version: 1.1
+- Version: 1.2
 - Status: Mandatory
-- Action: Create
+- Action: Update
 - SSOT Change: Yes
 - Rationale: Prevent patch assemblies from calling native/AOT implementations that do not exist in the installed base APK.
 
@@ -88,13 +88,17 @@ If a patch produces `MissingMethodException`, `TypeLoadException`, missing nativ
 4. Do not overwrite the broken Release.
 5. Record the missing member in the implementation notes or baseline so it is not reintroduced.
 
-## Current Incident
+## Historical Incident
 
 Patch `dev-20260727-006` called `GUILayoutUtility.GetRect` and `GUILayoutUtility.GetLastRect`, which were not exercised by the installed base APK v2. The resulting `MissingMethodException` interrupted Gantt rendering and produced secondary GUI clip imbalance errors. The corrective patch must use only IMGUI members already present in base APK v2 or trigger a base rebuild.
 
+This incident is resolved by later base baselines and is retained as an operational lesson. The
+active development channel requires base APK v9; v2-specific corrective delivery is no longer an
+active channel option.
+
 ## Base APK v3 AOT Baseline
 
-Base APK v3 is an approved base rebuild that resolves the current incident and restores direct-content dragging.
+Base APK v3 was the approved base rebuild that resolved the historical incident and restored direct-content dragging.
 
 It must bundle:
 
@@ -226,3 +230,6 @@ The shipped v9 preservation report also retains all members of `GUIUtility`, `GU
 opening the virtual keyboard, and may read `GUISkin.textField` to set text colors through the
 already-used `GUIStyle` state surface. This authorization does not extend to `TextEditor`, control
 IDs, keyboard-control mutation, synthetic events, or programmatic text selection.
+
+Base APK v9 is the current installed baseline for the active development channel. Current manifests
+must declare `minBaseVersion = 9` unless a later reviewed base rebuild supersedes this section.
