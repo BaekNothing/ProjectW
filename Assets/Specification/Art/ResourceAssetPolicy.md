@@ -100,19 +100,22 @@ franchise style.
 
 ## Current Crew Portrait Style Baseline
 
-The initial crew set uses an original modern American TV editorial-cartoon direction for an adult
-workplace strategy game:
+The initial crew set uses an original contemporary Japanese-inspired moe game-portrait direction
+for an adult workplace strategy game. It is a general art-language specification, not a request to
+imitate a named franchise, existing character, or artist:
 
-- bold, clean dark outlines;
-- simplified geometric facial construction;
-- expressive but restrained adult proportions;
-- flat color blocks with no more than three tonal steps per material;
+- clean tapered dark linework and crisp two-step cel shading;
+- strongly deformed but readable adult facial construction with a large head-to-shoulder ratio;
+- short mid-faces, softly rounded cheeks and compact U-shaped chins across the cast;
+- horizontally elongated almond-shaped eyes with role-appropriate lashes, brows, and restrained
+  layered highlights;
+- age, gender presentation, and personality carried by hair, brows, selective facial lines,
+  expression, and clothing rather than realistic long or angular face proportions;
+- slightly bright, clear warm East Asian skin tones with preserved shadow depth;
 - a shared pale cool gray-blue institutional backdrop;
 - centered, straight-on head-and-shoulders employee-ID framing;
 - shared slate-gray operations clothing with a small role-color accent;
 - no text, badge card, logo, watermark, weapon, military decoration, or exaggerated sci-fi armor.
-
-The direction is descriptive, not a request to imitate an existing television show or artist.
 Across the four-person initial roster, present two women and two men. Profile data determines
 personality, age impression, expression, and role accent; gender is an art-direction choice and is
 not added to gameplay data unless design later requires it.
