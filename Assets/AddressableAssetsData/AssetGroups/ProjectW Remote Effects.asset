@@ -15,6 +15,11 @@ MonoBehaviour:
   m_GroupName: ProjectW Remote Effects
   m_GUID: d9cf97d292909f9488b1dbc86ad061d5
   m_SerializeEntries:
+  - m_GUID: 46988d01dc09d6648b814d056e601ca6
+    m_Address: effects/glow
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 923086fc698f7a9499e80ef109f3caaa
     m_Address: effects/sparkle
     m_ReadOnly: 0

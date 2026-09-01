@@ -47,6 +47,7 @@ namespace ProjectW.MilestonePrototype
         private bool usesRotatableRadial;
         private Texture2D sparkleTexture;
         private Texture2D ringTexture;
+        private Texture2D glowTexture;
         private GUIStyle overlayWindow;
         private GUIStyle popupTitle;
         private GUIStyle popupBody;
@@ -59,7 +60,7 @@ namespace ProjectW.MilestonePrototype
         public bool HasToast => toast != null;
         public string LastAction { get; private set; }
 
-        public void SetEffectTextures(Texture2D radial, Texture2D sparkle, Texture2D ring)
+        public void SetEffectTextures(Texture2D radial, Texture2D sparkle, Texture2D ring, Texture2D glow)
         {
             if (radial != null)
             {
@@ -68,6 +69,7 @@ namespace ProjectW.MilestonePrototype
             }
             if (sparkle != null) sparkleTexture = sparkle;
             if (ring != null) ringTexture = ring;
+            if (glow != null) glowTexture = glow;
         }
 
         public void ShowPopup(TimedPopupData data, float now)
@@ -222,15 +224,13 @@ namespace ProjectW.MilestonePrototype
                 float seed = iconIndex * 17.17f + i * 5.31f;
                 float phase = Mathf.Repeat(now / seconds + seed * .137f, 1f);
                 float blink = Mathf.Sin(phase * Mathf.PI);
-                blink *= blink;
+                blink = .3f + blink * blink * .7f;
                 float orbit = seed * 2.17f;
                 float radius = rect.width * (.25f + Mathf.Repeat(seed * .173f, 1f) * .27f);
                 float x = rect.center.x + Mathf.Cos(orbit) * radius;
                 float y = rect.center.y + Mathf.Sin(orbit) * radius;
-                float size = 5f + Mathf.Repeat(seed * .319f, 1f) * 9f * blink;
-                GUI.color = new Color(icon.EffectColor.r, icon.EffectColor.g, icon.EffectColor.b,
-                    icon.EffectColor.a * blink);
-                GUI.DrawTexture(new Rect(x - size * .5f, y - size * .5f, size, size), sparkleTexture);
+                float size = 10f + Mathf.Repeat(seed * .319f, 1f) * 12f * blink;
+                DrawGlowingSparkle(x, y, size, icon.EffectColor, icon.EffectColor.a * blink);
             }
             GUI.color = previousColor;
         }
@@ -238,22 +238,42 @@ namespace ProjectW.MilestonePrototype
         private void DrawBurst(Rect rect, PopupIconData icon, float now, int iconIndex)
         {
             const int particleCount = 12;
-            float phase = Mathf.Repeat((now - popupStartedAt) / 1.35f - iconIndex * .08f, 1f);
-            float fade = Mathf.Clamp01(1f - phase);
-            fade *= fade;
+            float phase = BurstPhase(now - popupStartedAt, iconIndex);
+            if (phase < 0f) return;
+            float fade = 1f - phase;
             Color previousColor = GUI.color;
+            float flashSize = rect.width * (.72f - phase * .35f);
+            GUI.color = new Color(icon.EffectColor.r, icon.EffectColor.g, icon.EffectColor.b,
+                icon.EffectColor.a * fade * .8f);
+            GUI.DrawTexture(new Rect(rect.center.x - flashSize * .5f, rect.center.y - flashSize * .5f,
+                flashSize, flashSize), glowTexture);
             for (int i = 0; i < particleCount; i++)
             {
                 float angle = (i + (iconIndex % 2) * .5f) * Mathf.PI * 2f / particleCount;
-                float distance = rect.width * (.1f + phase * .55f);
+                float distance = rect.width * (.08f + phase * .62f);
                 float x = rect.center.x + Mathf.Cos(angle) * distance;
                 float y = rect.center.y + Mathf.Sin(angle) * distance;
-                float size = 13f * (1f - phase * .65f);
-                GUI.color = new Color(icon.EffectColor.r, icon.EffectColor.g, icon.EffectColor.b,
-                    icon.EffectColor.a * fade);
-                GUI.DrawTexture(new Rect(x - size * .5f, y - size * .5f, size, size), sparkleTexture);
+                float size = 22f * (1f - phase * .42f);
+                DrawGlowingSparkle(x, y, size, icon.EffectColor, icon.EffectColor.a * fade);
             }
             GUI.color = previousColor;
+        }
+
+        public static float BurstPhase(float elapsed, int iconIndex)
+        {
+            float delayed = elapsed - iconIndex * .12f;
+            if (delayed < 0f) return -1f;
+            float phase = Mathf.Repeat(delayed, 1.65f) / .82f;
+            return phase <= 1f ? phase : -1f;
+        }
+
+        private void DrawGlowingSparkle(float x, float y, float size, Color tint, float alpha)
+        {
+            float glowSize = size * 2.7f;
+            GUI.color = new Color(tint.r, tint.g, tint.b, alpha * .72f);
+            GUI.DrawTexture(new Rect(x - glowSize * .5f, y - glowSize * .5f, glowSize, glowSize), glowTexture);
+            GUI.color = new Color(1f, .98f, .9f, alpha);
+            GUI.DrawTexture(new Rect(x - size * .5f, y - size * .5f, size, size), sparkleTexture);
         }
 
         private void DrawExpandingRing(Rect rect, PopupIconData icon, float now, int iconIndex)
@@ -279,6 +299,7 @@ namespace ProjectW.MilestonePrototype
             }
             if (sparkleTexture == null) sparkleTexture = CreateSparkleTexture(24);
             if (ringTexture == null) ringTexture = CreateRingTexture(64);
+            if (glowTexture == null) glowTexture = CreateGlowTexture(64);
             if (popupTitle != null) return;
             Color ink = new Color(.16f, .16f, .16f, 1f);
             overlayWindow = new GUIStyle(GUIStyle.none);
@@ -384,6 +405,35 @@ namespace ProjectW.MilestonePrototype
             texture.SetPixels(pixels);
             texture.Apply(false, true);
             return texture;
+        }
+
+        public static Texture2D CreateGlowTexture(int size)
+        {
+            int safeSize = Mathf.Max(8, size);
+            var texture = new Texture2D(safeSize, safeSize, TextureFormat.RGBA32, false);
+            var pixels = new Color[safeSize * safeSize];
+            float center = (safeSize - 1) * .5f;
+            for (int y = 0; y < safeSize; y++)
+            {
+                for (int x = 0; x < safeSize; x++)
+                {
+                    float nx = (x - center) / center;
+                    float ny = (y - center) / center;
+                    float radius = Mathf.Sqrt(nx * nx + ny * ny);
+                    float alpha = GlowAlpha(radius);
+                    pixels[y * safeSize + x] = new Color(1f, 1f, 1f, alpha);
+                }
+            }
+            texture.SetPixels(pixels);
+            texture.Apply(false, true);
+            return texture;
+        }
+
+        public static float GlowAlpha(float normalizedRadius)
+        {
+            float t = Mathf.Clamp01((normalizedRadius - .04f) / .88f);
+            float alpha = 1f - t * t * (3f - 2f * t);
+            return alpha * alpha;
         }
 
         public static float RingAlpha(float normalizedRadius)

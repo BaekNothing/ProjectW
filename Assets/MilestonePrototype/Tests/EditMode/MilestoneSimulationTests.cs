@@ -1601,6 +1601,24 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void BurstLoopHasAVisibleWindowAndARealPause()
+        {
+            Assert.That(TimedNotificationPresenter.BurstPhase(0f, 1), Is.EqualTo(-1f));
+            Assert.That(TimedNotificationPresenter.BurstPhase(.12f, 1), Is.EqualTo(0f));
+            Assert.That(TimedNotificationPresenter.BurstPhase(.53f, 1), Is.EqualTo(.5f).Within(.001f));
+            Assert.That(TimedNotificationPresenter.BurstPhase(1.2f, 1), Is.EqualTo(-1f));
+            Assert.That(TimedNotificationPresenter.BurstPhase(1.77f, 1), Is.EqualTo(0f).Within(.001f));
+        }
+
+        [Test]
+        public void GlowMaskHasATransparentEdgeAndBrightCore()
+        {
+            Assert.That(TimedNotificationPresenter.GlowAlpha(1.4f), Is.EqualTo(0f));
+            Assert.That(TimedNotificationPresenter.GlowAlpha(0f), Is.EqualTo(1f));
+            Assert.That(TimedNotificationPresenter.GlowAlpha(.48f), Is.InRange(.2f, .3f));
+        }
+
+        [Test]
         public void GameplayDataOverrideRoundTripsAndCanBeRemoved()
         {
             var storage = new MemoryStringStorage();

@@ -156,14 +156,17 @@ namespace ProjectW.MilestonePrototype
             AsyncOperationHandle<Texture2D> radial = Addressables.LoadAssetAsync<Texture2D>("effects/radial-trapezoid");
             AsyncOperationHandle<Texture2D> sparkle = Addressables.LoadAssetAsync<Texture2D>("effects/sparkle");
             AsyncOperationHandle<Texture2D> ring = Addressables.LoadAssetAsync<Texture2D>("effects/ring");
+            AsyncOperationHandle<Texture2D> glow = Addressables.LoadAssetAsync<Texture2D>("effects/glow");
             yield return radial;
             yield return sparkle;
             yield return ring;
+            yield return glow;
             if (radial.Status == AsyncOperationStatus.Succeeded &&
                 sparkle.Status == AsyncOperationStatus.Succeeded &&
-                ring.Status == AsyncOperationStatus.Succeeded)
+                ring.Status == AsyncOperationStatus.Succeeded &&
+                glow.Status == AsyncOperationStatus.Succeeded)
             {
-                notifications.SetEffectTextures(radial.Result, sparkle.Result, ring.Result);
+                notifications.SetEffectTextures(radial.Result, sparkle.Result, ring.Result, glow.Result);
                 Debug.Log("Remote effect assets loaded from the active patch slot.");
             }
             else Debug.LogWarning("One or more remote effect textures failed to load.");

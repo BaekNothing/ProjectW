@@ -15,12 +15,14 @@ namespace ProjectW.MilestonePrototype.Editor
         public const string RadialAddress = "effects/radial-trapezoid";
         public const string SparkleAddress = "effects/sparkle";
         public const string RingAddress = "effects/ring";
+        public const string GlowAddress = "effects/glow";
 
         private static readonly (string FileName, string Address, Func<int, int, Color> Pixel)[] Assets =
         {
             ("radial-trapezoid.png", RadialAddress, RadialPixel),
             ("sparkle.png", SparkleAddress, SparklePixel),
-            ("ring.png", RingAddress, RingPixel)
+            ("ring.png", RingAddress, RingPixel),
+            ("glow.png", GlowAddress, GlowPixel)
         };
 
         [MenuItem("ProjectW/Remote Content/1. Generate Effect Sources")]
@@ -87,9 +89,9 @@ namespace ProjectW.MilestonePrototype.Editor
             float segment = Mathf.PI * 2f / 16f;
             float angle = Mathf.Repeat(Mathf.Atan2(ny, nx) + segment * .5f, segment) - segment * .5f;
             float halfAngle = Mathf.Lerp(.025f, .115f, t);
-            float edge = 1f - Mathf.SmoothStep(.78f, 1f, Mathf.Abs(angle) / halfAngle);
-            float outerFade = 1f - Mathf.SmoothStep(.48f, 1f, t);
-            float innerFade = Mathf.SmoothStep(0f, .12f, t);
+            float edge = 1f - SmoothStep01(.78f, 1f, Mathf.Abs(angle) / halfAngle);
+            float outerFade = 1f - SmoothStep01(.48f, 1f, t);
+            float innerFade = SmoothStep01(0f, .12f, t);
             return new Color(1f, 1f, 1f, edge * outerFade * innerFade);
         }
 
@@ -97,9 +99,25 @@ namespace ProjectW.MilestonePrototype.Editor
         {
             float nx = Mathf.Abs((x - 127.5f) / 127.5f);
             float ny = Mathf.Abs((y - 127.5f) / 127.5f);
-            float cross = Mathf.Pow(Mathf.Clamp01(1f - Mathf.Min(nx * 5f + ny, ny * 5f + nx)), 2f);
-            float core = Mathf.Clamp01(1f - Mathf.Sqrt(nx * nx + ny * ny) * 4f);
+            float cross = Mathf.Pow(Mathf.Clamp01(1f - Mathf.Min(nx * 3.4f + ny, ny * 3.4f + nx)), 1.5f);
+            float core = 1f - SmoothStep01(.08f, .46f, Mathf.Sqrt(nx * nx + ny * ny));
             return new Color(1f, 1f, 1f, Mathf.Max(cross, core));
+        }
+
+        private static Color GlowPixel(int x, int y)
+        {
+            float nx = (x - 127.5f) / 127.5f;
+            float ny = (y - 127.5f) / 127.5f;
+            float radius = Mathf.Sqrt(nx * nx + ny * ny);
+            float alpha = 1f - SmoothStep01(.04f, .92f, radius);
+            alpha *= alpha;
+            return new Color(1f, 1f, 1f, alpha);
+        }
+
+        private static float SmoothStep01(float edge0, float edge1, float value)
+        {
+            float t = Mathf.Clamp01((value - edge0) / (edge1 - edge0));
+            return t * t * (3f - 2f * t);
         }
 
         private static Color RingPixel(int x, int y)

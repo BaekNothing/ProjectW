@@ -248,27 +248,45 @@ namespace ProjectW.MilestonePrototype.Editor
             AddressableAssetSettings settings = AddressableAssetSettingsDefaultObject.Settings;
             string buildRoot = Path.GetFullPath(Path.Combine("Library", "ProjectWAddressables", tag));
             RecreateDirectory(buildRoot);
-            settings.profileSettings.SetValue(settings.activeProfileId, AddressableAssetSettings.kRemoteBuildPath, buildRoot);
-            settings.profileSettings.SetValue(settings.activeProfileId, AddressableAssetSettings.kRemoteLoadPath,
-                $"https://github.com/{Owner}/{Repository}/releases/download/{tag}");
-            EditorUtility.SetDirty(settings);
-            AssetDatabase.SaveAssets();
+            string profileId = settings.activeProfileId;
+            string previousBuildPath = settings.profileSettings.GetValueByName(profileId,
+                AddressableAssetSettings.kRemoteBuildPath);
+            string previousLoadPath = settings.profileSettings.GetValueByName(profileId,
+                AddressableAssetSettings.kRemoteLoadPath);
 
-            AddressableAssetSettings.BuildPlayerContent(out AddressablesPlayerBuildResult result);
-            if (!string.IsNullOrEmpty(result.Error))
-                throw new BuildFailedException($"Addressables build failed: {result.Error}");
-
-            foreach (string source in Directory.GetFiles(buildRoot, "*", SearchOption.AllDirectories))
+            try
             {
-                string name = Path.GetFileName(source);
-                string role = name.StartsWith("catalog_", StringComparison.OrdinalIgnoreCase) &&
-                              (name.EndsWith(".bin", StringComparison.OrdinalIgnoreCase) ||
-                               name.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
-                    ? "addressablesCatalog"
-                    : name.EndsWith(".hash", StringComparison.OrdinalIgnoreCase)
-                        ? "addressablesCatalogHash"
-                        : "addressablesBundle";
-                AddFile(source, output, name, role, tag, files);
+                settings.profileSettings.SetValue(profileId, AddressableAssetSettings.kRemoteBuildPath, buildRoot);
+                settings.profileSettings.SetValue(profileId, AddressableAssetSettings.kRemoteLoadPath,
+                    $"https://github.com/{Owner}/{Repository}/releases/download/{tag}");
+                EditorUtility.SetDirty(settings);
+                AssetDatabase.SaveAssets();
+
+                AddressableAssetSettings.BuildPlayerContent(out AddressablesPlayerBuildResult result);
+                if (!string.IsNullOrEmpty(result.Error))
+                    throw new BuildFailedException($"Addressables build failed: {result.Error}");
+
+                foreach (string source in Directory.GetFiles(buildRoot, "*", SearchOption.AllDirectories))
+                {
+                    string name = Path.GetFileName(source);
+                    string role = name.StartsWith("catalog_", StringComparison.OrdinalIgnoreCase) &&
+                                  (name.EndsWith(".bin", StringComparison.OrdinalIgnoreCase) ||
+                                   name.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                        ? "addressablesCatalog"
+                        : name.EndsWith(".hash", StringComparison.OrdinalIgnoreCase)
+                            ? "addressablesCatalogHash"
+                            : "addressablesBundle";
+                    AddFile(source, output, name, role, tag, files);
+                }
+            }
+            finally
+            {
+                settings.profileSettings.SetValue(profileId, AddressableAssetSettings.kRemoteBuildPath,
+                    previousBuildPath);
+                settings.profileSettings.SetValue(profileId, AddressableAssetSettings.kRemoteLoadPath,
+                    previousLoadPath);
+                EditorUtility.SetDirty(settings);
+                AssetDatabase.SaveAssets();
             }
         }
 
