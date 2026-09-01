@@ -93,7 +93,7 @@ namespace ProjectW.MilestonePrototype
                 toast = null;
         }
 
-        public void Draw(float width, float height, float now)
+        public void Draw(float width, float height, float now, float guiScale)
         {
             EnsureResources();
             if (toast != null)
@@ -106,12 +106,12 @@ namespace ProjectW.MilestonePrototype
             if (popup != null)
             {
                 GUI.Window(PopupWindowId, new Rect(0f, 0f, width, height),
-                    _ => DrawPopup(width, height, now), string.Empty, overlayWindow);
+                    _ => DrawPopup(width, height, now, guiScale), string.Empty, overlayWindow);
                 GUI.BringWindowToFront(PopupWindowId);
             }
         }
 
-        private void DrawPopup(float width, float height, float now)
+        private void DrawPopup(float width, float height, float now, float guiScale)
         {
             DrawSolid(new Rect(0f, 0f, width, height), new Color(0f, 0f, 0f, .62f));
 
@@ -136,7 +136,7 @@ namespace ProjectW.MilestonePrototype
                     PopupIconData icon = icons[i] ?? new PopupIconData();
                     Rect effectRect = new Rect(startX + i * slotWidth + (slotWidth - 112f) * .5f,
                         panel.y + 65f, 112f, 112f);
-                    DrawIconEffect(effectRect, icon, now, popup.RotationSeconds, i);
+                    DrawIconEffect(effectRect, icon, now, popup.RotationSeconds, i, guiScale);
                     GUI.Label(effectRect, icon.Glyph ?? "?", iconGlyph);
                     DrawIconForegroundEffect(effectRect, icon, now, i);
                     GUI.Label(new Rect(startX + i * slotWidth + 4f, panel.y + 174f, slotWidth - 8f, 34f),
@@ -182,7 +182,8 @@ namespace ProjectW.MilestonePrototype
                 toast.Message ?? string.Empty, toastBody);
         }
 
-        private void DrawIconEffect(Rect rect, PopupIconData icon, float now, float rotationSeconds, int iconIndex)
+        private void DrawIconEffect(Rect rect, PopupIconData icon, float now, float rotationSeconds, int iconIndex,
+            float guiScale)
         {
             float pulseSeconds = Mathf.Max(.1f, icon.PulseSeconds);
             float pulse = .82f + Mathf.Sin(now / pulseSeconds * Mathf.PI * 2f) * .18f;
@@ -197,7 +198,8 @@ namespace ProjectW.MilestonePrototype
                 if (usesRotatableRadial)
                 {
                     Matrix4x4 previousMatrix = GUI.matrix;
-                    GUIUtility.RotateAroundPivot(Mathf.Repeat(now / seconds, 1f) * 360f, rect.center);
+                    GUIUtility.RotateAroundPivot(Mathf.Repeat(now / seconds, 1f) * 360f,
+                        ScaledRotationPivot(rect, guiScale));
                     GUI.DrawTexture(rect, radialFrames[0]);
                     GUI.matrix = previousMatrix;
                 }
@@ -206,6 +208,14 @@ namespace ProjectW.MilestonePrototype
             }
 
             if (icon.ShowRing) DrawExpandingRing(rect, icon, now, iconIndex);
+        }
+
+        public static Vector2 ScaledRotationPivot(Rect rect, float guiScale)
+        {
+            Vector2 pivot = rect.center;
+            pivot.x *= guiScale;
+            pivot.y *= guiScale;
+            return pivot;
         }
 
         private void DrawIconForegroundEffect(Rect rect, PopupIconData icon, float now, int iconIndex)

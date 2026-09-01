@@ -204,7 +204,7 @@ namespace ProjectW.MilestonePrototype
             DrawTaskbar();
             inputLayerBlocked = false;
             GUI.enabled = true;
-            notifications.Draw(logicalWidth, logicalHeight, notificationTime);
+            notifications.Draw(logicalWidth, logicalHeight, notificationTime, scale);
             modalInputBlocked = false;
             if (Event.current.type == EventType.MouseUp) SaveDesktop();
         }

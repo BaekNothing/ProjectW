@@ -1601,6 +1601,17 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void RadialRotationPivotMatchesTheScaledTextureCenter()
+        {
+            Rect effectRect = new Rect(100f, 50f, 112f, 112f);
+
+            Vector2 pivot = TimedNotificationPresenter.ScaledRotationPivot(effectRect, 1.8f);
+
+            Assert.That(pivot.x, Is.EqualTo(effectRect.center.x * 1.8f).Within(.001f));
+            Assert.That(pivot.y, Is.EqualTo(effectRect.center.y * 1.8f).Within(.001f));
+        }
+
+        [Test]
         public void BurstLoopHasAVisibleWindowAndARealPause()
         {
             Assert.That(TimedNotificationPresenter.BurstPhase(0f, 1), Is.EqualTo(-1f));
