@@ -1593,6 +1593,14 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void ExpandingRingMaskOnlyShowsTheRingBand()
+        {
+            Assert.That(TimedNotificationPresenter.RingAlpha(0f), Is.EqualTo(0f));
+            Assert.That(TimedNotificationPresenter.RingAlpha(.78f), Is.EqualTo(1f));
+            Assert.That(TimedNotificationPresenter.RingAlpha(1.2f), Is.EqualTo(0f));
+        }
+
+        [Test]
         public void GameplayDataOverrideRoundTripsAndCanBeRemoved()
         {
             var storage = new MemoryStringStorage();

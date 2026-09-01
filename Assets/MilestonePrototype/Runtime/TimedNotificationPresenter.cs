@@ -9,6 +9,9 @@ namespace ProjectW.MilestonePrototype
         public string Label;
         public Color EffectColor = new Color(.95f, .72f, .2f, .78f);
         public bool ShowRadial = true;
+        public bool ShowSparkles = true;
+        public bool ShowBurst;
+        public bool ShowRing;
         public int SparkleCount = 8;
         public float SparkleSeconds = 1.15f;
         public float PulseSeconds = 1.8f;
@@ -42,6 +45,7 @@ namespace ProjectW.MilestonePrototype
         private float toastStartedAt;
         private Texture2D[] radialFrames;
         private Texture2D sparkleTexture;
+        private Texture2D ringTexture;
         private GUIStyle overlayWindow;
         private GUIStyle popupTitle;
         private GUIStyle popupBody;
@@ -120,6 +124,7 @@ namespace ProjectW.MilestonePrototype
                         panel.y + 65f, 112f, 112f);
                     DrawIconEffect(effectRect, icon, now, popup.RotationSeconds, i);
                     GUI.Label(effectRect, icon.Glyph ?? "?", iconGlyph);
+                    DrawIconForegroundEffect(effectRect, icon, now, i);
                     GUI.Label(new Rect(startX + i * slotWidth + 4f, panel.y + 174f, slotWidth - 8f, 34f),
                         icon.Label ?? string.Empty, iconLabel);
                 }
@@ -179,7 +184,13 @@ namespace ProjectW.MilestonePrototype
                 GUI.color = previousColor;
             }
 
-            DrawSparkles(rect, icon, now, iconIndex);
+            if (icon.ShowRing) DrawExpandingRing(rect, icon, now, iconIndex);
+        }
+
+        private void DrawIconForegroundEffect(Rect rect, PopupIconData icon, float now, int iconIndex)
+        {
+            if (icon.ShowSparkles) DrawSparkles(rect, icon, now, iconIndex);
+            if (icon.ShowBurst) DrawBurst(rect, icon, now, iconIndex);
         }
 
         private void DrawSparkles(Rect rect, PopupIconData icon, float now, int iconIndex)
@@ -205,6 +216,40 @@ namespace ProjectW.MilestonePrototype
             GUI.color = previousColor;
         }
 
+        private void DrawBurst(Rect rect, PopupIconData icon, float now, int iconIndex)
+        {
+            const int particleCount = 12;
+            float phase = Mathf.Repeat((now - popupStartedAt) / 1.35f - iconIndex * .08f, 1f);
+            float fade = Mathf.Clamp01(1f - phase);
+            fade *= fade;
+            Color previousColor = GUI.color;
+            for (int i = 0; i < particleCount; i++)
+            {
+                float angle = (i + (iconIndex % 2) * .5f) * Mathf.PI * 2f / particleCount;
+                float distance = rect.width * (.1f + phase * .55f);
+                float x = rect.center.x + Mathf.Cos(angle) * distance;
+                float y = rect.center.y + Mathf.Sin(angle) * distance;
+                float size = 13f * (1f - phase * .65f);
+                GUI.color = new Color(icon.EffectColor.r, icon.EffectColor.g, icon.EffectColor.b,
+                    icon.EffectColor.a * fade);
+                GUI.DrawTexture(new Rect(x - size * .5f, y - size * .5f, size, size), sparkleTexture);
+            }
+            GUI.color = previousColor;
+        }
+
+        private void DrawExpandingRing(Rect rect, PopupIconData icon, float now, int iconIndex)
+        {
+            float phase = Mathf.Repeat((now - popupStartedAt) / 1.6f - iconIndex * .1f, 1f);
+            float size = rect.width * (.42f + phase * .72f);
+            float alpha = (1f - phase) * .75f;
+            Rect ringRect = new Rect(rect.center.x - size * .5f, rect.center.y - size * .5f, size, size);
+            Color previousColor = GUI.color;
+            GUI.color = new Color(icon.EffectColor.r, icon.EffectColor.g, icon.EffectColor.b,
+                icon.EffectColor.a * alpha);
+            GUI.DrawTexture(ringRect, ringTexture);
+            GUI.color = previousColor;
+        }
+
         private void EnsureResources()
         {
             if (radialFrames == null)
@@ -214,6 +259,7 @@ namespace ProjectW.MilestonePrototype
                     radialFrames[i] = CreateRadialTexture(128, 16, i * Mathf.PI * 2f / radialFrames.Length);
             }
             if (sparkleTexture == null) sparkleTexture = CreateSparkleTexture(24);
+            if (ringTexture == null) ringTexture = CreateRingTexture(64);
             if (popupTitle != null) return;
             Color ink = new Color(.16f, .16f, .16f, 1f);
             overlayWindow = new GUIStyle(GUIStyle.none);
@@ -297,6 +343,33 @@ namespace ProjectW.MilestonePrototype
             texture.SetPixels(pixels);
             texture.Apply(false, true);
             return texture;
+        }
+
+        public static Texture2D CreateRingTexture(int size)
+        {
+            int safeSize = Mathf.Max(8, size);
+            var texture = new Texture2D(safeSize, safeSize, TextureFormat.RGBA32, false);
+            var pixels = new Color[safeSize * safeSize];
+            float center = (safeSize - 1) * .5f;
+            for (int y = 0; y < safeSize; y++)
+            {
+                for (int x = 0; x < safeSize; x++)
+                {
+                    float nx = (x - center) / center;
+                    float ny = (y - center) / center;
+                    float radius = Mathf.Sqrt(nx * nx + ny * ny);
+                    float alpha = RingAlpha(radius);
+                    pixels[y * safeSize + x] = new Color(1f, 1f, 1f, alpha);
+                }
+            }
+            texture.SetPixels(pixels);
+            texture.Apply(false, true);
+            return texture;
+        }
+
+        public static float RingAlpha(float normalizedRadius)
+        {
+            return Mathf.Clamp01(1f - Mathf.Abs(normalizedRadius - .78f) * 18f);
         }
 
         private static void DrawSolid(Rect rect, Color color)

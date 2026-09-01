@@ -1593,14 +1593,26 @@ namespace ProjectW.MilestonePrototype
             notifications.ShowPopup(new TimedPopupData
             {
                 Title = "보급품 획득",
-                Message = "방사광, 반짝이, 가변 아이콘과 선택 버튼을 시험하는 범용 팝업입니다.",
+                Message = "아이콘 앞 반짝이, 팡 터지는 버스트, 확장 링을 한 화면에서 시험하는 이펙트 샘플입니다.",
                 DurationSeconds = 0f,
                 RotationSeconds = 2.5f,
                 Icons = new[]
                 {
-                    new PopupIconData { Glyph = "R", Label = "자원 +20", EffectColor = new Color(.96f, .72f, .18f, .82f) },
-                    new PopupIconData { Glyph = "C", Label = "대원 회복", EffectColor = new Color(.28f, .72f, .9f, .78f) },
-                    new PopupIconData { Glyph = "!", Label = "신규 정보", EffectColor = new Color(.86f, .38f, .32f, .76f) }
+                    new PopupIconData
+                    {
+                        Glyph = "R", Label = "앞쪽 반짝이", EffectColor = new Color(.96f, .72f, .18f, .9f),
+                        ShowRadial = false, ShowSparkles = true, SparkleCount = 12
+                    },
+                    new PopupIconData
+                    {
+                        Glyph = "C", Label = "팡 버스트", EffectColor = new Color(.28f, .72f, .9f, .9f),
+                        ShowRadial = false, ShowSparkles = false, ShowBurst = true
+                    },
+                    new PopupIconData
+                    {
+                        Glyph = "!", Label = "확장 링", EffectColor = new Color(.86f, .38f, .32f, .9f),
+                        ShowRadial = true, ShowSparkles = false, ShowRing = true
+                    }
                 },
                 Buttons = new[] { "1", "2", "3" }
             }, Time.unscaledTime);
