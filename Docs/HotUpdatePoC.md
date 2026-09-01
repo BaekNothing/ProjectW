@@ -37,15 +37,15 @@ native plugins, Android settings, Unity, or HybridCLR change.
 
 ### Current base APK
 
-- Base version: `10`
+- Base version: `11`
 - Artifact: `APK/ProjectW-HybridCLR.apk`
-- Size: `50,454,632` bytes
-- SHA-256: `b385371458363472746a8655240e5247652b94be96bb4af9aca102c30a0394f8`
-- Required for: timed modal popups, bottom-right toast notifications, cached radial/sparkle effects,
-  and the earlier title, update, gameplay-data, diagnostics, and desktop-window operations
+- Size: `51,427,973` bytes
+- SHA-256: `bc21f669d80476023611be7a706388faae985f5b8cc4ea6434418c9f088c1bba`
+- Required for: the unified remote Addressables catalog/effect bundle pipeline and all earlier timed
+  notification, title, update, gameplay-data, diagnostics, and desktop-window operations
 
-Older base APKs reject manifests whose `minBaseVersion` is `10`. Install base APK v10 once before
-consuming patches that use the timed notification and cached texture-effect surface.
+Older base APKs reject manifests whose `minBaseVersion` is `11`. Install base APK v11 once before
+consuming patches that include remote Addressables content.
 
 ## Routine code patch workflow
 
@@ -65,7 +65,8 @@ It stays on the development PC and is never stored in the APK or repository.
 The script:
 
 1. Compiles the Android hot-update assembly.
-2. Creates `PatchBuild/dev-YYYYMMDD-NNN` with DLL, available AOT metadata, hashes, and manifest.
+2. Creates `PatchBuild/dev-YYYYMMDD-NNN` with DLL, data, available AOT metadata, the remote
+   Addressables catalog/bundles, hashes, and one unified manifest.
 3. Creates a public prerelease such as `dev-20260721-001` and uploads its assets.
 4. Updates the local `PatchChannels/dev.json` pointer.
 
@@ -91,11 +92,13 @@ under a new, higher `dev-YYYYMMDD-NNN` version and point the channel to it.
 Do not overwrite assets in an existing release. Every manifest uses tag-specific immutable URLs so
 a device cannot combine files from two releases.
 
-## Current PoC boundary
+## Unified remote-content boundary
 
-Code and arbitrary files listed in the manifest can be patched now. Addressables remote catalogs are
-not part of this first PoC; add them after the code path is proven on the remote device. Until then,
-large prefab, scene, texture, and audio changes still require a base APK.
+Code, data, and reviewed Addressables content are published through the same immutable
+`dev-YYYYMMDD-NNN` GitHub Release and `patch-manifest.json`. The bootstrap downloads and verifies the
+catalog, hash, and bundles in the same staging slot as the HotUpdate DLL, then promotes or rolls back
+the complete release atomically. The initial remote group contains the popup radial, sparkle, and
+ring texture sources. New asset types still require an AOT review of their typed load path.
 
 ## AOT compatibility warning
 

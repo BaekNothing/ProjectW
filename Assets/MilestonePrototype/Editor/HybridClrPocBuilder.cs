@@ -10,6 +10,9 @@ using HybridCLR.Editor.Installer;
 using HybridCLR.Editor.Settings;
 using ProjectW.Bootstrap;
 using UnityEditor;
+using UnityEditor.AddressableAssets;
+using UnityEditor.AddressableAssets.Build;
+using UnityEditor.AddressableAssets.Settings;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
@@ -97,6 +100,8 @@ namespace ProjectW.MilestonePrototype.Editor
                 if (File.Exists(source)) AddFile(source, output, assembly + ".dll.bytes", "aotMetadata", tag, files);
             }
 
+            BuildRemoteAddressables(tag, output, files);
+
             var manifest = new PatchManifestRecord
             {
                 schemaVersion = 1,
@@ -108,7 +113,8 @@ namespace ProjectW.MilestonePrototype.Editor
             };
             File.WriteAllText(Path.Combine(output, "patch-manifest.json"), JsonUtility.ToJson(manifest, true));
             File.WriteAllText(Path.Combine(output, "release-notes.md"),
-                $"ProjectW development hot-update patch {tag}.\n\nBase APK version required: {manifest.minBaseVersion}\n");
+                $"ProjectW unified code/content patch {tag}.\n\nBase APK version required: {manifest.minBaseVersion}\n" +
+                "Includes the HotUpdate assembly, gameplay data, remote Addressables catalog, and effect bundle.\n");
             Debug.Log($"Patch built: {output}");
             return output;
         }
@@ -138,6 +144,7 @@ namespace ProjectW.MilestonePrototype.Editor
             EnsureInstalled();
             PrebuildCommand.GenerateAll();
             PrepareEmbeddedPatch();
+            PrepareAddressablesForBase();
 
             Directory.CreateDirectory("APK");
             BuildReport report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
@@ -186,6 +193,14 @@ namespace ProjectW.MilestonePrototype.Editor
             AssetDatabase.Refresh();
         }
 
+        private static void PrepareAddressablesForBase()
+        {
+            RemoteEffectAssetSetup.ConfigureAddressables();
+            AddressableAssetSettings.BuildPlayerContent(out AddressablesPlayerBuildResult result);
+            if (!string.IsNullOrEmpty(result.Error))
+                throw new BuildFailedException($"Addressables base build failed: {result.Error}");
+        }
+
         private static void EnsureInstalled()
         {
             if (!new InstallerController().HasInstalledHybridCLR())
@@ -225,6 +240,36 @@ namespace ProjectW.MilestonePrototype.Editor
                 size = info.Length,
                 sha256 = ComputeSha256(destination)
             });
+        }
+
+        private static void BuildRemoteAddressables(string tag, string output, ICollection<PatchFileRecord> files)
+        {
+            RemoteEffectAssetSetup.ConfigureAddressables();
+            AddressableAssetSettings settings = AddressableAssetSettingsDefaultObject.Settings;
+            string buildRoot = Path.GetFullPath(Path.Combine("Library", "ProjectWAddressables", tag));
+            RecreateDirectory(buildRoot);
+            settings.profileSettings.SetValue(settings.activeProfileId, AddressableAssetSettings.kRemoteBuildPath, buildRoot);
+            settings.profileSettings.SetValue(settings.activeProfileId, AddressableAssetSettings.kRemoteLoadPath,
+                $"https://github.com/{Owner}/{Repository}/releases/download/{tag}");
+            EditorUtility.SetDirty(settings);
+            AssetDatabase.SaveAssets();
+
+            AddressableAssetSettings.BuildPlayerContent(out AddressablesPlayerBuildResult result);
+            if (!string.IsNullOrEmpty(result.Error))
+                throw new BuildFailedException($"Addressables build failed: {result.Error}");
+
+            foreach (string source in Directory.GetFiles(buildRoot, "*", SearchOption.AllDirectories))
+            {
+                string name = Path.GetFileName(source);
+                string role = name.StartsWith("catalog_", StringComparison.OrdinalIgnoreCase) &&
+                              (name.EndsWith(".bin", StringComparison.OrdinalIgnoreCase) ||
+                               name.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                    ? "addressablesCatalog"
+                    : name.EndsWith(".hash", StringComparison.OrdinalIgnoreCase)
+                        ? "addressablesCatalogHash"
+                        : "addressablesBundle";
+                AddFile(source, output, name, role, tag, files);
+            }
         }
 
         private static string ComputeSha256(string path)

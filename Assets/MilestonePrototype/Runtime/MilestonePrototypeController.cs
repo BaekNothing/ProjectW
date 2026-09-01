@@ -1,7 +1,11 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using ProjectW.Contracts;
+using UnityEngine.AddressableAssets;
+using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
@@ -118,10 +122,51 @@ namespace ProjectW.MilestonePrototype
             RestoreDesktop();
         }
 
-        public void Initialize(string version, IPatchDiagnostics diagnostics)
+        public void Initialize(string version, IPatchDiagnostics diagnostics, string dataPath)
         {
             patchVersion = string.IsNullOrWhiteSpace(version) ? "unknown" : version.Trim();
             patchDiagnostics = diagnostics;
+            if (!string.IsNullOrWhiteSpace(dataPath)) StartCoroutine(LoadRemoteEffectAssets(dataPath));
+        }
+
+        private IEnumerator LoadRemoteEffectAssets(string dataPath)
+        {
+            string catalogPath = Directory.GetFiles(dataPath, "catalog*.bin").FirstOrDefault() ??
+                                 Directory.GetFiles(dataPath, "catalog*.json").FirstOrDefault();
+            if (string.IsNullOrEmpty(catalogPath)) yield break;
+
+            Addressables.InternalIdTransformFunc = location =>
+            {
+                string internalId = location.InternalId;
+                int query = internalId.IndexOf('?');
+                if (query >= 0) internalId = internalId.Substring(0, query);
+                int slash = Math.Max(internalId.LastIndexOf('/'), internalId.LastIndexOf('\\'));
+                string localPath = Path.Combine(dataPath, slash >= 0 ? internalId.Substring(slash + 1) : internalId);
+                return File.Exists(localPath) ? localPath : location.InternalId;
+            };
+
+            AsyncOperationHandle catalog = Addressables.LoadContentCatalogAsync(catalogPath, false);
+            yield return catalog;
+            if (catalog.Status != AsyncOperationStatus.Succeeded)
+            {
+                Debug.LogWarning($"Remote effect catalog failed: {catalog.OperationException?.Message}");
+                yield break;
+            }
+
+            AsyncOperationHandle<Texture2D> radial = Addressables.LoadAssetAsync<Texture2D>("effects/radial-trapezoid");
+            AsyncOperationHandle<Texture2D> sparkle = Addressables.LoadAssetAsync<Texture2D>("effects/sparkle");
+            AsyncOperationHandle<Texture2D> ring = Addressables.LoadAssetAsync<Texture2D>("effects/ring");
+            yield return radial;
+            yield return sparkle;
+            yield return ring;
+            if (radial.Status == AsyncOperationStatus.Succeeded &&
+                sparkle.Status == AsyncOperationStatus.Succeeded &&
+                ring.Status == AsyncOperationStatus.Succeeded)
+            {
+                notifications.SetEffectTextures(radial.Result, sparkle.Result, ring.Result);
+                Debug.Log("Remote effect assets loaded from the active patch slot.");
+            }
+            else Debug.LogWarning("One or more remote effect textures failed to load.");
         }
 
         private void OnApplicationPause(bool paused)

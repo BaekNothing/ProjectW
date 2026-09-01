@@ -1,5 +1,5 @@
 {
   "name": "ProjectW.HotUpdate",
   "rootNamespace": "ProjectW",
-  "references": ["ProjectW.Contracts", "Unity.InputSystem"]
+  "references": ["ProjectW.Contracts", "Unity.InputSystem", "Unity.Addressables", "Unity.ResourceManager"]
 }

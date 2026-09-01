@@ -44,6 +44,7 @@ namespace ProjectW.MilestonePrototype
         private float popupStartedAt;
         private float toastStartedAt;
         private Texture2D[] radialFrames;
+        private bool usesRotatableRadial;
         private Texture2D sparkleTexture;
         private Texture2D ringTexture;
         private GUIStyle overlayWindow;
@@ -57,6 +58,17 @@ namespace ProjectW.MilestonePrototype
         public bool HasPopup => popup != null;
         public bool HasToast => toast != null;
         public string LastAction { get; private set; }
+
+        public void SetEffectTextures(Texture2D radial, Texture2D sparkle, Texture2D ring)
+        {
+            if (radial != null)
+            {
+                radialFrames = new[] { radial };
+                usesRotatableRadial = true;
+            }
+            if (sparkle != null) sparkleTexture = sparkle;
+            if (ring != null) ringTexture = ring;
+        }
 
         public void ShowPopup(TimedPopupData data, float now)
         {
@@ -180,7 +192,14 @@ namespace ProjectW.MilestonePrototype
                 Color previousColor = GUI.color;
                 GUI.color = new Color(icon.EffectColor.r, icon.EffectColor.g, icon.EffectColor.b,
                     icon.EffectColor.a * pulse);
-                GUI.DrawTexture(rect, radialFrames[frame]);
+                if (usesRotatableRadial)
+                {
+                    Matrix4x4 previousMatrix = GUI.matrix;
+                    GUIUtility.RotateAroundPivot(Mathf.Repeat(now / seconds, 1f) * 360f, rect.center);
+                    GUI.DrawTexture(rect, radialFrames[0]);
+                    GUI.matrix = previousMatrix;
+                }
+                else GUI.DrawTexture(rect, radialFrames[frame]);
                 GUI.color = previousColor;
             }
 

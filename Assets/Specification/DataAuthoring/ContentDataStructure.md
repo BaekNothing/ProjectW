@@ -281,7 +281,7 @@ Tags are authoring metadata and are not emitted until a runtime feature explicit
 - fabricate runtime support for an authoring-only field;
 - hide invalid data by supplying defaults;
 - claim that editor compilation proves installed-device AOT compatibility;
-- claim remote Addressables content patching exists;
+- publish remote Addressables content outside the unified patch manifest and validation flow;
 - publish gameplay data without the repository's validation, AOT audit when relevant, and explicit
   task authorization.
 

@@ -9,7 +9,7 @@ namespace ProjectW.HotUpdate
             ProjectW.MilestonePrototype.ProjectWSaveStore.Configure(context.Storage);
             ProjectW.MilestonePrototype.TaskSystemDataLoader.Configure(context.DataPath, context.Storage);
             var controller = context.Host.AddComponent<ProjectW.MilestonePrototype.MilestonePrototypeController>();
-            controller.Initialize(context.PatchVersion, context.PatchDiagnostics);
+            controller.Initialize(context.PatchVersion, context.PatchDiagnostics, context.DataPath);
             context.MarkHealthy();
         }
     }

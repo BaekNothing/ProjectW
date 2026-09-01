@@ -15,4 +15,6 @@
     <type fullname="UnityEngine.GUIStyle" preserve="all" />
     <type fullname="UnityEngine.GUIUtility" preserve="all" />
   </assembly>
+  <assembly fullname="Unity.Addressables" preserve="all" />
+  <assembly fullname="Unity.ResourceManager" preserve="all" />
 </linker>

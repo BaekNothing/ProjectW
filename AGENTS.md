@@ -21,8 +21,8 @@ Before changing code, data, Unity settings, builds, patch tooling, or GitHub rel
 
 - APK-fixed code: `ProjectW.Bootstrap`, `ProjectW.Contracts`, Unity/platform integration, native plugins, packages, PlayerSettings, and HybridCLR configuration.
 - Patchable code: `ProjectW.HotUpdate`, currently rooted at `Assets/MilestonePrototype/Runtime`.
-- Patchable content/data must live outside the fixed Bootstrap/Contracts layer and be distributed through a patch manifest or a future Addressables remote catalog.
-- Do not state that Addressables content patching exists yet. The current PoC supports the hot-update DLL and manifest-listed files; remote Addressables integration is pending.
+- Patchable content/data must live outside the fixed Bootstrap/Contracts layer and be distributed through the unified patch manifest and reviewed remote Addressables groups.
+- Remote Addressables content is published in the same immutable `dev-YYYYMMDD-NNN` GitHub Release and `patch-manifest.json` as the HotUpdate DLL. Do not create a separate content channel or release path.
 - Keep scenes dependent on the fixed bootstrap, not directly on hot-update implementation types.
 - Keep `ProjectW.Contracts` minimal and stable. A breaking Contracts change requires a new base APK.
 

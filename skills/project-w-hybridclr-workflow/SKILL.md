@@ -23,8 +23,8 @@ HybridCLR patches whenever the change boundary permits it.
 - **Base APK:** `ProjectW.Bootstrap`, `ProjectW.Contracts`, scenes' bootstrap wiring, Unity/package
   upgrades, PlayerSettings, Android/native plugins, HybridCLR configuration, or incompatible AOT
   dependencies.
-- **Content pipeline pending:** prefabs, scenes, textures, and audio do not yet have a remote
-  Addressables pipeline. Do not claim they are patchable until that integration is implemented.
+- **Remote content:** reviewed Addressables groups are built into the same patch output, GitHub
+  Release, and manifest as the HotUpdate DLL. New asset types still require a typed-load AOT review.
 
 When uncertain, treat a change as base-APK-affecting and explain why before building.
 
@@ -35,8 +35,8 @@ When uncertain, treat a change as base-APK-affecting and explain why before buil
 - Put frequently changing gameplay behavior in `ProjectW.HotUpdate`.
 - Make the fixed scene reference `PatchBootstrapper`; instantiate hot-update behavior through
   `IGameEntry` after assembly loading.
-- Put new patchable data outside Bootstrap/Contracts. Add it to the patch manifest or, after
-  Addressables is implemented, to a remote Addressables group.
+- Put new patchable data outside Bootstrap/Contracts. Add plain files to the patch manifest and
+  Unity content to a reviewed remote Addressables group in the same unified release.
 - Treat a breaking Contracts change as a new base version and rebuild the APK.
 
 ## Enforce the AOT safety gate

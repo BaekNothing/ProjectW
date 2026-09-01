@@ -259,3 +259,30 @@ and effect rectangles must use that window's local coordinates so UI scaling can
 
 Base APK v10 is the current installed baseline for the active development channel. Current manifests
 must declare `minBaseVersion = 10` unless a later reviewed base rebuild supersedes this section.
+
+## Base APK v11 AOT Baseline
+
+Base APK v11 adds Unity Addressables 2.7.6 and its Resource Manager runtime so patch releases can
+carry code and remote content through the same immutable GitHub Release and patch manifest.
+
+It must bundle:
+
+- `BaseVersion = 11`
+- Unity Addressables 2.7.6 and the matching Scriptable Build Pipeline dependencies
+- the Addressables runtime initialization data
+- stable linker preservation for `Unity.Addressables` and `Unity.ResourceManager`
+- the complete v10 preservation surface
+
+The approved HotUpdate-facing surface is the external-catalog and typed texture-loading path used by
+the popup effect loader: `Addressables.InternalIdTransformFunc`, `LoadContentCatalogAsync`,
+`LoadAssetAsync<Texture2D>`, `AsyncOperationHandle`, `AsyncOperationStatus`, and the resource-location
+internal ID getter. `GUIUtility.RotateAroundPivot(float, Vector2)` is covered by the existing full
+GUIUtility preservation baseline. This authorization does not extend to unrelated Addressables APIs,
+asset types, scenes, or arbitrary new closed generic loads.
+
+Remote Addressables outputs must be published in the same `dev-YYYYMMDD-NNN` GitHub Release as the
+HotUpdate DLL and listed in the same `patch-manifest.json`. The bootstrap continues to download,
+size-check, hash-check, stage, promote, and roll back the complete release as one patch slot.
+
+Base APK v11 becomes the active baseline when its APK is built and verified. Manifests containing
+remote Addressables content must declare `minBaseVersion = 11`.

@@ -3210,7 +3210,7 @@
       "Id": "guide-patch",
       "Category": "시스템과 데이터",
       "Name": "패치와 현재 기술 경계",
-      "Description": "현재 base APK는 version 9입니다. ProjectW.Bootstrap이 개발 채널을 확인해 패치 매니페스트, HotUpdate DLL, task-system.json과 AOT 메타데이터의 크기·SHA-256을 검증하고 staging에서 current 슬롯으로 승격합니다. 시작 실패 시 previous 슬롯으로 롤백하며 네트워크 실패 시 마지막 정상 패치 또는 APK 내장본을 사용합니다.\n\n게임 규칙과 매니페스트에 포함된 데이터는 패치할 수 있습니다. Unity·패키지·네이티브·Contracts의 새 AOT 표면은 새 APK가 필요합니다. 원격 Addressables는 아직 없어 이미지, 씬, 오디오 같은 대형 콘텐츠 패치는 현재 범위 밖입니다."
+      "Description": "현재 base APK는 version 11입니다. ProjectW.Bootstrap이 개발 채널을 확인해 하나의 패치 매니페스트에 포함된 HotUpdate DLL, task-system.json, AOT 메타데이터, Addressables 카탈로그와 번들의 크기·SHA-256을 검증하고 staging에서 current 슬롯으로 승격합니다. 시작 실패 시 previous 슬롯으로 롤백하며 네트워크 실패 시 마지막 정상 패치 또는 APK 내장본을 사용합니다.\n\n게임 규칙과 원격 이미지 같은 Addressables 콘텐츠는 동일한 dev 릴리스에서 함께 패치할 수 있습니다. Unity·패키지·네이티브·Contracts의 새 AOT 표면은 새 APK가 필요합니다."
     }
   ]
 }

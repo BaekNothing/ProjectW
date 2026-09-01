@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: ProjectW Remote Effects
+  m_EditorClassIdentifier: Unity.Addressables.Editor::UnityEditor.AddressableAssets.Settings.AddressableAssetGroup
+  m_GroupName: ProjectW Remote Effects
+  m_GUID: d9cf97d292909f9488b1dbc86ad061d5
+  m_SerializeEntries:
+  - m_GUID: 923086fc698f7a9499e80ef109f3caaa
+    m_Address: effects/sparkle
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ab31cc873377f244aaf44f19650caa35
+    m_Address: effects/radial-trapezoid
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c968b0e11c751404ca8fd6ca6716f791
+    m_Address: effects/ring
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: 02c272a14322a3242aed66e20d189469, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: f107a5b53ab14544d936b8952a2a8018, type: 2}
+    - {fileID: 11400000, guid: cf5e8bffec0c7e743b4126fb77fe1aad, type: 2}

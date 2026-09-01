@@ -746,8 +746,9 @@ or the mouse wheel.
 - The crew list, detail, and messenger show trust toward the responsible officer on a 0–100 scale
   with a readable relationship summary.
 - Crew profile metadata is owned by `task-system.json`.
-- Until remote image content delivery exists, the portrait area uses the data-defined text portrait;
-  adding bitmap portraits remains a base APK or future Addressables content change.
+- The portrait area currently uses the data-defined text portrait. Bitmap portraits may be added
+  through the remote Addressables group once their UI consumption path is reviewed against the v11
+  AOT baseline.
 
 Unity IMGUI touch-to-mouse synthesis is the runtime input path for this prototype. Drag calculation remains a pure tested function so a later input-system migration does not redefine the interaction.
 
