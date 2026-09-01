@@ -209,6 +209,7 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(game.CampaignEndDay, Is.EqualTo(90));
             Assert.That(game.MidpointReviewDay, Is.EqualTo(45));
             Assert.That(game.Crew[0].PortraitLabel, Is.Not.Empty);
+            Assert.That(game.Crew[0].PortraitAddress, Is.EqualTo(CrewPortraitCatalog.HanTech));
             Assert.That(game.Crew[0].Personality, Is.Not.Empty);
             Assert.That(game.Crew[0].Memo, Is.Not.Empty);
             Assert.That(game.Crew[0].Perks, Is.Not.Null.And.Not.Empty);

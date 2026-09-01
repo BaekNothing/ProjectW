@@ -110,6 +110,7 @@ namespace ProjectW.MilestonePrototype
         private string editorNotice;
         private string categoryTransferText = string.Empty;
         private readonly TimedNotificationPresenter notifications = new TimedNotificationPresenter();
+        private readonly Texture2D[] crewPortraitTextures = new Texture2D[CrewPortraitCatalog.Count];
         public const float WindowTitleBarHeight = 25f;
         public const float WindowContentTopSpacing = 6f;
         public const float GanttWindowChromeReserve = 110f;
@@ -126,10 +127,10 @@ namespace ProjectW.MilestonePrototype
         {
             patchVersion = string.IsNullOrWhiteSpace(version) ? "unknown" : version.Trim();
             patchDiagnostics = diagnostics;
-            if (!string.IsNullOrWhiteSpace(dataPath)) StartCoroutine(LoadRemoteEffectAssets(dataPath));
+            if (!string.IsNullOrWhiteSpace(dataPath)) StartCoroutine(LoadRemoteAssets(dataPath));
         }
 
-        private IEnumerator LoadRemoteEffectAssets(string dataPath)
+        private IEnumerator LoadRemoteAssets(string dataPath)
         {
             string catalogPath = Directory.GetFiles(dataPath, "catalog*.bin").FirstOrDefault() ??
                                  Directory.GetFiles(dataPath, "catalog*.json").FirstOrDefault();
@@ -149,7 +150,7 @@ namespace ProjectW.MilestonePrototype
             yield return catalog;
             if (catalog.Status != AsyncOperationStatus.Succeeded)
             {
-                Debug.LogWarning($"Remote effect catalog failed: {catalog.OperationException?.Message}");
+                Debug.LogWarning($"Remote content catalog failed: {catalog.OperationException?.Message}");
                 yield break;
             }
 
@@ -170,6 +171,32 @@ namespace ProjectW.MilestonePrototype
                 Debug.Log("Remote effect assets loaded from the active patch slot.");
             }
             else Debug.LogWarning("One or more remote effect textures failed to load.");
+
+            AsyncOperationHandle<Texture2D> han =
+                Addressables.LoadAssetAsync<Texture2D>(game.Crew[0].PortraitAddress);
+            AsyncOperationHandle<Texture2D> yoon =
+                Addressables.LoadAssetAsync<Texture2D>(game.Crew[1].PortraitAddress);
+            AsyncOperationHandle<Texture2D> mi =
+                Addressables.LoadAssetAsync<Texture2D>(game.Crew[2].PortraitAddress);
+            AsyncOperationHandle<Texture2D> kang =
+                Addressables.LoadAssetAsync<Texture2D>(game.Crew[3].PortraitAddress);
+            yield return han;
+            yield return yoon;
+            yield return mi;
+            yield return kang;
+
+            bool portraitsLoaded = true;
+            if (han.Status == AsyncOperationStatus.Succeeded) crewPortraitTextures[0] = han.Result;
+            else portraitsLoaded = false;
+            if (yoon.Status == AsyncOperationStatus.Succeeded) crewPortraitTextures[1] = yoon.Result;
+            else portraitsLoaded = false;
+            if (mi.Status == AsyncOperationStatus.Succeeded) crewPortraitTextures[2] = mi.Result;
+            else portraitsLoaded = false;
+            if (kang.Status == AsyncOperationStatus.Succeeded) crewPortraitTextures[3] = kang.Result;
+            else portraitsLoaded = false;
+
+            if (portraitsLoaded) Debug.Log("Remote crew portraits loaded from the active patch slot.");
+            else Debug.LogWarning("One or more remote crew portraits failed to load; text fallbacks remain active.");
         }
 
         private void OnApplicationPause(bool paused)
@@ -801,8 +828,10 @@ namespace ProjectW.MilestonePrototype
 
             var portraitSlot = new Rect(slot.x + 3f, slot.y + 3f, 34f, slot.height - 6f);
             DrawSolid(portraitSlot, PaleColor);
+            DrawCrewPortrait(new Rect(portraitSlot.x + 1f, portraitSlot.y + 1f,
+                portraitSlot.width - 2f, portraitSlot.height - 2f),
+                task.AssignedCharacter, "초상", small);
             DrawBorder(portraitSlot, GrayColor);
-            GUI.Label(portraitSlot, "초상", small);
 
             var statusIconSlot = new Rect(slot.x + 40f, slot.y + 4f, 13f, 13f);
             DrawSolid(statusIconSlot, member.Available ? PaleColor : GrayColor);
@@ -813,6 +842,15 @@ namespace ProjectW.MilestonePrototype
                 $"{member.Name} · {member.Condition}", small);
             GUI.Label(new Rect(slot.x + 42f, slot.y + 20f, slot.width - 45f, 19f),
                 task.Name, small);
+        }
+
+        private void DrawCrewPortrait(Rect rect, int crewIndex, string fallback, GUIStyle fallbackStyle)
+        {
+            Texture2D portrait = crewIndex >= 0 && crewIndex < crewPortraitTextures.Length
+                ? crewPortraitTextures[crewIndex]
+                : null;
+            if (portrait != null) GUI.DrawTexture(rect, portrait);
+            else GUI.Label(rect, fallback, fallbackStyle);
         }
 
         private string GanttTaskCondition(WorkTask task)
@@ -1188,12 +1226,21 @@ namespace ProjectW.MilestonePrototype
             CrewMember member = game.Crew[window.Selected];
 
             GUILayout.BeginHorizontal();
-            GUILayout.BeginVertical(GUI.skin.box, GUILayout.Width(155), GUILayout.Height(185));
+            GUILayout.BeginVertical(GUI.skin.box, GUILayout.Width(155), GUILayout.Height(215));
             GUILayout.Label("사진", small);
-            GUILayout.FlexibleSpace();
-            GUILayout.Label(string.IsNullOrEmpty(member.PortraitLabel) ? "NO PHOTO" : member.PortraitLabel,
-                title, GUILayout.Height(105));
-            GUILayout.FlexibleSpace();
+            Rect portraitArea = GUILayoutUtility.GetRect(135f, 135f, GUILayout.ExpandWidth(true));
+            float portraitSize = Math.Min(portraitArea.width, portraitArea.height);
+            var portraitRect = new Rect(
+                portraitArea.x + (portraitArea.width - portraitSize) * .5f,
+                portraitArea.y + (portraitArea.height - portraitSize) * .5f,
+                portraitSize, portraitSize);
+            DrawSolid(portraitRect, PaleColor);
+            DrawCrewPortrait(new Rect(portraitRect.x + 1f, portraitRect.y + 1f,
+                    portraitRect.width - 2f, portraitRect.height - 2f),
+                window.Selected,
+                string.IsNullOrEmpty(member.PortraitLabel) ? "NO PHOTO" : member.PortraitLabel,
+                title);
+            DrawBorder(portraitRect, GrayColor);
             GUILayout.Label(RoleName(member.Specialty), small);
             GUILayout.EndVertical();
 

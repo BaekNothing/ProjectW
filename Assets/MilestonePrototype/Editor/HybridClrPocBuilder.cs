@@ -114,7 +114,7 @@ namespace ProjectW.MilestonePrototype.Editor
             File.WriteAllText(Path.Combine(output, "patch-manifest.json"), JsonUtility.ToJson(manifest, true));
             File.WriteAllText(Path.Combine(output, "release-notes.md"),
                 $"ProjectW unified code/content patch {tag}.\n\nBase APK version required: {manifest.minBaseVersion}\n" +
-                "Includes the HotUpdate assembly, gameplay data, remote Addressables catalog, and effect bundle.\n");
+                "Includes the HotUpdate assembly, gameplay data, remote Addressables catalog, and texture bundles.\n");
             Debug.Log($"Patch built: {output}");
             return output;
         }
@@ -196,6 +196,7 @@ namespace ProjectW.MilestonePrototype.Editor
         private static void PrepareAddressablesForBase()
         {
             RemoteEffectAssetSetup.ConfigureAddressables();
+            RemotePortraitAssetSetup.ConfigureAddressables();
             AddressableAssetSettings.BuildPlayerContent(out AddressablesPlayerBuildResult result);
             if (!string.IsNullOrEmpty(result.Error))
                 throw new BuildFailedException($"Addressables base build failed: {result.Error}");
@@ -245,6 +246,7 @@ namespace ProjectW.MilestonePrototype.Editor
         private static void BuildRemoteAddressables(string tag, string output, ICollection<PatchFileRecord> files)
         {
             RemoteEffectAssetSetup.ConfigureAddressables();
+            RemotePortraitAssetSetup.ConfigureAddressables();
             AddressableAssetSettings settings = AddressableAssetSettingsDefaultObject.Settings;
             string buildRoot = Path.GetFullPath(Path.Combine("Library", "ProjectWAddressables", tag));
             RecreateDirectory(buildRoot);

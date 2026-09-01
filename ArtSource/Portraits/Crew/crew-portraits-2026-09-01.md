@@ -2,10 +2,10 @@
 
 ## Status
 
-- Stage: Authoring candidates
+- Stage: Runtime-approved authoring masters
 - Generator: OpenAI built-in image generation
 - Selected master format: 1254 x 1254 square PNG, sRGB
-- Runtime promotion: Not yet approved
+- Runtime promotion: Approved as 512px-max imported `Texture2D` assets in the remote portrait group
 
 ## Asset Mapping
 

@@ -204,6 +204,7 @@ Name : 한기술관
 PortraitLabel : |
   한
   기술
+PortraitAddress : portraits/crew/crew-han-tech
 Personality : 원칙적
 Memo : 기지 핵심 설비를 맡는 선임 기술관. 위험한 상황에서도 절차를 우선한다.
 Perks : ["정밀 정비","안전 우선"]
@@ -221,6 +222,7 @@ Name : 윤분석관
 PortraitLabel : |
   윤
   분석
+PortraitAddress : portraits/crew/crew-yoon-analysis
 Personality : 분석적
 Memo : 불확실한 정보를 빠르게 정리하는 분석관. 현장 조사와 위험 판정에 강하다.
 Perks : ["현장 분석","위험 감지"]
@@ -238,6 +240,7 @@ Name : 미관리자
 PortraitLabel : |
   미
   관리
+PortraitAddress : portraits/crew/crew-mi-management
 Personality : 다정함
 Memo : 작업 순서와 자원 배분을 조율하는 관리자. 대원들의 신뢰가 높다.
 Perks : ["일정 조율","신뢰 형성"]
@@ -255,6 +258,7 @@ Name : 강적응관
 PortraitLabel : |
   강
   적응
+PortraitAddress : portraits/crew/crew-kang-adaptation
 Personality : 대담함
 Memo : 예상 밖의 환경 변화에 대응하는 적응관. 고위험 임무에서도 판단이 빠르다.
 Perks : ["환경 적응","위기 대응"]

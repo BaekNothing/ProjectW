@@ -2,13 +2,13 @@
 
 ## Document Control
 
-- Version: 4.0
+- Version: 4.1
 - Status: Approved for implementation
 - Action: Update
 - SSOT Change: Yes
-- Rationale: Define resources as the run's life, remove victory and fixed-duration endings, support
-  endurance balance simulation, provide title, update, reset, and live gameplay-data operations,
-  and defer ordinary schedule-changing field incidents to a weekly approval digest.
+- Rationale: Add data-addressed remote crew portraits to the existing Gantt activity and crew-file
+  portrait slots while retaining text fallbacks, alongside the established endurance, desktop,
+  update, reset, live-data, and weekly field-report rules.
 - Idea references: `IDEA.md` items 1, 2, 4, and 8
 
 ## Scope
@@ -676,7 +676,8 @@ The Task application must present schedule information as a time-based Gantt vie
 - The Task name is immediately followed by Task state and the assigned worker's current condition.
 - On each assigned Task row, the current-day column anchors a worker activity slot showing the
   worker, current Task, and condition. The slot reserves separate portrait, status-icon, and border
-  regions implemented as code-drawn placeholders until a remote content pipeline supplies assets.
+  regions. The portrait region displays the assigned roster slot's remote portrait and falls back to
+  the data-defined text portrait when loading fails.
 
 The projected segment is operational guidance, not an immutable reservation. It is recalculated from current progress, context cost, prerequisites, assignments, and today whenever state changes.
 
@@ -746,9 +747,12 @@ or the mouse wheel.
 - The crew list, detail, and messenger show trust toward the responsible officer on a 0–100 scale
   with a readable relationship summary.
 - Crew profile metadata is owned by `task-system.json`.
-- The portrait area currently uses the data-defined text portrait. Bitmap portraits may be added
-  through the remote Addressables group once their UI consumption path is reviewed against the v11
-  AOT baseline.
+- The portrait area uses the data-defined remote `Texture2D` portrait and falls back to the
+  data-defined text portrait when the catalog or texture cannot load.
+- Crew portrait addresses are owned by `task-system.json`. Runtime exports live in the reviewed
+  remote portrait Addressables group and follow `Assets/Specification/Art/ResourceAssetPolicy.md`.
+- The consumption path reuses the v11-approved `LoadAssetAsync<Texture2D>` and v10-approved
+  `GUI.DrawTexture(Rect, Texture)` surface; it does not introduce a `Sprite` load path.
 
 Unity IMGUI touch-to-mouse synthesis is the runtime input path for this prototype. Drag calculation remains a pure tested function so a later input-system migration does not redefine the interaction.
 

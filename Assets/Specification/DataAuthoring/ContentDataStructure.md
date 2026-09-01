@@ -220,10 +220,12 @@ compatibility itself.
 
 ### `Crew`
 
-Exactly four approved rows are currently required. The designer owns name, portrait label, memo,
-personality, perks, specialty, and character identity. Codex may review competency coverage and
-suggest numeric alternatives. Exported fields are the current `CrewMember` initial-definition fields;
-runtime condition, assignment, history, and medical fields are excluded.
+Exactly four approved rows are currently required. The designer owns name, portrait label,
+`PortraitAddress`, memo, personality, perks, specialty, and character identity. Portrait addresses
+are stable lowercase Addressables keys and the text portrait label remains the loading-failure
+fallback. Codex may review competency coverage and suggest numeric alternatives. Exported fields are
+the current `CrewMember` initial-definition fields; runtime condition, assignment, history, and
+medical fields are excluded.
 
 ### `Codex`
 
@@ -326,6 +328,7 @@ The current loader requires:
 - non-negative starting resources;
 - non-null Balance, Works, Tasks, Crew, RandomTaskWords, and non-empty Codex and word-pool arrays;
 - exactly four crew members;
+- a non-empty portrait Addressables address for every crew member;
 - six `0..7` competency values for every crew member;
 - one to three unique competency indices per Task, target, and action;
 - valid campaign and Balance ranges explicitly checked by `TaskSystemDataLoader`;

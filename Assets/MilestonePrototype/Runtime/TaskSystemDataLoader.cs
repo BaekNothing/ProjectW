@@ -102,6 +102,8 @@ namespace ProjectW.MilestonePrototype
             {
                 if (member == null || string.IsNullOrWhiteSpace(member.Personality))
                     throw new InvalidOperationException("Every crew member requires a personality.");
+                if (string.IsNullOrWhiteSpace(member.PortraitAddress))
+                    throw new InvalidOperationException("Every crew member requires a portrait address.");
                 if (member == null || member.Competencies == null ||
                     member.Competencies.Length != CrewMember.CompetencyCount)
                     throw new InvalidOperationException(

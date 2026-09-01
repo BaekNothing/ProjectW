@@ -64,6 +64,7 @@ namespace ProjectW.MilestonePrototype
 
         public string Name;
         public string PortraitLabel;
+        public string PortraitAddress;
         public string Personality;
         public string Memo;
         public string[] Perks;

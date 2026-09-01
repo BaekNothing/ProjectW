@@ -12,6 +12,7 @@ namespace ProjectW.MilestonePrototype
         private readonly Random proposalRandom;
         private readonly TaskSystemBalance balance;
         private readonly string[] crewPortraits;
+        private readonly string[] crewPortraitAddresses;
         private readonly string[] crewPersonalities;
         private readonly string[] crewMemos;
         private readonly string[][] crewPerks;
@@ -202,6 +203,7 @@ namespace ProjectW.MilestonePrototype
             baseCodex = data.Codex ?? new CodexEntry[0];
             criticalEvents = data.CriticalEvents ?? new CriticalEventDefinition[0];
             crewPortraits = new string[data.Crew.Length];
+            crewPortraitAddresses = new string[data.Crew.Length];
             crewPersonalities = new string[data.Crew.Length];
             crewMemos = new string[data.Crew.Length];
             crewPerks = new string[data.Crew.Length][];
@@ -212,6 +214,7 @@ namespace ProjectW.MilestonePrototype
             for (int i = 0; i < data.Crew.Length; i++)
             {
                 crewPortraits[i] = data.Crew[i].PortraitLabel;
+                crewPortraitAddresses[i] = data.Crew[i].PortraitAddress;
                 crewPersonalities[i] = data.Crew[i].Personality;
                 crewMemos[i] = data.Crew[i].Memo;
                 crewPerks[i] = data.Crew[i].Perks == null
@@ -2587,6 +2590,8 @@ namespace ProjectW.MilestonePrototype
                 member.History = member.History ?? new List<string>();
                 if (i < crewPortraits.Length && string.IsNullOrEmpty(member.PortraitLabel))
                     member.PortraitLabel = crewPortraits[i];
+                if (i < crewPortraitAddresses.Length && string.IsNullOrEmpty(member.PortraitAddress))
+                    member.PortraitAddress = crewPortraitAddresses[i];
                 if (i < crewPersonalities.Length && string.IsNullOrEmpty(member.Personality))
                     member.Personality = crewPersonalities[i];
                 if (i < crewMemos.Length && string.IsNullOrEmpty(member.Memo))

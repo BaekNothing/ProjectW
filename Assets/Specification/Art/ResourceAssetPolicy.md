@@ -133,9 +133,8 @@ Role accent colors:
   baseline proves the existing typed `Texture2D` load path, not a new `Sprite` load path.
 - Use no mipmaps for fixed-size UI portraits, clamp wrapping, sRGB color, and platform compression
   only after checking small-face and outline quality on the target device.
-- Create Addressables groups by update and packing behavior, not merely by file extension. The
-  proposed first portrait group is `ProjectW Remote Portraits`, packed together while the set is
-  small.
+- Create Addressables groups by update and packing behavior, not merely by file extension. Crew
+  portraits use `ProjectW Remote Portraits`, packed together while the set is small.
 - Adding files under `RemoteAssets` does not by itself authorize delivery. The setup tooling and
   Addressables entries must list them explicitly.
 - New typed asset loads, Addressables APIs, materials, sprites, animation, audio playback paths, or

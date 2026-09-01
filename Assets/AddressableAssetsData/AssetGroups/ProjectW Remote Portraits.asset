@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: ProjectW Remote Portraits
+  m_EditorClassIdentifier: Unity.Addressables.Editor::UnityEditor.AddressableAssets.Settings.AddressableAssetGroup
+  m_GroupName: ProjectW Remote Portraits
+  m_GUID: 6ef37d1ac7cad4f42a2a24025f104a7a
+  m_SerializeEntries:
+  - m_GUID: 43c25c1cea03b174abdfb7f311733e50
+    m_Address: portraits/crew/crew-mi-management
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ca452e927032bc74a8ee487cf46910d0
+    m_Address: portraits/crew/crew-kang-adaptation
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e4ecd1e49d3ad3e43802cc82b97f3b96
+    m_Address: portraits/crew/crew-yoon-analysis
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: fb72e1f298dc55744ba1e6c3bc99b9b0
+    m_Address: portraits/crew/crew-han-tech
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: 02c272a14322a3242aed66e20d189469, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: 9bbc3c78f1a957a4b905fe53ba15d476, type: 2}
+    - {fileID: 11400000, guid: 2b9244017bedff24d9ecf0a362e28dee, type: 2}
