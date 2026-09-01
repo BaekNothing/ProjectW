@@ -111,6 +111,9 @@ namespace ProjectW.MilestonePrototype
         private string categoryTransferText = string.Empty;
         private readonly TimedNotificationPresenter notifications = new TimedNotificationPresenter();
         private readonly Texture2D[] crewPortraitTextures = new Texture2D[CrewPortraitCatalog.Count];
+        private readonly Texture2D[] crewPortraitPartTextures =
+            new Texture2D[CrewPortraitCatalog.ModularAssetCount];
+        private bool modularCrewPortraitsLoaded;
         public const float WindowTitleBarHeight = 25f;
         public const float WindowContentTopSpacing = 6f;
         public const float GanttWindowChromeReserve = 110f;
@@ -197,6 +200,26 @@ namespace ProjectW.MilestonePrototype
 
             if (portraitsLoaded) Debug.Log("Remote crew portraits loaded from the active patch slot.");
             else Debug.LogWarning("One or more remote crew portraits failed to load; text fallbacks remain active.");
+
+            var modularHandles =
+                new AsyncOperationHandle<Texture2D>[CrewPortraitCatalog.ModularAssetCount];
+            for (int index = 0; index < modularHandles.Length; index++)
+                modularHandles[index] = Addressables.LoadAssetAsync<Texture2D>(
+                    CrewPortraitCatalog.ExpectedModularAddressForAsset(index));
+            for (int index = 0; index < modularHandles.Length; index++)
+                yield return modularHandles[index];
+
+            modularCrewPortraitsLoaded = true;
+            for (int index = 0; index < modularHandles.Length; index++)
+            {
+                if (modularHandles[index].Status == AsyncOperationStatus.Succeeded)
+                    crewPortraitPartTextures[index] = modularHandles[index].Result;
+                else modularCrewPortraitsLoaded = false;
+            }
+
+            if (modularCrewPortraitsLoaded)
+                Debug.Log("Modular crew portrait layers loaded from the active patch slot.");
+            else Debug.LogWarning("One or more modular crew portrait layers failed; complete portrait fallbacks remain active.");
         }
 
         private void OnApplicationPause(bool paused)
@@ -846,11 +869,37 @@ namespace ProjectW.MilestonePrototype
 
         private void DrawCrewPortrait(Rect rect, int crewIndex, string fallback, GUIStyle fallbackStyle)
         {
+            if (modularCrewPortraitsLoaded && crewIndex >= 0 && crewIndex < game.Crew.Count)
+            {
+                CrewMember member = game.Crew[crewIndex];
+                DrawCrewPortraitPart(rect, CrewPortraitCatalog.BodyOffset + crewIndex);
+                DrawCrewPortraitPart(rect, CrewPortraitCatalog.FaceBaseIndex);
+                DrawCrewPortraitPart(rect, CrewPortraitCatalog.DarkCirclesOffset +
+                    CrewPortraitCatalog.DarkCircleVariant(member.Fatigue, member.InjuryDays));
+                DrawCrewPortraitPart(rect, CrewPortraitCatalog.EyesOffset +
+                    CrewPortraitCatalog.EyesVariantForCrew(crewIndex));
+                DrawCrewPortraitPart(rect, CrewPortraitCatalog.BrowsOffset +
+                    CrewPortraitCatalog.BrowsVariantForCrew(crewIndex));
+                DrawCrewPortraitPart(rect, CrewPortraitCatalog.MouthOffset +
+                    CrewPortraitCatalog.MouthVariantForCrew(crewIndex));
+                DrawCrewPortraitPart(rect, CrewPortraitCatalog.HairOffset +
+                    CrewPortraitCatalog.HairVariantForCrew(crewIndex));
+                return;
+            }
+
             Texture2D portrait = crewIndex >= 0 && crewIndex < crewPortraitTextures.Length
                 ? crewPortraitTextures[crewIndex]
                 : null;
             if (portrait != null) GUI.DrawTexture(rect, portrait);
             else GUI.Label(rect, fallback, fallbackStyle);
+        }
+
+        private void DrawCrewPortraitPart(Rect rect, int assetIndex)
+        {
+            Texture2D texture = assetIndex >= 0 && assetIndex < crewPortraitPartTextures.Length
+                ? crewPortraitPartTextures[assetIndex]
+                : null;
+            if (texture != null) GUI.DrawTexture(rect, texture);
         }
 
         private string GanttTaskCondition(WorkTask task)

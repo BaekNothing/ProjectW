@@ -15,8 +15,103 @@ MonoBehaviour:
   m_GroupName: ProjectW Remote Portraits
   m_GUID: 6ef37d1ac7cad4f42a2a24025f104a7a
   m_SerializeEntries:
+  - m_GUID: 0b7654e836b526349b02329c685d0426
+    m_Address: portraits/crew/modular/dark-00-none
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 123d5c55f6efd784895863342302f553
+    m_Address: portraits/crew/modular/mouth-01-neutral
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 175798575bb3db34a9df1839a8972476
+    m_Address: portraits/crew/modular/eyes-01-focused
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 194fc27ec71350747845e83f6231b847
+    m_Address: portraits/crew/modular/hair-01-asym-bob
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 3062c25dd9889e54e8371e80326957f8
+    m_Address: portraits/crew/modular/dark-01-fatigue
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 30c8909c97ff0114d91773bb04a34dea
+    m_Address: portraits/crew/modular/dark-03-illness
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 34dc3586d8ce448458d99fdc3643ba5b
+    m_Address: portraits/crew/modular/body-02-analysis
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 369d38acd2b5ab543ba2da0a34d09639
+    m_Address: portraits/crew/modular/mouth-03-determined
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 43c25c1cea03b174abdfb7f311733e50
     m_Address: portraits/crew/crew-mi-management
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 447e04bcf3ab26e4c8f631561e3d467e
+    m_Address: portraits/crew/modular/body-01-tech
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 702a9bfe98acde94e960690c8e39cc48
+    m_Address: portraits/crew/modular/eyes-04-calm
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 7ee6087d8252965449e460e3b3121901
+    m_Address: portraits/crew/modular/brow-01-straight
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 82428f8b969f8ab409704c33c21c9ea4
+    m_Address: portraits/crew/modular/face-base
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 89424ee4bd4c3c744804d0a307f920b0
+    m_Address: portraits/crew/modular/mouth-02-smile
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8b7b5c2cb5b56f74eba9bedf29963ee1
+    m_Address: portraits/crew/modular/mouth-04-concerned
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 983aa95df8c2b884887e9a5120c96e37
+    m_Address: portraits/crew/modular/hair-03-tousled
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: b4fb194f45b286e498f841ae18526978
+    m_Address: portraits/crew/modular/body-04-adaptation
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c2d6ad5f24effb640a7bb0acf0042580
+    m_Address: portraits/crew/modular/dark-02-overwork
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c6fbeb536b3e89e479a0254de4bc3773
+    m_Address: portraits/crew/modular/brow-02-soft-arch
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c732fbf046ac7b742807273806d2067c
+    m_Address: portraits/crew/modular/body-03-management
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
@@ -27,6 +122,36 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: e4ecd1e49d3ad3e43802cc82b97f3b96
     m_Address: portraits/crew/crew-yoon-analysis
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e5b1f8002b17332409fbbd352651a8f5
+    m_Address: portraits/crew/modular/eyes-03-decisive
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: eb261c9c4094daf4689bce1af2aa8fd0
+    m_Address: portraits/crew/modular/brow-04-calm
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: eb952d95bb2b7c34c9984d0f8cc4402c
+    m_Address: portraits/crew/modular/eyes-02-friendly
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f31d293c22da4c2448a1722247a24560
+    m_Address: portraits/crew/modular/hair-04-side-part
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f4d04bccd992efc44816ed87037f3997
+    m_Address: portraits/crew/modular/brow-03-bold
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f81fa91f7cb38a84da68c4afc506431c
+    m_Address: portraits/crew/modular/hair-02-low-bun
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

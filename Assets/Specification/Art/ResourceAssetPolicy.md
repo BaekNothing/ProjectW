@@ -109,16 +109,15 @@ imitate a named franchise, existing character, or artist:
 - short mid-faces, softly rounded cheeks and compact U-shaped chins across the cast;
 - horizontally elongated almond-shaped eyes with role-appropriate lashes, brows, and restrained
   layered highlights;
-- age, gender presentation, and personality carried by hair, brows, selective facial lines,
-  expression, and clothing rather than realistic long or angular face proportions;
+- do not force age readability through wrinkles or age lines; role and personality are carried by
+  brows, eyes, mouth, hair, expression, and clothing;
 - slightly bright, clear warm East Asian skin tones with preserved shadow depth;
 - a shared pale cool gray-blue institutional backdrop;
 - centered, straight-on head-and-shoulders employee-ID framing;
 - shared slate-gray operations clothing with a small role-color accent;
 - no text, badge card, logo, watermark, weapon, military decoration, or exaggerated sci-fi armor.
-Across the four-person initial roster, present two women and two men. Profile data determines
-personality, age impression, expression, and role accent; gender is an art-direction choice and is
-not added to gameplay data unless design later requires it.
+Profile data determines personality, expression, and role accent. Age and gender presentation are
+art-direction choices and are not added to gameplay data unless design later requires them.
 
 Role accent colors:
 
@@ -128,6 +127,30 @@ Role accent colors:
 | Analysis | muted blue |
 | Management | muted olive-gold |
 | Adaptation | muted brick red |
+
+### Modular crew portrait assembly
+
+The active crew portraits share a registered `1254 x 1254` authoring canvas and a `512 x 512`
+runtime canvas. Compared with the preceding complete-portrait set, the visible face area is enlarged
+by approximately 25 percent. Every part uses the same full-canvas registration; runtime does not
+calculate per-part offsets or scales.
+
+Draw layers in this order:
+
+1. role body and opaque background;
+2. shared face base, including ears, neck, and nose;
+3. condition dark circles;
+4. eyes;
+5. eyebrows;
+6. mouth;
+7. hair.
+
+The catalog provides four variants each for eyes, eyebrows, mouth, and hair. Dark circles provide
+four condition variants: none, fatigue, overwork, and illness/burnout. The shared face deliberately
+contains no eyes, eyebrows, mouth, hair, wrinkles, or dark circles. Every layer after the opaque body
+uses real PNG alpha and must import with `FromInput` alpha; the body and legacy complete-portrait
+fallbacks remain opaque. The four stable complete portraits are composites of the same parts so a
+partial remote-load failure does not change the visual identity.
 
 ## Unity Import and Addressables Gate
 

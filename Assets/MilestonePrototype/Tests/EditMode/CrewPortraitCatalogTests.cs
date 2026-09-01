@@ -23,6 +23,33 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void ModularPortraitCatalogHasStableUniqueAddresses()
+        {
+            var addresses = new string[CrewPortraitCatalog.ModularAssetCount];
+            for (int index = 0; index < addresses.Length; index++)
+            {
+                addresses[index] = CrewPortraitCatalog.ExpectedModularAddressForAsset(index);
+                Assert.That(addresses[index], Is.Not.Empty);
+            }
+
+            Assert.That(addresses, Is.Unique);
+            Assert.That(CrewPortraitCatalog.ExpectedModularAddressForAsset(-1), Is.Empty);
+            Assert.That(CrewPortraitCatalog.ExpectedModularAddressForAsset(addresses.Length), Is.Empty);
+        }
+
+        [TestCase(0, 0, 0)]
+        [TestCase(30, 0, 1)]
+        [TestCase(55, 0, 2)]
+        [TestCase(80, 0, 3)]
+        [TestCase(0, 2, 3)]
+        public void DarkCircleVariantTracksExistingCrewConditionThresholds(
+            int fatigue, int injuryDays, int expectedVariant)
+        {
+            Assert.That(CrewPortraitCatalog.DarkCircleVariant(fatigue, injuryDays),
+                Is.EqualTo(expectedVariant));
+        }
+
+        [Test]
         public void ValidationRejectsCrewWithoutPortraitAddress()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();

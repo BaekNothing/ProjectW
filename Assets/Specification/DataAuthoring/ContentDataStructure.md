@@ -223,9 +223,11 @@ compatibility itself.
 Exactly four approved rows are currently required. The designer owns name, portrait label,
 `PortraitAddress`, memo, personality, perks, specialty, and character identity. Portrait addresses
 are stable lowercase Addressables keys and the text portrait label remains the loading-failure
-fallback. Codex may review competency coverage and suggest numeric alternatives. Exported fields are
-the current `CrewMember` initial-definition fields; runtime condition, assignment, history, and
-medical fields are excluded.
+fallback. The address points to the stable complete-image fallback; registered modular-part
+addresses and roster-slot combinations are code-owned catalog data, not spreadsheet fields. Codex
+may review competency coverage and suggest numeric alternatives. Exported fields are the current
+`CrewMember` initial-definition fields; runtime condition, assignment, history, and medical fields
+are excluded.
 
 ### `Codex`
 
