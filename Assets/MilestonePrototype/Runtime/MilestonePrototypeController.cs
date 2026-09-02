@@ -844,9 +844,9 @@ namespace ProjectW.MilestonePrototype
         public static float GanttTodayScrollX(
             int today, float dayWidth, float viewportWidth, float contentWidth)
         {
-            float centered = (Math.Max(1, today) - 1) * dayWidth + dayWidth * .5f -
-                             viewportWidth * .5f;
-            return Math.Max(0f, Math.Min(centered, Math.Max(0f, contentWidth - viewportWidth)));
+            const int visiblePastDays = 3;
+            float offset = (Math.Max(1, today) - 1 - visiblePastDays) * dayWidth;
+            return Math.Max(0f, Math.Min(offset, Math.Max(0f, contentWidth - viewportWidth)));
         }
 
         private static TaskScheduleEstimate FindPrioritySchedule(

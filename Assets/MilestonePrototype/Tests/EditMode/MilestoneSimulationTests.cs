@@ -843,6 +843,7 @@ namespace ProjectW.MilestonePrototype.Tests
                 Assert.That(generatedTasks[taskIndex].PrerequisiteId,
                     Is.EqualTo(generatedTasks[taskIndex - 1].Id));
             Assert.That(generated.AwaitingAcceptance, Is.True);
+            generated.Urgent = true;
             Assert.That(game.IsWorkVisible(generated), Is.False);
             Assert.That(generatedTask.State, Is.EqualTo(TaskState.Locked));
             MailEvent offer = game.Mail.Find(mail => mail.TargetWorkId == generated.Id);
@@ -2009,12 +2010,12 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void GanttTodayButtonCentersTodayAndClampsAtTimelineEdges()
+        public void GanttTodayButtonLeavesThreePastDaysVisibleAndClampsAtTimelineEdges()
         {
             Assert.That(MilestonePrototypeController.GanttTodayScrollX(1, 28f, 280f, 1000f),
                 Is.Zero);
             Assert.That(MilestonePrototypeController.GanttTodayScrollX(20, 28f, 280f, 1000f),
-                Is.EqualTo(406f));
+                Is.EqualTo(448f));
             Assert.That(MilestonePrototypeController.GanttTodayScrollX(40, 28f, 280f, 1000f),
                 Is.EqualTo(720f));
         }
