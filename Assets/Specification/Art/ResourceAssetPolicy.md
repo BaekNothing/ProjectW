@@ -100,40 +100,27 @@ franchise style.
 
 ## Current Crew Portrait Style Baseline
 
-The initial crew set uses an original contemporary Japanese-inspired moe game-portrait direction
-for an adult workplace strategy game. It is a general art-language specification, not a request to
-imitate a named franchise, existing character, or artist:
+The active crew set uses intentionally simple monochrome line drawings for an adult workplace
+strategy game. The reduced rendering is meant to make small-scale faces readable without relying
+on polished beauty rendering or detailed anatomy:
 
-- clean tapered dark linework and crisp two-step cel shading;
-- strongly deformed but readable adult facial construction with a large head-to-shoulder ratio;
-- short mid-faces, softly rounded cheeks and compact U-shaped chins across the cast;
-- horizontally elongated almond-shaped eyes with role-appropriate lashes, brows, and restrained
-  layered highlights;
-- do not force age readability through wrinkles or age lines; role and personality are carried by
-  brows, eyes, mouth, hair, expression, and clothing;
-- slightly bright, clear warm East Asian skin tones with preserved shadow depth;
-- a shared pale cool gray-blue institutional backdrop;
-- centered, straight-on head-and-shoulders employee-ID framing;
-- shared slate-gray operations clothing with a small role-color accent;
+- pure white background and pure white fills for skin, hair, eyes, and clothing;
+- bold black contours with slightly naive, hand-drawn character;
+- sparse interior detail and large calm shapes that remain legible at small UI sizes;
+- identity carried by hairstyle silhouette, eye and brow shape, mouth, and uniform outline;
+- centered, straight-on head-and-shoulders employee-ID framing on a shared square canvas;
+- no color accents, gray tones, gradients, cel shading, hatching, detailed irises, or detailed hair
+  strands;
 - no text, badge card, logo, watermark, weapon, military decoration, or exaggerated sci-fi armor.
-Profile data determines personality, expression, and role accent. Age and gender presentation are
+
+Profile data determines personality and expression. Age and gender presentation remain
 art-direction choices and are not added to gameplay data unless design later requires them.
-
-Role accent colors:
-
-| Specialty | Accent |
-|---|---|
-| Tech | muted orange |
-| Analysis | muted blue |
-| Management | muted olive-gold |
-| Adaptation | muted brick red |
 
 ### Modular crew portrait assembly
 
 The active crew portraits share a registered `1254 x 1254` authoring canvas and a `512 x 512`
-runtime canvas. Compared with the preceding complete-portrait set, the visible face area is enlarged
-by approximately 25 percent. Every part uses the same full-canvas registration; runtime does not
-calculate per-part offsets or scales.
+runtime canvas. Every part uses the same full-canvas registration; runtime does not calculate
+per-part offsets or scales.
 
 Draw layers in this order:
 
@@ -147,10 +134,11 @@ Draw layers in this order:
 
 The catalog provides four variants each for eyes, eyebrows, mouth, and hair. Dark circles provide
 four condition variants: none, fatigue, overwork, and illness/burnout. The shared face deliberately
-contains no eyes, eyebrows, mouth, hair, wrinkles, or dark circles. Every layer after the opaque body
-uses real PNG alpha and must import with `FromInput` alpha; the body and legacy complete-portrait
-fallbacks remain opaque. The four stable complete portraits are composites of the same parts so a
-partial remote-load failure does not change the visual identity.
+contains no eyes, eyebrows, mouth, hair, wrinkles, or dark circles. Every layer after the opaque
+white body/background uses real PNG alpha and must import with `FromInput` alpha; the body and
+complete-portrait fallbacks remain opaque. Transparent layers use only white shape fills and black
+line pixels. The four stable complete portraits are composites of the same parts so a partial
+remote-load failure does not change the visual identity.
 
 Across every eye variant, the inner-corner gap should read as approximately one eye width rather
 than placing the eyes near the face edges. Eyebrows and dark circles inherit the same horizontal

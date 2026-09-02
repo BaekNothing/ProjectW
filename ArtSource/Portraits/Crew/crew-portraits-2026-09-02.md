@@ -2,12 +2,63 @@
 
 ## Status
 
-- Stage: Runtime-approved replacement authoring masters
+- Stage: Runtime-approved monochrome line-art replacement masters
 - Generator: OpenAI built-in image generation
 - Generation date: 2026-09-02
 - Selected master format: 1254 x 1254 square PNG, sRGB
 - Runtime export: 512 x 512 square PNG `Texture2D` assets in `ProjectW Remote Portraits`
 - Approval: User explicitly approved overwriting the four stable-ID portraits and deployment
+
+## Monochrome Line-Art Revision — 2026-09-02
+
+User review rejected beauty-oriented rendering because small anatomical and registration
+imperfections became more conspicuous. The approved replacement direction deliberately simplifies
+the crew into pure-white shapes with bold black contours and a slightly naive hand-drawn quality.
+There are no role colors, gray tones, gradients, cel shading, detailed irises, or detailed hair
+strands.
+
+The existing four complete portraits were supplied as edit targets to OpenAI built-in image
+generation. The generated images established the visual target; the shipping registered layers
+were then deterministically reduced to the same black/white contour language so all modular parts
+retain their exact `1254 x 1254` coordinates and alpha behavior. The body/background layers use a
+shared deliberately simple uniform outline on opaque white. Facial marks and condition overlays
+remain transparent black-line layers. The four complete fallbacks were recomposited from the same
+shipping parts and exported to `512 x 512` for runtime.
+
+### Final style-transfer prompt
+
+```text
+Use case: style-transfer
+Asset type: square game UI crew portrait style target
+Primary request: Redraw the supplied portrait as intentionally simple monochrome line art. Keep
+the same single character identity, hairstyle silhouette, role-appropriate expression, uniform
+silhouette, centered straight-on head-and-shoulders crop, and square composition. Remove the
+polished beauty-rendering completely.
+Scene/backdrop: pure solid white.
+Style/medium: bold black hand-drawn contour lines, slightly naive and pleasantly awkward,
+simplified graphic doodle/indie-game portrait, sparse interior detail, large calm shapes. All
+enclosed shapes including skin, hair, eyes, and clothing are filled only with pure white; black is
+used only for thick outlines and a few essential facial marks. No gray and no color.
+Composition/framing: preserve the existing face size, registration, and margins.
+Constraints: exactly one adult character; preserve readable hair and role-uniform silhouette; pure
+white background and white fills; thick black lines; no text, logo, badge, watermark, props, or
+extra person.
+Avoid: attractive glossy anime rendering, moe polish, realistic anatomy, photorealism, gradients,
+shading, hatching, gray tones, colored accents, detailed irises, detailed hair strands, smooth
+vector perfection, 3D.
+```
+
+### Selected style targets
+
+The built-in outputs remain under
+`C:\Users\king0\.codex\generated_images\01a0600c-fad7-7482-acf5-8f542c8b22c8`:
+
+- `crew-han-tech`: `exec-a289ed9c-69f8-4a08-964d-2e821a777433.png`
+- `crew-yoon-analysis`: `exec-fa850637-403a-4e78-b5ee-a88cb65528c6.png`
+- `crew-mi-management`: `exec-cb070163-787a-41a9-acda-607d020dada6.png`
+- `crew-kang-adaptation`: `exec-40fd9207-4986-4884-a6e8-17fe6847fec7.png`
+
+These are non-shipping visual targets rather than registered runtime layers.
 
 ## Modular Revision
 
