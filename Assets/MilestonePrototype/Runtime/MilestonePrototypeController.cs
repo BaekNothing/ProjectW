@@ -23,6 +23,7 @@ namespace ProjectW.MilestonePrototype
             public bool Minimized;
             public Vector2 Scroll;
             public Vector2 TimelineScroll;
+            public bool CenterTimelineOnToday;
             public int Selected;
             public int SelectedCrew;
             public int ScheduleDay;
@@ -706,6 +707,8 @@ namespace ProjectW.MilestonePrototype
             GUILayout.BeginHorizontal();
             GUILayout.Label("GANTT / 일감 계획", section);
             GUILayout.FlexibleSpace();
+            if (LayoutButton("오늘로", GUILayout.Width(75f), GUILayout.Height(30f)))
+                window.CenterTimelineOnToday = true;
             if (LayoutButton(game.CompetencyAutoAssignment ? "[✓] 자동배정" : "[ ] 자동배정",
                     GUILayout.Width(125f), GUILayout.Height(30f)))
             {
@@ -748,6 +751,13 @@ namespace ProjectW.MilestonePrototype
             Rect labelViewport = new Rect(viewport.x, viewport.y, labelWidth, viewport.height);
             Rect timelineViewport = new Rect(viewport.x + labelWidth, viewport.y,
                 Mathf.Max(1f, viewport.width - labelWidth), viewport.height);
+
+            if (window.CenterTimelineOnToday)
+            {
+                window.TimelineScroll.x = GanttTodayScrollX(
+                    game.Day, dayWidth, timelineViewport.width, contentWidth);
+                window.CenterTimelineOnToday = false;
+            }
 
             window.TimelineScroll = GUI.BeginScrollView(timelineViewport, window.TimelineScroll, content);
             DrawSolid(new Rect(0, 0, contentWidth, contentHeight), Color.white);
@@ -829,6 +839,14 @@ namespace ProjectW.MilestonePrototype
                 DrawSolid(new Rect(0, y - 1, labelWidth, 1), GrayColor);
             }
             GUI.EndGroup();
+        }
+
+        public static float GanttTodayScrollX(
+            int today, float dayWidth, float viewportWidth, float contentWidth)
+        {
+            float centered = (Math.Max(1, today) - 1) * dayWidth + dayWidth * .5f -
+                             viewportWidth * .5f;
+            return Math.Max(0f, Math.Min(centered, Math.Max(0f, contentWidth - viewportWidth)));
         }
 
         private static TaskScheduleEstimate FindPrioritySchedule(

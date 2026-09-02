@@ -2638,12 +2638,15 @@ namespace ProjectW.MilestonePrototype
                     group.State == WorkState.Complete || group.State == WorkState.Failed) continue;
                 MailEvent offer = Mail.FirstOrDefault(mail => mail.TargetWorkId == group.Id);
                 if (offer != null && (offer.IsProposal || offer.IsBossRequest)) continue;
-                group.AwaitingAcceptance = false;
                 if (offer != null)
                 {
-                    offer.ActivatesWork = false;
+                    bool hasStarted = Tasks.Any(task => task.GroupId == group.Id &&
+                        (task.StartedDay > 0 || task.Progress > 0f));
+                    if (!offer.Resolved && !hasStarted) group.AwaitingAcceptance = true;
+                    offer.ActivatesWork = true;
+                    offer.IsBossRequest = true;
                     offer.Instruction =
-                        $"작업 목록에 자동 편성되었습니다. 실패 페널티: 자원 {group.HardPenaltyCredits}";
+                        $"맡으려면 수락하세요. 실패 시 자원 {group.HardPenaltyCredits}가 차감됩니다.";
                 }
                 List<WorkTask> children = Tasks.Where(task => task.GroupId == group.Id).ToList();
                 if (children.Count != 1 || children[0].Kind != TaskKind.SideMission) continue;

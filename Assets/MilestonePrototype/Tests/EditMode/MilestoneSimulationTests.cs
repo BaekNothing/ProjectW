@@ -879,12 +879,16 @@ namespace ProjectW.MilestonePrototype.Tests
             WorkTask migratedTask = migrated.Tasks.Find(task => task.Id == generatedTask.Id);
             WorkGroup migratedWork = migrated.Groups.Find(work => work.Id == generated.Id);
             MailEvent migratedOffer = migrated.Mail.Find(mail => mail.Id == offer.Id);
-            Assert.That(migratedWork.AwaitingAcceptance, Is.False);
-            Assert.That(migratedOffer.ActivatesWork, Is.False);
-            Assert.That(migrated.IsWorkVisible(migratedWork), Is.True);
+            Assert.That(migratedWork.AwaitingAcceptance, Is.True);
+            Assert.That(migratedOffer.ActivatesWork, Is.True);
+            Assert.That(migratedOffer.IsBossRequest, Is.True);
+            Assert.That(migrated.IsWorkVisible(migratedWork), Is.False);
             Assert.That(migratedTask.GeneratedAdjectiveId, Is.EqualTo("adjective-unstable"));
             Assert.That(migratedTask.GeneratedTargetId, Is.EqualTo("target-bedrock"));
             Assert.That(migratedTask.GeneratedActionId, Is.EqualTo("action-survey"));
+
+            Assert.That(migrated.ResolveMail(migratedOffer.Id), Is.True);
+            Assert.That(migrated.IsWorkVisible(migratedWork), Is.True);
 
             data.Balance.BaseSideMissionChance = 0;
             migrated.Crew[1].DailyOutput = 5f;
@@ -2002,6 +2006,17 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(MilestonePrototypeController.UsesIndependentWindowScroll("mail"), Is.False);
             Assert.That(MilestonePrototypeController.GanttViewportHeight(500f), Is.EqualTo(390f));
             Assert.That(MilestonePrototypeController.GanttViewportHeight(200f), Is.EqualTo(120f));
+        }
+
+        [Test]
+        public void GanttTodayButtonCentersTodayAndClampsAtTimelineEdges()
+        {
+            Assert.That(MilestonePrototypeController.GanttTodayScrollX(1, 28f, 280f, 1000f),
+                Is.Zero);
+            Assert.That(MilestonePrototypeController.GanttTodayScrollX(20, 28f, 280f, 1000f),
+                Is.EqualTo(406f));
+            Assert.That(MilestonePrototypeController.GanttTodayScrollX(40, 28f, 280f, 1000f),
+                Is.EqualTo(720f));
         }
 
         [Test]

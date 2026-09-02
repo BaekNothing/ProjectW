@@ -607,6 +607,8 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
   missions and never satisfy this inventory check.
 - The boss may probabilistically send one structured inbound request, bounded by the random-Work
   limit. Its mail explicitly asks whether the PM will take the Work; accepting activates it.
+- Restoring a legacy unresolved inbound-request mail preserves its acceptance gate. Save-data
+  migration must not make that Work visible in the Gantt before the player accepts it.
 - Every generated side-mission Work contains two to four required child Tasks. The Work is the
   mission/table-of-contents row, while its Tasks are separately assignable structured work items.
 - Generated child Tasks use the existing adjective/target/action word pool independently and form a
@@ -666,6 +668,8 @@ The Task application must present schedule information as a time-based Gantt vie
 - Locked Tasks remain visible and state why they cannot be entered.
 - The Task application is Gantt-only; it does not combine a Task detail panel with the timeline.
 - The left Work/Task column stays horizontally fixed while only the timeline pans.
+- A single `오늘로` control centers the current-day column in the visible timeline, clamped at the
+  beginning and end of the horizontal range.
 - Work predecessors and Task prerequisites are shown as arrowed dependency connectors.
 - Work sections are divided with `#999999` separator lines on the white background.
 - Work rows expose Work state, completion, and deadline status.
