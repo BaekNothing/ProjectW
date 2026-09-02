@@ -183,6 +183,8 @@ namespace ProjectW.MilestonePrototype
                 data.Balance.WeekendMentalRecovery < 0 ||
                 data.Balance.WeekendInjuryRecoveryChance < 0 ||
                 data.Balance.WeekendInjuryRecoveryChance > 100 ||
+                data.Balance.FirstRegularCheckupDay <= 0 ||
+                data.Balance.RegularCheckupIntervalDays <= 0 ||
                 data.Balance.UnscheduledCheckupResourceCost < 0 ||
                 data.Balance.RegenerationResourceCost < 0 ||
                 data.Balance.RegenerationAbilityInheritanceCost < 0 ||

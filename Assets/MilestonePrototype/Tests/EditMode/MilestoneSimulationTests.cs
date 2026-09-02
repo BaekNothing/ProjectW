@@ -542,7 +542,7 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(game.Assign("survey", 1), Is.True);
             game.AdvanceDay();
             Assert.That(game.Tasks[0].Progress, Is.EqualTo(1.5f).Within(.001f));
-            Assert.That(game.Crew[1].Fatigue, Is.EqualTo(9));
+            Assert.That(game.Crew[1].Fatigue, Is.EqualTo(4));
         }
 
         [Test]
@@ -1905,7 +1905,7 @@ namespace ProjectW.MilestonePrototype.Tests
 
             Assert.That(game.Tasks.Find(task => task.Id == "power").Progress, Is.EqualTo(1.5f));
             Assert.That(safety.State, Is.EqualTo(TaskState.Complete));
-            Assert.That(game.Crew[0].Fatigue, Is.EqualTo(36));
+            Assert.That(game.Crew[0].Fatigue, Is.EqualTo(16));
         }
 
         [Test]
@@ -1987,8 +1987,8 @@ namespace ProjectW.MilestonePrototype.Tests
 
             Assert.That(preview.RemainingDays, Is.EqualTo(habitat.RemainingWork));
             Assert.That(preview.AdditionalContextDays, Is.EqualTo(1f));
-            Assert.That(preview.PrimaryFatigue, Is.EqualTo(9));
-            Assert.That(preview.ParallelFatigue, Is.EqualTo(21));
+            Assert.That(preview.PrimaryFatigue, Is.EqualTo(4));
+            Assert.That(preview.ParallelFatigue, Is.EqualTo(9));
             Assert.That(preview.CanRunInParallel, Is.False);
         }
 
@@ -2425,11 +2425,20 @@ namespace ProjectW.MilestonePrototype.Tests
             TaskSystemData data = TaskSystemDataLoader.Load();
             DisableAccidents(data);
             ForceSuccessOutcome(data);
+            foreach (WorkGroup work in data.Works)
+            {
+                work.SoftDeadline = 180;
+                work.HardDeadline = 200;
+            }
+            foreach (WorkTask task in data.Tasks) task.Deadline = 200;
             var game = new MilestoneSimulation(data, 12);
             CampaignSnapshot snapshot = game.CreateSnapshot();
-            snapshot.Day = 5;
+            snapshot.Day = 61;
             Assert.That(game.Restore(snapshot), Is.True);
             Assert.That(game.CurrentWeekday, Is.EqualTo(Weekday.Friday));
+            Assert.That(game.IsRegularCheckupDay(5), Is.False);
+            Assert.That(game.IsRegularCheckupDay(61), Is.True);
+            Assert.That(game.IsRegularCheckupDay(117), Is.True);
             Assert.That(game.Assign("survey", 1), Is.True);
             float fullOutput = game.Crew[1].DailyOutput *
                                MilestoneSimulation.CompetencyOutputMultiplier(
@@ -2440,8 +2449,31 @@ namespace ProjectW.MilestonePrototype.Tests
 
             Assert.That(game.Tasks.Find(task => task.Id == "survey").LastOutput,
                 Is.EqualTo(fullOutput * .5f).Within(.001f));
+            Assert.That(game.Crew[1].Fatigue, Is.EqualTo(2));
             Assert.That(game.Resources, Is.EqualTo(resources));
             Assert.That(game.PendingMedicalResults, Has.Length.EqualTo(game.Crew.Count));
+        }
+
+        [Test]
+        public void FiveWorkdaysAndWeekendCostTwoFatigueWhileAThirdRestDayRecoversAboutEight()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            DisableAccidents(data);
+            ForceSuccessOutcome(data);
+            data.Balance.RandomWorkLimit = 0;
+            WorkTask surveyData = Array.Find(data.Tasks, task => task.Id == "survey");
+            surveyData.RequiredWork = 100f;
+            var game = new MilestoneSimulation(data, 31);
+            game.SetCompetencyAutoAssignment(false);
+            game.Crew[1].Fatigue = 50;
+            Assert.That(game.Assign("survey", 1), Is.True);
+
+            for (int day = 0; day < 7; day++) game.AdvanceDay();
+
+            Assert.That(game.Crew[1].Fatigue, Is.EqualTo(52));
+            Assert.That(game.Rest(1), Is.True);
+            game.AdvanceDay();
+            Assert.That(game.Crew[1].Fatigue, Is.EqualTo(43));
         }
 
         [Test]
@@ -2459,7 +2491,7 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(resting.Assign("survey", 1), Is.True);
             resting.AdvanceDay();
             Assert.That(resting.Tasks.Find(task => task.Id == "survey").Progress, Is.Zero);
-            Assert.That(resting.Crew[1].Fatigue, Is.EqualTo(38));
+            Assert.That(resting.Crew[1].Fatigue, Is.EqualTo(41));
             Assert.That(resting.Crew[1].Mental, Is.EqualTo(58));
 
             TaskSystemData allOutData = TaskSystemDataLoader.Load();
@@ -2512,10 +2544,16 @@ namespace ProjectW.MilestonePrototype.Tests
             TaskSystemData data = TaskSystemDataLoader.Load();
             DisableAccidents(data);
             ForceSuccessOutcome(data);
+            foreach (WorkGroup work in data.Works)
+            {
+                work.SoftDeadline = 180;
+                work.HardDeadline = 200;
+            }
+            foreach (WorkTask task in data.Tasks) task.Deadline = 200;
             var game = new MilestoneSimulation(data, 18);
             game.SetCompetencyAutoAssignment(false);
             CampaignSnapshot snapshot = game.CreateSnapshot();
-            snapshot.Day = 5;
+            snapshot.Day = 61;
             Assert.That(game.Restore(snapshot), Is.True);
             Assert.That(game.Assign("survey", 1), Is.True);
             Assert.That(game.ConfigureWorkFocus("foundation", false, true), Is.True);

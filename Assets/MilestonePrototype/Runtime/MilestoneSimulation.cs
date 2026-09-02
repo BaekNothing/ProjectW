@@ -142,6 +142,11 @@ namespace ProjectW.MilestonePrototype
             return weekday == (int)Weekday.Saturday || weekday == (int)Weekday.Sunday;
         }
 
+        public bool IsRegularCheckupDay(int day) =>
+            day >= balance.FirstRegularCheckupDay &&
+            (day - balance.FirstRegularCheckupDay) % balance.RegularCheckupIntervalDays == 0 &&
+            (Weekday)((day - 1) % 7) == Weekday.Friday;
+
         public int PreviewAutomaticAssignee(string taskId, out string source)
         {
             source = string.Empty;
@@ -1034,7 +1039,7 @@ namespace ProjectW.MilestonePrototype
             if (IsLost) return report;
 
             bool weekendRest = CurrentWeekday == Weekday.Saturday || CurrentWeekday == Weekday.Sunday;
-            bool regularFridayCheckup = CurrentWeekday == Weekday.Friday;
+            bool regularFridayCheckup = IsRegularCheckupDay(Day);
             ApplyScheduledAssignments(report);
             ApplyPriorityPreemption(report);
             ApplyLearnedAssignments(report);
@@ -1137,7 +1142,7 @@ namespace ProjectW.MilestonePrototype
         public bool SendForMedicalCheckup(int crewIndex)
         {
             if (crewIndex < 0 || crewIndex >= Crew.Count || IsLost) return false;
-            bool regular = CurrentWeekday == Weekday.Friday;
+            bool regular = IsRegularCheckupDay(Day);
             CrewMember member = Crew[crewIndex];
             foreach (MedicalResult result in PendingMedicalResults)
                 if (result.CrewIndex == crewIndex && result.ExamDay == Day) return false;
@@ -1902,6 +1907,7 @@ namespace ProjectW.MilestonePrototype
             int fatigue = matched ? balance.MatchingFatigue : balance.MismatchedFatigue;
             if (task.IsParallelAssignment) fatigue += balance.ParallelFatigue;
             if (ParentWork(task)?.SoftDeadlineMissed == true) fatigue += balance.SoftDeadlineFatigue;
+            if (workdayMultiplier < 1f) fatigue /= 2;
 
             task.Progress = Math.Min(task.EffectiveRequiredWork, task.Progress + progress);
             task.LastOutput = progress;

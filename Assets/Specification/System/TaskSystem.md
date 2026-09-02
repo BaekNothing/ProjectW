@@ -105,16 +105,21 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 
 - Saturday and Sunday are non-working days by default. Assignments and reservations remain attached,
   but workers produce no Task output on those days.
+- Normal matched work adds `4` fatigue per day. Each weekend or explicitly scheduled rest day
+  removes `9`, so five workdays followed by two rest days net about `+2` fatigue, while a third
+  rest day moves the same worker to about `-7` fatigue relative to the cycle start.
 - A weekend rest cycle reduces fatigue and improves mental condition using external balance data.
   An injured worker also receives one data-driven recovery roll per resting weekend day. Successful
   recovery clears the injury for the following day; failure leaves the normal injury countdown intact.
-- Friday afternoon is the regular medical-checkup period. Every worker not assigned to a `총력!`
-  Work is examined for no resource cost and can perform only half normal Task output that Friday.
+- Regular medical checkups occur every eight weeks, beginning on day 61; each occurrence remains on
+  Friday. Every worker not assigned to a `총력!` Work is examined for no resource cost and performs
+  half normal Task output while accumulating half the normal Task fatigue that day. The Gantt
+  calendar marks each scheduled checkup Friday with a distinct background and `검` label.
 - `총력!` is a per-Work crunch flag. Only workers currently assigned to that Work skip Friday's
   regular checkup and Saturday/Sunday rest and continue the normal work cycle. There is no global
   Crunch option. `Check all` remains an explicit medical action and does not change this flag.
-- The player may send an individual worker for a checkup on any day. A checkup outside the regular
-  Friday period is unscheduled: that worker produces no Task output for the entire day and consumes
+- The player may send an individual worker for a checkup on any day. A checkup outside a scheduled
+  eight-week Friday period is unscheduled: that worker produces no Task output for the entire day and consumes
   the external-data unscheduled-checkup resource cost. The request fails without changing state when
   the campaign cannot pay that cost.
 - A checkup request does not detach or interrupt the worker's assignments and does not add context cost.

@@ -82,6 +82,7 @@ namespace ProjectW.MilestonePrototype
         private static readonly Color InkColor = new Color(.267f, .267f, .267f, 1f);
         private static readonly Color PaleColor = new Color(.88f, .88f, .88f, 1f);
         private static readonly Color WeekendColor = new Color(.94f, .92f, .88f, 1f);
+        private static readonly Color RegularCheckupColor = new Color(.86f, .94f, .88f, 1f);
         private static readonly string[] CompetencyNames =
         {
             "기지공학", "과학탐사", "자원운용", "환경적응", "생명유지", "지휘교섭"
@@ -722,7 +723,7 @@ namespace ProjectW.MilestonePrototype
             }
             GUILayout.EndHorizontal();
             GUILayout.Label($"DAY {game.Day:00} ({MilestoneSimulation.WeekdayName(game.CurrentWeekday)})  " +
-                            $"일정 외 검진 {game.UnscheduledCheckupResourceCost} 자원 · 금요일 정기검진 무료/반일", small);
+                            $"일정 외 검진 {game.UnscheduledCheckupResourceCost} 자원 · 8주 금요일 정기검진 무료/반일", small);
             GUILayout.Label($"DAY {game.Day:00}  │  회색=완료  진회색=예상 잔여  ┆ SOFT  │ HARD", small);
             float availableHeight = GanttViewportHeight(window.Rect.height);
             Rect viewport = GUILayoutUtility.GetRect(100f, availableHeight,
@@ -764,12 +765,16 @@ namespace ProjectW.MilestonePrototype
             for (int day = 1; day <= planningHorizonDay; day++)
                 if (MilestoneSimulation.IsWeekendDay(day))
                     DrawSolid(new Rect((day - 1) * dayWidth, 0, dayWidth, contentHeight), WeekendColor);
+                else if (game.IsRegularCheckupDay(day))
+                    DrawSolid(new Rect((day - 1) * dayWidth, 0, dayWidth, contentHeight),
+                        RegularCheckupColor);
             for (int day = 1; day <= planningHorizonDay; day++)
             {
                 float x = (day - 1) * dayWidth;
                 DrawSolid(new Rect(x, 0, 1, contentHeight), day == game.Day ? InkColor : PaleColor);
                 string weekday = MilestoneSimulation.WeekdayName((Weekday)((day - 1) % 7));
-                GUI.Label(new Rect(x + 2, 1, dayWidth - 3, 27), $"{day}\n{weekday}", small);
+                string checkup = game.IsRegularCheckupDay(day) ? "검" : string.Empty;
+                GUI.Label(new Rect(x + 2, 1, dayWidth - 3, 27), $"{day}\n{weekday}{checkup}", small);
             }
 
             float y = 28f;
