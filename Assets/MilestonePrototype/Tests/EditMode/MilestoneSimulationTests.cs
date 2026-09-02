@@ -2037,6 +2037,18 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void GanttDependencyAnchorsPreferTheDisplayedPrioritySchedule()
+        {
+            var displayed = new TaskScheduleEstimate { TaskId = "next", StartDay = 12 };
+            var isolated = new TaskScheduleEstimate { TaskId = "next", StartDay = 4 };
+
+            Assert.That(MilestonePrototypeController.GanttScheduleForTask(
+                new[] { displayed }, "next", isolated), Is.SameAs(displayed));
+            Assert.That(MilestonePrototypeController.GanttScheduleForTask(
+                new TaskScheduleEstimate[0], "next", isolated), Is.SameAs(isolated));
+        }
+
+        [Test]
         public void OperationsReportCountsDynamicRiskAndLoad()
         {
             var game = new MilestoneSimulation(1);

@@ -786,8 +786,8 @@ namespace ProjectW.MilestonePrototype
 
                 foreach (WorkTask task in tasks)
                 {
-                    TaskScheduleEstimate preview = FindPrioritySchedule(prioritySchedule, task.Id) ??
-                                                   game.EstimatePreviewSchedule(task.Id);
+                    TaskScheduleEstimate preview = GanttScheduleForTask(prioritySchedule, task.Id,
+                        game.EstimatePreviewSchedule(task.Id));
                     int actualDays = TaskActualDurationDays(task, game.Day);
                     int startDay = task.StartedDay > 0
                         ? task.StartedDay
@@ -812,7 +812,7 @@ namespace ProjectW.MilestonePrototype
                 }
                 DrawSolid(new Rect(0, y - 1, contentWidth, 1), GrayColor);
             }
-            DrawDependencyArrows(dayWidth, rowHeight);
+            DrawDependencyArrows(dayWidth, rowHeight, visibleGroups, prioritySchedule);
             GUI.EndScrollView();
 
             GUI.BeginGroup(labelViewport);
@@ -849,12 +849,12 @@ namespace ProjectW.MilestonePrototype
             return Math.Max(0f, Math.Min(offset, Math.Max(0f, contentWidth - viewportWidth)));
         }
 
-        private static TaskScheduleEstimate FindPrioritySchedule(
-            TaskScheduleEstimate[] schedule, string taskId)
+        public static TaskScheduleEstimate GanttScheduleForTask(
+            TaskScheduleEstimate[] schedule, string taskId, TaskScheduleEstimate fallback)
         {
             for (int index = 0; index < schedule.Length; index++)
                 if (schedule[index]?.TaskId == taskId) return schedule[index];
-            return null;
+            return fallback;
         }
 
         private void DrawCurrentWorkerSlot(WorkTask task, float y, float rowHeight, float dayWidth)
@@ -946,7 +946,8 @@ namespace ProjectW.MilestonePrototype
             return "미배정";
         }
 
-        private void DrawDependencyArrows(float dayWidth, float rowHeight)
+        private void DrawDependencyArrows(float dayWidth, float rowHeight,
+            List<WorkGroup> visibleGroups, TaskScheduleEstimate[] prioritySchedule)
         {
             foreach (WorkTask task in game.Tasks)
             {
@@ -956,7 +957,8 @@ namespace ProjectW.MilestonePrototype
                 WorkTask predecessor = game.Tasks.FirstOrDefault(candidate =>
                     candidate.Id == task.PrerequisiteId);
                 if (predecessor != null)
-                    DrawDependencyArrow(predecessor, task, dayWidth, rowHeight);
+                    DrawDependencyArrow(predecessor, task, dayWidth, rowHeight,
+                        visibleGroups, prioritySchedule);
             }
 
             foreach (WorkGroup group in game.Groups)
@@ -965,16 +967,17 @@ namespace ProjectW.MilestonePrototype
                 if (group.PredecessorIds == null) continue;
                 foreach (string predecessorId in group.PredecessorIds)
                 {
-                    DrawWorkDependencyArrow(predecessorId, group.Id, dayWidth, rowHeight);
+                    DrawWorkDependencyArrow(predecessorId, group.Id, dayWidth, rowHeight,
+                        visibleGroups);
                 }
             }
         }
 
         private void DrawWorkDependencyArrow(string predecessorId, string successorId,
-            float dayWidth, float rowHeight)
+            float dayWidth, float rowHeight, List<WorkGroup> visibleGroups)
         {
-            float fromY = WorkRowCenterY(predecessorId, rowHeight);
-            float toY = WorkRowCenterY(successorId, rowHeight);
+            float fromY = WorkRowCenterY(predecessorId, rowHeight, visibleGroups);
+            float toY = WorkRowCenterY(successorId, rowHeight, visibleGroups);
             if (fromY < 0 || toY < 0) return;
 
             float x = Mathf.Max(8f, (Mathf.Max(1, game.Day) - 1) * dayWidth - 8f);
@@ -987,12 +990,18 @@ namespace ProjectW.MilestonePrototype
         }
 
         private void DrawDependencyArrow(WorkTask predecessor, WorkTask successor,
-            float dayWidth, float rowHeight)
+            float dayWidth, float rowHeight, List<WorkGroup> visibleGroups,
+            TaskScheduleEstimate[] prioritySchedule)
         {
-            float fromX = TaskBarEndX(predecessor, dayWidth);
-            float toX = TaskBarStartX(successor, dayWidth);
-            float fromY = TaskRowCenterY(predecessor.Id, rowHeight);
-            float toY = TaskRowCenterY(successor.Id, rowHeight);
+            TaskScheduleEstimate predecessorPreview = GanttScheduleForTask(prioritySchedule,
+                predecessor.Id, game.EstimatePreviewSchedule(predecessor.Id));
+            TaskScheduleEstimate successorPreview = GanttScheduleForTask(prioritySchedule,
+                successor.Id, game.EstimatePreviewSchedule(successor.Id));
+            float fromX = TaskBarEndX(predecessor, predecessorPreview, dayWidth);
+            float toX = TaskBarStartX(successor, successorPreview, dayWidth);
+            float fromY = TaskRowCenterY(predecessor.Id, rowHeight, visibleGroups);
+            float toY = TaskRowCenterY(successor.Id, rowHeight, visibleGroups);
+            if (fromY < 0f || toY < 0f) return;
             float bendX = Mathf.Max(2f, toX - 10f);
 
             DrawHorizontalLine(fromX, bendX, fromY, GrayColor);
@@ -1004,10 +1013,11 @@ namespace ProjectW.MilestonePrototype
             DrawSolid(new Rect(toX - 2f, toY - 2f, 2f, 4f), GrayColor);
         }
 
-        private float TaskRowCenterY(string taskId, float rowHeight)
+        private float TaskRowCenterY(string taskId, float rowHeight,
+            List<WorkGroup> visibleGroups)
         {
             float y = 28f;
-            foreach (WorkGroup group in game.Groups.Where(game.IsWorkVisible))
+            foreach (WorkGroup group in visibleGroups)
             {
                 y += rowHeight;
                 foreach (WorkTask task in game.Tasks.Where(candidate =>
@@ -1017,13 +1027,14 @@ namespace ProjectW.MilestonePrototype
                     y += rowHeight;
                 }
             }
-            return 28f;
+            return -1f;
         }
 
-        private float WorkRowCenterY(string groupId, float rowHeight)
+        private float WorkRowCenterY(string groupId, float rowHeight,
+            List<WorkGroup> visibleGroups)
         {
             float y = 28f;
-            foreach (WorkGroup group in game.Groups.Where(game.IsWorkVisible))
+            foreach (WorkGroup group in visibleGroups)
             {
                 if (group.Id == groupId) return y + rowHeight * .5f;
                 y += rowHeight;
@@ -1032,19 +1043,17 @@ namespace ProjectW.MilestonePrototype
             return -1f;
         }
 
-        private float TaskBarStartX(WorkTask task, float dayWidth)
+        private float TaskBarStartX(WorkTask task, TaskScheduleEstimate preview, float dayWidth)
         {
-            TaskScheduleEstimate preview = game.EstimatePreviewSchedule(task.Id);
             int startDay = task.StartedDay > 0
                 ? task.StartedDay
                 : preview?.StartDay ?? game.Day;
             return (startDay - 1) * dayWidth + 3f;
         }
 
-        private float TaskBarEndX(WorkTask task, float dayWidth)
+        private float TaskBarEndX(WorkTask task, TaskScheduleEstimate preview, float dayWidth)
         {
             int actualDays = TaskActualDurationDays(task, game.Day);
-            TaskScheduleEstimate preview = game.EstimatePreviewSchedule(task.Id);
             int startDay = task.StartedDay > 0
                 ? task.StartedDay
                 : preview?.StartDay ?? game.Day;

@@ -673,6 +673,8 @@ The Task application must present schedule information as a time-based Gantt vie
 - A single `오늘로` control places the current-day column after three visible past-day columns,
   clamped at the beginning and end of the horizontal range.
 - Work predecessors and Task prerequisites are shown as arrowed dependency connectors.
+- Dependency connectors use the same priority schedule and visible Work ordering as their bars and
+  rows, so each arrow remains attached when priorities, assignments, or forecasts move a Task.
 - Work sections are divided with `#999999` separator lines on the white background.
 - Work rows expose Work state, completion, and deadline status.
 - Every Task row shows its current primary or parallel assignee. Unassigned rows show `미배정`, and
