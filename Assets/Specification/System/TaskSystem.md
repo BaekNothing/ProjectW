@@ -574,8 +574,9 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
   `안 맡음 의견` are submitted from the Proposal application.
 - Generated side-mission hard-deadline failure deducts resources without setting campaign loss.
 - Task completion retains the completing assignee while leaving that worker free for new work.
-- Separately, the boss may initiate an inbound Work request. It arrives by mail and enters the Gantt
-  only when accepted. Inbound requests are chance-driven and are never guaranteed by empty inventory.
+- Separately, the boss may initiate an inbound Work request. It opens an immediate decision popup
+  and enters the Gantt only when accepted. Inbound requests are chance-driven and are never
+  guaranteed by empty inventory.
 
 ## PM Proposals and Boss Requests
 
@@ -611,18 +612,26 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
   and whose parent Work is neither complete nor failed. Urgent/incident missions are not side
   missions and never satisfy this inventory check.
 - The boss may probabilistically send one structured inbound request, bounded by the random-Work
-  limit. Its mail explicitly asks whether the PM will take the Work; accepting activates it.
+  limit. It opens an immediate modal decision popup instead of waiting in the mail application.
+- The incident popup blocks day advancement and every background control until the PM chooses
+  `일함 / 승인` or `거절`. It displays the current day, current resources, reward, refusal cost,
+  workload, child Tasks, and soft/hard deadlines.
+- Accepting admits the Work to the Gantt. Refusing immediately deducts the displayed hard-penalty
+  resource cost, fails the hidden offer for history, and never admits it to the Gantt.
 - Restoring a legacy unresolved inbound-request mail preserves its acceptance gate. Save-data
   migration must not make that Work visible in the Gantt before the player accepts it.
 - A generated request's adjective or risk—including `긴급한`—never bypasses the acceptance gate.
-  Only the player's explicit mail acceptance makes that inbound Work visible.
+  Only the player's explicit popup approval makes that inbound Work visible.
+- Player-submitted proposals count as explicitly authorized at submission and enter only after the
+  result is approved and its investment can be paid. Declined or budget-cancelled proposals remain
+  hidden. Empty placeholder Works are never rendered in the Gantt.
 - Every generated side-mission Work contains two to four required child Tasks. The Work is the
   mission/table-of-contents row, while its Tasks are separately assignable structured work items.
 - Generated child Tasks use the existing adjective/target/action word pool independently and form a
   prerequisite chain inside the Work. Completing one child unlocks the next; completing all children
   completes the mission Work.
 - A PM proposal sends one review-result mail per submission or revision. An inbound boss request
-  sends one acceptance mail regardless of child Task count.
+  creates one popup decision regardless of child Task count and retains the resolved record in mail.
 - Urgent/incident generation remains a separate concept. It must not use the side-mission batch,
   side-mission mail, or `TaskKind.SideMission` merely to represent a small random action.
 - Authored non-urgent Works should provide roughly 10–15 working days of chained required workload,
@@ -649,8 +658,8 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 - The weekly field-status mail lists every collected incident separately. Each item exposes
   `승인` and `무시`; approving applies that item's schedule delta at the time of approval, while
   ignoring closes it without changing the schedule. Undecided items remain pending in that digest.
-- Critical missions remain separate mail. Boss requests and every other mission that grants a Work
-  or one or more mini Tasks also remain separate mail and never enter the weekly field-status digest.
+- Critical missions remain separate mail. Resolved boss-request records and every other mission that
+  grants a Work or one or more mini Tasks remain separate from the weekly field-status digest.
 - A messenger question and its worker reply are stored and rendered as one conversation item, not
   two detached bubbles.
 - Worker reports and question/reply items share one day-ordered messenger stream. Task records remain

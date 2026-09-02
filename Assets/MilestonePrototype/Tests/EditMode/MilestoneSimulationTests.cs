@@ -851,7 +851,11 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(offer.ArrivalDay, Is.EqualTo(game.Day));
             Assert.That(offer.ActivatesWork, Is.True);
             Assert.That(offer.IsProposal, Is.False);
-            Assert.That(game.ResolveMail(offer.Id), Is.True);
+            Assert.That(game.HasPendingIncidentDecision, Is.True);
+            Assert.That(game.CanAdvanceDay, Is.False);
+            Assert.That(game.AcceptIncidentWork(offer.Id), Is.True);
+            Assert.That(game.HasPendingIncidentDecision, Is.False);
+            Assert.That(game.CanAdvanceDay, Is.True);
             Assert.That(generated.AwaitingAcceptance, Is.False);
             Assert.That(game.IsWorkVisible(generated), Is.True);
             Assert.That(generatedTask.State, Is.EqualTo(TaskState.Available));
@@ -934,6 +938,7 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(game.RespondToProposal(offer.Id, ProposalPitch.Decline), Is.True);
             Assert.That(offer.ProposalStage, Is.EqualTo(ProposalStage.Declined));
             Assert.That(work.State, Is.EqualTo(WorkState.Failed));
+            Assert.That(game.IsWorkVisible(work), Is.False);
             Assert.That(game.Resources, Is.EqualTo(resources));
         }
 
@@ -1111,6 +1116,30 @@ namespace ProjectW.MilestonePrototype.Tests
                 Assert.That(game.Mail.FindAll(mail => mail.TargetWorkId == work.Id), Has.Count.EqualTo(1));
             }
             Assert.That(game.Groups.Find(group => group.Id == "incident").Required, Is.False);
+            Assert.That(game.IsWorkVisible(game.Groups.Find(group => group.Id == "incident")), Is.False);
+        }
+
+        [Test]
+        public void DecliningIncidentWorkConsumesResourcesAndNeverAdmitsItToGantt()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.BaseSideMissionChance = 100;
+            data.Balance.RandomWorkChanceScalePercent = 100;
+            data.Balance.RandomWorkLimit = 3;
+            var game = new MilestoneSimulation(data, 1);
+
+            game.AdvanceDay();
+
+            MailEvent offer = game.PendingIncidentOffer;
+            WorkGroup work = game.Groups.Find(group => group.Id == offer.TargetWorkId);
+            int resources = game.Resources;
+            Assert.That(game.DeclineIncidentWork(offer.Id), Is.True);
+            Assert.That(game.Resources,
+                Is.EqualTo(Math.Max(0, resources - work.HardPenaltyCredits)));
+            Assert.That(work.State, Is.EqualTo(WorkState.Failed));
+            Assert.That(work.AwaitingAcceptance, Is.True);
+            Assert.That(game.IsWorkVisible(work), Is.False);
+            Assert.That(game.HasPendingIncidentDecision, Is.False);
         }
 
         [Test]

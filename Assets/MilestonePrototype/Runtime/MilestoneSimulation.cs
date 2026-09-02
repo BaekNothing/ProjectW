@@ -88,7 +88,44 @@ namespace ProjectW.MilestonePrototype
         public bool CanForceCriticalEvent => !IsLost && !HasActiveCriticalEvent && criticalEvents.Length > 0;
 
         public bool IsWorkVisible(WorkGroup group) => group != null &&
-            !group.AwaitingAcceptance && (group.RevealDay <= 0 || Day >= group.RevealDay);
+            !group.AwaitingAcceptance && (group.RevealDay <= 0 || Day >= group.RevealDay) &&
+            Tasks.Any(task => task.GroupId == group.Id);
+
+        public MailEvent PendingIncidentOffer => Mail.FirstOrDefault(mail =>
+            mail.IsBossRequest && !mail.Resolved && mail.ArrivalDay <= Day &&
+            Groups.Any(group => group.Id == mail.TargetWorkId && group.AwaitingAcceptance));
+
+        public bool HasPendingIncidentDecision => PendingIncidentOffer != null;
+        public bool CanAdvanceDay => !IsLost && !MustResolveCriticalChoice &&
+                                     !HasPendingIncidentDecision;
+
+        public bool AcceptIncidentWork(string mailId) => ResolveMail(mailId);
+
+        public bool DeclineIncidentWork(string mailId)
+        {
+            MailEvent mail = Mail.FirstOrDefault(item => item.Id == mailId &&
+                item.IsBossRequest && !item.Resolved && item.ArrivalDay <= Day);
+            WorkGroup work = mail == null
+                ? null
+                : Groups.FirstOrDefault(group => group.Id == mail.TargetWorkId &&
+                    group.AwaitingAcceptance);
+            if (mail == null || work == null) return false;
+            Resources = Math.Max(0, Resources - work.HardPenaltyCredits);
+            work.State = WorkState.Failed;
+            foreach (WorkTask task in Tasks.Where(candidate => candidate.GroupId == work.Id))
+            {
+                task.State = TaskState.Failed;
+                task.AssignedCharacter = -1;
+                task.IsParallelAssignment = false;
+                task.ScheduledDay = 0;
+                task.ScheduledWorker = -1;
+            }
+            mail.Read = true;
+            mail.Resolved = true;
+            mail.Instruction = $"거절 완료 · 자원 -{work.HardPenaltyCredits}";
+            Log($"돌발임무 거절: {work.Name} / 자원 -{work.HardPenaltyCredits}");
+            return true;
+        }
 
         public void SetCompetencyAutoAssignment(bool enabled) =>
             CompetencyAutoAssignment = enabled;
@@ -746,7 +783,6 @@ namespace ProjectW.MilestonePrototype
             if (pitch == ProposalPitch.Decline)
             {
                 work.State = WorkState.Failed;
-                work.AwaitingAcceptance = false;
                 foreach (WorkTask task in Tasks.Where(candidate => candidate.GroupId == work.Id))
                     task.State = TaskState.Failed;
                 mail.ProposalStage = ProposalStage.Declined;
@@ -1117,7 +1153,6 @@ namespace ProjectW.MilestonePrototype
                 if (Resources < work.ProposalCostCredits)
                 {
                     work.State = WorkState.Failed;
-                    work.AwaitingAcceptance = false;
                     foreach (WorkTask task in Tasks.Where(candidate => candidate.GroupId == work.Id))
                         task.State = TaskState.Failed;
                     mail.Subject = $"예산 부족으로 승인 취소: {work.Name}";
@@ -2315,9 +2350,9 @@ namespace ProjectW.MilestonePrototype
                 Id = $"side-mission-offer-{id}",
                 ArrivalDay = Day,
                 From = "사장실",
-                Subject = $"업무 문의: {work.Name}",
-                Body = $"사장실에서 {taskCount}개 실행 단계로 구성된 업무를 맡을 수 있는지 물어왔습니다. 성공 보상은 자원 {reward}입니다.",
-                Instruction = $"맡으려면 수락하세요. 실패 시 자원 {work.HardPenaltyCredits}가 차감됩니다.",
+                Subject = $"돌발임무 결정: {work.Name}",
+                Body = $"사장실에서 {taskCount}개 실행 단계로 구성된 돌발임무의 즉시 결정을 요청했습니다. 성공 보상은 자원 {reward}입니다.",
+                Instruction = "즉시 결정 팝업에서 승인 또는 거절을 선택하세요.",
                 TargetTaskId = firstTask.Id,
                 TargetWorkId = work.Id,
                 Risk = missionRisk,
@@ -2327,7 +2362,7 @@ namespace ProjectW.MilestonePrototype
                 ProposalStage = ProposalStage.None
             });
             RefreshStates();
-            report.Lines.Add($"사장실 업무 문의 도착: {work.Name} ({taskCount}개 실행 단계)");
+            report.Lines.Add($"돌발임무 결정 요청: {work.Name} ({taskCount}개 실행 단계)");
         }
 
         private RandomTaskAction SelectRandomAction(WorkRole role)

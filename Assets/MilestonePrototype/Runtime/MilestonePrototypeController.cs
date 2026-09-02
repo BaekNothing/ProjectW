@@ -245,7 +245,7 @@ namespace ProjectW.MilestonePrototype
             }
             float notificationTime = Time.unscaledTime;
             notifications.Update(notificationTime);
-            modalInputBlocked = notifications.HasPopup;
+            modalInputBlocked = notifications.HasPopup || game.HasPendingIncidentDecision;
             if (!modalInputBlocked) HandleWindowInput();
             inputLayerBlocked = IsPointerBlockedBelowWindow(-1);
             GUI.enabled = !inputLayerBlocked && !modalInputBlocked;
@@ -257,6 +257,7 @@ namespace ProjectW.MilestonePrototype
             inputLayerBlocked = false;
             GUI.enabled = true;
             notifications.Draw(logicalWidth, logicalHeight, notificationTime, scale);
+            DrawIncidentDecisionPopup();
             modalInputBlocked = false;
             if (Event.current.type == EventType.MouseUp) SaveDesktop();
         }
@@ -330,7 +331,7 @@ namespace ProjectW.MilestonePrototype
                 $"가용 대원 {game.Crew.Count(c => c.Available)}/{game.Crew.Count}  |  자원 {game.Resources}", section);
             if (logicalHeight >= 520f)
             {
-                SetControlEnabled(!game.IsWon && !game.IsLost && !game.MustResolveCriticalChoice);
+                SetControlEnabled(!game.IsWon && game.CanAdvanceDay);
                 if (Button(new Rect(25, 365, 210, 48), "하루 진행"))
                     AdvanceToNextDay();
                 SetControlEnabled(true);
@@ -344,6 +345,52 @@ namespace ProjectW.MilestonePrototype
                         ? $"중요 이벤트 후속 보고 대기 · DAY {game.ActiveCriticalNodeArrivalDay}"
                     : FormatStatus(game.LastReport, game.IsWon, game.IsLost),
                 game.IsLost || game.MustResolveCriticalChoice ? warning : success);
+        }
+
+        private void DrawIncidentDecisionPopup()
+        {
+            MailEvent offer = game.PendingIncidentOffer;
+            if (offer == null) return;
+            WorkGroup work = game.Groups.FirstOrDefault(group => group.Id == offer.TargetWorkId);
+            if (work == null) return;
+            List<WorkTask> tasks = game.Tasks.Where(task => task.GroupId == work.Id).ToList();
+            float workload = tasks.Sum(task => task.EffectiveRequiredWork);
+            float width = Mathf.Min(620f, logicalWidth - 32f);
+            float height = Mathf.Min(470f, logicalHeight - 72f);
+            Rect panel = new Rect((logicalWidth - width) * .5f,
+                (logicalHeight - height) * .5f, width, height);
+
+            DrawSolid(new Rect(0f, 0f, logicalWidth, logicalHeight),
+                new Color(.15f, .15f, .15f, .72f));
+            DrawSolid(panel, Color.white);
+            DrawBorder(panel, InkColor);
+            GUILayout.BeginArea(new Rect(panel.x + 22f, panel.y + 18f,
+                panel.width - 44f, panel.height - 36f));
+            GUILayout.Label("[돌발임무] 즉시 결정", title);
+            GUILayout.Label(work.Name, section);
+            GUILayout.Space(8f);
+            GUILayout.Label($"현재 DAY {game.Day:00}  ·  보유 자원 {game.Resources}", section);
+            GUILayout.Label($"실행 작업 {tasks.Count}개  ·  총 작업량 {workload:0.#}일", small);
+            GUILayout.Label($"완료 보상 +{work.RewardCredits} 자원  ·  거절 비용 -{work.HardPenaltyCredits} 자원", small);
+            GUILayout.Label($"수락 시 SOFT D{work.SoftDeadline:00} / HARD D{work.HardDeadline:00}", small);
+            GUILayout.Space(8f);
+            GUILayout.Label(offer.Body, small);
+            foreach (WorkTask task in tasks)
+                GUILayout.Label($"• {task.Name} · {task.EffectiveRequiredWork:0.#}일", small);
+            GUILayout.FlexibleSpace();
+            GUILayout.BeginHorizontal();
+            if (LayoutButton("일함 / 승인", GUILayout.Height(48f)))
+            {
+                game.AcceptIncidentWork(offer.Id);
+                SaveCampaign();
+            }
+            if (LayoutButton($"거절 / 자원 -{work.HardPenaltyCredits}", GUILayout.Height(48f)))
+            {
+                game.DeclineIncidentWork(offer.Id);
+                SaveCampaign();
+            }
+            GUILayout.EndHorizontal();
+            GUILayout.EndArea();
         }
 
         private void DrawWindows()
@@ -2084,7 +2131,7 @@ namespace ProjectW.MilestonePrototype
         {
             Rect bar = new Rect(0, logicalHeight - 44, logicalWidth, 44);
             DrawSolid(bar, GrayColor);
-            SetControlEnabled(!game.IsWon && !game.IsLost && !game.MustResolveCriticalChoice);
+            SetControlEnabled(!game.IsWon && game.CanAdvanceDay);
             if (Button(NextDayButtonRect(logicalWidth, logicalHeight), "다음날로 →"))
                 AdvanceToNextDay();
             SetControlEnabled(true);
