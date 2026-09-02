@@ -90,6 +90,39 @@ Editor compilation and 155 EditMode tests passed. Device compatibility is not cl
 on-device smoke test has exercised remote catalog load, all seven draw layers, and a condition-state
 transition on the installed base APK.
 
+## Registration Correction — 2026-09-02
+
+User review found the eyes too widely separated and the hairstyles slightly low. A built-in image
+generation edit was used as a visual target, with the existing management composite as the edit
+target. The selected reference output is:
+
+`C:\Users\king0\.codex\generated_images\01a05f0b-a607-70a2-9df4-f9ca9ad33579\exec-cb3bf67a-b165-431d-ad07-45701b0ad366.png`
+
+Final edit prompt:
+
+```text
+Use case: precise-object-edit. Preserve the character, face shape, skin tone, expression, clothing,
+background, linework, shading, colors, crop, and 1254x1254 composition. Move the left and right
+eyes inward by an equal amount so the eye spacing is natural, roughly one eye width between the
+inner corners, without changing eye size, shape, angle, iris, highlights, or vertical position.
+Move the entire hairstyle upward very slightly without scaling or redesigning it. Keep eyebrows
+aligned above the corrected eyes. Do not change the mouth, nose, face base, body, role accent, or
+background. No text, logo, watermark, accessories, extra person, wrinkles, or age lines.
+```
+
+The generated edit established the target relationship but changed unrelated proportions, so it is
+not a runtime asset. The approved deterministic correction keeps every existing part drawing and
+changes only full-canvas registration:
+
+- all eye pairs: each side moved 60 px inward on the `1254 x 1254` authoring canvas;
+- all eyebrow pairs: each side moved 55 px inward;
+- all dark-circle pairs: each side moved 60 px inward;
+- all hairstyles: moved 30 px upward;
+- mouth, face base, body/background, color, alpha, and layer order: unchanged.
+
+The four stable complete-portrait fallbacks were recomposited from the corrected parts, and the
+registered runtime layers were re-exported at `512 x 512`.
+
 ## Asset Mapping
 
 | Stable ID | Display data | Role accent |

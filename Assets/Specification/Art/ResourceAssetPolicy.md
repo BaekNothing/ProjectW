@@ -152,6 +152,11 @@ uses real PNG alpha and must import with `FromInput` alpha; the body and legacy 
 fallbacks remain opaque. The four stable complete portraits are composites of the same parts so a
 partial remote-load failure does not change the visual identity.
 
+Across every eye variant, the inner-corner gap should read as approximately one eye width rather
+than placing the eyes near the face edges. Eyebrows and dark circles inherit the same horizontal
+registration. Hair variants sit slightly above the face-base crown registration so bangs frame the
+eyes without making the entire hairstyle appear to slide down the head.
+
 ## Unity Import and Addressables Gate
 
 - `ArtSource` is never an Addressables source and receives no Unity `.meta` files.
