@@ -119,6 +119,7 @@ namespace ProjectW.MilestonePrototype
         public const float WindowTitleBarHeight = 25f;
         public const float WindowContentTopSpacing = 6f;
         public const float GanttWindowChromeReserve = 110f;
+        public const int IncidentDecisionWindowId = 910012;
 
         private void Awake()
         {
@@ -355,6 +356,17 @@ namespace ProjectW.MilestonePrototype
             if (work == null) return;
             List<WorkTask> tasks = game.Tasks.Where(task => task.GroupId == work.Id).ToList();
             float workload = tasks.Sum(task => task.EffectiveRequiredWork);
+
+            GUI.Window(IncidentDecisionWindowId,
+                new Rect(0f, 0f, logicalWidth, logicalHeight),
+                _ => DrawIncidentDecisionPopupContents(offer, work, tasks, workload),
+                string.Empty, GUIStyle.none);
+            GUI.BringWindowToFront(IncidentDecisionWindowId);
+        }
+
+        private void DrawIncidentDecisionPopupContents(MailEvent offer, WorkGroup work,
+            List<WorkTask> tasks, float workload)
+        {
             float width = Mathf.Min(620f, logicalWidth - 32f);
             float height = Mathf.Min(470f, logicalHeight - 72f);
             Rect panel = new Rect((logicalWidth - width) * .5f,

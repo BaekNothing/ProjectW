@@ -616,6 +616,8 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 - The incident popup blocks day advancement and every background control until the PM chooses
   `일함 / 승인` or `거절`. It displays the current day, current resources, reward, refusal cost,
   workload, child Tasks, and soft/hard deadlines.
+- The incident decision renders in its own full-screen overlay window and is brought to the front
+  every frame, above desktop windows, toasts, and every other popup.
 - Accepting admits the Work to the Gantt. Refusing immediately deducts the displayed hard-penalty
   resource cost, fails the hidden offer for history, and never admits it to the Gantt.
 - Restoring a legacy unresolved inbound-request mail preserves its acceptance gate. Save-data
