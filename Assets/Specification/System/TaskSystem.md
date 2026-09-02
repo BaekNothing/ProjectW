@@ -78,7 +78,11 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 
 - One turn advances the calendar by one day.
 - Day 1 is Monday. The seven-day week repeats Monday through Sunday.
-- One month is always 30 days. Day 90 is a content/planning baseline, not a run limit.
+- The game calendar starts on October 1. A year is always 365 days, February always has 28 days,
+  and leap years do not exist. Months otherwise use their standard lengths.
+- Calendar quarters follow the standard three-month groups: Q1 is January–March, Q2 is
+  April–June, Q3 is July–September, and Q4 is October–December. Day 90 is a content/planning
+  baseline, not a run limit.
 - Payroll is charged every 30 days. Each crew member starts with a data-defined monthly base salary,
   and every configured block of accumulated Experience increases that salary by a configured amount.
 - Experience is earned through daily Task execution. Regeneration resets Experience to zero, which
@@ -293,6 +297,10 @@ The task detail page must show:
 - current assignee, role, workload, context cost, recent output, risk, importance, and deadlines
 - current reservation and controls for selecting a worker and start day
 - recent Task records
+
+Every day shown in the Task detail page (actual start/completion, deadlines, reservation, expected
+schedule, selected reservation day, and recent records) includes its game-calendar month/day and
+quarter while retaining the underlying `DAY n` value.
 
 Task rows in the Gantt and milestone views open this detail page.
 

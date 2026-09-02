@@ -9,6 +9,31 @@ namespace ProjectW.MilestonePrototype.Tests
 {
     public sealed class MilestoneSimulationTests
     {
+        [TestCase(1, 1, 10, 1, 4)]
+        [TestCase(92, 1, 12, 31, 4)]
+        [TestCase(93, 1, 1, 1, 1)]
+        [TestCase(151, 1, 2, 28, 1)]
+        [TestCase(152, 1, 3, 1, 1)]
+        [TestCase(274, 1, 7, 1, 3)]
+        [TestCase(366, 2, 10, 1, 4)]
+        public void GameCalendarUsesOctoberStartAndNonLeapYear(
+            int gameDay, int expectedYear, int expectedMonth, int expectedDay, int expectedQuarter)
+        {
+            GameCalendar.GetDate(gameDay, out int year, out int month, out int dayOfMonth);
+
+            Assert.That(year, Is.EqualTo(expectedYear));
+            Assert.That(month, Is.EqualTo(expectedMonth));
+            Assert.That(dayOfMonth, Is.EqualTo(expectedDay));
+            Assert.That(GameCalendar.Quarter(month), Is.EqualTo(expectedQuarter));
+        }
+
+        [Test]
+        public void GameCalendarFormatKeepsDayAndShowsDateAndQuarter()
+        {
+            Assert.That(GameCalendar.FormatDay(1), Is.EqualTo("DAY 01 · 10월 1일 · 4분기"));
+            Assert.That(GameCalendar.FormatDay(366), Is.EqualTo("DAY 366 · 2년차 10월 1일 · 4분기"));
+        }
+
         [Test]
         public void CriticalEventChoiceChainAppliesEffectsAndAdvancesNodes()
         {

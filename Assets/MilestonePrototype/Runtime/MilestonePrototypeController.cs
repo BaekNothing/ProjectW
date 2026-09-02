@@ -1178,8 +1178,8 @@ namespace ProjectW.MilestonePrototype
                 $"진행 {task.Progress:0.#}일 / 유효 {task.EffectiveRequiredWork:0.#}일   " +
                 $"잔여 {task.RemainingWork:0.#}일", small);
             GUILayout.Label(
-                $"시작일 {(task.StartedDay > 0 ? $"DAY {task.StartedDay:00}" : "미시작")}  /  " +
-                $"완료일 {(task.CompletedDay > 0 ? $"DAY {task.CompletedDay:00}" : "미완료")}", small);
+                $"시작일 {(task.StartedDay > 0 ? GameCalendar.FormatDay(task.StartedDay) : "미시작")}  /  " +
+                $"완료일 {(task.CompletedDay > 0 ? GameCalendar.FormatDay(task.CompletedDay) : "미완료")}", small);
             GUILayout.Label(
                 $"최근 결과 {MilestoneSimulation.OutcomeName(task.LastOutcome)} · 산출 {task.LastOutput:0.##}  /  " +
                 $"중요도 {ImportanceName(task.Importance)}", small);
@@ -1187,7 +1187,8 @@ namespace ProjectW.MilestonePrototype
             GUILayout.BeginHorizontal();
             GUILayout.BeginVertical(GUI.skin.box);
             GUILayout.Label("일정", section);
-            GUILayout.Label($"SOFT D{work?.SoftDeadline ?? 0}  /  HARD D{work?.HardDeadline ?? 0}");
+            GUILayout.Label($"SOFT {GameCalendar.FormatDay(work?.SoftDeadline ?? 0)}");
+            GUILayout.Label($"HARD {GameCalendar.FormatDay(work?.HardDeadline ?? 0)}");
             GUILayout.Label($"상태: {(work?.SoftDeadlineMissed == true ? "소프트 마감 초과" : "정상 일정")}");
             GUILayout.Label($"잠금: {TaskLockReason(task, work)}", small);
             GUILayout.EndVertical();
@@ -1243,7 +1244,7 @@ namespace ProjectW.MilestonePrototype
             GUILayout.BeginVertical(GUI.skin.box);
             if (task.ScheduledDay > 0 && task.ScheduledWorker >= 0 &&
                 task.ScheduledWorker < game.Crew.Count)
-                GUILayout.Label($"예약 시작일: DAY {task.ScheduledDay:00} · {game.Crew[task.ScheduledWorker].Name}",
+                GUILayout.Label($"예약 시작일: {GameCalendar.FormatDay(task.ScheduledDay)} · {game.Crew[task.ScheduledWorker].Name}",
                     success);
             else
                 GUILayout.Label("예약된 시작일 없음", small);
@@ -1259,14 +1260,14 @@ namespace ProjectW.MilestonePrototype
                     $"잔여 산정 작업량 {estimate.EstimatedWork:0.##} ÷ 기대 산출 {estimate.ExpectedDailyOutput:0.##}/일 " +
                     $"= {estimate.DurationDays}일", small);
                 GUILayout.Label(
-                    $"예상 시작 DAY {estimate.StartDay:00}  →  예상 완료 DAY {estimate.CompletionDay:00}",
+                    $"예상 시작 {GameCalendar.FormatDay(estimate.StartDay)}  →  예상 완료 {GameCalendar.FormatDay(estimate.CompletionDay)}",
                     estimate.RollingStart ? warning : success);
                 GUILayout.Label(estimate.StartReason, small);
                 GUILayout.EndVertical();
             }
             GUILayout.BeginHorizontal();
             if (LayoutButton("◀ DAY")) window.ScheduleDay = Mathf.Max(game.Day, window.ScheduleDay - 1);
-            GUILayout.Label($"시작 DAY {window.ScheduleDay:00}", section);
+            GUILayout.Label($"시작 {GameCalendar.FormatDay(window.ScheduleDay)}", section);
             if (LayoutButton("DAY ▶")) window.ScheduleDay = Mathf.Min(game.PlanningHorizonDay, window.ScheduleDay + 1);
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
@@ -1305,7 +1306,7 @@ namespace ProjectW.MilestonePrototype
             if (task.Records == null || task.Records.Count == 0) GUILayout.Label("기록 없음", small);
             else
                 foreach (TaskRecord record in task.Records.Skip(Math.Max(0, task.Records.Count - 4)))
-                    GUILayout.Label($"D{record.Day:00}  {record.Actor}  {record.Text}", small);
+                    GUILayout.Label($"{GameCalendar.FormatDay(record.Day)}  {record.Actor}  {record.Text}", small);
             GUILayout.EndVertical();
         }
 
