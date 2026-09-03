@@ -798,7 +798,8 @@ namespace ProjectW.MilestonePrototype
             const float labelWidth = 285f;
             const float dayWidth = 28f;
             const float rowHeight = 48f;
-            List<WorkGroup> visibleGroups = game.Groups.Where(game.IsWorkVisible)
+            List<WorkGroup> visibleGroups = game.Groups.Where(group =>
+                    game.IsWorkVisible(group) && ShouldShowWorkInTaskPanel(group, game.Tasks, game.Day))
                 .OrderBy(group => group.State == WorkState.Complete || group.State == WorkState.Failed ? 1 : 0)
                 .ThenBy(group => group.Priority).ThenBy(group => group.Id).ToList();
             TaskScheduleEstimate[] prioritySchedule = game.BuildPrioritySchedule();
@@ -850,6 +851,8 @@ namespace ProjectW.MilestonePrototype
 
                 foreach (WorkTask task in tasks)
                 {
+                    if (task.State == TaskState.Complete)
+                        DrawSolid(new Rect(0, y, contentWidth, rowHeight - 1), DimmedGrayColor);
                     TaskScheduleEstimate preview = GanttScheduleForTask(prioritySchedule, task.Id,
                         game.EstimatePreviewSchedule(task.Id));
                     int actualDays = TaskActualDurationDays(task, game.Day);
@@ -894,9 +897,9 @@ namespace ProjectW.MilestonePrototype
                 foreach (WorkTask task in tasks)
                 {
                     string owner = GanttTaskOwner(task);
-                    if (Button(new Rect(4, y + 2, labelWidth - 8, rowHeight - 3),
+                    if (GanttTaskButton(new Rect(4, y + 2, labelWidth - 8, rowHeight - 3),
                             $"{task.Name} · {StateName(task.State)} · {GanttTaskCondition(task)}\n" +
-                            $"담당 {owner}", small))
+                            $"담당 {owner}", small, task.State == TaskState.Complete))
                         OpenTaskDetail(task.Id);
                     y += rowHeight;
                 }
@@ -919,6 +922,25 @@ namespace ProjectW.MilestonePrototype
             for (int index = 0; index < schedule.Length; index++)
                 if (schedule[index]?.TaskId == taskId) return schedule[index];
             return fallback;
+        }
+
+        public static bool ShouldShowWorkInTaskPanel(
+            WorkGroup group, List<WorkTask> tasks, int currentDay)
+        {
+            if (group == null || group.State != WorkState.Complete) return true;
+            int completionDay = WorkCompletionDay(group, tasks);
+            return completionDay <= 0 || currentDay - completionDay < 14;
+        }
+
+        public static int WorkCompletionDay(WorkGroup group, List<WorkTask> tasks)
+        {
+            if (group == null || tasks == null) return 0;
+            int completionDay = 0;
+            foreach (WorkTask task in tasks)
+                if (task != null && task.GroupId == group.Id && task.Required &&
+                    task.State == TaskState.Complete)
+                    completionDay = Math.Max(completionDay, task.CompletedDay);
+            return completionDay;
         }
 
         private void DrawCurrentWorkerSlot(WorkTask task, float y, float rowHeight, float dayWidth)
@@ -2696,6 +2718,15 @@ namespace ProjectW.MilestonePrototype
             Color previous = GUI.color;
             GUI.color = dimmed ? DimmedGrayColor : GrayColor;
             bool clicked = GUILayout.Button(label, options);
+            GUI.color = previous;
+            return clicked;
+        }
+
+        private static bool GanttTaskButton(Rect rect, string label, GUIStyle style, bool dimmed)
+        {
+            Color previous = GUI.color;
+            GUI.color = dimmed ? DimmedGrayColor : GrayColor;
+            bool clicked = GUI.Button(rect, label, style);
             GUI.color = previous;
             return clicked;
         }

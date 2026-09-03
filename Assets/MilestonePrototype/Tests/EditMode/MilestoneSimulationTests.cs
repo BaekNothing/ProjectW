@@ -35,6 +35,40 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void CompletedWorkLeavesTaskPanelAfterFourteenElapsedDays()
+        {
+            var work = new WorkGroup { Id = "done", State = WorkState.Complete };
+            var tasks = new List<WorkTask>
+            {
+                new WorkTask
+                {
+                    GroupId = work.Id, Required = true, State = TaskState.Complete, CompletedDay = 20
+                },
+                new WorkTask
+                {
+                    GroupId = work.Id, Required = true, State = TaskState.Complete, CompletedDay = 22
+                },
+                new WorkTask
+                {
+                    GroupId = work.Id, Required = false, State = TaskState.Available
+                }
+            };
+
+            Assert.That(MilestonePrototypeController.WorkCompletionDay(work, tasks), Is.EqualTo(22));
+            Assert.That(MilestonePrototypeController.ShouldShowWorkInTaskPanel(work, tasks, 35), Is.True);
+            Assert.That(MilestonePrototypeController.ShouldShowWorkInTaskPanel(work, tasks, 36), Is.False);
+        }
+
+        [Test]
+        public void IncompleteWorkAlwaysRemainsInTaskPanel()
+        {
+            var work = new WorkGroup { Id = "active", State = WorkState.InProgress };
+            var tasks = new List<WorkTask>();
+
+            Assert.That(MilestonePrototypeController.ShouldShowWorkInTaskPanel(work, tasks, 999), Is.True);
+        }
+
+        [Test]
         public void CriticalEventChoiceChainAppliesEffectsAndAdvancesNodes()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();

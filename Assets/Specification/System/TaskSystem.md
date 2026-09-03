@@ -705,6 +705,11 @@ The Task application must present schedule information as a time-based Gantt vie
   future reservations show the reserved worker and start day.
 - A completed Task row continues to show the worker who completed it. Historical ownership does not
   imply that the worker is currently occupied by that Task.
+- A completed Task row uses a dimmed gray row background in both the fixed label column and the
+  timeline while remaining available to open for historical detail.
+- A completed Work remains in the Task panel through the first 13 elapsed days after its latest
+  required Task completion. Once 14 days have elapsed, the Work and all of its Task rows are removed
+  from the panel. This is presentation filtering only and does not delete completion history.
 - The Task name is immediately followed by Task state and the assigned worker's current condition.
 - On each assigned Task row, the current-day column anchors a worker activity slot showing the
   worker, current Task, and condition. The slot reserves separate portrait, status-icon, and border
