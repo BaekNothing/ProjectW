@@ -339,7 +339,7 @@ The current loader requires:
 - a valid first node, non-empty choices, positive total outcome weight, and valid next-node references
   for each critical event.
 
-The production data snapshot as of 2026-08-31 contains 20 Works, 39 Tasks, 4 crew members, 20
+The production data snapshot as of 2026-09-03 contains 1 Work, 1 Task, 4 crew members, 7
 authored mail entries, 7 critical-event chains, 32 Codex entries, and random word pools containing
 10 adjectives, 16 targets, and 16 actions. These counts describe the current artifact and are not
 schema limits.
