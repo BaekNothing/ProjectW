@@ -54,6 +54,7 @@ namespace ProjectW.MilestonePrototype
         public List<CrewMember> Crew { get; } = new List<CrewMember>();
         public List<WorkGroup> Groups { get; } = new List<WorkGroup>();
         public List<MailEvent> Mail { get; } = new List<MailEvent>();
+        private readonly List<MailEvent> pendingWeeklyFieldItems = new List<MailEvent>();
         public List<CodexEntry> Codex { get; } = new List<CodexEntry>();
         public List<string> DiscoveredTaskWordIds { get; } = new List<string>();
         public List<string> DiscoveredCrewTraitIds { get; } = new List<string>();
@@ -279,6 +280,7 @@ namespace ProjectW.MilestonePrototype
             Tasks.AddRange(data.Tasks);
             Crew.AddRange(data.Crew);
             if (data.Mail != null) Mail.AddRange(data.Mail);
+            ExtractWeeklyFieldItemsFromMail();
             Codex.AddRange(baseCodex);
             DiscoverCurrentCrewTraits();
             NormalizeLoadedData();
@@ -495,27 +497,35 @@ namespace ProjectW.MilestonePrototype
 
         private void ApplyStandardMailEffect(MailEvent mail)
         {
-            WorkGroup targetWork = Groups.FirstOrDefault(group => group.Id == mail.TargetWorkId);
-            if (targetWork == null && !string.IsNullOrWhiteSpace(mail.TargetTaskId))
+            ApplyStandardMailEffect(mail.TargetWorkId, mail.TargetTaskId, mail.DeadlineDelta,
+                mail.ResourceDelta, mail.From, mail.Instruction, mail.ActivatesWork, mail.ArrivalDay);
+        }
+
+        private void ApplyStandardMailEffect(string targetWorkId, string targetTaskId,
+            int deadlineDelta, int resourceDelta, string from, string instruction,
+            bool activatesWork, int arrivalDay)
+        {
+            WorkGroup targetWork = Groups.FirstOrDefault(group => group.Id == targetWorkId);
+            if (targetWork == null && !string.IsNullOrWhiteSpace(targetTaskId))
             {
-                WorkTask targetTask = Tasks.FirstOrDefault(task => task.Id == mail.TargetTaskId);
+                WorkTask targetTask = Tasks.FirstOrDefault(task => task.Id == targetTaskId);
                 targetWork = targetTask == null ? null : Groups.FirstOrDefault(group => group.Id == targetTask.GroupId);
             }
-            if (targetWork != null && mail.DeadlineDelta != 0)
+            if (targetWork != null && deadlineDelta != 0)
             {
-                targetWork.SoftDeadline = Math.Max(Day, targetWork.SoftDeadline + mail.DeadlineDelta);
-                targetWork.HardDeadline = Math.Max(targetWork.SoftDeadline, targetWork.HardDeadline + mail.DeadlineDelta);
+                targetWork.SoftDeadline = Math.Max(Day, targetWork.SoftDeadline + deadlineDelta);
+                targetWork.HardDeadline = Math.Max(targetWork.SoftDeadline, targetWork.HardDeadline + deadlineDelta);
                 foreach (WorkTask task in Tasks.Where(candidate => candidate.GroupId == targetWork.Id))
                 {
                     task.Deadline = targetWork.HardDeadline;
                     task.Importance = ImportanceLevel.High;
                     task.Risk = RiskLevel.High;
-                    AddRecord(task, mail.From, RecordKind.Issue, mail.Instruction);
+                    AddRecord(task, from, RecordKind.Issue, instruction);
                 }
             }
-            if (targetWork != null && mail.ActivatesWork && targetWork.AwaitingAcceptance)
+            if (targetWork != null && activatesWork && targetWork.AwaitingAcceptance)
             {
-                int acceptanceDelay = Math.Max(0, Day - mail.ArrivalDay);
+                int acceptanceDelay = Math.Max(0, Day - arrivalDay);
                 targetWork.SoftDeadline += acceptanceDelay;
                 targetWork.HardDeadline += acceptanceDelay;
                 targetWork.AwaitingAcceptance = false;
@@ -523,15 +533,14 @@ namespace ProjectW.MilestonePrototype
                     task.Deadline = targetWork.HardDeadline;
                 RefreshStates();
             }
-            Resources = Math.Max(0, Resources + mail.ResourceDelta);
+            Resources = Math.Max(0, Resources + resourceDelta);
         }
 
         public bool IsWeeklyFieldIncidentMail(MailEvent mail) => mail != null &&
             mail.DeadlineDelta != 0 && !mail.IsCritical && !mail.IsProposal &&
             !mail.ActivatesWork && !mail.IsBossRequest && !mail.IsWeeklyFieldReport;
 
-        public bool IsMailVisibleInInbox(MailEvent mail) => mail != null &&
-            mail.ArrivalDay <= Day && !IsWeeklyFieldIncidentMail(mail);
+        public bool IsMailVisibleInInbox(MailEvent mail) => mail != null && mail.ArrivalDay <= Day;
 
         public int UnreadMailCount() => Mail.Count(mail => IsMailVisibleInInbox(mail) && !mail.Read);
 
@@ -544,29 +553,34 @@ namespace ProjectW.MilestonePrototype
             foreach (WeeklyFieldDecisionItem candidate in report.WeeklyFieldItems)
                 if (candidate.SourceMailId == sourceMailId) item = candidate;
             if (item == null || item.Decided) return false;
-            MailEvent source = Mail.FirstOrDefault(mail => mail.Id == sourceMailId &&
-                IsWeeklyFieldIncidentMail(mail));
-            if (source == null || source.Resolved) return false;
-
-            source.Read = true;
-            source.Resolved = true;
             item.Decided = true;
             item.Approved = approve;
-            if (approve) ApplyStandardMailEffect(source);
+            if (approve)
+                ApplyStandardMailEffect(item.TargetWorkId, item.TargetTaskId, item.DeadlineDelta,
+                    item.ResourceDelta, item.From, item.Instruction, false, item.ArrivalDay);
             report.Read = true;
             report.Resolved = true;
             foreach (WeeklyFieldDecisionItem candidate in report.WeeklyFieldItems)
                 if (!candidate.Decided) report.Resolved = false;
-            Log($"주간 현장 안건 {(approve ? "승인" : "무시")}: {source.Subject}");
+            Log($"주간 현장 안건 {(approve ? "승인" : "무시")}: {item.Subject}");
             return true;
+        }
+
+        private void ExtractWeeklyFieldItemsFromMail()
+        {
+            List<MailEvent> sources = Mail.Where(IsWeeklyFieldIncidentMail).ToList();
+            foreach (MailEvent source in sources)
+            {
+                pendingWeeklyFieldItems.Add(source);
+                Mail.Remove(source);
+            }
         }
 
         private void DeliverWeeklyFieldReport()
         {
             if (CurrentWeekday != Weekday.Monday) return;
-            List<MailEvent> pending = Mail.Where(mail => IsWeeklyFieldIncidentMail(mail) &&
-                mail.ArrivalDay <= Day && !mail.Resolved && !mail.IncludedInWeeklyFieldReport)
-                .OrderBy(mail => mail.ArrivalDay).ToList();
+            List<MailEvent> pending = pendingWeeklyFieldItems
+                .Where(item => item.ArrivalDay <= Day).OrderBy(item => item.ArrivalDay).ToList();
             if (pending.Count == 0) return;
 
             var items = new WeeklyFieldDecisionItem[pending.Count];
@@ -574,19 +588,22 @@ namespace ProjectW.MilestonePrototype
             for (int i = 0; i < pending.Count; i++)
             {
                 MailEvent source = pending[i];
-                source.IncludedInWeeklyFieldReport = true;
                 if ((int)source.Risk > (int)reportRisk) reportRisk = source.Risk;
                 items[i] = new WeeklyFieldDecisionItem
                 {
                     SourceMailId = source.Id,
+                    ArrivalDay = source.ArrivalDay,
                     From = source.From,
                     Subject = source.Subject,
                     Body = source.Body,
                     Instruction = source.Instruction,
+                    TargetTaskId = source.TargetTaskId,
                     TargetWorkId = source.TargetWorkId,
                     DeadlineDelta = source.DeadlineDelta,
+                    ResourceDelta = source.ResourceDelta,
                     Risk = source.Risk
                 };
+                pendingWeeklyFieldItems.Remove(source);
             }
             Mail.Add(new MailEvent
             {
@@ -1840,6 +1857,7 @@ namespace ProjectW.MilestonePrototype
             Groups = Groups.ToArray(),
             Crew = Crew.ToArray(),
             Mail = Mail.ToArray(),
+            PendingWeeklyFieldItems = pendingWeeklyFieldItems.ToArray(),
             Log = SystemLog.ToArray(),
             AssignmentRules = AssignmentRules.ToArray(),
             DiscoveredTaskWordIds = DiscoveredTaskWordIds.ToArray(),
@@ -1874,6 +1892,10 @@ namespace ProjectW.MilestonePrototype
             for (int i = 0; i < restoredCrewCount; i++) restoredCrew[i] = snapshot.Crew[i];
             Crew.AddRange(restoredCrew);
             Mail.Clear(); Mail.AddRange(snapshot.Mail);
+            pendingWeeklyFieldItems.Clear();
+            if (snapshot.PendingWeeklyFieldItems != null)
+                pendingWeeklyFieldItems.AddRange(snapshot.PendingWeeklyFieldItems);
+            ExtractWeeklyFieldItemsFromMail();
             AssignmentRules.Clear();
             if (snapshot.AssignmentRules != null) AssignmentRules.AddRange(snapshot.AssignmentRules);
             DiscoveredTaskWordIds.Clear();

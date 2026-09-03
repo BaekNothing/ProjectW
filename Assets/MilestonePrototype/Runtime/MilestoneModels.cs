@@ -418,12 +418,15 @@ namespace ProjectW.MilestonePrototype
     public sealed class WeeklyFieldDecisionItem
     {
         public string SourceMailId;
+        public int ArrivalDay;
         public string From;
         public string Subject;
         public string Body;
         public string Instruction;
+        public string TargetTaskId;
         public string TargetWorkId;
         public int DeadlineDelta;
+        public int ResourceDelta;
         public RiskLevel Risk;
         public bool Decided;
         public bool Approved;
@@ -471,6 +474,7 @@ namespace ProjectW.MilestonePrototype
         public WorkGroup[] Groups;
         public CrewMember[] Crew;
         public MailEvent[] Mail;
+        public MailEvent[] PendingWeeklyFieldItems;
         public string[] Log;
         public AssignmentRule[] AssignmentRules;
         public string[] DiscoveredTaskWordIds;

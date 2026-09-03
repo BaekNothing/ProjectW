@@ -1879,7 +1879,17 @@ namespace ProjectW.MilestonePrototype.Tests
         [Test]
         public void ResolvingMailAppliesItsRuleOnlyOnce()
         {
-            var game = new MilestoneSimulation(1);
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Mail = data.Mail.Concat(new[]
+            {
+                new MailEvent
+                {
+                    Id = "mail-1", ArrivalDay = 1, From = "현장 운영실",
+                    Subject = "일정 조정", Instruction = "마감을 하루 앞당깁니다.",
+                    TargetWorkId = "foundation", DeadlineDelta = -1
+                }
+            }).ToArray();
+            var game = new MilestoneSimulation(data, 1);
             WorkGroup foundation = game.Groups.Find(group => group.Id == "foundation");
             int softDeadline = foundation.SoftDeadline;
             int hardDeadline = foundation.HardDeadline;
@@ -1887,6 +1897,7 @@ namespace ProjectW.MilestonePrototype.Tests
             MailEvent weekly = game.Mail.Find(mail => mail.IsWeeklyFieldReport);
             Assert.That(weekly, Is.Not.Null);
             Assert.That(weekly.Subject, Is.EqualTo("주간현장 현황공유"));
+            Assert.That(game.Mail.Exists(mail => mail.Id == "mail-1"), Is.False);
             Assert.That(game.ResolveMail("mail-1"), Is.False);
             Assert.That(game.DecideWeeklyFieldItem(weekly.Id, "mail-1", true), Is.True);
             Assert.That(foundation.SoftDeadline, Is.EqualTo(softDeadline - 1));
@@ -1901,7 +1912,17 @@ namespace ProjectW.MilestonePrototype.Tests
         [Test]
         public void WeeklyFieldIncidentCanBeIgnoredWithoutChangingSchedule()
         {
-            var game = new MilestoneSimulation(1);
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Mail = data.Mail.Concat(new[]
+            {
+                new MailEvent
+                {
+                    Id = "mail-1", ArrivalDay = 1, From = "현장 운영실",
+                    Subject = "일정 조정", Instruction = "마감을 하루 앞당깁니다.",
+                    TargetWorkId = "foundation", DeadlineDelta = -1
+                }
+            }).ToArray();
+            var game = new MilestoneSimulation(data, 1);
             WorkGroup foundation = game.Groups.Find(group => group.Id == "foundation");
             int softDeadline = foundation.SoftDeadline;
             int hardDeadline = foundation.HardDeadline;
@@ -1920,6 +1941,15 @@ namespace ProjectW.MilestonePrototype.Tests
             data.Balance.BaseSideMissionChance = 100;
             data.Balance.RandomWorkChanceScalePercent = 100;
             data.Balance.RandomWorkLimit = 1;
+            data.Mail = data.Mail.Concat(new[]
+            {
+                new MailEvent
+                {
+                    Id = "mail-4", ArrivalDay = 6, From = "현장 운영실",
+                    Subject = "일정 조정", Instruction = "마감을 하루 앞당깁니다.",
+                    TargetWorkId = "foundation", DeadlineDelta = -1
+                }
+            }).ToArray();
             var game = new MilestoneSimulation(data, 1);
 
             while (game.Day < 8) game.AdvanceDay();
@@ -1928,6 +1958,7 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(weekly, Is.Not.Null);
             Assert.That(weekly.WeeklyFieldItems, Has.Length.EqualTo(1));
             Assert.That(weekly.WeeklyFieldItems[0].SourceMailId, Is.EqualTo("mail-4"));
+            Assert.That(game.Mail.Exists(mail => mail.Id == "mail-4"), Is.False);
             Assert.That(game.Mail.Exists(mail => mail.IsBossRequest && !mail.IsWeeklyFieldReport), Is.True);
         }
 
@@ -1944,13 +1975,6 @@ namespace ProjectW.MilestonePrototype.Tests
             var game = new MilestoneSimulation(1);
             game.Mail.Clear();
             game.Mail.Add(new MailEvent { Id = "visible", ArrivalDay = game.Day, Read = false });
-            game.Mail.Add(new MailEvent
-            {
-                Id = "weekly-source",
-                ArrivalDay = game.Day,
-                DeadlineDelta = -1,
-                Read = false
-            });
             game.Mail.Add(new MailEvent { Id = "future", ArrivalDay = game.Day + 1, Read = false });
             game.Mail.Add(new MailEvent { Id = "read", ArrivalDay = game.Day, Read = true });
 

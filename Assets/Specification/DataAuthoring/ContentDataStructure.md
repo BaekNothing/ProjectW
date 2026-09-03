@@ -344,10 +344,11 @@ authored mail entries, 7 critical-event chains, 32 Codex entries, and random wor
 10 adjectives, 16 targets, and 16 actions. These counts describe the current artifact and are not
 schema limits.
 
-Weekly field-status report rows and their approval state are generated runtime state. Authors keep
-ordinary schedule-change incidents as normal `CoreMail` definitions with a non-zero deadline delta;
-the runtime groups eligible incidents each Monday. Critical events, boss requests, and mission mail
-remain separate and must not be authored as weekly report rows.
+Weekly field-status report rows and their approval state are generated runtime state. For schema
+compatibility, authors still enter ordinary schedule-change incidents as `CoreMail` definitions with
+a non-zero deadline delta. At runtime these definitions go into a pending weekly-item queue rather
+than the inbox; each Monday they are emitted only inside one `주간현장 현황공유` mail. Critical
+events, boss requests, and mission mail remain separate and must not be authored as weekly report rows.
 
 The current runtime validator does not yet enforce every proposed authoring rule, including all Work,
 Task, Mail, dependency, identity, difficulty, deadline, and workload checks. The future compiler must
