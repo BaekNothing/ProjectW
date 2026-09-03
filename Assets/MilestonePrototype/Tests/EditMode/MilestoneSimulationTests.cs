@@ -1122,7 +1122,10 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(game.ReadyMadeProposals, Has.Count.InRange(3, 4));
             Assert.That(nextBatchDay - firstBatchDay, Is.InRange(14, 21));
             Assert.That(game.ReadyMadeProposals.TrueForAll(item => item.ExpiresDay == expiryDay), Is.True);
-            Assert.That(game.Mail.Exists(mail => mail.Subject.Contains("새 제안 후보")), Is.True);
+            MailEvent notice = game.Mail.Find(mail => mail.Subject.Contains("새 제안 후보"));
+            Assert.That(notice, Is.Not.Null);
+            Assert.That(notice.IsProposal, Is.True);
+            Assert.That(game.ResolveMail(notice.Id), Is.False);
 
             while (game.Day <= expiryDay) game.AdvanceDay();
             Assert.That(game.ReadyMadeProposals, Is.Empty);

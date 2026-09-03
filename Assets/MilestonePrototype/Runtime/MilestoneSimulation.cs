@@ -684,7 +684,8 @@ namespace ProjectW.MilestonePrototype
                 Subject = $"새 제안 후보 {count}건 도착",
                 Body = $"제안서 앱에 바로 제출할 수 있는 후보 {count}건이 들어왔습니다. DAY {expiresDay}까지 하나를 선택할 수 있습니다.",
                 Instruction = "제안서 앱에서 후보를 검토하세요.",
-                Risk = RiskLevel.Low
+                Risk = RiskLevel.Low,
+                IsProposal = true
             });
             report?.Lines.Add($"레디메이드 제안 후보 {count}건 도착 · DAY {expiresDay} 소멸");
         }
