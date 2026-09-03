@@ -27,6 +27,7 @@ namespace ProjectW.MilestonePrototype
             public int Selected;
             public int SelectedCrew;
             public int ScheduleDay;
+            public bool UnreadOnly;
             public List<string> CollapsedCodexCategories = new List<string>();
             public bool InheritRegenerationAbilities;
             public bool InheritRegenerationPerks;
@@ -112,6 +113,8 @@ namespace ProjectW.MilestonePrototype
         private string editorNotice;
         private string categoryTransferText = string.Empty;
         private readonly TimedNotificationPresenter notifications = new TimedNotificationPresenter();
+        private readonly List<string> knownArrivedMailIds = new List<string>();
+        private bool mailNotificationTrackingReady;
         private readonly Texture2D[] crewPortraitTextures = new Texture2D[CrewPortraitCatalog.Count];
         private readonly Texture2D[] crewPortraitPartTextures =
             new Texture2D[CrewPortraitCatalog.ModularAssetCount];
@@ -126,6 +129,7 @@ namespace ProjectW.MilestonePrototype
             appTitles["data"] = "GAME DATA";
             game = new MilestoneSimulation();
             if (ProjectWSaveStore.TryLoadCampaign(CampaignSaveKey, out CampaignSnapshot snapshot)) game.Restore(snapshot);
+            ResetMailNotificationTracking();
             RestoreDesktop();
         }
 
@@ -245,6 +249,7 @@ namespace ProjectW.MilestonePrototype
                 return;
             }
             float notificationTime = Time.unscaledTime;
+            ShowNewMailNotification(notificationTime);
             notifications.Update(notificationTime);
             modalInputBlocked = notifications.HasPopup || game.HasPendingIncidentDecision;
             if (!modalInputBlocked) HandleWindowInput();
@@ -290,6 +295,7 @@ namespace ProjectW.MilestonePrototype
                 {
                     ProjectWSaveStore.Delete(CampaignSaveKey);
                     game = new MilestoneSimulation();
+                    ResetMailNotificationTracking();
                     confirmCampaignReset = false;
                 }
                 else confirmCampaignReset = true;
@@ -466,8 +472,20 @@ namespace ProjectW.MilestonePrototype
 
         private void DrawMail(DeskWindow window)
         {
-            List<MailEvent> arrived = game.Mail.Where(m => m.ArrivalDay <= game.Day &&
-                    !game.IsWeeklyFieldIncidentMail(m))
+            GUILayout.BeginHorizontal();
+            GUILayout.Label(window.UnreadOnly ? "안 읽은 메일만 표시 중" : "모든 메일 표시 중", small);
+            if (LayoutButton(window.UnreadOnly ? "[✓] 안 읽음만" : "[ ] 안 읽음만",
+                    GUILayout.Width(125f), GUILayout.Height(30f)))
+            {
+                window.UnreadOnly = !window.UnreadOnly;
+                window.Selected = 0;
+                window.Notice = null;
+            }
+            GUILayout.EndHorizontal();
+            GUILayout.Space(6f);
+
+            List<MailEvent> arrived = game.Mail.Where(m => game.IsMailVisibleInInbox(m) &&
+                    (!window.UnreadOnly || !m.Read))
                 .OrderBy(m => m.Read ? 1 : 0)
                 .ThenByDescending(m => m.ArrivalDay)
                 .ToList();
@@ -1842,6 +1860,7 @@ namespace ProjectW.MilestonePrototype
             {
                 ProjectWSaveStore.Delete(CampaignSaveKey);
                 game = new MilestoneSimulation();
+                ResetMailNotificationTracking();
                 SaveCampaign();
             }
         }
@@ -1965,6 +1984,7 @@ namespace ProjectW.MilestonePrototype
                     editorData = TaskSystemDataLoader.Load();
                     ProjectWSaveStore.Delete(CampaignSaveKey);
                     game = new MilestoneSimulation(editorData);
+                    ResetMailNotificationTracking();
                     confirmOverrideReset = false;
                     editorNotice = "Override removed; patch or embedded data reloaded.";
                 }
@@ -2009,6 +2029,7 @@ namespace ProjectW.MilestonePrototype
                 if (!reload) return;
                 ProjectWSaveStore.Delete(CampaignSaveKey);
                 game = new MilestoneSimulation(TaskSystemDataLoader.Load());
+                ResetMailNotificationTracking();
                 SaveCampaign();
                 confirmDataReload = false;
                 editorNotice = "Game data reloaded; a new campaign was created.";
@@ -2183,7 +2204,7 @@ namespace ProjectW.MilestonePrototype
                 x += 122;
                 if (x > logicalWidth - 330) break;
             }
-            int unread = game.Mail.Count(m => m.ArrivalDay <= game.Day && !m.Read);
+            int unread = game.UnreadMailCount();
             if (Button(new Rect(logicalWidth - 310, logicalHeight - 38, 95, 31), unread > 0 ? $"MAIL ({unread})" : "MAIL")) Open("mail");
             GUI.Label(new Rect(logicalWidth - 108, logicalHeight - 34, 100, 25),
                 $"D{game.Day:00} {MilestoneSimulation.WeekdayName(game.CurrentWeekday)}", small);
@@ -2194,6 +2215,41 @@ namespace ProjectW.MilestonePrototype
             game.AdvanceDay();
             if (game.MustResolveCriticalChoice) Open("mail");
             SaveCampaign();
+        }
+
+        private void ResetMailNotificationTracking()
+        {
+            knownArrivedMailIds.Clear();
+            foreach (MailEvent mail in game.Mail)
+                if (game.IsMailVisibleInInbox(mail)) knownArrivedMailIds.Add(mail.Id);
+            mailNotificationTrackingReady = true;
+        }
+
+        private void ShowNewMailNotification(float now)
+        {
+            if (!mailNotificationTrackingReady)
+            {
+                ResetMailNotificationTracking();
+                return;
+            }
+
+            MailEvent latest = null;
+            int newCount = 0;
+            foreach (MailEvent mail in game.Mail)
+            {
+                if (!game.IsMailVisibleInInbox(mail) || knownArrivedMailIds.Contains(mail.Id)) continue;
+                knownArrivedMailIds.Add(mail.Id);
+                latest = mail;
+                newCount++;
+            }
+            if (latest == null) return;
+
+            notifications.ShowToast(new TimedToastData
+            {
+                Title = newCount > 1 ? $"새 메일 {newCount}건" : "새 메일 도착",
+                Message = $"{latest.From} · {latest.Subject}",
+                DurationSeconds = 5f
+            }, now);
         }
 
         public static Rect NextDayButtonRect(float width, float height) =>
@@ -2563,7 +2619,7 @@ namespace ProjectW.MilestonePrototype
 
         private void RefreshDesktopBadges()
         {
-            SetDesktopBadgeCount("mail", game.Mail.Count(mail => mail.ArrivalDay <= game.Day && !mail.Read));
+            SetDesktopBadgeCount("mail", game.UnreadMailCount());
             SetDesktopBadgeCount("messenger", Mathf.Max(0, MessengerUpdateCount() - messengerSeenUpdateCount));
         }
 

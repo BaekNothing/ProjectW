@@ -530,6 +530,11 @@ namespace ProjectW.MilestonePrototype
             mail.DeadlineDelta != 0 && !mail.IsCritical && !mail.IsProposal &&
             !mail.ActivatesWork && !mail.IsBossRequest && !mail.IsWeeklyFieldReport;
 
+        public bool IsMailVisibleInInbox(MailEvent mail) => mail != null &&
+            mail.ArrivalDay <= Day && !IsWeeklyFieldIncidentMail(mail);
+
+        public int UnreadMailCount() => Mail.Count(mail => IsMailVisibleInInbox(mail) && !mail.Read);
+
         public bool DecideWeeklyFieldItem(string reportId, string sourceMailId, bool approve)
         {
             MailEvent report = Mail.FirstOrDefault(mail => mail.Id == reportId &&

@@ -1936,6 +1936,27 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void UnreadMailCountOnlyIncludesVisibleInboxMail()
+        {
+            var game = new MilestoneSimulation(1);
+            game.Mail.Clear();
+            game.Mail.Add(new MailEvent { Id = "visible", ArrivalDay = game.Day, Read = false });
+            game.Mail.Add(new MailEvent
+            {
+                Id = "weekly-source",
+                ArrivalDay = game.Day,
+                DeadlineDelta = -1,
+                Read = false
+            });
+            game.Mail.Add(new MailEvent { Id = "future", ArrivalDay = game.Day + 1, Read = false });
+            game.Mail.Add(new MailEvent { Id = "read", ArrivalDay = game.Day, Read = true });
+
+            Assert.That(game.UnreadMailCount(), Is.EqualTo(1));
+            game.MarkMailRead("visible");
+            Assert.That(game.UnreadMailCount(), Is.Zero);
+        }
+
+        [Test]
         public void SnapshotRestoresCampaignState()
         {
             var original = new MilestoneSimulation(1);
