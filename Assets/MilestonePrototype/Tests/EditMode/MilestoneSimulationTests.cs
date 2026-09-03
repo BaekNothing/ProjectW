@@ -1126,6 +1126,9 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(notice, Is.Not.Null);
             Assert.That(notice.IsProposal, Is.True);
             Assert.That(game.ResolveMail(notice.Id), Is.False);
+            game.MarkMailRead(notice.Id);
+            Assert.That(notice.Read, Is.True);
+            Assert.That(notice.Resolved, Is.True);
 
             while (game.Day <= expiryDay) game.AdvanceDay();
             Assert.That(game.ReadyMadeProposals, Is.Empty);

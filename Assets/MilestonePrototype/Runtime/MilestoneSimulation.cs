@@ -832,7 +832,11 @@ namespace ProjectW.MilestonePrototype
         public void MarkMailRead(string mailId)
         {
             MailEvent mail = Mail.FirstOrDefault(item => item.Id == mailId && item.ArrivalDay <= Day);
-            if (mail != null) mail.Read = true;
+            if (mail == null) return;
+            mail.Read = true;
+            if (mail.IsProposal && mail.ProposalStage == ProposalStage.None &&
+                string.IsNullOrEmpty(mail.TargetWorkId))
+                mail.Resolved = true;
         }
 
         public CriticalEventNode ActiveCriticalNode()
