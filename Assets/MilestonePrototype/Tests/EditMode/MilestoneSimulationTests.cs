@@ -1880,7 +1880,7 @@ namespace ProjectW.MilestonePrototype.Tests
         public void ResolvingMailAppliesItsRuleOnlyOnce()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
-            data.Mail = data.Mail.Concat(new[]
+            data.Mail = new[]
             {
                 new MailEvent
                 {
@@ -1888,7 +1888,7 @@ namespace ProjectW.MilestonePrototype.Tests
                     Subject = "일정 조정", Instruction = "마감을 하루 앞당깁니다.",
                     TargetWorkId = "foundation", DeadlineDelta = -1
                 }
-            }).ToArray();
+            };
             var game = new MilestoneSimulation(data, 1);
             WorkGroup foundation = game.Groups.Find(group => group.Id == "foundation");
             int softDeadline = foundation.SoftDeadline;
@@ -1913,7 +1913,7 @@ namespace ProjectW.MilestonePrototype.Tests
         public void WeeklyFieldIncidentCanBeIgnoredWithoutChangingSchedule()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
-            data.Mail = data.Mail.Concat(new[]
+            data.Mail = new[]
             {
                 new MailEvent
                 {
@@ -1921,7 +1921,7 @@ namespace ProjectW.MilestonePrototype.Tests
                     Subject = "일정 조정", Instruction = "마감을 하루 앞당깁니다.",
                     TargetWorkId = "foundation", DeadlineDelta = -1
                 }
-            }).ToArray();
+            };
             var game = new MilestoneSimulation(data, 1);
             WorkGroup foundation = game.Groups.Find(group => group.Id == "foundation");
             int softDeadline = foundation.SoftDeadline;
@@ -1941,7 +1941,7 @@ namespace ProjectW.MilestonePrototype.Tests
             data.Balance.BaseSideMissionChance = 100;
             data.Balance.RandomWorkChanceScalePercent = 100;
             data.Balance.RandomWorkLimit = 1;
-            data.Mail = data.Mail.Concat(new[]
+            data.Mail = new[]
             {
                 new MailEvent
                 {
@@ -1949,7 +1949,7 @@ namespace ProjectW.MilestonePrototype.Tests
                     Subject = "일정 조정", Instruction = "마감을 하루 앞당깁니다.",
                     TargetWorkId = "foundation", DeadlineDelta = -1
                 }
-            }).ToArray();
+            };
             var game = new MilestoneSimulation(data, 1);
 
             while (game.Day < 8) game.AdvanceDay();
