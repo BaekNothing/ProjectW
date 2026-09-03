@@ -32,7 +32,7 @@
     "MediumFatigueAccidentChance": 10,
     "MismatchAccidentChance": 6,
     "SideMissionLimit": 3,
-    "BaseSideMissionChance": 30,
+    "BaseSideMissionChance": 1,
     "RandomWorkLimit": 3,
     "RandomWorkMinSoftDays": 3,
     "RandomWorkMaxSoftDays": 6,
@@ -1398,6 +1398,98 @@
       "Risk": 1,
       "Importance": 1,
       "Difficulty": 2
+    }
+  ],
+  "PerkDefinitions": [
+    {
+      "Name": "정밀 정비",
+      "Description": "작업 50%·100% 시점 돌발 확률 ×0.65",
+      "IncidentStartMultiplier": 1,
+      "IncidentHalfMultiplier": 0.65,
+      "IncidentCompleteMultiplier": 0.65,
+      "FatigueCostMultiplier": 1,
+      "RestRecoveryMultiplier": 1,
+      "WeekendRecoveryMultiplier": 1
+    },
+    {
+      "Name": "안전 우선",
+      "Description": "모든 시점 돌발 확률 ×0.7, 작업 피로 ×1.1",
+      "IncidentStartMultiplier": 0.7,
+      "IncidentHalfMultiplier": 0.7,
+      "IncidentCompleteMultiplier": 0.7,
+      "FatigueCostMultiplier": 1.1,
+      "RestRecoveryMultiplier": 1,
+      "WeekendRecoveryMultiplier": 1
+    },
+    {
+      "Name": "현장 분석",
+      "Description": "작업 0% 시점 돌발 확률 ×0.6",
+      "IncidentStartMultiplier": 0.6,
+      "IncidentHalfMultiplier": 1,
+      "IncidentCompleteMultiplier": 1,
+      "FatigueCostMultiplier": 1,
+      "RestRecoveryMultiplier": 1,
+      "WeekendRecoveryMultiplier": 1
+    },
+    {
+      "Name": "위험 감지",
+      "Description": "작업 50%·100% 시점 돌발 확률 ×0.7",
+      "IncidentStartMultiplier": 1,
+      "IncidentHalfMultiplier": 0.7,
+      "IncidentCompleteMultiplier": 0.7,
+      "FatigueCostMultiplier": 1,
+      "RestRecoveryMultiplier": 1,
+      "WeekendRecoveryMultiplier": 1
+    },
+    {
+      "Name": "일정 조율",
+      "Description": "모든 시점 돌발 확률 ×0.85, 작업 피로 ×0.85",
+      "IncidentStartMultiplier": 0.85,
+      "IncidentHalfMultiplier": 0.85,
+      "IncidentCompleteMultiplier": 0.85,
+      "FatigueCostMultiplier": 0.85,
+      "RestRecoveryMultiplier": 1,
+      "WeekendRecoveryMultiplier": 1
+    },
+    {
+      "Name": "신뢰 형성",
+      "Description": "일반 휴식 회복 ×1.25, 주말 회복 ×1.1",
+      "IncidentStartMultiplier": 1,
+      "IncidentHalfMultiplier": 1,
+      "IncidentCompleteMultiplier": 1,
+      "FatigueCostMultiplier": 1,
+      "RestRecoveryMultiplier": 1.25,
+      "WeekendRecoveryMultiplier": 1.1
+    },
+    {
+      "Name": "환경 적응",
+      "Description": "작업 피로 ×0.75, 주말 회복 ×1.3",
+      "IncidentStartMultiplier": 1,
+      "IncidentHalfMultiplier": 1,
+      "IncidentCompleteMultiplier": 1,
+      "FatigueCostMultiplier": 0.75,
+      "RestRecoveryMultiplier": 1,
+      "WeekendRecoveryMultiplier": 1.3
+    },
+    {
+      "Name": "위기 대응",
+      "Description": "작업 50%·100% 시점 돌발 확률 ×0.8, 작업 피로 ×1.15",
+      "IncidentStartMultiplier": 1,
+      "IncidentHalfMultiplier": 0.8,
+      "IncidentCompleteMultiplier": 0.8,
+      "FatigueCostMultiplier": 1.15,
+      "RestRecoveryMultiplier": 1,
+      "WeekendRecoveryMultiplier": 1
+    },
+    {
+      "Name": "서투름",
+      "Description": "작업 50%·100% 시점 돌발 확률 ×3, 작업 피로 ×1.15",
+      "IncidentStartMultiplier": 1,
+      "IncidentHalfMultiplier": 3,
+      "IncidentCompleteMultiplier": 3,
+      "FatigueCostMultiplier": 1.15,
+      "RestRecoveryMultiplier": 1,
+      "WeekendRecoveryMultiplier": 1
     }
   ],
   "Crew": [

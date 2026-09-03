@@ -46,6 +46,7 @@ namespace ProjectW.MilestonePrototype
         public int ScheduledWorker = -1;
         public int StartedDay;
         public int CompletedDay;
+        public int IncidentCheckpointMask;
         public string GeneratedAdjectiveId;
         public string GeneratedTargetId;
         public string GeneratedActionId;
@@ -227,6 +228,27 @@ namespace ProjectW.MilestonePrototype
         public RandomTaskAction[] Actions;
     }
 
+    [Serializable]
+    public sealed class PerkDefinition
+    {
+        public string Name;
+        public string Description;
+        public float IncidentStartMultiplier = 1f;
+        public float IncidentHalfMultiplier = 1f;
+        public float IncidentCompleteMultiplier = 1f;
+        public float FatigueCostMultiplier = 1f;
+        public float RestRecoveryMultiplier = 1f;
+        public float WeekendRecoveryMultiplier = 1f;
+    }
+
+    public sealed class IncidentChancePreview
+    {
+        public int CheckpointPercent;
+        public int ChanceBasisPoints;
+        public float TotalMultiplier;
+        public string Formula;
+    }
+
     public sealed class TaskCostPreview
     {
         public float RemainingDays;
@@ -313,6 +335,7 @@ namespace ProjectW.MilestonePrototype
         public WorkGroup[] Works;
         public WorkTask[] Tasks;
         public CrewMember[] Crew;
+        public PerkDefinition[] PerkDefinitions;
         public RandomTaskWordPool RandomTaskWords;
         public MailEvent[] Mail;
         public CriticalEventDefinition[] CriticalEvents;

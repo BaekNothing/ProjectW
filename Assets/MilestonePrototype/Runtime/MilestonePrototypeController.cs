@@ -1489,7 +1489,7 @@ namespace ProjectW.MilestonePrototype
                 GUILayout.Label("보유 퍽 없음", small);
             else
                 foreach (string perk in member.Perks)
-                    GUILayout.Label($"• {perk}");
+                    GUILayout.Label($"• {perk} — {game.PerkDescription(perk)}", small);
 
             DrawSectionRule();
             GUILayout.Label("작업 히스토리", section);
@@ -2048,13 +2048,13 @@ namespace ProjectW.MilestonePrototype
             DrawTableHeader("FIELD", "VALUE", "FIELD", "VALUE", "FIELD", "VALUE");
             GUILayout.BeginHorizontal();
             GUILayout.Label("Start resources", GUILayout.Width(130)); EditInt(ref editorData.StartingResources, 70);
-            GUILayout.Label("Side mission %", GUILayout.Width(130)); EditInt(ref balance.BaseSideMissionChance, 70);
+            GUILayout.Label("Incident base %", GUILayout.Width(130)); EditInt(ref balance.BaseSideMissionChance, 70);
             GUILayout.Label("Accident high %", GUILayout.Width(130)); EditInt(ref balance.HighFatigueAccidentChance, 70);
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
             GUILayout.Label("Fresh failure %", GUILayout.Width(130)); EditInt(ref balance.FreshLowOutputChance, 70);
             GUILayout.Label("Fresh great %", GUILayout.Width(130)); EditInt(ref balance.FreshHighOutputChance, 70);
-            GUILayout.Label("Random work scale %", GUILayout.Width(130)); EditInt(ref balance.RandomWorkChanceScalePercent, 70);
+            GUILayout.Label("Random work limit", GUILayout.Width(130)); EditInt(ref balance.RandomWorkLimit, 70);
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
             GUILayout.Label("Failure output", GUILayout.Width(130)); EditFloat(ref balance.LowOutputMultiplier, 70);

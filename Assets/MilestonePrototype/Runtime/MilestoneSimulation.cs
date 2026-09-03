@@ -6,6 +6,8 @@ namespace ProjectW.MilestonePrototype
 {
     public sealed class MilestoneSimulation
     {
+        private enum PerkEffect { Fatigue, RestRecovery, WeekendRecovery }
+
         public const int CriticalResponseWindowDays = 7;
         public const int TeamSize = 4;
         private readonly Random random;
@@ -24,6 +26,7 @@ namespace ProjectW.MilestonePrototype
         private readonly WorkTask[] baseTasks;
         private readonly CodexEntry[] baseCodex;
         private readonly CriticalEventDefinition[] criticalEvents;
+        private readonly PerkDefinition[] perkDefinitions;
         private int nextRandomWorkId;
         private int nextReadyProposalId;
         private int nextProposalBatchDay;
@@ -244,6 +247,7 @@ namespace ProjectW.MilestonePrototype
             baseTasks = data.Tasks;
             baseCodex = data.Codex ?? new CodexEntry[0];
             criticalEvents = data.CriticalEvents ?? new CriticalEventDefinition[0];
+            perkDefinitions = data.PerkDefinitions ?? new PerkDefinition[0];
             crewPortraits = new string[data.Crew.Length];
             crewPortraitAddresses = new string[data.Crew.Length];
             crewPersonalities = new string[data.Crew.Length];
@@ -1095,18 +1099,22 @@ namespace ProjectW.MilestonePrototype
                 if (member.InjuryDays > 0) member.InjuryDays--;
                 if (weekendRest && !allOutAssignment)
                 {
-                    member.Fatigue = Math.Max(0, member.Fatigue - balance.WeekendFatigueRecovery);
+                    int fatigueRecovery = ScalePerkValue(balance.WeekendFatigueRecovery,
+                        PerkMultiplier(member, PerkEffect.WeekendRecovery));
+                    member.Fatigue = Math.Max(0, member.Fatigue - fatigueRecovery);
                     member.Mental = Math.Min(100, member.Mental + balance.WeekendMentalRecovery);
                     if (member.InjuryDays > 0 && random.Next(100) < balance.WeekendInjuryRecoveryChance)
                         member.InjuryDays = 0;
-                    report.Lines.Add($"{member.Name}: 주말 휴식 · 피로/멘탈 회복");
+                    report.Lines.Add($"{member.Name}: 주말 휴식 · 피로 {fatigueRecovery}/멘탈 회복");
                 }
                 else if (medicalLeave)
                     report.Lines.Add($"{member.Name}: 일정 외 검진으로 당일 작업 중단");
                 if (!member.RestScheduled) continue;
-                member.Fatigue = Math.Max(0, member.Fatigue - balance.RestRecovery);
+                int restRecovery = ScalePerkValue(balance.RestRecovery,
+                    PerkMultiplier(member, PerkEffect.RestRecovery));
+                member.Fatigue = Math.Max(0, member.Fatigue - restRecovery);
                 member.RestScheduled = false;
-                report.Lines.Add($"{member.Name}: 휴식으로 피로 회복");
+                report.Lines.Add($"{member.Name}: 휴식으로 피로 {restRecovery} 회복");
             }
 
             foreach (WorkTask task in Tasks.Where(candidate =>
@@ -1129,7 +1137,6 @@ namespace ProjectW.MilestonePrototype
             ApplyDeadlineResults(report);
             ApplyMidpointReview(report);
             RefreshStates();
-            TriggerRandomWork(report);
             DeliverScheduledCriticalMail();
             TriggerCriticalEvent();
             LastReport = report;
@@ -1911,6 +1918,7 @@ namespace ProjectW.MilestonePrototype
 
             if (task.StartedDay <= 0) task.StartedDay = Day;
             task.State = TaskState.Active;
+            TryTriggerIncidentCheckpoint(task, member, 0, report);
             bool matched = member.Specialty == task.RequiredRole;
             float baseOutput = member.DailyOutput > 0f ? member.DailyOutput : 1f;
             baseOutput *= task.IsParallelAssignment
@@ -1943,6 +1951,8 @@ namespace ProjectW.MilestonePrototype
             if (task.IsParallelAssignment) fatigue += balance.ParallelFatigue;
             if (ParentWork(task)?.SoftDeadlineMissed == true) fatigue += balance.SoftDeadlineFatigue;
             if (workdayMultiplier < 1f) fatigue /= 2;
+            fatigue = ScalePerkValue(fatigue,
+                PerkMultiplier(member, PerkEffect.Fatigue));
 
             task.Progress = Math.Min(task.EffectiveRequiredWork, task.Progress + progress);
             task.LastOutput = progress;
@@ -1970,6 +1980,10 @@ namespace ProjectW.MilestonePrototype
             {
                 CompleteTask(task, member, report);
             }
+            if (task.Completion + .001f >= .5f)
+                TryTriggerIncidentCheckpoint(task, member, 50, report);
+            if (task.State == TaskState.Complete)
+                TryTriggerIncidentCheckpoint(task, member, 100, report);
         }
 
         private void CompleteTask(WorkTask task, CrewMember member, DayReport report)
@@ -2245,35 +2259,97 @@ namespace ProjectW.MilestonePrototype
             }
         }
 
-        private void TriggerRandomWork(DayReport report)
+        public IncidentChancePreview BuildIncidentChance(CrewMember member, int checkpointPercent)
+        {
+            float multiplier = 1f;
+            string formula = $"기본 {balance.BaseSideMissionChance}%";
+            if (member != null && member.Perks != null)
+            {
+                foreach (string perkName in member.Perks)
+                {
+                    PerkDefinition definition = FindPerkDefinition(perkName);
+                    if (definition == null) continue;
+                    float factor = checkpointPercent == 0
+                        ? definition.IncidentStartMultiplier
+                        : checkpointPercent == 50
+                            ? definition.IncidentHalfMultiplier
+                            : definition.IncidentCompleteMultiplier;
+                    if (Math.Abs(factor - 1f) < .001f) continue;
+                    multiplier *= factor;
+                    formula += $" × {definition.Name} {factor:0.##}";
+                }
+            }
+            int chanceBasisPoints = (int)(balance.BaseSideMissionChance * 100f * multiplier + .5f);
+            chanceBasisPoints = Math.Max(0, Math.Min(10000, chanceBasisPoints));
+            return new IncidentChancePreview
+            {
+                CheckpointPercent = checkpointPercent,
+                ChanceBasisPoints = chanceBasisPoints,
+                TotalMultiplier = multiplier,
+                Formula = formula
+            };
+        }
+
+        public string PerkDescription(string perkName)
+        {
+            PerkDefinition definition = FindPerkDefinition(perkName);
+            return definition?.Description ?? "효과 정의 없음";
+        }
+
+        private void TryTriggerIncidentCheckpoint(
+            WorkTask sourceTask, CrewMember member, int checkpointPercent, DayReport report)
+        {
+            int bit = checkpointPercent == 0 ? 1 : checkpointPercent == 50 ? 2 : 4;
+            if ((sourceTask.IncidentCheckpointMask & bit) != 0) return;
+            sourceTask.IncidentCheckpointMask |= bit;
+            if (AvailableRandomWorkSlots() <= 0) return;
+
+            IncidentChancePreview chance = BuildIncidentChance(member, checkpointPercent);
+            if (chance.ChanceBasisPoints <= 0) return;
+            if (chance.ChanceBasisPoints < 10000 && random.Next(10000) >= chance.ChanceBasisPoints) return;
+            string cause = $"{member.Name} 담당자의 {sourceTask.Name} 작업 {checkpointPercent}% 시점에서 발생 · " +
+                           $"현재 배율 ×{chance.TotalMultiplier:0.##} ({chance.Formula}) · " +
+                           $"최종 확률 {chance.ChanceBasisPoints / 100f:0.##}%";
+            AddRecord(sourceTask, member.Name, RecordKind.Issue, "돌발상황 발생 · " + cause);
+            CreateRandomWork(report, cause);
+        }
+
+        private int AvailableRandomWorkSlots()
         {
             int generatedWorkCount = Groups.Count(group => group.Id != null &&
                 group.Id.StartsWith("random-work-") && group.State != WorkState.Complete &&
                 group.State != WorkState.Failed);
-            int availableSlots = Math.Max(0, balance.RandomWorkLimit - generatedWorkCount);
-            if (availableSlots <= 0) return;
-
-            int remainingSideMissions = Tasks.Count(task =>
-            {
-                if (task.Kind != TaskKind.SideMission || task.State == TaskState.Complete ||
-                    task.State == TaskState.Failed) return false;
-                WorkGroup parent = ParentWork(task);
-                return parent != null && parent.State != WorkState.Complete &&
-                       parent.State != WorkState.Failed;
-            });
-            int overdue = Groups.Count(group => group.SoftDeadlineMissed &&
-                                                group.State != WorkState.Complete);
-            int exhausted = Crew.Count(member => member.Fatigue >= 55);
-            int rawChance = balance.BaseSideMissionChance + overdue * 8 + exhausted * 4;
-            int scaledChanceBasisPoints = Math.Min(100, rawChance) *
-                                          balance.RandomWorkChanceScalePercent;
-            if (random.Next(10000) >= scaledChanceBasisPoints) return;
-            int batchSize = 1;
-
-            for (int i = 0; i < batchSize; i++) CreateRandomWork(report);
+            return Math.Max(0, balance.RandomWorkLimit - generatedWorkCount);
         }
 
-        private void CreateRandomWork(DayReport report)
+        private PerkDefinition FindPerkDefinition(string perkName)
+        {
+            foreach (PerkDefinition definition in perkDefinitions)
+                if (definition != null && definition.Name == perkName) return definition;
+            return null;
+        }
+
+        private float PerkMultiplier(CrewMember member, PerkEffect effect)
+        {
+            float multiplier = 1f;
+            if (member?.Perks == null) return multiplier;
+            foreach (string perkName in member.Perks)
+            {
+                PerkDefinition definition = FindPerkDefinition(perkName);
+                if (definition == null) continue;
+                multiplier *= effect == PerkEffect.Fatigue
+                    ? definition.FatigueCostMultiplier
+                    : effect == PerkEffect.RestRecovery
+                        ? definition.RestRecoveryMultiplier
+                        : definition.WeekendRecoveryMultiplier;
+            }
+            return multiplier;
+        }
+
+        private static int ScalePerkValue(int value, float multiplier) =>
+            Math.Max(0, (int)(value * multiplier + .5f));
+
+        private void CreateRandomWork(DayReport report, string cause)
         {
             int id = ++nextRandomWorkId;
             int taskCount = random.Next(2, 5);
@@ -2351,7 +2427,8 @@ namespace ProjectW.MilestonePrototype
                 ArrivalDay = Day,
                 From = "사장실",
                 Subject = $"돌발임무 결정: {work.Name}",
-                Body = $"사장실에서 {taskCount}개 실행 단계로 구성된 돌발임무의 즉시 결정을 요청했습니다. 성공 보상은 자원 {reward}입니다.",
+                Body = $"사장실에서 {taskCount}개 실행 단계로 구성된 돌발임무의 즉시 결정을 요청했습니다. " +
+                       $"성공 보상은 자원 {reward}입니다.\n\n발생 원인: {cause}",
                 Instruction = "즉시 결정 팝업에서 승인 또는 거절을 선택하세요.",
                 TargetTaskId = firstTask.Id,
                 TargetWorkId = work.Id,
@@ -2362,7 +2439,7 @@ namespace ProjectW.MilestonePrototype
                 ProposalStage = ProposalStage.None
             });
             RefreshStates();
-            report.Lines.Add($"돌발임무 결정 요청: {work.Name} ({taskCount}개 실행 단계)");
+            report.Lines.Add($"돌발임무 결정 요청: {work.Name} ({taskCount}개 실행 단계) · {cause}");
         }
 
         private RandomTaskAction SelectRandomAction(WorkRole role)
@@ -2619,6 +2696,12 @@ namespace ProjectW.MilestonePrototype
                 }
                 if (task.State == TaskState.Complete && task.CompletedDay <= 0)
                     task.CompletedDay = Math.Max(task.StartedDay, Day - 1);
+                if (task.IncidentCheckpointMask == 0)
+                {
+                    if (task.StartedDay > 0 || task.Progress > 0f) task.IncidentCheckpointMask |= 1;
+                    if (task.Completion + .001f >= .5f) task.IncidentCheckpointMask |= 2;
+                    if (task.State == TaskState.Complete) task.IncidentCheckpointMask |= 4;
+                }
                 BackfillGeneratedWordIds(task);
                 BackfillRequiredCompetencies(task);
                 task.Records = task.Records ?? new List<TaskRecord>();

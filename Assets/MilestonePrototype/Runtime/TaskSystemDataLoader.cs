@@ -89,6 +89,7 @@ namespace ProjectW.MilestonePrototype
             if (data == null || data.SchemaVersion != SupportedSchema)
                 throw new InvalidOperationException($"Unsupported task-system schema {data?.SchemaVersion ?? 0}.");
             if (data.Balance == null || data.Works == null || data.Tasks == null || data.Crew == null ||
+                data.PerkDefinitions == null || data.PerkDefinitions.Length == 0 ||
                 data.Codex == null || data.Codex.Length == 0 ||
                 data.RandomTaskWords == null ||
                 data.RandomTaskWords.Adjectives == null || data.RandomTaskWords.Adjectives.Length == 0 ||
@@ -112,6 +113,30 @@ namespace ProjectW.MilestonePrototype
                     if (competency < 0 || competency > CrewMember.MaximumCompetency)
                         throw new InvalidOperationException(
                             $"Crew competencies must be between 0 and {CrewMember.MaximumCompetency}.");
+                if (member.Perks != null)
+                    foreach (string perkName in member.Perks)
+                    {
+                        bool found = false;
+                        foreach (PerkDefinition definition in data.PerkDefinitions)
+                            if (definition != null && definition.Name == perkName) found = true;
+                        if (!found)
+                            throw new InvalidOperationException($"Crew perk '{perkName}' has no definition.");
+                    }
+            }
+            for (int index = 0; index < data.PerkDefinitions.Length; index++)
+            {
+                PerkDefinition definition = data.PerkDefinitions[index];
+                if (definition == null || string.IsNullOrWhiteSpace(definition.Name) ||
+                    definition.IncidentStartMultiplier < 0f ||
+                    definition.IncidentHalfMultiplier < 0f ||
+                    definition.IncidentCompleteMultiplier < 0f ||
+                    definition.FatigueCostMultiplier < 0f ||
+                    definition.RestRecoveryMultiplier < 0f ||
+                    definition.WeekendRecoveryMultiplier < 0f)
+                    throw new InvalidOperationException("Every perk requires a name and non-negative multipliers.");
+                for (int previous = 0; previous < index; previous++)
+                    if (data.PerkDefinitions[previous].Name == definition.Name)
+                        throw new InvalidOperationException($"Perk definition '{definition.Name}' is duplicated.");
             }
             foreach (WorkTask task in data.Tasks)
                 ValidateRequiredCompetencies(task?.RequiredCompetencies, "Every Task");

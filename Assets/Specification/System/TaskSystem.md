@@ -91,6 +91,10 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
   options for additional data-driven costs. Ability inheritance preserves specialty, skill,
   competencies, and daily output; perk inheritance preserves the current perk array. Any unselected
   layer returns to that roster slot's initial external-data definition.
+- Perks are resolved through external `PerkDefinitions`. Each definition may independently multiply
+  incident probability at the 0%, 50%, and 100% Task checkpoints, fatigue paid for work, ordinary
+  rest recovery, and weekend recovery. All applicable perk values multiply together; they are not
+  added or reduced to a single best/worst perk.
 - Regeneration rerolls personality. The previous personality has a data-driven retention weight;
   when it is not retained, one of the other roster-defined personalities is selected uniformly.
 - Assignment and Task context survive regeneration. Fatigue, injury, scheduled rest, Experience,
@@ -619,8 +623,16 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 - Remaining side missions are available or active Tasks whose `TaskKind` is `SideMission`
   and whose parent Work is neither complete nor failed. Urgent/incident missions are not side
   missions and never satisfy this inventory check.
-- The boss may probabilistically send one structured inbound request, bounded by the random-Work
-  limit. It opens an immediate modal decision popup instead of waiting in the mail application.
+- A Task checks for a structured inbound incident exactly once when work first begins at 0%, once
+  when final progress first reaches or crosses 50%, and once when it reaches 100%. There is no daily
+  background incident roll. Each check starts from the externally configured base probability,
+  default `1%`, then multiplicatively applies every checkpoint-specific perk on the assigned worker.
+- A successful check creates one boss request, bounded by the random-Work limit, and opens an
+  immediate modal decision popup instead of waiting in the mail application. A consumed checkpoint
+  is saved even when its roll fails or the queue is full, so it cannot be rerolled by reassigning or
+  restoring the Task.
+- The request mail, day report, and source Task record identify the worker, source Task, checkpoint,
+  total multiplier, full multiplication expression, and final probability that caused the incident.
 - The incident popup blocks day advancement and every background control until the PM chooses
   `일함 / 승인` or `거절`. It displays the current day, current resources, reward, refusal cost,
   workload, child Tasks, and soft/hard deadlines.

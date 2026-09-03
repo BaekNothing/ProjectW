@@ -20,7 +20,10 @@ namespace ProjectW.MilestonePrototype
             };
             switch (category)
             {
-                case Characters: transfer.Crew = source.Crew; break;
+                case Characters:
+                    transfer.Crew = source.Crew;
+                    transfer.PerkDefinitions = source.PerkDefinitions;
+                    break;
                 case Balance: transfer.Balance = source.Balance; break;
                 case CriticalEvents: transfer.CriticalEvents = source.CriticalEvents; break;
                 case Mail: transfer.Mail = source.Mail; break;
@@ -50,6 +53,9 @@ namespace ProjectW.MilestonePrototype
                     case Characters:
                         if (transfer.Crew == null) throw new InvalidOperationException("Characters JSON requires Crew.");
                         candidate.Crew = transfer.Crew;
+                        if (transfer.PerkDefinitions == null)
+                            throw new InvalidOperationException("Characters JSON requires PerkDefinitions.");
+                        candidate.PerkDefinitions = transfer.PerkDefinitions;
                         EnsureUniqueCrew(candidate.Crew);
                         break;
                     case Balance:

@@ -69,6 +69,71 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void IncidentPerkMultipliersStackMultiplicativelyAtEachCheckpoint()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.BaseSideMissionChance = 1;
+            PerkDefinition first = Array.Find(data.PerkDefinitions, perk => perk.Name == "정밀 정비");
+            PerkDefinition second = Array.Find(data.PerkDefinitions, perk => perk.Name == "안전 우선");
+            first.IncidentHalfMultiplier = 3f;
+            second.IncidentHalfMultiplier = 2f;
+            var game = new MilestoneSimulation(data, 1);
+            CrewMember member = game.Crew[0];
+
+            IncidentChancePreview chance = game.BuildIncidentChance(member, 50);
+
+            Assert.That(chance.TotalMultiplier, Is.EqualTo(6f).Within(.001f));
+            Assert.That(chance.ChanceBasisPoints, Is.EqualTo(600));
+            Assert.That(chance.Formula, Does.Contain("정밀 정비 3").And.Contain("안전 우선 2"));
+        }
+
+        [Test]
+        public void TaskConsumesZeroHalfAndCompleteIncidentCheckpointsOnlyOnce()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.BaseSideMissionChance = 0;
+            data.Balance.RandomWorkLimit = 3;
+            DisableAccidents(data);
+            var game = new MilestoneSimulation(data, 1);
+            game.SetCompetencyAutoAssignment(false);
+            WorkTask survey = game.Tasks.Find(task => task.Id == "survey");
+            game.Crew[1].DailyOutput = survey.EffectiveRequiredWork;
+            Assert.That(game.Assign(survey.Id, 1), Is.True);
+
+            game.AdvanceDay();
+
+            Assert.That(survey.State, Is.EqualTo(TaskState.Complete));
+            Assert.That(survey.IncidentCheckpointMask, Is.EqualTo(7));
+            CampaignSnapshot snapshot = game.CreateSnapshot();
+            var restored = new MilestoneSimulation(data, 2);
+            Assert.That(restored.Restore(snapshot), Is.True);
+            Assert.That(restored.Tasks.Find(task => task.Id == survey.Id).IncidentCheckpointMask,
+                Is.EqualTo(7));
+        }
+
+        [Test]
+        public void GeneratedIncidentRecordsWorkerTaskCheckpointAndMultiplierFormula()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            data.Balance.BaseSideMissionChance = 100;
+            data.Balance.RandomWorkLimit = 1;
+            DisableAccidents(data);
+            var game = new MilestoneSimulation(data, 1);
+            game.SetCompetencyAutoAssignment(false);
+            WorkTask survey = game.Tasks.Find(task => task.Id == "survey");
+            Assert.That(game.Assign(survey.Id, 1), Is.True);
+
+            game.AdvanceDay();
+
+            MailEvent offer = game.PendingIncidentOffer;
+            Assert.That(offer, Is.Not.Null);
+            Assert.That(offer.Body, Does.Contain(game.Crew[1].Name)
+                .And.Contain(survey.Name).And.Contain("0% 시점")
+                .And.Contain("현재 배율").And.Contain("기본 100%"));
+            Assert.That(survey.Records.Exists(record => record.Text.Contains("돌발상황 발생")), Is.True);
+        }
+
+        [Test]
         public void CriticalEventChoiceChainAppliesEffectsAndAdvancesNodes()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
@@ -890,6 +955,8 @@ namespace ProjectW.MilestonePrototype.Tests
                 }
             };
             var game = new MilestoneSimulation(data, 1);
+            game.SetCompetencyAutoAssignment(false);
+            Assert.That(game.Assign("survey", 1), Is.True);
 
             game.AdvanceDay();
 
@@ -907,7 +974,7 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(generatedTask.State, Is.EqualTo(TaskState.Locked));
             MailEvent offer = game.Mail.Find(mail => mail.TargetWorkId == generated.Id);
             Assert.That(offer, Is.Not.Null);
-            Assert.That(offer.ArrivalDay, Is.EqualTo(game.Day));
+            Assert.That(offer.ArrivalDay, Is.EqualTo(game.Day - 1));
             Assert.That(offer.ActivatesWork, Is.True);
             Assert.That(offer.IsProposal, Is.False);
             Assert.That(game.HasPendingIncidentDecision, Is.True);
@@ -1079,13 +1146,12 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void RandomWorkChanceScaleCanSuppressOtherwiseGuaranteedMission()
+        public void IncidentDoesNotRollWithoutAWorkedTaskCheckpoint()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
             data.Balance.BaseSideMissionChance = 100;
-            data.Balance.RandomWorkChanceScalePercent = 0;
             var game = new MilestoneSimulation(data, 1);
-            game.Tasks.Find(task => task.Id == "survey").Kind = TaskKind.SideMission;
+            game.SetCompetencyAutoAssignment(false);
 
             game.AdvanceDay();
 
@@ -1099,6 +1165,8 @@ namespace ProjectW.MilestonePrototype.Tests
             data.Balance.BaseSideMissionChance = 100;
             data.Balance.RandomWorkChanceScalePercent = 100;
             var original = new MilestoneSimulation(data, 1);
+            original.SetCompetencyAutoAssignment(false);
+            Assert.That(original.Assign("survey", 1), Is.True);
             original.AdvanceDay();
             WorkGroup legacyWork = original.Groups.Find(group => group.Id.StartsWith("random-work-"));
             WorkTask legacyTask = original.Tasks.Find(task => task.GroupId == legacyWork.Id);
@@ -1186,6 +1254,8 @@ namespace ProjectW.MilestonePrototype.Tests
             data.Balance.RandomWorkChanceScalePercent = 100;
             data.Balance.RandomWorkLimit = 3;
             var game = new MilestoneSimulation(data, 1);
+            game.SetCompetencyAutoAssignment(false);
+            Assert.That(game.Assign("survey", 1), Is.True);
 
             game.AdvanceDay();
 
@@ -1939,6 +2009,8 @@ namespace ProjectW.MilestonePrototype.Tests
             data.Balance.RandomWorkChanceScalePercent = 100;
             data.Balance.RandomWorkLimit = 1;
             var game = new MilestoneSimulation(data, 1);
+            game.SetCompetencyAutoAssignment(false);
+            Assert.That(game.Assign("survey", 1), Is.True);
             game.AdvanceDay();
             WorkGroup sideMission = game.Groups.Find(group => group.Id.StartsWith("random-work-"));
             MailEvent offer = game.Mail.Find(mail => mail.TargetWorkId == sideMission.Id);
@@ -1993,7 +2065,7 @@ namespace ProjectW.MilestonePrototype.Tests
 
             Assert.That(game.Tasks.Find(task => task.Id == "power").Progress, Is.EqualTo(1.5f));
             Assert.That(safety.State, Is.EqualTo(TaskState.Complete));
-            Assert.That(game.Crew[0].Fatigue, Is.EqualTo(16));
+            Assert.That(game.Crew[0].Fatigue, Is.EqualTo(17));
         }
 
         [Test]
