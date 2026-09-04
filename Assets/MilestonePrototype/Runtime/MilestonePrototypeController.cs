@@ -32,6 +32,18 @@ namespace ProjectW.MilestonePrototype
             public bool InheritRegenerationAbilities;
             public bool InheritRegenerationPerks;
             public string Notice;
+            public string DragRegion;
+            public Vector2 DragPointerOrigin;
+            public Vector2 DragScrollOrigin;
+            public Vector2 DragLastPointer;
+            public float DragLastTime;
+            public bool DraggingContent;
+            public bool SuppressClickUntilRelease;
+            public string ScrollViewportRegion;
+            public Rect ScrollViewport;
+            public Vector2 ScrollVelocity;
+            public float InertiaLastTime;
+            public string ExpandedButtonPress;
             public bool Resizing;
             public Vector2 ResizePointerOrigin;
             public Rect ResizeRectOrigin;
@@ -89,6 +101,10 @@ namespace ProjectW.MilestonePrototype
             "기지공학", "과학탐사", "자원운용", "환경적응", "생명유지", "지휘교섭"
         };
         public const float DefaultScrollbarWidth = 16f;
+        public const float ContentDragThreshold = 8f;
+        public const float ScrollInertiaDeceleration = 1800f;
+        public const float ScrollInertiaStopSpeed = 35f;
+        private const string GanttScrollRegion = "gantt-timeline";
         private const float ResizeHandleReach = 40f;
         private const float MinimumWindowWidth = 420f;
         private const float MinimumWindowHeight = 280f;
@@ -430,21 +446,31 @@ namespace ProjectW.MilestonePrototype
 
         private void DrawWindow(DeskWindow window)
         {
+            bool windowInputEnabled = !inputLayerBlocked && !modalInputBlocked;
+            PrepareContentGesture(window, windowInputEnabled);
             DrawBorder(new Rect(0, 0, window.Rect.width, window.Rect.height), InkColor);
             DrawSolid(new Rect(1, WindowTitleBarHeight, window.Rect.width - 2, 1), InkColor);
             Rect minimizeRect = WindowMinimizeButtonRect(window.Rect.width);
             Rect closeRect = WindowCloseButtonRect(window.Rect.width);
-            if (ExpandedHitButton(minimizeRect, "—"))
+            if (ExpandedHitButton(window, minimizeRect, "—", "minimize", windowInputEnabled))
             {
                 window.Minimized = true;
                 ActivateFrontmostVisibleWindow();
                 SaveDesktop();
             }
-            if (ExpandedHitButton(closeRect, "X")) { Close(window.Id); return; }
+            if (ExpandedHitButton(window, closeRect, "X", "close", windowInputEnabled))
+            {
+                Close(window.Id);
+                return;
+            }
             GUILayout.Space(WindowContentTopSpacing);
             bool usesIndependentScroll = UsesIndependentWindowScroll(window.Id);
             if (!usesIndependentScroll)
-                window.Scroll = GUILayout.BeginScrollView(window.Scroll);
+            {
+                Vector2 requestedScroll = ApplyScrollInertia(window, window.Scroll);
+                window.Scroll = GUILayout.BeginScrollView(requestedScroll);
+                StopClampedInertia(window, requestedScroll, window.Scroll);
+            }
             switch (window.Id)
             {
                 case "mail": DrawMail(window); break;
@@ -464,7 +490,13 @@ namespace ProjectW.MilestonePrototype
                 case "log": DrawLog(window); break;
             }
             if (!usesIndependentScroll)
+            {
                 GUILayout.EndScrollView();
+                window.ScrollViewportRegion = PanelScrollRegion(window.Id);
+                window.ScrollViewport = ContentDragViewport(GUILayoutUtility.GetLastRect(),
+                    Mathf.Max(DefaultScrollbarWidth, GUI.skin.verticalScrollbar.fixedWidth),
+                    DefaultScrollbarWidth);
+            }
             GUI.DragWindow(WindowDragHitRect(window.Rect.width));
         }
 
@@ -838,7 +870,9 @@ namespace ProjectW.MilestonePrototype
                 window.CenterTimelineOnToday = false;
             }
 
-            window.TimelineScroll = GUI.BeginScrollView(timelineViewport, window.TimelineScroll, content);
+            Vector2 requestedScroll = ApplyScrollInertia(window, window.TimelineScroll);
+            window.TimelineScroll = GUI.BeginScrollView(timelineViewport, requestedScroll, content);
+            StopClampedInertia(window, requestedScroll, window.TimelineScroll);
             DrawSolid(new Rect(0, 0, contentWidth, contentHeight), Color.white);
             for (int day = 1; day <= planningHorizonDay; day++)
                 if (MilestoneSimulation.IsWeekendDay(day))
@@ -899,6 +933,10 @@ namespace ProjectW.MilestonePrototype
             }
             DrawDependencyArrows(dayWidth, rowHeight, visibleGroups, prioritySchedule);
             GUI.EndScrollView();
+            window.ScrollViewportRegion = GanttScrollRegion;
+            window.ScrollViewport = ContentDragViewport(timelineViewport,
+                Mathf.Max(DefaultScrollbarWidth, GUI.skin.verticalScrollbar.fixedWidth),
+                DefaultScrollbarWidth);
 
             GUI.BeginGroup(labelViewport);
             DrawSolid(new Rect(0, 0, labelWidth, labelViewport.height), Color.white);
@@ -2454,6 +2492,7 @@ namespace ProjectW.MilestonePrototype
                 if (logicalWidth >= 900f && ResizeHandleRect(window.Rect).Contains(current.mousePosition))
                 {
                     Focus(window);
+                    CancelContentGesture(window);
                     window.Resizing = true;
                     window.ResizePointerOrigin = current.mousePosition;
                     window.ResizeRectOrigin = window.Rect;
@@ -2496,6 +2535,7 @@ namespace ProjectW.MilestonePrototype
                     pinchRectOrigin = candidate.Rect;
                     pinchCenterOrigin = center;
                     pinchDistanceOrigin = Mathf.Max(1f, distance);
+                    CancelContentGesture(candidate);
                     candidate.Resizing = false;
                     Focus(candidate);
                     break;
@@ -2591,16 +2631,202 @@ namespace ProjectW.MilestonePrototype
         private void SetControlEnabled(bool enabled) =>
             GUI.enabled = !inputLayerBlocked && !modalInputBlocked && enabled;
 
-        private static bool ExpandedHitButton(Rect visualRect, string label)
+        private static void PrepareContentGesture(DeskWindow window, bool inputEnabled)
         {
-            if (Button(visualRect, label)) return true;
+            if (string.IsNullOrEmpty(window.ScrollViewportRegion)) return;
+            if (window.ScrollViewportRegion == GanttScrollRegion)
+                HandleContentGesture(window, GanttScrollRegion, window.ScrollViewport,
+                    ref window.TimelineScroll, inputEnabled);
+            else
+                HandleContentGesture(window, window.ScrollViewportRegion, window.ScrollViewport,
+                    ref window.Scroll, inputEnabled);
+        }
 
+        private static void CancelContentGesture(DeskWindow window)
+        {
+            window.DragRegion = null;
+            window.DraggingContent = false;
+            window.SuppressClickUntilRelease = false;
+            window.ScrollVelocity = Vector2.zero;
+            window.InertiaLastTime = 0f;
+            window.ExpandedButtonPress = null;
+        }
+
+        private static void HandleContentGesture(DeskWindow window, string region, Rect viewport,
+            ref Vector2 scroll, bool inputEnabled)
+        {
             Event current = Event.current;
+            if (current == null || current.button != 0) return;
+
+            if (current.type == EventType.MouseDown && inputEnabled &&
+                viewport.Contains(current.mousePosition) &&
+                !WindowChromeHitRect(window.Rect.width).Contains(current.mousePosition))
+            {
+                bool stoppingInertia = ScrollSpeed(window.ScrollVelocity) >= ScrollInertiaStopSpeed;
+                window.DragRegion = region;
+                window.DragPointerOrigin = current.mousePosition;
+                window.DragScrollOrigin = scroll;
+                window.DragLastPointer = current.mousePosition;
+                window.DragLastTime = Time.unscaledTime;
+                window.DraggingContent = false;
+                window.SuppressClickUntilRelease = stoppingInertia;
+                window.ScrollVelocity = Vector2.zero;
+                window.InertiaLastTime = 0f;
+                if (stoppingInertia) current.Use();
+                return;
+            }
+
+            if (window.DragRegion != region) return;
+            if (current.type == EventType.MouseDrag)
+            {
+                if (window.SuppressClickUntilRelease)
+                {
+                    current.Use();
+                    return;
+                }
+
+                if (!window.DraggingContent && HasExceededDragThreshold(
+                        window.DragPointerOrigin, current.mousePosition, ContentDragThreshold))
+                {
+                    window.DraggingContent = true;
+                    window.ExpandedButtonPress = null;
+                    GUIUtility.hotControl = 0;
+                }
+                if (!window.DraggingContent) return;
+
+                float now = Time.unscaledTime;
+                scroll = CalculateDragScroll(window.DragScrollOrigin, window.DragPointerOrigin,
+                    current.mousePosition);
+                window.ScrollVelocity = CalculateScrollVelocity(window.DragLastPointer,
+                    current.mousePosition, now - window.DragLastTime);
+                window.DragLastPointer = current.mousePosition;
+                window.DragLastTime = now;
+                current.Use();
+            }
+            else if (current.type == EventType.MouseUp)
+            {
+                bool consumed = window.DraggingContent || window.SuppressClickUntilRelease;
+                window.DragRegion = null;
+                window.DraggingContent = false;
+                window.SuppressClickUntilRelease = false;
+                window.InertiaLastTime = Time.unscaledTime;
+                if (ScrollSpeed(window.ScrollVelocity) < ScrollInertiaStopSpeed)
+                    window.ScrollVelocity = Vector2.zero;
+                if (consumed) current.Use();
+            }
+        }
+
+        public static bool HasExceededDragThreshold(Vector2 pointerOrigin, Vector2 pointerCurrent,
+            float threshold) =>
+            Vector2.Distance(pointerOrigin, pointerCurrent) >= Mathf.Max(0f, threshold);
+
+        public static Vector2 CalculateDragScroll(Vector2 originalScroll, Vector2 pointerOrigin,
+            Vector2 pointerCurrent)
+        {
+            Vector2 delta = pointerCurrent - pointerOrigin;
+            return new Vector2(Mathf.Max(0f, originalScroll.x - delta.x),
+                Mathf.Max(0f, originalScroll.y - delta.y));
+        }
+
+        public static Vector2 CalculateScrollVelocity(Vector2 previousPointer,
+            Vector2 currentPointer, float elapsedSeconds)
+        {
+            if (elapsedSeconds <= .0001f) return Vector2.zero;
+            return new Vector2((previousPointer.x - currentPointer.x) / elapsedSeconds,
+                (previousPointer.y - currentPointer.y) / elapsedSeconds);
+        }
+
+        public static Vector2 DecayScrollVelocity(Vector2 velocity, float elapsedSeconds,
+            float deceleration)
+        {
+            float speed = ScrollSpeed(velocity);
+            if (speed <= 0f) return Vector2.zero;
+            float nextSpeed = Mathf.Max(0f, speed - Mathf.Max(0f, deceleration) *
+                Mathf.Max(0f, elapsedSeconds));
+            float ratio = nextSpeed / speed;
+            return new Vector2(velocity.x * ratio, velocity.y * ratio);
+        }
+
+        public static Rect ContentDragViewport(Rect viewport, float verticalScrollbarWidth,
+            float horizontalScrollbarHeight)
+        {
+            viewport.width = Mathf.Max(0f, viewport.width - Mathf.Max(0f, verticalScrollbarWidth));
+            viewport.height = Mathf.Max(0f, viewport.height - Mathf.Max(0f, horizontalScrollbarHeight));
+            return viewport;
+        }
+
+        private static Vector2 ApplyScrollInertia(DeskWindow window, Vector2 scroll)
+        {
+            Event current = Event.current;
+            if (current == null || current.type != EventType.Repaint ||
+                window.DraggingContent || ScrollSpeed(window.ScrollVelocity) <= 0f)
+                return scroll;
+
+            float now = Time.unscaledTime;
+            if (window.InertiaLastTime <= 0f)
+            {
+                window.InertiaLastTime = now;
+                return scroll;
+            }
+
+            float elapsed = Mathf.Clamp(now - window.InertiaLastTime, 0f, .05f);
+            window.InertiaLastTime = now;
+            scroll = new Vector2(scroll.x + window.ScrollVelocity.x * elapsed,
+                scroll.y + window.ScrollVelocity.y * elapsed);
+            window.ScrollVelocity = DecayScrollVelocity(window.ScrollVelocity, elapsed,
+                ScrollInertiaDeceleration);
+            if (ScrollSpeed(window.ScrollVelocity) < ScrollInertiaStopSpeed)
+                window.ScrollVelocity = Vector2.zero;
+            return scroll;
+        }
+
+        private static void StopClampedInertia(DeskWindow window, Vector2 requested, Vector2 actual)
+        {
+            Vector2 velocity = window.ScrollVelocity;
+            if (Mathf.Abs(requested.x - actual.x) > .01f) velocity.x = 0f;
+            if (Mathf.Abs(requested.y - actual.y) > .01f) velocity.y = 0f;
+            window.ScrollVelocity = velocity;
+        }
+
+        private static string PanelScrollRegion(string windowId) => $"panel-{windowId}";
+
+        private static float ScrollSpeed(Vector2 velocity) =>
+            Vector2.Distance(Vector2.zero, velocity);
+
+        private static Rect WindowChromeHitRect(float windowWidth)
+        {
+            Rect minimize = ExpandHitRect(WindowMinimizeButtonRect(windowWidth));
+            Rect close = ExpandHitRect(WindowCloseButtonRect(windowWidth));
+            float xMin = Mathf.Min(minimize.xMin, close.xMin);
+            float xMax = Mathf.Max(minimize.xMax, close.xMax);
+            float yMin = Mathf.Min(minimize.yMin, close.yMin);
+            float yMax = Mathf.Max(minimize.yMax, close.yMax);
+            return new Rect(xMin, yMin, xMax - xMin, yMax - yMin);
+        }
+
+        private static bool ExpandedHitButton(DeskWindow window, Rect visualRect, string label,
+            string controlId, bool inputEnabled)
+        {
+            Event current = Event.current;
+            Rect hitRect = ExpandHitRect(visualRect);
+            if (current != null && inputEnabled && current.type == EventType.MouseDown && current.button == 0 &&
+                hitRect.Contains(current.mousePosition))
+                window.ExpandedButtonPress = controlId;
+
+            if (Button(visualRect, label))
+            {
+                window.ExpandedButtonPress = null;
+                return true;
+            }
+
+            current = Event.current;
             if (current == null || current.type != EventType.MouseUp || current.button != 0)
                 return false;
 
-            Rect hitRect = ExpandHitRect(visualRect);
-            if (!hitRect.Contains(current.mousePosition)) return false;
+            bool clicked = window.ExpandedButtonPress == controlId &&
+                           hitRect.Contains(current.mousePosition);
+            if (window.ExpandedButtonPress == controlId) window.ExpandedButtonPress = null;
+            if (!clicked) return false;
             current.Use();
             return true;
         }

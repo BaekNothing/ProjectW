@@ -2212,6 +2212,61 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void ContentDragStartsOnlyAfterTheMovementThreshold()
+        {
+            Assert.That(MilestonePrototypeController.HasExceededDragThreshold(
+                Vector2.zero, new Vector2(4f, 4f), 8f), Is.False);
+            Assert.That(MilestonePrototypeController.HasExceededDragThreshold(
+                Vector2.zero, new Vector2(8f, 0f), 8f), Is.True);
+        }
+
+        [Test]
+        public void ContentDragMovesScrollOppositeToPointerAndStopsAtZero()
+        {
+            Vector2 moved = MilestonePrototypeController.CalculateDragScroll(
+                new Vector2(100f, 80f), new Vector2(50f, 50f), new Vector2(20f, 10f));
+            Vector2 clamped = MilestonePrototypeController.CalculateDragScroll(
+                new Vector2(5f, 7f), Vector2.zero, new Vector2(30f, 40f));
+
+            Assert.That(moved, Is.EqualTo(new Vector2(130f, 120f)));
+            Assert.That(clamped, Is.EqualTo(Vector2.zero));
+        }
+
+        [Test]
+        public void ContentDragVelocityFollowsTheScrollDirection()
+        {
+            Vector2 velocity = MilestonePrototypeController.CalculateScrollVelocity(
+                new Vector2(50f, 50f), new Vector2(30f, 20f), .02f);
+
+            Assert.That(velocity, Is.EqualTo(new Vector2(1000f, 1500f)));
+            Assert.That(MilestonePrototypeController.CalculateScrollVelocity(
+                Vector2.zero, Vector2.one, 0f), Is.EqualTo(Vector2.zero));
+        }
+
+        [Test]
+        public void ScrollInertiaDeceleratesWithoutReversingDirection()
+        {
+            Vector2 slowed = MilestonePrototypeController.DecayScrollVelocity(
+                new Vector2(300f, 400f), .1f, 1000f);
+            Vector2 stopped = MilestonePrototypeController.DecayScrollVelocity(
+                new Vector2(30f, 40f), .1f, 1000f);
+
+            Assert.That(slowed, Is.EqualTo(new Vector2(240f, 320f)));
+            Assert.That(stopped, Is.EqualTo(Vector2.zero));
+        }
+
+        [Test]
+        public void ContentDragViewportLeavesScrollbarTracksInteractive()
+        {
+            Rect viewport = MilestonePrototypeController.ContentDragViewport(
+                new Rect(10f, 20f, 300f, 200f), 32f, 16f);
+
+            Assert.That(viewport, Is.EqualTo(new Rect(10f, 20f, 268f, 184f)));
+            Assert.That(viewport.Contains(new Vector2(295f, 100f)), Is.False);
+            Assert.That(viewport.Contains(new Vector2(100f, 210f)), Is.False);
+        }
+
+        [Test]
         public void GanttOwnsAnInsetScrollViewportSoItsHorizontalBarStaysFixed()
         {
             Assert.That(MilestonePrototypeController.UsesIndependentWindowScroll("gantt"), Is.True);
