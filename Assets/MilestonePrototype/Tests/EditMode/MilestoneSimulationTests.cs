@@ -2204,14 +2204,6 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void RestoredScrollbarIsAtLeastTwiceTheDefaultWidth()
-        {
-            Assert.That(MilestonePrototypeController.RestoredScrollbarWidth(0f),
-                Is.EqualTo(MilestonePrototypeController.DefaultScrollbarWidth * 2f));
-            Assert.That(MilestonePrototypeController.RestoredScrollbarWidth(20f), Is.EqualTo(40f));
-        }
-
-        [Test]
         public void ContentDragStartsOnlyAfterTheMovementThreshold()
         {
             Assert.That(MilestonePrototypeController.HasExceededDragThreshold(
@@ -2256,18 +2248,18 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void ContentDragViewportLeavesScrollbarTracksInteractive()
+        public void HiddenScrollbarsLeaveTheWholeViewportDraggable()
         {
             Rect viewport = MilestonePrototypeController.ContentDragViewport(
-                new Rect(10f, 20f, 300f, 200f), 32f, 16f);
+                new Rect(10f, 20f, 300f, 200f), 0f, 0f);
 
-            Assert.That(viewport, Is.EqualTo(new Rect(10f, 20f, 268f, 184f)));
-            Assert.That(viewport.Contains(new Vector2(295f, 100f)), Is.False);
-            Assert.That(viewport.Contains(new Vector2(100f, 210f)), Is.False);
+            Assert.That(viewport, Is.EqualTo(new Rect(10f, 20f, 300f, 200f)));
+            Assert.That(viewport.Contains(new Vector2(295f, 100f)), Is.True);
+            Assert.That(viewport.Contains(new Vector2(100f, 210f)), Is.True);
         }
 
         [Test]
-        public void GanttOwnsAnInsetScrollViewportSoItsHorizontalBarStaysFixed()
+        public void GanttOwnsAnInsetScrollViewportForIndependentDragging()
         {
             Assert.That(MilestonePrototypeController.UsesIndependentWindowScroll("gantt"), Is.True);
             Assert.That(MilestonePrototypeController.UsesIndependentWindowScroll("mail"), Is.False);

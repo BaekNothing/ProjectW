@@ -100,7 +100,6 @@ namespace ProjectW.MilestonePrototype
         {
             "기지공학", "과학탐사", "자원운용", "환경적응", "생명유지", "지휘교섭"
         };
-        public const float DefaultScrollbarWidth = 16f;
         public const float ContentDragThreshold = 8f;
         public const float ScrollInertiaDeceleration = 1800f;
         public const float ScrollInertiaStopSpeed = 35f;
@@ -447,7 +446,6 @@ namespace ProjectW.MilestonePrototype
         private void DrawWindow(DeskWindow window)
         {
             bool windowInputEnabled = !inputLayerBlocked && !modalInputBlocked;
-            PrepareContentGesture(window, windowInputEnabled);
             DrawBorder(new Rect(0, 0, window.Rect.width, window.Rect.height), InkColor);
             DrawSolid(new Rect(1, WindowTitleBarHeight, window.Rect.width - 2, 1), InkColor);
             Rect minimizeRect = WindowMinimizeButtonRect(window.Rect.width);
@@ -494,8 +492,7 @@ namespace ProjectW.MilestonePrototype
                 GUILayout.EndScrollView();
                 window.ScrollViewportRegion = PanelScrollRegion(window.Id);
                 window.ScrollViewport = ContentDragViewport(GUILayoutUtility.GetLastRect(),
-                    Mathf.Max(DefaultScrollbarWidth, GUI.skin.verticalScrollbar.fixedWidth),
-                    DefaultScrollbarWidth);
+                    0f, 0f);
             }
             GUI.DragWindow(WindowDragHitRect(window.Rect.width));
         }
@@ -935,8 +932,7 @@ namespace ProjectW.MilestonePrototype
             GUI.EndScrollView();
             window.ScrollViewportRegion = GanttScrollRegion;
             window.ScrollViewport = ContentDragViewport(timelineViewport,
-                Mathf.Max(DefaultScrollbarWidth, GUI.skin.verticalScrollbar.fixedWidth),
-                DefaultScrollbarWidth);
+                0f, 0f);
 
             GUI.BeginGroup(labelViewport);
             DrawSolid(new Rect(0, 0, labelWidth, labelViewport.height), Color.white);
@@ -2484,6 +2480,16 @@ namespace ProjectW.MilestonePrototype
                 }
             }
 
+            DeskWindow contentGesture = windows.FirstOrDefault(window =>
+                !string.IsNullOrEmpty(window.DragRegion));
+            if (contentGesture != null &&
+                (current.type == EventType.MouseDrag || current.type == EventType.MouseUp))
+            {
+                ProcessContentGesture(contentGesture,
+                    current.mousePosition - contentGesture.Rect.position, true);
+                if (current.type == EventType.Used) return;
+            }
+
             if (current.type != EventType.MouseDown || current.button != 0) return;
             for (int i = windows.Count - 1; i >= 0; i--)
             {
@@ -2501,6 +2507,7 @@ namespace ProjectW.MilestonePrototype
                 }
                 if (!window.Rect.Contains(current.mousePosition)) continue;
                 Focus(window);
+                ProcessContentGesture(window, current.mousePosition - window.Rect.position, true);
                 return;
             }
         }
@@ -2631,15 +2638,16 @@ namespace ProjectW.MilestonePrototype
         private void SetControlEnabled(bool enabled) =>
             GUI.enabled = !inputLayerBlocked && !modalInputBlocked && enabled;
 
-        private static void PrepareContentGesture(DeskWindow window, bool inputEnabled)
+        private static void ProcessContentGesture(DeskWindow window, Vector2 pointerPosition,
+            bool inputEnabled)
         {
             if (string.IsNullOrEmpty(window.ScrollViewportRegion)) return;
             if (window.ScrollViewportRegion == GanttScrollRegion)
                 HandleContentGesture(window, GanttScrollRegion, window.ScrollViewport,
-                    ref window.TimelineScroll, inputEnabled);
+                    ref window.TimelineScroll, pointerPosition, inputEnabled);
             else
                 HandleContentGesture(window, window.ScrollViewportRegion, window.ScrollViewport,
-                    ref window.Scroll, inputEnabled);
+                    ref window.Scroll, pointerPosition, inputEnabled);
         }
 
         private static void CancelContentGesture(DeskWindow window)
@@ -2653,20 +2661,20 @@ namespace ProjectW.MilestonePrototype
         }
 
         private static void HandleContentGesture(DeskWindow window, string region, Rect viewport,
-            ref Vector2 scroll, bool inputEnabled)
+            ref Vector2 scroll, Vector2 pointerPosition, bool inputEnabled)
         {
             Event current = Event.current;
             if (current == null || current.button != 0) return;
 
             if (current.type == EventType.MouseDown && inputEnabled &&
-                viewport.Contains(current.mousePosition) &&
-                !WindowChromeHitRect(window.Rect.width).Contains(current.mousePosition))
+                viewport.Contains(pointerPosition) &&
+                !WindowChromeHitRect(window.Rect.width).Contains(pointerPosition))
             {
                 bool stoppingInertia = ScrollSpeed(window.ScrollVelocity) >= ScrollInertiaStopSpeed;
                 window.DragRegion = region;
-                window.DragPointerOrigin = current.mousePosition;
+                window.DragPointerOrigin = pointerPosition;
                 window.DragScrollOrigin = scroll;
-                window.DragLastPointer = current.mousePosition;
+                window.DragLastPointer = pointerPosition;
                 window.DragLastTime = Time.unscaledTime;
                 window.DraggingContent = false;
                 window.SuppressClickUntilRelease = stoppingInertia;
@@ -2686,7 +2694,7 @@ namespace ProjectW.MilestonePrototype
                 }
 
                 if (!window.DraggingContent && HasExceededDragThreshold(
-                        window.DragPointerOrigin, current.mousePosition, ContentDragThreshold))
+                        window.DragPointerOrigin, pointerPosition, ContentDragThreshold))
                 {
                     window.DraggingContent = true;
                     window.ExpandedButtonPress = null;
@@ -2696,10 +2704,10 @@ namespace ProjectW.MilestonePrototype
 
                 float now = Time.unscaledTime;
                 scroll = CalculateDragScroll(window.DragScrollOrigin, window.DragPointerOrigin,
-                    current.mousePosition);
+                    pointerPosition);
                 window.ScrollVelocity = CalculateScrollVelocity(window.DragLastPointer,
-                    current.mousePosition, now - window.DragLastTime);
-                window.DragLastPointer = current.mousePosition;
+                    pointerPosition, now - window.DragLastTime);
+                window.DragLastPointer = pointerPosition;
                 window.DragLastTime = now;
                 current.Use();
             }
@@ -2956,9 +2964,6 @@ namespace ProjectW.MilestonePrototype
             return string.Join(" · ", labels);
         }
 
-        public static float RestoredScrollbarWidth(float currentWidth) =>
-            Mathf.Max(DefaultScrollbarWidth, currentWidth) * 2f;
-
         private static bool Button(Rect rect, string label)
         {
             Color previous = GUI.color;
@@ -3114,11 +3119,14 @@ namespace ProjectW.MilestonePrototype
             GUI.skin.box.border = new RectOffset();
             GUI.skin.scrollView.normal.background = whiteFill;
             SetAllTextColors(GUI.skin.textField, ink);
-            float scrollbarWidth = RestoredScrollbarWidth(GUI.skin.verticalScrollbar.fixedWidth);
-            GUI.skin.verticalScrollbar.fixedWidth = scrollbarWidth;
-            GUI.skin.verticalScrollbarThumb.fixedWidth = scrollbarWidth;
-            GUI.skin.verticalScrollbarUpButton.fixedWidth = scrollbarWidth;
-            GUI.skin.verticalScrollbarDownButton.fixedWidth = scrollbarWidth;
+            GUI.skin.verticalScrollbar.fixedWidth = 0f;
+            GUI.skin.verticalScrollbarThumb.fixedWidth = 0f;
+            GUI.skin.verticalScrollbarUpButton.fixedWidth = 0f;
+            GUI.skin.verticalScrollbarDownButton.fixedWidth = 0f;
+            GUI.skin.horizontalScrollbar.fixedHeight = 0f;
+            GUI.skin.horizontalScrollbarThumb.fixedHeight = 0f;
+            GUI.skin.horizontalScrollbarLeftButton.fixedHeight = 0f;
+            GUI.skin.horizontalScrollbarRightButton.fixedHeight = 0f;
 
             title = new GUIStyle(GUI.skin.label) { fontSize = 23, fontStyle = FontStyle.Bold };
             section = new GUIStyle(GUI.skin.label)

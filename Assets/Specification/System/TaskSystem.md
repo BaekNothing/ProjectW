@@ -754,8 +754,8 @@ Costs must be shown before the player confirms a reassignment. The UI must not r
 
 ## Scroll and Touch Interaction
 
-Scrollable window regions keep their visible scrollbar as an accessibility and desktop fallback.
-The content area also supports direct-content dragging and the mouse wheel.
+Scrollable window regions do not show persistent scrollbars. Movement uses direct-content dragging
+or the mouse wheel.
 
 - The Options application lets the player select `1.0x`, `1.4x`, `1.8x`, or `2.2x` accessibility
   magnification over the responsive screen scale. `1.8x` is the default.
@@ -774,7 +774,6 @@ The content area also supports direct-content dragging and the mouse wheel.
 - Crossing the drag threshold cancels click intent for that gesture and begins scrolling.
 - Releasing a sufficiently fast drag continues a short decelerating inertial scroll without
   overscroll bounce. Pressing the moving content stops that inertia without activating a control.
-- A gesture that begins on a scrollbar remains owned by that scrollbar rather than content dragging.
 - Scroll offsets remain clamped by the scroll view.
 - Window-title dragging continues to move the window and must not scroll its content.
 - The window-title drag hit area is twice the visible title-bar height.
