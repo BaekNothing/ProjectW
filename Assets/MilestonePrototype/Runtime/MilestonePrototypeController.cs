@@ -1386,22 +1386,155 @@ namespace ProjectW.MilestonePrototype
 
         private void DrawMilestones(DeskWindow window)
         {
-            GUILayout.Label("마일스톤", section);
-            foreach (WorkGroup group in game.Groups.Where(g =>
-                         g.Id != "incident" && game.IsWorkVisible(g)))
+            List<WorkGroup> history = game.Groups.Where(group =>
+                    group.Id != "incident" && game.IsWorkVisible(group) &&
+                    HasWorkHistory(group, game.Tasks.Where(task => task.GroupId == group.Id).ToList()))
+                .OrderBy(group => -WorkHistoryLatestDay(
+                    group, game.Tasks.Where(task => task.GroupId == group.Id).ToList(), game.Day))
+                .ToList();
+            int completed = history.Count(group => group.State == WorkState.Complete);
+            int ongoing = history.Count(group => group.State == WorkState.InProgress);
+
+            GUILayout.Label("프로젝트 히스토리", section);
+            GUILayout.Label($"완료 {completed} · 진행 중 {ongoing} · 누적 기록 {history.Count}", small);
+            GUILayout.Label("실제로 시작된 일과 완료된 일이 최신 활동 순으로 쌓입니다.", small);
+            if (history.Count == 0)
+            {
+                GUILayout.BeginVertical(GUI.skin.box);
+                GUILayout.Label("아직 시작된 일이 없습니다.");
+                GUILayout.Label("작업을 배정하면 담당자와 활동 기록이 이곳에 남습니다.", small);
+                GUILayout.EndVertical();
+                return;
+            }
+
+            foreach (WorkGroup group in history)
             {
                 List<WorkTask> tasks = game.Tasks.Where(t => t.GroupId == group.Id).ToList();
                 int progress = tasks.Count == 0 ? 0 : Mathf.RoundToInt(tasks.Average(t => t.Completion) * 100);
+                int startDay = WorkHistoryStartDay(tasks);
+                int endDay = WorkHistoryEndDay(group, tasks, game.Day);
+                int elapsedDays = WorkHistoryElapsedDays(group, tasks, game.Day);
+                int completedTasks = tasks.Count(task => task.State == TaskState.Complete);
+                float earnedWork = tasks.Sum(task => task.Progress);
                 GUILayout.BeginVertical(GUI.skin.box);
-                GUILayout.Label($"{group.Name}   {progress}%   HARD D{group.HardDeadline}", section);
+                GUILayout.Label($"[{WorkStateName(group.State)}] {group.Name}   {progress}%", section);
+                GUILayout.Label(startDay > 0
+                    ? $"기간 {GameCalendar.FormatDay(startDay)} → " +
+                      $"{(group.State == WorkState.InProgress ? "진행 중" : GameCalendar.FormatDay(endDay))} · {elapsedDays}일"
+                    : "기간 기록 없음", small);
+                GUILayout.Label($"참여자  {WorkHistoryParticipants(tasks, game.Crew)}", small);
+                string reward = group.RewardClaimed ? $" · 자원 +{group.RewardCredits}" : string.Empty;
+                GUILayout.Label(
+                    $"얻은 것  완료 작업 {completedTasks}/{tasks.Count} · 누적 산출 {earnedWork:0.#}일{reward}", small);
                 GUILayout.HorizontalSlider(progress, 0, 100);
                 foreach (WorkTask task in tasks)
                     if (LayoutButton(
                             $"{(task.Required ? "[필수]" : "[선택]")} {task.Name} — {StateName(task.State)} {task.Progress}/{task.RequiredWork}"))
                         OpenTaskDetail(task.Id);
+
+                GUILayout.Label("활동 로그", section);
+                bool hasRecord = false;
+                int latestDay = WorkHistoryLatestDay(group, tasks, game.Day);
+                for (int day = latestDay; day >= startDay; day--)
+                {
+                    foreach (WorkTask task in tasks)
+                    {
+                        if (task.Records == null) continue;
+                        for (int recordIndex = task.Records.Count - 1; recordIndex >= 0; recordIndex--)
+                        {
+                            TaskRecord record = task.Records[recordIndex];
+                            if (record == null || record.Day != day) continue;
+                            hasRecord = true;
+                            GUILayout.Label(
+                                $"{GameCalendar.FormatDay(record.Day)}  [{RecordKindName(record.Kind)}] " +
+                                $"{task.Name} · {record.Actor} — {record.Text}", small);
+                        }
+                    }
+                }
+                if (!hasRecord) GUILayout.Label("세부 활동 기록이 없습니다.", small);
                 GUILayout.EndVertical();
             }
         }
+
+        public static bool HasWorkHistory(WorkGroup group, List<WorkTask> tasks)
+        {
+            if (group == null || tasks == null) return false;
+            if (group.State == WorkState.InProgress || group.State == WorkState.Complete ||
+                group.State == WorkState.Failed) return true;
+            return tasks.Any(task => task != null &&
+                (task.StartedDay > 0 || task.Progress > 0f || task.Records?.Count > 0));
+        }
+
+        public static int WorkHistoryStartDay(List<WorkTask> tasks)
+        {
+            if (tasks == null) return 0;
+            int earliest = int.MaxValue;
+            foreach (WorkTask task in tasks)
+            {
+                if (task == null) continue;
+                if (task.StartedDay > 0) earliest = Math.Min(earliest, task.StartedDay);
+                if (task.Records == null) continue;
+                foreach (TaskRecord record in task.Records)
+                    if (record != null && record.Day > 0) earliest = Math.Min(earliest, record.Day);
+            }
+            return earliest == int.MaxValue ? 0 : earliest;
+        }
+
+        public static int WorkHistoryLatestDay(WorkGroup group, List<WorkTask> tasks, int currentDay)
+        {
+            int latest = WorkHistoryStartDay(tasks);
+            if (tasks != null)
+                foreach (WorkTask task in tasks)
+                {
+                    if (task == null) continue;
+                    latest = Math.Max(latest, task.CompletedDay);
+                    if (task.Records == null) continue;
+                    foreach (TaskRecord record in task.Records)
+                        if (record != null) latest = Math.Max(latest, record.Day);
+                }
+            if (group?.State == WorkState.InProgress) latest = Math.Max(latest, currentDay);
+            if (group?.State == WorkState.Failed) latest = Math.Max(latest, group.HardDeadline + 1);
+            return latest;
+        }
+
+        public static int WorkHistoryEndDay(WorkGroup group, List<WorkTask> tasks, int currentDay) =>
+            WorkHistoryLatestDay(group, tasks, currentDay);
+
+        public static int WorkHistoryElapsedDays(WorkGroup group, List<WorkTask> tasks, int currentDay)
+        {
+            int start = WorkHistoryStartDay(tasks);
+            int end = WorkHistoryEndDay(group, tasks, currentDay);
+            return start <= 0 || end < start ? 0 : end - start + 1;
+        }
+
+        public static string WorkHistoryParticipants(List<WorkTask> tasks, List<CrewMember> crew)
+        {
+            var names = new List<string>();
+            if (tasks == null) return "기록 없음";
+            foreach (WorkTask task in tasks)
+            {
+                if (task == null) continue;
+                if (task.Records != null)
+                    foreach (TaskRecord record in task.Records)
+                        AddHistoryParticipant(names, record?.Actor);
+                AddHistoryParticipant(names, CrewName(crew, task.AssignedCharacter));
+                AddHistoryParticipant(names, CrewName(crew, task.LastWorker));
+            }
+            return names.Count == 0 ? "기록 없음" : string.Join(", ", names);
+        }
+
+        private static void AddHistoryParticipant(List<string> names, string name)
+        {
+            if (names == null || string.IsNullOrEmpty(name) || name == "SYSTEM" || ListContains(names, name)) return;
+            names.Add(name);
+        }
+
+        private static string CrewName(List<CrewMember> crew, int index) =>
+            crew != null && index >= 0 && index < crew.Count ? crew[index].Name : null;
+
+        private static string RecordKindName(RecordKind kind) => kind == RecordKind.Issue
+            ? "사건"
+            : kind == RecordKind.Note ? "기록" : "성과";
 
         private void DrawWorkers(DeskWindow window)
         {

@@ -69,6 +69,65 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void MilestoneHistoryMeasuresInclusiveElapsedDaysFromFirstRecordedActivity()
+        {
+            var work = new WorkGroup { State = WorkState.InProgress, HardDeadline = 20 };
+            var tasks = new List<WorkTask>
+            {
+                new WorkTask
+                {
+                    StartedDay = 5,
+                    Records = new List<TaskRecord>
+                    {
+                        new TaskRecord { Day = 4, Actor = "민서", Kind = RecordKind.Note, Text = "배정" },
+                        new TaskRecord { Day = 6, Actor = "민서", Kind = RecordKind.Output, Text = "성과" }
+                    }
+                }
+            };
+
+            Assert.That(MilestonePrototypeController.HasWorkHistory(work, tasks), Is.True);
+            Assert.That(MilestonePrototypeController.WorkHistoryStartDay(tasks), Is.EqualTo(4));
+            Assert.That(MilestonePrototypeController.WorkHistoryEndDay(work, tasks, 8), Is.EqualTo(8));
+            Assert.That(MilestonePrototypeController.WorkHistoryElapsedDays(work, tasks, 8), Is.EqualTo(5));
+        }
+
+        [Test]
+        public void MilestoneHistoryKeepsUniqueHistoricalParticipants()
+        {
+            var crew = new List<CrewMember>
+            {
+                new CrewMember { Name = "민서" },
+                new CrewMember { Name = "도윤" }
+            };
+            var tasks = new List<WorkTask>
+            {
+                new WorkTask
+                {
+                    AssignedCharacter = 1,
+                    LastWorker = 0,
+                    Records = new List<TaskRecord>
+                    {
+                        new TaskRecord { Day = 1, Actor = "민서", Kind = RecordKind.Output },
+                        new TaskRecord { Day = 2, Actor = "민서", Kind = RecordKind.Issue },
+                        new TaskRecord { Day = 2, Actor = "SYSTEM", Kind = RecordKind.Note }
+                    }
+                }
+            };
+
+            Assert.That(MilestonePrototypeController.WorkHistoryParticipants(tasks, crew),
+                Is.EqualTo("민서, 도윤"));
+        }
+
+        [Test]
+        public void MilestoneHistoryExcludesUntouchedPlans()
+        {
+            var work = new WorkGroup { State = WorkState.Available };
+            var tasks = new List<WorkTask> { new WorkTask { State = TaskState.Available } };
+
+            Assert.That(MilestonePrototypeController.HasWorkHistory(work, tasks), Is.False);
+        }
+
+        [Test]
         public void IncidentPerkMultipliersStackMultiplicativelyAtEachCheckpoint()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();

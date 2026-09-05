@@ -2,13 +2,13 @@
 
 ## Document Control
 
-- Version: 4.2
+- Version: 4.3
 - Status: Approved for implementation
 - Action: Update
 - SSOT Change: Yes
-- Rationale: Assemble data-addressed crew portraits from a shared face and modular expression,
-  hair, and condition layers while retaining complete-image and text fallbacks, alongside the
-  established endurance, desktop, update, reset, live-data, and weekly field-report rules.
+- Rationale: Recast Milestone as a persistent project history of completed and ongoing work while
+  retaining the established crew portrait, endurance, desktop, update, reset, live-data, and weekly
+  field-report rules.
 - Idea references: `IDEA.md` items 1, 2, 4, and 8
 
 ## Scope
@@ -307,6 +307,21 @@ schedule, selected reservation day, and recent records) includes its game-calend
 quarter while retaining the underlying `DAY n` value.
 
 Task rows in the Gantt and milestone views open this detail page.
+
+## Milestone Project History
+
+- The Milestone app is a project history, not a second planning view.
+- It includes visible Works that have started, completed, or failed. Untouched available and locked
+  plans remain in planning surfaces until they produce history.
+- Work entries are ordered by latest activity and remain visible after completion so history
+  accumulates throughout the run.
+- Each entry shows state, progress, first activity, terminal or current day, inclusive elapsed days,
+  every historical participant, completed Task count, accumulated output, and claimed resource
+  reward.
+- Its activity log shows all persisted Task records newest-first with calendar date, record kind,
+  Task name, actor, and text. Output records describe what was gained; note and issue records retain
+  assignments, handovers, interruptions, and incidents.
+- Existing Task rows remain available inside each history entry and open Task detail.
 
 ## Interruption and Handover
 
