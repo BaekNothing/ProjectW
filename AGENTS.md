@@ -12,6 +12,12 @@ Before changing code, data, Unity settings, builds, patch tooling, or GitHub rel
 
 ## Branch policy
 
+- On `ai-cli-itgration`, follow `Assets/Specification/Operation/UnityCliMigration.md` and
+  `Docs/UnityCliMigration.md` for the official Unity CLI experiment. Push this branch to its own
+  remote branch. Prefer `unity command --project-path <absolute-repository-path>` for live Editor
+  operations; discover commands from the installed Pipeline package before invoking them.
+- This experiment does not authorize publishing a gameplay patch or changing the device channel.
+
 - Treat `ai-integration` as the persistent development and deployment branch.
 - Stay on `ai-integration` and push completed work directly to `origin/ai-integration` unless the user explicitly requests another branch.
 - Do not open a PR to `main`, merge into `main`, or change the patch channel to `main` without explicit user direction.

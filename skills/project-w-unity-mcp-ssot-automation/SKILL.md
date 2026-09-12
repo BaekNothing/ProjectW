@@ -5,6 +5,15 @@ description: Create and update Unity scripts with Unity MCP while handling Unity
 
 # Project_W Unity MCP SSOT Automation
 
+## Unity CLI experiment override
+
+On `ai-cli-itgration`, the user's migration request replaces the MCP transport requirements below
+with official Unity CLI/Pipeline commands. Read `Docs/UnityCliMigration.md` and
+`Assets/Specification/Operation/UnityCliMigration.md`. Discover the live command schema with
+`unity command --project-path <absolute-project-path> --json`; use that explicit path for every
+Editor operation. CLI unavailability blocks Editor operations, while MCP unavailability does not.
+Keep all SSOT, paired runtime-test, and version-control requirements below.
+
 Use this skill to execute Unity MCP implementation work with strict SSOT traceability and mandatory test pairing.
 
 ## Enforce SSOT First

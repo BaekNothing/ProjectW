@@ -1,5 +1,9 @@
 # Project_W Skills Quick Guide
 
+On the `ai-cli-itgration` experiment branch, use the official Unity CLI workflow in
+[`Docs/UnityCliMigration.md`](../Docs/UnityCliMigration.md). The MCP setup below describes the
+previous integration. SSOT and test requirements still apply when using CLI commands.
+
 This is a short usage guide for the skills created in this project, with Claude/Cursor + Unity MCP assumptions.
 
 ## Environment Assumptions

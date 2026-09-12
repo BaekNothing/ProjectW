@@ -2,6 +2,9 @@
 
 Working title: **외행성재척지원실 3과**
 
+The `ai-cli-itgration` branch evaluates official Unity CLI/Pipeline automation. See
+[setup and validation](Docs/UnityCliMigration.md) before operating the Editor on this branch.
+
 ProjectW is a Unity 6 operations-management prototype. The player assigns a four-person field team
 to interdependent Works and Tasks, manages fatigue and resource pressure, and survives an endless
 day-based run. There is no victory state or fixed campaign ending; resource depletion ends the run
