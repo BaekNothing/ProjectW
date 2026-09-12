@@ -98,6 +98,9 @@ No new runtime script was added, so there is no new runtime/test pairing in this
 
 ## Deployment boundary and rollback
 
+See [APK and hot-update deployment review](UnityCliDeploymentReview.md) for the existing builder
+entry points, candidate CLI commands, verified public channel, and remaining deployment checks.
+
 This is a development-tool migration experiment. No APK, GitHub Release, remote content, or
 `PatchChannels/dev.json` update is part of it. Under repository rules package changes require a
 new verified base APK before deployment. EditMode tests do not prove Android/AOT compatibility.
