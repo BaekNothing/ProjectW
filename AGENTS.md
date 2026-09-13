@@ -58,3 +58,10 @@ Before changing code, data, Unity settings, builds, patch tooling, or GitHub rel
 - Inspect the worktree and stage only task-related files.
 - Commit and push completed work to `origin/ai-integration` unless the user explicitly says not to.
 - Do not silently include generated caches, local credentials, or unrelated user changes.
+
+## User delivery default (2026-09-13)
+
+- Complete ordinary requested work through commit, push, build and publication, including all ready
+  resources. Do not stop at source-only changes unless the user requests it or a concrete blocker exists.
+- On the current web-preview branch, publish the WebGL build to `baeknothing/managingheaven:html5`
+  using the documented CLI/Butler workflow. This does not change the Android device channel.

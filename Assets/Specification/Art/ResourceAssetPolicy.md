@@ -100,50 +100,30 @@ franchise style.
 
 ## Current Crew Portrait Style Baseline
 
-The active crew set uses intentionally simple monochrome line drawings for an adult workplace
-strategy game. The reduced rendering is meant to make small-scale faces readable without relying
-on polished beauty rendering or detailed anatomy:
+The active crew are four adult women with a cute moe magical-girl visual direction, retaining
+white backgrounds/fills and black outlines. Use large expressive eyes, rounded cheeks, small
+mouths, distinct hairstyles, modest magical-girl collars, bows and small hair accessories.
+Keep the entire crown visible, eyes unobstructed, natural eye spacing, centered square portraits
+and consistent apparent face size. No color fills, gray shading, text, watermark or weapons.
+Stable roster IDs, roles, names and gameplay data remain unchanged.
 
-- pure white background and pure white fills for skin, hair, eyes, and clothing;
-- bold black contours with slightly naive, hand-drawn character;
-- sparse interior detail and large calm shapes that remain legible at small UI sizes;
-- identity carried by hairstyle silhouette, eye and brow shape, mouth, and uniform outline;
-- centered, straight-on head-and-shoulders employee-ID framing on a shared square canvas;
-- no color accents, gray tones, gradients, cel shading, hatching, detailed irises, or detailed hair
-  strands;
-- no text, badge card, logo, watermark, weapon, military decoration, or exaggerated sci-fi armor.
+### Sheet-authored crew portraits
 
-Profile data determines personality and expression. Age and gender presentation remain
-art-direction choices and are not added to gameplay data unless design later requires them.
+Generate the complete set together on one large regular 4 x 4 sheet, then crop equal cells.
+Columns follow the four roster slots. Rows are healthy, fatigued, overworked and injured/exhausted.
+Repeat each identity, hairstyle and costume down its column. Export all 16 portraits at 512 square;
+keep the original sheet and crop recipe in ArtSource. The four healthy crops also replace the
+stable complete fallback addresses. Runtime chooses a complete condition portrait, avoiding
+independently generated face-part registration errors. Historical modular sources remain archived
+in the repository but are excluded from the active portrait Addressables group.
 
-### Modular crew portrait assembly
+Condition thresholds stay unchanged: healthy below 30 fatigue, fatigue at 30, overwork at 55,
+and injured/exhausted for injury or fatigue 80+. Failure falls back to the stable healthy image,
+then the data-defined text. All image paths use the established Texture2D loading/drawing surface.
 
-The active crew portraits share a registered `1254 x 1254` authoring canvas and a `512 x 512`
-runtime canvas. Every part uses the same full-canvas registration; runtime does not calculate
-per-part offsets or scales.
-
-Draw layers in this order:
-
-1. role body and opaque background;
-2. shared face base, including ears, neck, and nose;
-3. condition dark circles;
-4. eyes;
-5. eyebrows;
-6. mouth;
-7. hair.
-
-The catalog provides four variants each for eyes, eyebrows, mouth, and hair. Dark circles provide
-four condition variants: none, fatigue, overwork, and illness/burnout. The shared face deliberately
-contains no eyes, eyebrows, mouth, hair, wrinkles, or dark circles. Every layer after the opaque
-white body/background uses real PNG alpha and must import with `FromInput` alpha; the body and
-complete-portrait fallbacks remain opaque. Transparent layers use only white shape fills and black
-line pixels. The four stable complete portraits are composites of the same parts so a partial
-remote-load failure does not change the visual identity.
-
-Across every eye variant, the inner-corner gap should read as approximately one eye width rather
-than placing the eyes near the face edges. Eyebrows and dark circles inherit the same horizontal
-registration. Hair variants sit slightly above the face-base crown registration so bangs frame the
-eyes without making the entire hairstyle appear to slide down the head.
+Revision 2026-09-13: user requested all-female magical girls, batch generation on one sheet,
+cropping, and publication including ready resources. Scope: art/runtime portrait selection and
+web content; no simulation, metadata identity or Android channel changes. SSOT Change: Yes.
 
 ## Unity Import and Addressables Gate
 
