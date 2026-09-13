@@ -1,0 +1,6 @@
+{
+  "name": "ProjectW.WebPreview.Tests",
+  "references": ["ProjectW.WebPreview", "ProjectW.Contracts"],
+  "optionalUnityReferences": ["TestAssemblies"],
+  "includePlatforms": ["Editor"]
+}

@@ -14,6 +14,9 @@ namespace ProjectW.MilestonePrototype
 {
     public sealed class MilestonePrototypeController : MonoBehaviour
     {
+#if UNITY_WEBGL || UNITY_EDITOR
+        public Font WebPreviewFont;
+#endif
         private sealed class DeskWindow
         {
             public int GuiId;
@@ -152,11 +155,26 @@ namespace ProjectW.MilestonePrototype
         {
             patchVersion = string.IsNullOrWhiteSpace(version) ? "unknown" : version.Trim();
             patchDiagnostics = diagnostics;
+#if UNITY_WEBGL && !UNITY_EDITOR
+            StartCoroutine(LoadRemoteAssets(string.Empty));
+#else
             if (!string.IsNullOrWhiteSpace(dataPath)) StartCoroutine(LoadRemoteAssets(dataPath));
+#endif
         }
 
         private IEnumerator LoadRemoteAssets(string dataPath)
         {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            var initialization = Addressables.InitializeAsync(false);
+            yield return initialization;
+            bool initialized = initialization.Status == AsyncOperationStatus.Succeeded;
+            Addressables.Release(initialization);
+            if (!initialized)
+            {
+                Debug.LogError("Web content initialization failed.");
+                yield break;
+            }
+#else
             string catalogPath = Directory.GetFiles(dataPath, "catalog*.bin").FirstOrDefault() ??
                                  Directory.GetFiles(dataPath, "catalog*.json").FirstOrDefault();
             if (string.IsNullOrEmpty(catalogPath)) yield break;
@@ -178,6 +196,8 @@ namespace ProjectW.MilestonePrototype
                 Debug.LogWarning($"Remote content catalog failed: {catalog.OperationException?.Message}");
                 yield break;
             }
+
+#endif
 
             AsyncOperationHandle<Texture2D> radial = Addressables.LoadAssetAsync<Texture2D>("effects/radial-trapezoid");
             AsyncOperationHandle<Texture2D> sparkle = Addressables.LoadAssetAsync<Texture2D>("effects/sparkle");
@@ -3211,6 +3231,9 @@ namespace ProjectW.MilestonePrototype
 
         private void EnsureStyles()
         {
+#if UNITY_WEBGL || UNITY_EDITOR
+            if (WebPreviewFont != null) GUI.skin.font = WebPreviewFont;
+#endif
             if (title != null) return;
             Color white = Color.white;
             Color black = Color.black;

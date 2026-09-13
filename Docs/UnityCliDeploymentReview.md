@@ -52,14 +52,14 @@ $projectPath = (Get-Location).Path
 $unityCli = Join-Path $env:LOCALAPPDATA 'Unity\bin\unity.exe'
 
 # Once per fresh clone, before building:
-& $unityCli run $projectPath --non-interactive --timeout 1800 -- -buildTarget Android -executeMethod ProjectW.MilestonePrototype.Editor.HybridClrPocBuilder.SetupFromCommandLine -quit -logFile Logs/HybridClrSetup.log
+& $unityCli run $projectPath --non-interactive --timeout 1800 -- -buildTarget Android -executeMethod ProjectW.MilestonePrototype.Editor.HybridClrPocBuilder.SetupFromCommandLine -logFile Logs/HybridClrSetup.log
 
 # Base APK; overwrites APK/ProjectW-HybridCLR.apk:
-& $unityCli run $projectPath --non-interactive --timeout 3600 -- -buildTarget Android -executeMethod ProjectW.MilestonePrototype.Editor.HybridClrPocBuilder.BuildBaseApkFromCommandLine -quit -logFile Logs/CliBaseApk.log
+& $unityCli run $projectPath --non-interactive --timeout 3600 -- -buildTarget Android -executeMethod ProjectW.MilestonePrototype.Editor.HybridClrPocBuilder.BuildBaseApkFromCommandLine -logFile Logs/CliBaseApk.log
 
 # Patch artifacts only: choose an unused YYYYMMDD-NNN release version first.
 # Set $env:PROJECTW_PATCH_VERSION to that value before this command.
-& $unityCli run $projectPath --non-interactive --timeout 1800 -- -buildTarget Android -executeMethod ProjectW.MilestonePrototype.Editor.HybridClrPocBuilder.BuildPatchFromCommandLine -quit -logFile Logs/CliPatch.log
+& $unityCli run $projectPath --non-interactive --timeout 1800 -- -buildTarget Android -executeMethod ProjectW.MilestonePrototype.Editor.HybridClrPocBuilder.BuildPatchFromCommandLine -logFile Logs/CliPatch.log
 ```
 
 Passing `-buildTarget Android` at startup avoids relying on the builder's in-session target switch

@@ -1,0 +1,5 @@
+{
+  "name": "ProjectW.WebPreview",
+  "references": ["ProjectW.HotUpdate", "ProjectW.Contracts", "ProjectW.Bootstrap"],
+  "includePlatforms": ["Editor", "WebGL"]
+}
