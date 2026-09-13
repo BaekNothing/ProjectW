@@ -2,6 +2,14 @@ namespace ProjectW.MilestonePrototype
 {
     public static class CrewPortraitCatalog
     {
+        // All registered layers and complete fallbacks share a square canvas.
+        public static UnityEngine.Rect FitPortraitRect(UnityEngine.Rect area)
+        {
+            float size = System.Math.Max(0f, System.Math.Min(area.width, area.height));
+            return new UnityEngine.Rect(area.x + (area.width - size) * .5f,
+                area.y + (area.height - size) * .5f, size, size);
+        }
+
         public const int Count = 4;
         public const int ModularAssetCount = 25;
         public const int BodyOffset = 0;

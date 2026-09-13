@@ -1045,6 +1045,7 @@ namespace ProjectW.MilestonePrototype
 
         private void DrawCrewPortrait(Rect rect, int crewIndex, string fallback, GUIStyle fallbackStyle)
         {
+            rect = CrewPortraitCatalog.FitPortraitRect(rect);
             if (modularCrewPortraitsLoaded && crewIndex >= 0 && crewIndex < game.Crew.Count)
             {
                 CrewMember member = game.Crew[crewIndex];

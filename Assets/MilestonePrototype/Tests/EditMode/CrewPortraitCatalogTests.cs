@@ -4,6 +4,24 @@ namespace ProjectW.MilestonePrototype.Tests
 {
     public sealed class CrewPortraitCatalogTests
     {
+        [TestCase(32f, 40f, 32f)]
+        [TestCase(160f, 90f, 90f)]
+        [TestCase(133f, 133f, 133f)]
+        [TestCase(0f, 40f, 0f)]
+        public void PortraitFitsSlotWithoutStretchingOrChangingItsCenter(
+            float width, float height, float expectedSize)
+        {
+            var area = new UnityEngine.Rect(17f, 23f, width, height);
+            var actual = CrewPortraitCatalog.FitPortraitRect(area);
+            Assert.That(actual.width, Is.EqualTo(expectedSize));
+            Assert.That(actual.height, Is.EqualTo(expectedSize));
+            Assert.That(actual.center, Is.EqualTo(area.center));
+            Assert.That(actual.xMin, Is.GreaterThanOrEqualTo(area.xMin));
+            Assert.That(actual.yMin, Is.GreaterThanOrEqualTo(area.yMin));
+            Assert.That(actual.xMax, Is.LessThanOrEqualTo(area.xMax));
+            Assert.That(actual.yMax, Is.LessThanOrEqualTo(area.yMax));
+        }
+
         [Test]
         public void ProductionCrewUsesStablePortraitAddressesInRosterOrder()
         {
