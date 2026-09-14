@@ -111,7 +111,7 @@ Stable roster IDs, roles, names and gameplay data remain unchanged.
 
 Generate the complete set together on one large regular 4 x 4 sheet, then crop equal cells.
 Columns follow the four roster slots. Rows are healthy, fatigued, overworked and injured/exhausted.
-Repeat each identity, hairstyle and costume down its column. Export all 16 portraits at 512 square;
+Repeat each identity, hairstyle and costume down its column. Export all 16 portraits at 320 square without upscaling the generated cells;
 keep the original sheet and crop recipe in ArtSource. The four healthy crops also replace the
 stable complete fallback addresses. Runtime chooses a complete condition portrait, avoiding
 independently generated face-part registration errors. Historical modular sources remain archived
@@ -120,6 +120,11 @@ in the repository but are excluded from the active portrait Addressables group.
 Condition thresholds stay unchanged: healthy below 30 fatigue, fatigue at 30, overwork at 55,
 and injured/exhausted for injury or fatigue 80+. Failure falls back to the stable healthy image,
 then the data-defined text. All image paths use the established Texture2D loading/drawing surface.
+
+The selected generator output is 1254 square (313/314 px cells), despite a request for 4096.
+Each cell is reduced to fit 288 square inside a 320 canvas with 32 px top and 16 px side
+margins. This is the approved exception to the default 512 runtime export and 1024 per-portrait
+authoring minimum; preserve the untouched source sheet rather than inventing resolution.
 
 Revision 2026-09-13: user requested all-female magical girls, batch generation on one sheet,
 cropping, and publication including ready resources. Scope: art/runtime portrait selection and
