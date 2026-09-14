@@ -19,31 +19,22 @@ namespace ProjectW.MilestonePrototype.Editor
             ("crew-yoon-analysis.png", CrewPortraitCatalog.YoonAnalysis, false),
             ("crew-mi-management.png", CrewPortraitCatalog.MiManagement, false),
             ("crew-kang-adaptation.png", CrewPortraitCatalog.KangAdaptation, false),
-            ("Modular/body-01-tech.png", CrewPortraitCatalog.ExpectedModularAddressForAsset(0), false),
-            ("Modular/body-02-analysis.png", CrewPortraitCatalog.ExpectedModularAddressForAsset(1), false),
-            ("Modular/body-03-management.png", CrewPortraitCatalog.ExpectedModularAddressForAsset(2), false),
-            ("Modular/body-04-adaptation.png", CrewPortraitCatalog.ExpectedModularAddressForAsset(3), false),
-            ("Modular/face-base.png", CrewPortraitCatalog.ExpectedModularAddressForAsset(4), true),
-            ("Modular/eyes-01-focused.png", CrewPortraitCatalog.ExpectedModularAddressForAsset(5), true),
-            ("Modular/eyes-02-friendly.png", CrewPortraitCatalog.ExpectedModularAddressForAsset(6), true),
-            ("Modular/eyes-03-decisive.png", CrewPortraitCatalog.ExpectedModularAddressForAsset(7), true),
-            ("Modular/eyes-04-calm.png", CrewPortraitCatalog.ExpectedModularAddressForAsset(8), true),
-            ("Modular/brow-01-straight.png", CrewPortraitCatalog.ExpectedModularAddressForAsset(9), true),
-            ("Modular/brow-02-soft-arch.png", CrewPortraitCatalog.ExpectedModularAddressForAsset(10), true),
-            ("Modular/brow-03-bold.png", CrewPortraitCatalog.ExpectedModularAddressForAsset(11), true),
-            ("Modular/brow-04-calm.png", CrewPortraitCatalog.ExpectedModularAddressForAsset(12), true),
-            ("Modular/mouth-01-neutral.png", CrewPortraitCatalog.ExpectedModularAddressForAsset(13), true),
-            ("Modular/mouth-02-smile.png", CrewPortraitCatalog.ExpectedModularAddressForAsset(14), true),
-            ("Modular/mouth-03-determined.png", CrewPortraitCatalog.ExpectedModularAddressForAsset(15), true),
-            ("Modular/mouth-04-concerned.png", CrewPortraitCatalog.ExpectedModularAddressForAsset(16), true),
-            ("Modular/hair-01-asym-bob.png", CrewPortraitCatalog.ExpectedModularAddressForAsset(17), true),
-            ("Modular/hair-02-low-bun.png", CrewPortraitCatalog.ExpectedModularAddressForAsset(18), true),
-            ("Modular/hair-03-tousled.png", CrewPortraitCatalog.ExpectedModularAddressForAsset(19), true),
-            ("Modular/hair-04-side-part.png", CrewPortraitCatalog.ExpectedModularAddressForAsset(20), true),
-            ("Modular/dark-00-none.png", CrewPortraitCatalog.ExpectedModularAddressForAsset(21), true),
-            ("Modular/dark-01-fatigue.png", CrewPortraitCatalog.ExpectedModularAddressForAsset(22), true),
-            ("Modular/dark-02-overwork.png", CrewPortraitCatalog.ExpectedModularAddressForAsset(23), true),
-            ("Modular/dark-03-illness.png", CrewPortraitCatalog.ExpectedModularAddressForAsset(24), true)
+            ("Conditions/crew-han-tech-condition-0.png", CrewPortraitCatalog.ExpectedConditionAddressForAsset(0), false),
+            ("Conditions/crew-yoon-analysis-condition-0.png", CrewPortraitCatalog.ExpectedConditionAddressForAsset(1), false),
+            ("Conditions/crew-mi-management-condition-0.png", CrewPortraitCatalog.ExpectedConditionAddressForAsset(2), false),
+            ("Conditions/crew-kang-adaptation-condition-0.png", CrewPortraitCatalog.ExpectedConditionAddressForAsset(3), false),
+            ("Conditions/crew-han-tech-condition-1.png", CrewPortraitCatalog.ExpectedConditionAddressForAsset(4), false),
+            ("Conditions/crew-yoon-analysis-condition-1.png", CrewPortraitCatalog.ExpectedConditionAddressForAsset(5), false),
+            ("Conditions/crew-mi-management-condition-1.png", CrewPortraitCatalog.ExpectedConditionAddressForAsset(6), false),
+            ("Conditions/crew-kang-adaptation-condition-1.png", CrewPortraitCatalog.ExpectedConditionAddressForAsset(7), false),
+            ("Conditions/crew-han-tech-condition-2.png", CrewPortraitCatalog.ExpectedConditionAddressForAsset(8), false),
+            ("Conditions/crew-yoon-analysis-condition-2.png", CrewPortraitCatalog.ExpectedConditionAddressForAsset(9), false),
+            ("Conditions/crew-mi-management-condition-2.png", CrewPortraitCatalog.ExpectedConditionAddressForAsset(10), false),
+            ("Conditions/crew-kang-adaptation-condition-2.png", CrewPortraitCatalog.ExpectedConditionAddressForAsset(11), false),
+            ("Conditions/crew-han-tech-condition-3.png", CrewPortraitCatalog.ExpectedConditionAddressForAsset(12), false),
+            ("Conditions/crew-yoon-analysis-condition-3.png", CrewPortraitCatalog.ExpectedConditionAddressForAsset(13), false),
+            ("Conditions/crew-mi-management-condition-3.png", CrewPortraitCatalog.ExpectedConditionAddressForAsset(14), false),
+            ("Conditions/crew-kang-adaptation-condition-3.png", CrewPortraitCatalog.ExpectedConditionAddressForAsset(15), false)
         };
 
         [MenuItem("ProjectW/Remote Content/3. Configure Portraits")]
@@ -71,6 +62,13 @@ namespace ProjectW.MilestonePrototype.Editor
             bundle.BundleMode = BundledAssetGroupSchema.BundlePackingMode.PackTogether;
             bundle.UseAssetBundleCache = true;
             group.GetSchema<ContentUpdateGroupSchema>().StaticContent = false;
+
+            // Historical modular files stay in source control, but no longer ship in this group.
+            var stale = new System.Collections.Generic.List<AddressableAssetEntry>();
+            foreach (var entry in group.entries)
+                if (entry.address.StartsWith("portraits/crew/modular/", StringComparison.Ordinal))
+                    stale.Add(entry);
+            foreach (var entry in stale) settings.RemoveAssetEntry(entry.guid);
 
             foreach (var asset in Assets)
             {

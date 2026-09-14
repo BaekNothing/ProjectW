@@ -41,18 +41,35 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void ModularPortraitCatalogHasStableUniqueAddresses()
+        public void ConditionPortraitCatalogHasStableUniqueAddresses()
         {
-            var addresses = new string[CrewPortraitCatalog.ModularAssetCount];
+            var addresses = new string[CrewPortraitCatalog.ConditionAssetCount];
             for (int index = 0; index < addresses.Length; index++)
             {
-                addresses[index] = CrewPortraitCatalog.ExpectedModularAddressForAsset(index);
+                addresses[index] = CrewPortraitCatalog.ExpectedConditionAddressForAsset(index);
                 Assert.That(addresses[index], Is.Not.Empty);
             }
 
             Assert.That(addresses, Is.Unique);
-            Assert.That(CrewPortraitCatalog.ExpectedModularAddressForAsset(-1), Is.Empty);
-            Assert.That(CrewPortraitCatalog.ExpectedModularAddressForAsset(addresses.Length), Is.Empty);
+            Assert.That(CrewPortraitCatalog.ExpectedConditionAddressForAsset(-1), Is.Empty);
+            Assert.That(CrewPortraitCatalog.ExpectedConditionAddressForAsset(addresses.Length), Is.Empty);
+        }
+
+        [Test]
+        public void EveryRosterAndConditionMapsToItsOwnSheetCell()
+        {
+            int[] fatigue = { 0, 30, 55, 80 };
+            for (int state = 0; state < 4; state++)
+                for (int crew = 0; crew < 4; crew++)
+                {
+                    int index = CrewPortraitCatalog.ConditionAssetForCrew(crew, fatigue[state], 0);
+                    Assert.That(index, Is.EqualTo(state * 4 + crew));
+                    Assert.That(CrewPortraitCatalog.ExpectedConditionAddressForAsset(index),
+                        Is.EqualTo(CrewPortraitCatalog.ExpectedAddressForSlot(crew) + "/condition-" + state));
+                    Assert.That(CrewPortraitCatalog.ConditionAssetForCrew(crew, 0, 1), Is.EqualTo(12 + crew));
+                }
+            Assert.That(CrewPortraitCatalog.ConditionAssetForCrew(-1, 0, 0), Is.EqualTo(-1));
+            Assert.That(CrewPortraitCatalog.ConditionAssetForCrew(4, 0, 0), Is.EqualTo(-1));
         }
 
         [TestCase(0, 0, 0)]

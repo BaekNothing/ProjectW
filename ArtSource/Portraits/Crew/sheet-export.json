@@ -1,0 +1,266 @@
+{
+  "sheet": "magical-girl-sheet.png",
+  "sheet_size": [
+    1254,
+    1254
+  ],
+  "sheet_sha256": "df40a2d74e27d14f93cdfa9604effe7233541eb9934cda17c947a69e3d2528f4",
+  "exports": [
+    {
+      "id": "crew-han-tech",
+      "condition": 0,
+      "crop": [
+        0,
+        0,
+        314,
+        314
+      ],
+      "output": "crew-han-tech-condition-0.png",
+      "size": [
+        320,
+        320
+      ],
+      "sha256": "c49059a063a538fb7ab8556e4b640ee5beadc87cdfa68d3b63f00dfce764b694"
+    },
+    {
+      "id": "crew-yoon-analysis",
+      "condition": 0,
+      "crop": [
+        314,
+        0,
+        627,
+        314
+      ],
+      "output": "crew-yoon-analysis-condition-0.png",
+      "size": [
+        320,
+        320
+      ],
+      "sha256": "cdeac473bc825a9e5a613b8d1393542f2e42a027cd86330a5d0b80de78c96235"
+    },
+    {
+      "id": "crew-mi-management",
+      "condition": 0,
+      "crop": [
+        627,
+        0,
+        940,
+        314
+      ],
+      "output": "crew-mi-management-condition-0.png",
+      "size": [
+        320,
+        320
+      ],
+      "sha256": "dda155f1a68b90cf09091a8b2c7a1b756daf9eb66b1c804dd2ee60da19ae0772"
+    },
+    {
+      "id": "crew-kang-adaptation",
+      "condition": 0,
+      "crop": [
+        940,
+        0,
+        1254,
+        314
+      ],
+      "output": "crew-kang-adaptation-condition-0.png",
+      "size": [
+        320,
+        320
+      ],
+      "sha256": "2156d1dfd8e08be832741461dc0b2eee70caa501c8ce15830d5cea0880e25454"
+    },
+    {
+      "id": "crew-han-tech",
+      "condition": 1,
+      "crop": [
+        0,
+        314,
+        314,
+        627
+      ],
+      "output": "crew-han-tech-condition-1.png",
+      "size": [
+        320,
+        320
+      ],
+      "sha256": "7c34741f9b6f1c44c79c7165581d7f5dd09e8fe9904cc8358c33d8b6413c9015"
+    },
+    {
+      "id": "crew-yoon-analysis",
+      "condition": 1,
+      "crop": [
+        314,
+        314,
+        627,
+        627
+      ],
+      "output": "crew-yoon-analysis-condition-1.png",
+      "size": [
+        320,
+        320
+      ],
+      "sha256": "5a3fed56ce177e30c1ff6a1b7bafd49c140fead1b717bddce7654b67d0d064ba"
+    },
+    {
+      "id": "crew-mi-management",
+      "condition": 1,
+      "crop": [
+        627,
+        314,
+        940,
+        627
+      ],
+      "output": "crew-mi-management-condition-1.png",
+      "size": [
+        320,
+        320
+      ],
+      "sha256": "0aa058b14a9c07316b29ddf2ad34195744fdebd01359c2b668598bfed453448f"
+    },
+    {
+      "id": "crew-kang-adaptation",
+      "condition": 1,
+      "crop": [
+        940,
+        314,
+        1254,
+        627
+      ],
+      "output": "crew-kang-adaptation-condition-1.png",
+      "size": [
+        320,
+        320
+      ],
+      "sha256": "f123b7220628ee6d8c7c7e6f5e8554e099c6b3767b0b3ba8f96ce92469fe7b91"
+    },
+    {
+      "id": "crew-han-tech",
+      "condition": 2,
+      "crop": [
+        0,
+        627,
+        314,
+        940
+      ],
+      "output": "crew-han-tech-condition-2.png",
+      "size": [
+        320,
+        320
+      ],
+      "sha256": "aff9d1785bc7bfc7dc615dd3f6b7612b59827f1fc57fc185ac73cbdd97b4fe25"
+    },
+    {
+      "id": "crew-yoon-analysis",
+      "condition": 2,
+      "crop": [
+        314,
+        627,
+        627,
+        940
+      ],
+      "output": "crew-yoon-analysis-condition-2.png",
+      "size": [
+        320,
+        320
+      ],
+      "sha256": "ca55c20ef0523bfb4b7680b733336ad82bc41837802cdec1bcc677a46fdc6437"
+    },
+    {
+      "id": "crew-mi-management",
+      "condition": 2,
+      "crop": [
+        627,
+        627,
+        940,
+        940
+      ],
+      "output": "crew-mi-management-condition-2.png",
+      "size": [
+        320,
+        320
+      ],
+      "sha256": "0a7394fa78c9e4be0bd8608784bab9461e3c3d53bae7c86e2e5a34305f0476db"
+    },
+    {
+      "id": "crew-kang-adaptation",
+      "condition": 2,
+      "crop": [
+        940,
+        627,
+        1254,
+        940
+      ],
+      "output": "crew-kang-adaptation-condition-2.png",
+      "size": [
+        320,
+        320
+      ],
+      "sha256": "4259e8380c6df758f64b6a49bbfdd5e8846bb2d2e1a784d6ee1c2a89d781baca"
+    },
+    {
+      "id": "crew-han-tech",
+      "condition": 3,
+      "crop": [
+        0,
+        940,
+        314,
+        1254
+      ],
+      "output": "crew-han-tech-condition-3.png",
+      "size": [
+        320,
+        320
+      ],
+      "sha256": "bb5248be3e07d83b69932db4764159ea01b2742d247734842c46caea9328cebe"
+    },
+    {
+      "id": "crew-yoon-analysis",
+      "condition": 3,
+      "crop": [
+        314,
+        940,
+        627,
+        1254
+      ],
+      "output": "crew-yoon-analysis-condition-3.png",
+      "size": [
+        320,
+        320
+      ],
+      "sha256": "ab8e3c31e35ae48205bf26cf72470dc7f49ed37933677354d3c49d350b97c104"
+    },
+    {
+      "id": "crew-mi-management",
+      "condition": 3,
+      "crop": [
+        627,
+        940,
+        940,
+        1254
+      ],
+      "output": "crew-mi-management-condition-3.png",
+      "size": [
+        320,
+        320
+      ],
+      "sha256": "a4530aa30940fcd404e14e58ed42f5a006ed9e9c3f53ac3de981b1bcd5cb0bc4"
+    },
+    {
+      "id": "crew-kang-adaptation",
+      "condition": 3,
+      "crop": [
+        940,
+        940,
+        1254,
+        1254
+      ],
+      "output": "crew-kang-adaptation-condition-3.png",
+      "size": [
+        320,
+        320
+      ],
+      "sha256": "ade3813e06ca816802c22337b9822be1882eb015fc276f14ca9a6c0fc84b8f1c"
+    }
+  ]
+}

@@ -14,8 +14,9 @@ composites do not meet the intended consistent framing and readable facial-featu
   overlays must move with the eyes when correcting the registration.
 
 Coordinates refer to the 1254-square authoring canvas. Clipped hair contours cannot be
-recovered merely by translating the existing pixels. Asset correction remains pending the
-choice between deterministic part adjustment and generated redraw; no raster assets changed.
+recovered merely by translating the existing pixels. The user subsequently requested a generated all-female magical-girl sheet. The historical
+modular composites were replaced by complete sheet crops, so these observations describe the
+superseded set. See ArtSource/Portraits/Crew/magical-girl-sheet.md.
 
 ## Runtime correction
 
