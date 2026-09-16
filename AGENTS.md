@@ -65,3 +65,7 @@ Before changing code, data, Unity settings, builds, patch tooling, or GitHub rel
   resources. Do not stop at source-only changes unless the user requests it or a concrete blocker exists.
 - On the current web-preview branch, publish the WebGL build to `baeknothing/managingheaven:html5`
   using the documented CLI/Butler workflow. This does not change the Android device channel.
+
+- User clarification (2026-09-16): update builds with Butler and verify delivery through CLI only.
+  Do not perform browser/web checks, play verification, or page-publication/login work. Verify that
+  ready resources are present in the built catalog and upload, then confirm `butler status`.

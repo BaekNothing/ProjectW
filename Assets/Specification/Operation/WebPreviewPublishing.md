@@ -28,5 +28,6 @@
 - Validate index.html and itch.io file limits. Per the user's 2026-09-13 direction, routine
   delivery uses build results and Butler CLI status; do not require browser play verification.
   Record any already-completed browser checks and remaining limitations honestly.
-- Publish to the supplied itch.io page, enable browser playback, add a concise description, and
-  verify the resulting page. This is explicitly authorized independently of the Android channel.
+- Publish updates to the existing itch.io html5 channel using Butler. Per the user clarification
+  on 2026-09-16, do not check the website or perform browser/login/page-configuration work. Verify
+  resource inclusion locally and delivery with `butler status`. Android delivery remains separate.

@@ -64,3 +64,19 @@ Unity CLI 1.0.0-beta.9 manages Editor shutdown itself; do not forward `-quit` to
 The Hub module installer failed with a `writer_kind` database error on this PC. WebGL Support
 was installed from the downloaded, signature-verified official Unity module installer instead.
 The web bootstrap EditMode tests passed (2/2), recorded in `Logs/web-preview-tests.xml`.
+
+## Magical-girl resource update — 2026-09-16
+
+- Source/runtime commit: `689e2dd` on `ai-cli-itgration` (pushed).
+- One generated 4x4 sheet supplies all four female magical-girl identities in four conditions.
+  Sixteen 320-square textures and four healthy fallbacks replace the shipping modular set.
+- Crew portrait EditMode tests: 15/15 passed. Asset source/export SHA-256 checks passed.
+- WebGL builder completed successfully (`WEB_PREVIEW_BUILD_OK bytes=32169247`, Editor exit 0).
+- Final upload: 24 files, 32,173,988 bytes. Built binary catalog contains all 16 condition filenames
+  and the new portrait bundle; active source group has 20 portrait entries, no legacy modular entries.
+- Portrait bundle: `projectwremoteportraits_assets_all_abc6f3a742128731fe2cd8cacf3e4515.bundle`,
+  453,169 bytes; SHA-256 `c1be4bfb9738ad1f984bff9a5635b3b454c2720993271e40c5833f80b16bf9fb`.
+- Butler push succeeded to `baeknothing/managingheaven:html5` with version
+  `2026.09.16-magical-girls.1`; CLI status confirms processed build `1984018`, upload `19215817`.
+- Per the latest user direction, delivery ends at resource validation and Butler status.
+  No further web checks, browser-play verification or public-page configuration are required.
