@@ -1,5 +1,10 @@
 # Task System
 
+Future direction: [Magical Girl Office Blueprint](MagicalGirlOfficeBlueprint.md) and
+[Migration Plan](MagicalGirlOfficeMigration.md) record the 2026-09-19 transition design.
+They do not override the current runtime rules below. Apply approved stage-specific specification
+changes before implementing the new campaign.
+
 ## Document Control
 
 - Version: 4.3
