@@ -1,5 +1,8 @@
 # Task System
 
+The separate M1 title entry uses [MagicalGirlOfficePrototype.md](MagicalGirlOfficePrototype.md).
+The rules below continue to govern the existing campaign only.
+
 Future direction: [Magical Girl Office Blueprint](MagicalGirlOfficeBlueprint.md) and
 [Migration Plan](MagicalGirlOfficeMigration.md) record the 2026-09-19 transition design.
 They do not override the current runtime rules below. Apply approved stage-specific specification

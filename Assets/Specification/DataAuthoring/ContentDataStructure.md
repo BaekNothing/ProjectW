@@ -1,5 +1,8 @@
 # Content Data Structure and Assistance Guide
 
+M1 office prototype exception: its authored seven-day content and independent snapshot fields are
+defined in `System/MagicalGirlOfficePrototype.md`. They do not extend `task-system.json` or its schema.
+
 ## Document Control
 
 - Version: 1.1

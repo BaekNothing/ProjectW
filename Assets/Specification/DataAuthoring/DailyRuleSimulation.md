@@ -1,5 +1,8 @@
 # Daily Rule Simulation Specification
 
+The independent office M1 scenario follows `System/MagicalGirlOfficePrototype.md`: one explicit
+decision and confirmation per authored day, ending at Day 8. The campaign simulation below is unchanged.
+
 ## Document Control
 
 - Version: 1.1
