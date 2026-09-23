@@ -122,6 +122,10 @@ namespace ProjectW.MilestonePrototype
         private float pinchDistanceOrigin;
         private int messengerSeenUpdateCount;
         private bool titleScreen = true;
+#if UNITY_WEBGL || UNITY_EDITOR
+        private OfficeDesktop officeDesktop;
+        private bool officeActive;
+#endif
         private bool titleOptions;
         private bool confirmCampaignReset;
         private bool confirmDesktopReset;
@@ -272,6 +276,13 @@ namespace ProjectW.MilestonePrototype
         private void OnGUI()
         {
             EnsureStyles();
+#if UNITY_WEBGL || UNITY_EDITOR
+            if (officeActive)
+            {
+                if (officeDesktop.Draw(WebPreviewFont)) officeActive = false;
+                return;
+            }
+#endif
             float scale = CalculateUiScale(Screen.width, uiMagnification);
             GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1));
             logicalWidth = Screen.width / scale;
@@ -315,6 +326,13 @@ namespace ProjectW.MilestonePrototype
                     titleScreen = false;
                 if (Button(new Rect(x + panelWidth * .65f, logicalHeight * .48f, panelWidth * .35f, 62f), "OPTIONS"))
                     titleOptions = true;
+#if UNITY_WEBGL || UNITY_EDITOR
+                if (Button(new Rect(x, logicalHeight * .48f + 78f, panelWidth, 62f), "마법소녀 사무소 / 7일 프로토타입"))
+                {
+                    if (officeDesktop == null) officeDesktop = new OfficeDesktop();
+                    officeActive = true;
+                }
+#endif
                 return;
             }
 

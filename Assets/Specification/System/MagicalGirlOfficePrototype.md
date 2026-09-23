@@ -61,3 +61,15 @@ Day 8은 종료. Day 이전 선택은 필수, 미래 선택은 -1, 오늘 선택
 - 정상 7일 진행, 미결정 진행 차단, 종료 후 전이 차단, 불량/미지원 저장 거부에 대한 EditMode 테스트.
 - WebGL 빌드 성공과 Butler 업로드/처리 상태를 CLI로 확인. 웹·브라우저·플레이 검증은 하지 않는다.
 - 시각 품질과 선택 의미에 대한 판단은 사용자의 직접 확인 이후 기록한다.
+
+## 구현 상태 — 2026-09-23
+
+- WebGL/Editor에서 최초 화면의 별도 버튼, 6개 업무 화면, 7일 분기·종료·독립 저장을 구현했다.
+- OfficeScenario / OfficeDesktop 각각의 EditMode 테스트를 추가했다.
+- 설치된 Unity 6000.3.8f1 Roslyn 컴파일러와 기존 Editor 참조 목록으로 런타임·테스트 어셈블리
+  컴파일 성공. 이는 Unity 테스트 실행이나 WebGL 빌드 성공을 뜻하지 않는다.
+- Unity Editor 시작은 `No valid Unity Editor license found` / exit 198로 차단됐다.
+  라이선스 활성화 후 EditMode 실행, WebGL 빌드, Butler 게시/처리 확인이 남아 있다.
+- 브라우저/웹/플레이 검증은 수행하지 않았다. 사용자 시각 피드백은 대기 중이다.
+- 이 프로토타입의 신규 런타임은 UNITY_WEBGL 또는 UNITY_EDITOR로 한정한다.
+  Android APK/패치/디바이스 채널은 이번 작업의 배포 대상이 아니다.
