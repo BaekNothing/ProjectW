@@ -120,3 +120,15 @@ Day 8은 종료. Day 이전 선택은 필수, 미래 선택은 -1, 오늘 선택
 - 업로드 버전 `office-os-20260923-2889168`, build `2006984`, upload `19215817`.
   업로드 후 `butler status --json`에서 서버 대기열 `queued`를 확인했다. 활성화 완료와 구별한다.
 - 웹/브라우저/플레이 검증은 수행하지 않았다. 사용자 시각 피드백을 기다린다.
+
+### 모바일 터치 배포 — 2026-09-24
+
+- 한 손가락 내용 스크롤, 두 손가락 창 크기 조절, 대상 창 고정과 합성 클릭 차단을 구현했다.
+- Office 테스트 37개 전체 통과 (`Logs/office-touch-editmode.xml`).
+- WebGL 빌드 성공: `WEB_PREVIEW_BUILD_OK bytes=32201288`, exit 0.
+  캔버스 touch-action:none과 catalog/hash·효과·인물 bundle 포함을 로컬 파일로 확인했다.
+- Butler 게시 완료: build `2009704`, upload `19215817`, version `office-touch-20260924-8488a65`.
+  `butler status --json`에서 해당 버전이 head이며 state=completed인 것을 확인했다.
+- 앞선 가상 OS build `2006984` 역시 completed 상태로 처리됐으며 새 버전의 부모 빌드다.
+- 기존 로컬 서버 `10.77.39.142:8000`의 빌드 폴더도 갱신했다.
+- 브라우저·플레이·실기기 터치 검증은 수행하지 않았다. 감도와 실제 동작은 사용자 피드백 대기다.
