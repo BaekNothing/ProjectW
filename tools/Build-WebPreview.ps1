@@ -18,7 +18,7 @@ $responsiveStyle = @'
 <style id="projectw-responsive">
 html,body { margin:0; width:100%; height:100%; overflow:hidden; background:#191f29; }
 #unity-container.unity-desktop { position:absolute; inset:0; width:100%; height:100%; transform:none; }
-#unity-canvas { width:100% !important; height:calc(100% - 38px) !important; display:block; }
+#unity-canvas { width:100% !important; height:calc(100% - 38px) !important; display:block; touch-action:none; }
 #unity-footer { width:100%; height:38px; background:#f5f5f5; }
 #unity-canvas:fullscreen { height:100% !important; }
 </style>

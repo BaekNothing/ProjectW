@@ -1,5 +1,6 @@
 #if UNITY_WEBGL || UNITY_EDITOR
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace ProjectW.MilestonePrototype
 {
@@ -8,6 +9,7 @@ namespace ProjectW.MilestonePrototype
     {
         public readonly OfficeScenario Scenario = new OfficeScenario();
         public readonly OfficeWindowLayout Layout = new OfficeWindowLayout();
+        private readonly OfficeTouchGesture touchGesture = new OfficeTouchGesture();
         public bool SaveBlocked { get; private set; }
         private int page, person;
         private Vector2 scroll;
@@ -42,6 +44,28 @@ namespace ProjectW.MilestonePrototype
                 SaveBlocked = !Scenario.Restore(PlayerPrefs.GetString(OfficeScenario.SaveKey));
         }
         public static float ScaleFor(int width, int height) => Mathf.Max(.1f, Mathf.Min(width / 1280f, height / 800f));
+        public void UpdateTouchInput()
+        {
+            var touchscreen = Touchscreen.current;
+            int count = 0, firstId = 0, secondId = 0;
+            Vector2 first = Vector2.zero, second = Vector2.zero;
+            float scale = ScaleFor(Screen.width, Screen.height);
+            if (touchscreen != null)
+                for (int i = 0; i < touchscreen.touches.Count; i++)
+                {
+                    var touch = touchscreen.touches[i];
+                    if (!touch.press.isPressed) continue;
+                    Vector2 point = MilestonePrototypeController.TouchToLogicalPosition(touch.position.ReadValue(), Screen.height, scale);
+                    if (count == 0) { first = point; firstId = touch.touchId.ReadValue(); }
+                    else if (count == 1) { second = point; secondId = touch.touchId.ReadValue(); }
+                    count++;
+                }
+            width = Screen.width / scale; height = Screen.height / scale;
+            int front = Layout.Front;
+            bool blocked = !CanInteract || (HasToast && (ToastRect.Contains(first) || (count > 1 && ToastRect.Contains(second))));
+            touchGesture.Process(Layout, count, firstId, secondId, first, second, scale, width, height, blocked);
+            if (front != Layout.Front) raise = Layout.Front;
+        }
         public bool Draw(Font font, Texture2D radialTexture = null, Texture2D sparkleTexture = null,
             Texture2D ringTexture = null, Texture2D glowTexture = null)
         {
@@ -70,7 +94,13 @@ namespace ProjectW.MilestonePrototype
                 pendingApp = pendingPerson = -1;
             }
             Layout.ConstrainAll(width, height);
-            HandleWindowInput();
+            if (touchGesture.SuppressPointer)
+            {
+                resizing = -1;
+                GUIUtility.hotControl = 0;
+                if (Event.current.isMouse || Event.current.type == EventType.ScrollWheel) Event.current.Use();
+            }
+            else HandleWindowInput();
             bool overToast = HasToast && ToastRect.Contains(Event.current.mousePosition);
             GUI.enabled = !OfficeWindowLayout.BlocksDesktop(!CanInteract, overToast, Layout.HitTest(Event.current.mousePosition));
             DrawWallpaper();
@@ -202,6 +232,9 @@ namespace ProjectW.MilestonePrototype
             Vector2 previousScroll = scroll;
             page = app; person = window.Person; scroll = window.Scroll;
             float contentHeight = app == 1 ? 710 : app == 4 || app == 5 || (Scenario.Complete && app == 0) ? 1100 : 690;
+            window.ContentHeight = contentHeight;
+            OfficeTouchGesture.ClampScroll(window);
+            scroll = window.Scroll;
             Rect view = new Rect(14, 97, ww - 28, wh - 165);
             scroll = GUI.BeginScrollView(view, scroll, new Rect(0, 0, view.width - 22, contentHeight));
             float cw = view.width - 22;
@@ -230,7 +263,7 @@ namespace ProjectW.MilestonePrototype
         private void DrawSettings(float w)
         {
             Text(new Rect(8, 5, w - 16, 46), "조금 더 나다운 바탕화면", heading, Ink);
-            Text(new Rect(8, 64, w - 16, 90), "아이콘을 눌러 앱을 열고, 제목줄을 잡아 이동하세요.\n창 오른쪽 아래 모서리로 크기를 조절할 수 있어요.\n최소화한 앱은 작업표시줄에서 다시 열 수 있어요.", body, Muted);
+            Text(new Rect(8, 64, w - 16, 104), "아이콘을 눌러 앱을 열고, 제목줄을 잡아 이동하세요.\n모바일: 창 안을 밀어 스크롤 / 두 손가락으로 창 확대·축소.\n창 모서리로도 크기 조절이 가능해요.\n최소화한 앱은 작업표시줄에서 다시 열 수 있어요.", body, Muted);
             if (Action(new Rect(8, 175, w - 16, 48), effects ? "아이콘 배경 이펙트  ON" : "아이콘 배경 이펙트  OFF", effects)) effects = !effects;
             Text(new Rect(8, 237, w - 16, 67), "빛 · 회전하는 후광 · 반짝임\n새 안건과 선택한 아이콘 뒤에서 표시돼요.", body, Muted);
             if (Action(new Rect(8, 325, (w - 28) / 2, 49), "전체화면 알림 보기")) modal = Modal.Preview;

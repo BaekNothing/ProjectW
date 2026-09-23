@@ -280,6 +280,13 @@ namespace ProjectW.MilestonePrototype
 
         private void OnApplicationQuit() => SaveAll();
 
+#if UNITY_WEBGL || UNITY_EDITOR
+        private void Update()
+        {
+            if (officeActive && officeDesktop != null) officeDesktop.UpdateTouchInput();
+        }
+#endif
+
         private void OnGUI()
         {
             EnsureStyles();

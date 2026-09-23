@@ -13,6 +13,7 @@ namespace ProjectW.MilestonePrototype
             public Rect Rect;
             public Vector2 Scroll;
             public int Person;
+            public float ContentHeight = 690;
         }
         public const int AppCount = 7;
         public const float MinimumWidth = 640, MinimumHeight = 420;
