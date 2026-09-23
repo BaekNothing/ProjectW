@@ -125,6 +125,7 @@ namespace ProjectW.MilestonePrototype
 #if UNITY_WEBGL || UNITY_EDITOR
         private OfficeDesktop officeDesktop;
         private bool officeActive;
+        private Texture2D officeRadial, officeSparkle, officeRing, officeGlow;
 #endif
         private bool titleOptions;
         private bool confirmCampaignReset;
@@ -216,6 +217,12 @@ namespace ProjectW.MilestonePrototype
                 glow.Status == AsyncOperationStatus.Succeeded)
             {
                 notifications.SetEffectTextures(radial.Result, sparkle.Result, ring.Result, glow.Result);
+#if UNITY_WEBGL || UNITY_EDITOR
+                officeRadial = radial.Result;
+                officeSparkle = sparkle.Result;
+                officeRing = ring.Result;
+                officeGlow = glow.Result;
+#endif
                 Debug.Log("Remote effect assets loaded from the active patch slot.");
             }
             else Debug.LogWarning("One or more remote effect textures failed to load.");
@@ -279,7 +286,7 @@ namespace ProjectW.MilestonePrototype
 #if UNITY_WEBGL || UNITY_EDITOR
             if (officeActive)
             {
-                if (officeDesktop.Draw(WebPreviewFont)) officeActive = false;
+                if (officeDesktop.Draw(WebPreviewFont, officeRadial, officeSparkle, officeRing, officeGlow)) officeActive = false;
                 return;
             }
 #endif
