@@ -68,8 +68,12 @@ Day 8은 종료. Day 이전 선택은 필수, 미래 선택은 -1, 오늘 선택
 - OfficeScenario / OfficeDesktop 각각의 EditMode 테스트를 추가했다.
 - 설치된 Unity 6000.3.8f1 Roslyn 컴파일러와 기존 Editor 참조 목록으로 런타임·테스트 어셈블리
   컴파일 성공. 이는 Unity 테스트 실행이나 WebGL 빌드 성공을 뜻하지 않는다.
-- Unity Editor 시작은 `No valid Unity Editor license found` / exit 198로 차단됐다.
-  라이선스 활성화 후 EditMode 실행, WebGL 빌드, Butler 게시/처리 확인이 남아 있다.
+- 최초 Unity Editor 시작은 라이선스 오류(exit 198)로 차단됐으나, 사용자의 Hub 재로그인 후 해소됐다.
+- Office EditMode 테스트 15개 전체 통과 (`Logs/office-editmode.xml`).
+- WebGL 빌드 성공: `WEB_PREVIEW_BUILD_OK bytes=32185939`, 프로세스 exit 0.
+  로컬 Addressables catalog/hash와 효과·인물 bundle의 빌드 포함을 확인했다.
+- Butler `html5` 게시 처리 완료: build `2006446`, upload `19215817`,
+  version `office-m1-20260923-d432bea`. `butler status`에서 성공 표시를 확인했다.
 - 브라우저/웹/플레이 검증은 수행하지 않았다. 사용자 시각 피드백은 대기 중이다.
 - 이 프로토타입의 신규 런타임은 UNITY_WEBGL 또는 UNITY_EDITOR로 한정한다.
   Android APK/패치/디바이스 채널은 이번 작업의 배포 대상이 아니다.
