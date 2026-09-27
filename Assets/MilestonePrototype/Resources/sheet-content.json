@@ -1,0 +1,2232 @@
+{
+  "CharacterPerks": [
+    {
+      "character_id": "doyun",
+      "id": "doyun.cautious",
+      "perk_id": "cautious"
+    },
+    {
+      "character_id": "doyun",
+      "id": "doyun.empathetic",
+      "perk_id": "empathetic"
+    },
+    {
+      "character_id": "doyun",
+      "id": "doyun.responsible",
+      "perk_id": "responsible"
+    },
+    {
+      "character_id": "doyun",
+      "id": "doyun.weak_boundaries",
+      "perk_id": "weak_boundaries"
+    },
+    {
+      "character_id": "narin",
+      "id": "narin.curious",
+      "perk_id": "curious"
+    },
+    {
+      "character_id": "narin",
+      "id": "narin.meticulous",
+      "perk_id": "meticulous"
+    },
+    {
+      "character_id": "narin",
+      "id": "narin.night_owl",
+      "perk_id": "night_owl"
+    },
+    {
+      "character_id": "narin",
+      "id": "narin.reserved",
+      "perk_id": "reserved"
+    },
+    {
+      "character_id": "seojin",
+      "id": "seojin.cautious",
+      "perk_id": "cautious"
+    },
+    {
+      "character_id": "seojin",
+      "id": "seojin.meticulous",
+      "perk_id": "meticulous"
+    },
+    {
+      "character_id": "seojin",
+      "id": "seojin.reserved",
+      "perk_id": "reserved"
+    },
+    {
+      "character_id": "seojin",
+      "id": "seojin.responsible",
+      "perk_id": "responsible"
+    },
+    {
+      "character_id": "taeo",
+      "id": "taeo.competitive",
+      "perk_id": "competitive"
+    },
+    {
+      "character_id": "taeo",
+      "id": "taeo.curious",
+      "perk_id": "curious"
+    },
+    {
+      "character_id": "taeo",
+      "id": "taeo.improviser",
+      "perk_id": "improviser"
+    },
+    {
+      "character_id": "taeo",
+      "id": "taeo.sociable",
+      "perk_id": "sociable"
+    },
+    {
+      "character_id": "yunha",
+      "id": "yunha.empathetic",
+      "perk_id": "empathetic"
+    },
+    {
+      "character_id": "yunha",
+      "id": "yunha.sociable",
+      "perk_id": "sociable"
+    },
+    {
+      "character_id": "yunha",
+      "id": "yunha.weak_boundaries",
+      "perk_id": "weak_boundaries"
+    },
+    {
+      "character_id": "yunha",
+      "id": "yunha.well_connected",
+      "perk_id": "well_connected"
+    }
+  ],
+  "Characters": [
+    {
+      "affinity": 55,
+      "focus": 55,
+      "id": "doyun",
+      "inquiry": 40,
+      "name_tid": "character.doyun.name",
+      "response": 50
+    },
+    {
+      "affinity": 35,
+      "focus": 65,
+      "id": "narin",
+      "inquiry": 75,
+      "name_tid": "character.narin.name",
+      "response": 45
+    },
+    {
+      "affinity": 35,
+      "focus": 70,
+      "id": "seojin",
+      "inquiry": 55,
+      "name_tid": "character.seojin.name",
+      "response": 40
+    },
+    {
+      "affinity": 50,
+      "focus": 35,
+      "id": "taeo",
+      "inquiry": 55,
+      "name_tid": "character.taeo.name",
+      "response": 70
+    },
+    {
+      "affinity": 60,
+      "focus": 40,
+      "id": "yunha",
+      "inquiry": 45,
+      "name_tid": "character.yunha.name",
+      "response": 50
+    }
+  ],
+  "Events": [
+    {
+      "base_probability": 0.1,
+      "cooldown_days": 1,
+      "id": "contest_offer",
+      "min_closeness": 0,
+      "min_friends": 0,
+      "name_tid": "event.contest_offer.name",
+      "required_flags": "related_skill_40",
+      "tags": "contest",
+      "task_id": "enter_contest"
+    },
+    {
+      "base_probability": 0.08,
+      "cooldown_days": 1,
+      "id": "equipment_failure",
+      "min_closeness": 0,
+      "min_friends": 0,
+      "name_tid": "event.equipment_failure.name",
+      "required_flags": "using_equipment",
+      "tags": "world_hazard",
+      "task_id": "repair_equipment"
+    },
+    {
+      "base_probability": 0.1,
+      "cooldown_days": 3,
+      "id": "friend_consultation",
+      "min_closeness": 40,
+      "min_friends": 1,
+      "name_tid": "event.friend_consultation.name",
+      "required_flags": "",
+      "tags": "social;consultation;request",
+      "task_id": "listen_to_friend"
+    },
+    {
+      "base_probability": 0.2,
+      "cooldown_days": 1,
+      "id": "friend_invitation",
+      "min_closeness": 0,
+      "min_friends": 1,
+      "name_tid": "event.friend_invitation.name",
+      "required_flags": "",
+      "tags": "social;friends",
+      "task_id": ""
+    },
+    {
+      "base_probability": 0.12,
+      "cooldown_days": 1,
+      "id": "new_workshop",
+      "min_closeness": 0,
+      "min_friends": 0,
+      "name_tid": "event.new_workshop.name",
+      "required_flags": "can_go_out",
+      "tags": "new_activity",
+      "task_id": "try_workshop"
+    },
+    {
+      "base_probability": 0.15,
+      "cooldown_days": 1,
+      "id": "shift_request",
+      "min_closeness": 0,
+      "min_friends": 0,
+      "name_tid": "event.shift_request.name",
+      "required_flags": "employed;colleague_absent",
+      "tags": "cover_request;request",
+      "task_id": "cover_shift"
+    }
+  ],
+  "OfficeTextGroups": [
+    {
+      "group": "Bodies",
+      "id": "Bodies.0",
+      "position": 0,
+      "text_tid": "office.bodies.0"
+    },
+    {
+      "group": "Bodies",
+      "id": "Bodies.1",
+      "position": 1,
+      "text_tid": "office.bodies.1"
+    },
+    {
+      "group": "Bodies",
+      "id": "Bodies.2",
+      "position": 2,
+      "text_tid": "office.bodies.2"
+    },
+    {
+      "group": "Bodies",
+      "id": "Bodies.3",
+      "position": 3,
+      "text_tid": "office.bodies.3"
+    },
+    {
+      "group": "Bodies",
+      "id": "Bodies.4",
+      "position": 4,
+      "text_tid": "office.bodies.4"
+    },
+    {
+      "group": "Bodies",
+      "id": "Bodies.5",
+      "position": 5,
+      "text_tid": "office.bodies.5"
+    },
+    {
+      "group": "Bodies",
+      "id": "Bodies.6",
+      "position": 6,
+      "text_tid": "office.bodies.6"
+    },
+    {
+      "group": "Names",
+      "id": "Names.0",
+      "position": 0,
+      "text_tid": "office.names.0"
+    },
+    {
+      "group": "Names",
+      "id": "Names.1",
+      "position": 1,
+      "text_tid": "office.names.1"
+    },
+    {
+      "group": "Names",
+      "id": "Names.2",
+      "position": 2,
+      "text_tid": "office.names.2"
+    },
+    {
+      "group": "Options",
+      "id": "Options.0",
+      "position": 0,
+      "text_tid": "office.options.0"
+    },
+    {
+      "group": "Options",
+      "id": "Options.1",
+      "position": 1,
+      "text_tid": "office.options.1"
+    },
+    {
+      "group": "Options",
+      "id": "Options.10",
+      "position": 10,
+      "text_tid": "office.options.10"
+    },
+    {
+      "group": "Options",
+      "id": "Options.11",
+      "position": 11,
+      "text_tid": "office.options.11"
+    },
+    {
+      "group": "Options",
+      "id": "Options.12",
+      "position": 12,
+      "text_tid": "office.options.12"
+    },
+    {
+      "group": "Options",
+      "id": "Options.13",
+      "position": 13,
+      "text_tid": "office.options.13"
+    },
+    {
+      "group": "Options",
+      "id": "Options.2",
+      "position": 2,
+      "text_tid": "office.options.2"
+    },
+    {
+      "group": "Options",
+      "id": "Options.3",
+      "position": 3,
+      "text_tid": "office.options.3"
+    },
+    {
+      "group": "Options",
+      "id": "Options.4",
+      "position": 4,
+      "text_tid": "office.options.4"
+    },
+    {
+      "group": "Options",
+      "id": "Options.5",
+      "position": 5,
+      "text_tid": "office.options.5"
+    },
+    {
+      "group": "Options",
+      "id": "Options.6",
+      "position": 6,
+      "text_tid": "office.options.6"
+    },
+    {
+      "group": "Options",
+      "id": "Options.7",
+      "position": 7,
+      "text_tid": "office.options.7"
+    },
+    {
+      "group": "Options",
+      "id": "Options.8",
+      "position": 8,
+      "text_tid": "office.options.8"
+    },
+    {
+      "group": "Options",
+      "id": "Options.9",
+      "position": 9,
+      "text_tid": "office.options.9"
+    },
+    {
+      "group": "Reasons",
+      "id": "Reasons.0",
+      "position": 0,
+      "text_tid": "office.reasons.0"
+    },
+    {
+      "group": "Reasons",
+      "id": "Reasons.1",
+      "position": 1,
+      "text_tid": "office.reasons.1"
+    },
+    {
+      "group": "Reasons",
+      "id": "Reasons.10",
+      "position": 10,
+      "text_tid": "office.reasons.10"
+    },
+    {
+      "group": "Reasons",
+      "id": "Reasons.11",
+      "position": 11,
+      "text_tid": "office.reasons.11"
+    },
+    {
+      "group": "Reasons",
+      "id": "Reasons.12",
+      "position": 12,
+      "text_tid": "office.reasons.12"
+    },
+    {
+      "group": "Reasons",
+      "id": "Reasons.13",
+      "position": 13,
+      "text_tid": "office.reasons.13"
+    },
+    {
+      "group": "Reasons",
+      "id": "Reasons.2",
+      "position": 2,
+      "text_tid": "office.reasons.2"
+    },
+    {
+      "group": "Reasons",
+      "id": "Reasons.3",
+      "position": 3,
+      "text_tid": "office.reasons.3"
+    },
+    {
+      "group": "Reasons",
+      "id": "Reasons.4",
+      "position": 4,
+      "text_tid": "office.reasons.4"
+    },
+    {
+      "group": "Reasons",
+      "id": "Reasons.5",
+      "position": 5,
+      "text_tid": "office.reasons.5"
+    },
+    {
+      "group": "Reasons",
+      "id": "Reasons.6",
+      "position": 6,
+      "text_tid": "office.reasons.6"
+    },
+    {
+      "group": "Reasons",
+      "id": "Reasons.7",
+      "position": 7,
+      "text_tid": "office.reasons.7"
+    },
+    {
+      "group": "Reasons",
+      "id": "Reasons.8",
+      "position": 8,
+      "text_tid": "office.reasons.8"
+    },
+    {
+      "group": "Reasons",
+      "id": "Reasons.9",
+      "position": 9,
+      "text_tid": "office.reasons.9"
+    },
+    {
+      "group": "Results",
+      "id": "Results.0",
+      "position": 0,
+      "text_tid": "office.results.0"
+    },
+    {
+      "group": "Results",
+      "id": "Results.1",
+      "position": 1,
+      "text_tid": "office.results.1"
+    },
+    {
+      "group": "Results",
+      "id": "Results.10",
+      "position": 10,
+      "text_tid": "office.results.10"
+    },
+    {
+      "group": "Results",
+      "id": "Results.11",
+      "position": 11,
+      "text_tid": "office.results.11"
+    },
+    {
+      "group": "Results",
+      "id": "Results.12",
+      "position": 12,
+      "text_tid": "office.results.12"
+    },
+    {
+      "group": "Results",
+      "id": "Results.13",
+      "position": 13,
+      "text_tid": "office.results.13"
+    },
+    {
+      "group": "Results",
+      "id": "Results.2",
+      "position": 2,
+      "text_tid": "office.results.2"
+    },
+    {
+      "group": "Results",
+      "id": "Results.3",
+      "position": 3,
+      "text_tid": "office.results.3"
+    },
+    {
+      "group": "Results",
+      "id": "Results.4",
+      "position": 4,
+      "text_tid": "office.results.4"
+    },
+    {
+      "group": "Results",
+      "id": "Results.5",
+      "position": 5,
+      "text_tid": "office.results.5"
+    },
+    {
+      "group": "Results",
+      "id": "Results.6",
+      "position": 6,
+      "text_tid": "office.results.6"
+    },
+    {
+      "group": "Results",
+      "id": "Results.7",
+      "position": 7,
+      "text_tid": "office.results.7"
+    },
+    {
+      "group": "Results",
+      "id": "Results.8",
+      "position": 8,
+      "text_tid": "office.results.8"
+    },
+    {
+      "group": "Results",
+      "id": "Results.9",
+      "position": 9,
+      "text_tid": "office.results.9"
+    },
+    {
+      "group": "Roles",
+      "id": "Roles.0",
+      "position": 0,
+      "text_tid": "office.roles.0"
+    },
+    {
+      "group": "Roles",
+      "id": "Roles.1",
+      "position": 1,
+      "text_tid": "office.roles.1"
+    },
+    {
+      "group": "Roles",
+      "id": "Roles.2",
+      "position": 2,
+      "text_tid": "office.roles.2"
+    },
+    {
+      "group": "Senders",
+      "id": "Senders.0",
+      "position": 0,
+      "text_tid": "office.senders.0"
+    },
+    {
+      "group": "Senders",
+      "id": "Senders.1",
+      "position": 1,
+      "text_tid": "office.senders.1"
+    },
+    {
+      "group": "Senders",
+      "id": "Senders.2",
+      "position": 2,
+      "text_tid": "office.senders.2"
+    },
+    {
+      "group": "Senders",
+      "id": "Senders.3",
+      "position": 3,
+      "text_tid": "office.senders.3"
+    },
+    {
+      "group": "Senders",
+      "id": "Senders.4",
+      "position": 4,
+      "text_tid": "office.senders.4"
+    },
+    {
+      "group": "Senders",
+      "id": "Senders.5",
+      "position": 5,
+      "text_tid": "office.senders.5"
+    },
+    {
+      "group": "Senders",
+      "id": "Senders.6",
+      "position": 6,
+      "text_tid": "office.senders.6"
+    },
+    {
+      "group": "Titles",
+      "id": "Titles.0",
+      "position": 0,
+      "text_tid": "office.titles.0"
+    },
+    {
+      "group": "Titles",
+      "id": "Titles.1",
+      "position": 1,
+      "text_tid": "office.titles.1"
+    },
+    {
+      "group": "Titles",
+      "id": "Titles.2",
+      "position": 2,
+      "text_tid": "office.titles.2"
+    },
+    {
+      "group": "Titles",
+      "id": "Titles.3",
+      "position": 3,
+      "text_tid": "office.titles.3"
+    },
+    {
+      "group": "Titles",
+      "id": "Titles.4",
+      "position": 4,
+      "text_tid": "office.titles.4"
+    },
+    {
+      "group": "Titles",
+      "id": "Titles.5",
+      "position": 5,
+      "text_tid": "office.titles.5"
+    },
+    {
+      "group": "Titles",
+      "id": "Titles.6",
+      "position": 6,
+      "text_tid": "office.titles.6"
+    }
+  ],
+  "PerkEffects": [
+    {
+      "id": "cautious.1",
+      "operation": "multiply",
+      "perk_id": "cautious",
+      "tags_all": "risky_opportunity",
+      "target": "event_probability",
+      "value": 0.7
+    },
+    {
+      "id": "cautious.2",
+      "operation": "add",
+      "perk_id": "cautious",
+      "tags_all": "safety",
+      "target": "task_success",
+      "value": 15.0
+    },
+    {
+      "id": "cautious.3",
+      "operation": "add",
+      "perk_id": "cautious",
+      "tags_all": "snap_decision",
+      "target": "task_success",
+      "value": -10.0
+    },
+    {
+      "id": "competitive.1",
+      "operation": "multiply",
+      "perk_id": "competitive",
+      "tags_all": "contest",
+      "target": "event_probability",
+      "value": 1.5
+    },
+    {
+      "id": "competitive.2",
+      "operation": "add",
+      "perk_id": "competitive",
+      "tags_all": "competition",
+      "target": "task_success",
+      "value": 15.0
+    },
+    {
+      "id": "competitive.3",
+      "operation": "add",
+      "perk_id": "competitive",
+      "tags_all": "competition",
+      "target": "failure_stress",
+      "value": 10.0
+    },
+    {
+      "id": "curious.1",
+      "operation": "multiply",
+      "perk_id": "curious",
+      "tags_all": "new_activity",
+      "target": "event_probability",
+      "value": 1.5
+    },
+    {
+      "id": "curious.2",
+      "operation": "add",
+      "perk_id": "curious",
+      "tags_all": "inquiry",
+      "target": "task_success",
+      "value": 15.0
+    },
+    {
+      "id": "curious.3",
+      "operation": "add",
+      "perk_id": "curious",
+      "tags_all": "routine",
+      "target": "task_success",
+      "value": -5.0
+    },
+    {
+      "id": "empathetic.1",
+      "operation": "multiply",
+      "perk_id": "empathetic",
+      "tags_all": "consultation",
+      "target": "event_probability",
+      "value": 1.5
+    },
+    {
+      "id": "empathetic.2",
+      "operation": "add",
+      "perk_id": "empathetic",
+      "tags_all": "consultation",
+      "target": "task_success",
+      "value": 15.0
+    },
+    {
+      "id": "empathetic.3",
+      "operation": "add",
+      "perk_id": "empathetic",
+      "tags_all": "hard_bargain",
+      "target": "task_success",
+      "value": -10.0
+    },
+    {
+      "id": "improviser.1",
+      "operation": "multiply",
+      "perk_id": "improviser",
+      "tags_all": "urgent_request",
+      "target": "event_probability",
+      "value": 1.4
+    },
+    {
+      "id": "improviser.2",
+      "operation": "add",
+      "perk_id": "improviser",
+      "tags_all": "response",
+      "target": "task_success",
+      "value": 15.0
+    },
+    {
+      "id": "improviser.3",
+      "operation": "add",
+      "perk_id": "improviser",
+      "tags_all": "routine",
+      "target": "task_success",
+      "value": -10.0
+    },
+    {
+      "id": "meticulous.1",
+      "operation": "multiply",
+      "perk_id": "meticulous",
+      "tags_all": "error_discovery",
+      "target": "event_probability",
+      "value": 1.5
+    },
+    {
+      "id": "meticulous.2",
+      "operation": "add",
+      "perk_id": "meticulous",
+      "tags_all": "precision",
+      "target": "task_success",
+      "value": 15.0
+    },
+    {
+      "id": "meticulous.3",
+      "operation": "multiply",
+      "perk_id": "meticulous",
+      "tags_all": "",
+      "target": "task_duration",
+      "value": 1.2
+    },
+    {
+      "id": "night_owl.1",
+      "operation": "multiply",
+      "perk_id": "night_owl",
+      "tags_all": "late_activity",
+      "target": "event_probability",
+      "value": 1.5
+    },
+    {
+      "id": "night_owl.2",
+      "operation": "add",
+      "perk_id": "night_owl",
+      "tags_all": "night",
+      "target": "task_success",
+      "value": 10.0
+    },
+    {
+      "id": "night_owl.3",
+      "operation": "add",
+      "perk_id": "night_owl",
+      "tags_all": "morning",
+      "target": "task_success",
+      "value": -10.0
+    },
+    {
+      "id": "reserved.1",
+      "operation": "multiply",
+      "perk_id": "reserved",
+      "tags_all": "strangers",
+      "target": "event_probability",
+      "value": 0.6
+    },
+    {
+      "id": "reserved.2",
+      "operation": "add",
+      "perk_id": "reserved",
+      "tags_all": "strangers",
+      "target": "task_success",
+      "value": -10.0
+    },
+    {
+      "id": "reserved.3",
+      "operation": "add",
+      "perk_id": "reserved",
+      "tags_all": "familiar",
+      "target": "task_success",
+      "value": 10.0
+    },
+    {
+      "id": "responsible.1",
+      "operation": "multiply",
+      "perk_id": "responsible",
+      "tags_all": "cover_request",
+      "target": "event_probability",
+      "value": 1.4
+    },
+    {
+      "id": "responsible.2",
+      "operation": "add",
+      "perk_id": "responsible",
+      "tags_all": "commitment",
+      "target": "task_success",
+      "value": 10.0
+    },
+    {
+      "id": "responsible.3",
+      "operation": "add",
+      "perk_id": "responsible",
+      "tags_all": "",
+      "target": "failure_stress",
+      "value": 5.0
+    },
+    {
+      "id": "sociable.1",
+      "operation": "multiply",
+      "perk_id": "sociable",
+      "tags_all": "social;friends",
+      "target": "event_probability",
+      "value": 1.5
+    },
+    {
+      "id": "sociable.2",
+      "operation": "add",
+      "perk_id": "sociable",
+      "tags_all": "affinity",
+      "target": "task_success",
+      "value": 15.0
+    },
+    {
+      "id": "weak_boundaries.1",
+      "operation": "multiply",
+      "perk_id": "weak_boundaries",
+      "tags_all": "request",
+      "target": "event_probability",
+      "value": 1.5
+    },
+    {
+      "id": "weak_boundaries.2",
+      "operation": "add",
+      "perk_id": "weak_boundaries",
+      "tags_all": "request",
+      "target": "acceptance_stress",
+      "value": 5.0
+    },
+    {
+      "id": "well_connected.1",
+      "operation": "multiply",
+      "perk_id": "well_connected",
+      "tags_all": "introduction",
+      "target": "event_probability",
+      "value": 1.5
+    },
+    {
+      "id": "well_connected.2",
+      "operation": "add",
+      "perk_id": "well_connected",
+      "tags_all": "networking",
+      "target": "task_success",
+      "value": 10.0
+    }
+  ],
+  "Perks": [
+    {
+      "description_tid": "perk.cautious.description",
+      "id": "cautious",
+      "name_tid": "perk.cautious.name"
+    },
+    {
+      "description_tid": "perk.competitive.description",
+      "id": "competitive",
+      "name_tid": "perk.competitive.name"
+    },
+    {
+      "description_tid": "perk.curious.description",
+      "id": "curious",
+      "name_tid": "perk.curious.name"
+    },
+    {
+      "description_tid": "perk.empathetic.description",
+      "id": "empathetic",
+      "name_tid": "perk.empathetic.name"
+    },
+    {
+      "description_tid": "perk.improviser.description",
+      "id": "improviser",
+      "name_tid": "perk.improviser.name"
+    },
+    {
+      "description_tid": "perk.meticulous.description",
+      "id": "meticulous",
+      "name_tid": "perk.meticulous.name"
+    },
+    {
+      "description_tid": "perk.night_owl.description",
+      "id": "night_owl",
+      "name_tid": "perk.night_owl.name"
+    },
+    {
+      "description_tid": "perk.reserved.description",
+      "id": "reserved",
+      "name_tid": "perk.reserved.name"
+    },
+    {
+      "description_tid": "perk.responsible.description",
+      "id": "responsible",
+      "name_tid": "perk.responsible.name"
+    },
+    {
+      "description_tid": "perk.sociable.description",
+      "id": "sociable",
+      "name_tid": "perk.sociable.name"
+    },
+    {
+      "description_tid": "perk.weak_boundaries.description",
+      "id": "weak_boundaries",
+      "name_tid": "perk.weak_boundaries.name"
+    },
+    {
+      "description_tid": "perk.well_connected.description",
+      "id": "well_connected",
+      "name_tid": "perk.well_connected.name"
+    }
+  ],
+  "Relationships": [
+    {
+      "character_id": "doyun",
+      "closeness": 60,
+      "id": "doyun.yunha",
+      "kind": "friend",
+      "other_id": "yunha"
+    },
+    {
+      "character_id": "yunha",
+      "closeness": 60,
+      "id": "yunha.doyun",
+      "kind": "friend",
+      "other_id": "doyun"
+    }
+  ],
+  "Tasks": [
+    {
+      "difficulty": 50,
+      "duration_hours": 4.0,
+      "id": "cover_shift",
+      "name_tid": "task.cover_shift.name",
+      "stat": "focus",
+      "tags": "commitment;routine"
+    },
+    {
+      "difficulty": 60,
+      "duration_hours": 2.0,
+      "id": "enter_contest",
+      "name_tid": "task.enter_contest.name",
+      "stat": "response",
+      "tags": "competition"
+    },
+    {
+      "difficulty": 50,
+      "duration_hours": 1.0,
+      "id": "listen_to_friend",
+      "name_tid": "task.listen_to_friend.name",
+      "stat": "affinity",
+      "tags": "affinity;consultation;familiar"
+    },
+    {
+      "difficulty": 55,
+      "duration_hours": 2.0,
+      "id": "repair_equipment",
+      "name_tid": "task.repair_equipment.name",
+      "stat": "response",
+      "tags": "response;precision"
+    },
+    {
+      "difficulty": 45,
+      "duration_hours": 2.0,
+      "id": "try_workshop",
+      "name_tid": "task.try_workshop.name",
+      "stat": "inquiry",
+      "tags": "inquiry"
+    }
+  ],
+  "Texts": [
+    {
+      "en": "Doyun",
+      "ko": "도윤",
+      "tid": "character.doyun.name"
+    },
+    {
+      "en": "Narin",
+      "ko": "나린",
+      "tid": "character.narin.name"
+    },
+    {
+      "en": "Seojin",
+      "ko": "서진",
+      "tid": "character.seojin.name"
+    },
+    {
+      "en": "Taeo",
+      "ko": "태오",
+      "tid": "character.taeo.name"
+    },
+    {
+      "en": "Yunha",
+      "ko": "윤하",
+      "tid": "character.yunha.name"
+    },
+    {
+      "en": "Accept",
+      "ko": "수락",
+      "tid": "choice.accept"
+    },
+    {
+      "en": "Decline",
+      "ko": "거절",
+      "tid": "choice.decline"
+    },
+    {
+      "en": "A Contest Invitation",
+      "ko": "작은 대회 참가 제안",
+      "tid": "event.contest_offer.name"
+    },
+    {
+      "en": "Equipment Failure",
+      "ko": "갑작스러운 설비 고장",
+      "tid": "event.equipment_failure.name"
+    },
+    {
+      "en": "A Friend Needs Advice",
+      "ko": "친구의 고민 상담",
+      "tid": "event.friend_consultation.name"
+    },
+    {
+      "en": "A Friend Invites You",
+      "ko": "친구의 모임 초대",
+      "tid": "event.friend_invitation.name"
+    },
+    {
+      "en": "Discover a Workshop",
+      "ko": "새로운 체험 수업 발견",
+      "tid": "event.new_workshop.name"
+    },
+    {
+      "en": "A Colleague Needs Cover",
+      "ko": "동료의 대타 부탁",
+      "tid": "event.shift_request.name"
+    },
+    {
+      "en": "Agenda awaiting response 01 / DAY {day} deadline",
+      "ko": "응답할 안건  01     /     DAY {day} 마감",
+      "tid": "office.agenda.deadline"
+    },
+    {
+      "en": "{sender} / Today 09:00",
+      "ko": "{sender}  ·  오늘 09:00",
+      "tid": "office.agenda.sender"
+    },
+    {
+      "en": "I have a school presentation this afternoon. I don't want to miss my part. Could I visit the river after class?",
+      "ko": "오늘 오후에 학교 발표가 있어요. 제가 맡은 부분이라 빠지고 싶지 않아요. 하천 조사는 수업이 끝난 뒤에 가도 될까요?",
+      "tid": "office.bodies.0"
+    },
+    {
+      "en": "I've felt tired since yesterday. It hasn't become worse, but I wanted to tell you early this time. I'd like to rest from field work today.",
+      "ko": "어제부터 좀 지쳐 있어요. 심해진 건 아닌데, 이번에는 미리 말하고 싶었어요. 오늘 현장 일정은 쉬고 싶어요.",
+      "tid": "office.bodies.1"
+    },
+    {
+      "en": "Unusual activity continues along the path. Public access is restricted. Please define observation limits and support routes before responding.",
+      "ko": "산책로의 이상 반응은 계속 관측되고 있습니다. 주민 접근은 제한했습니다. 대응 전에 관측 범위와 지원 경로를 정해주세요.",
+      "tid": "office.bodies.2"
+    },
+    {
+      "en": "Activity has intensified beyond the observation point. We will not cross the agreed safety boundary. Decide whether to continue guiding residents or hand over to specialists.",
+      "ko": "관측 지점 밖에서 반응이 커졌습니다. 합의한 안전 범위를 넘는 접근은 하지 않습니다. 주민 안내를 계속할지 전문기관에 인계할지 결정해주세요.",
+      "tid": "office.bodies.3"
+    },
+    {
+      "en": "I'd like time to think about life after graduation. Helping others sounds good, but I can't promise to become a mentor right away.",
+      "ko": "졸업한 뒤 어떤 생활을 할지 생각해보고 싶어요. 후배를 돕는 것도 좋지만, 바로 멘토가 되겠다는 약속은 아직 어렵고요.",
+      "tid": "office.bodies.4"
+    },
+    {
+      "en": "The riverside incident has stabilized. We can use today for preventive checks or to organize school and support-center contacts.",
+      "ko": "하천 사건은 안정됐습니다. 오늘 확보한 여유를 예방 점검이나 학교·지원센터 연락망 정리에 사용할 수 있습니다.",
+      "tid": "office.bodies.5"
+    },
+    {
+      "en": "We value connecting people to help in time over frequent callouts. Let us record the commitments we want to continue next week.",
+      "ko": "많이 출동한 주보다, 필요한 도움을 제때 연결한 주를 기록합니다. 다음 주에도 이어갈 약속을 함께 정리해주세요.",
+      "tid": "office.bodies.6"
+    },
+    {
+      "en": "Selected / {choice}",
+      "ko": "선택됨  ·  {choice}",
+      "tid": "office.choice.selected"
+    },
+    {
+      "en": "WEEK 01     DAY {day}     ♡ ONLINE",
+      "ko": "WEEK 01     DAY {day}     ♡ ONLINE",
+      "tid": "office.clock.header"
+    },
+    {
+      "en": "DAY {day}  /  09:00",
+      "ko": "DAY {day}  /  09:00",
+      "tid": "office.clock.taskbar"
+    },
+    {
+      "en": "{choice}\n\nConfirm to record your decision and advance the day.",
+      "ko": "{choice}\n\n확정하면 오늘의 결정이 기록되고 하루가 진행됩니다.",
+      "tid": "office.confirm_day"
+    },
+    {
+      "en": "DAY {day}",
+      "ko": "DAY {day}",
+      "tid": "office.day"
+    },
+    {
+      "en": "Verified report / DAY {day}\n\n{report}\n\nResponse policy: Stop when safety limits are exceeded. Connect specialists and prioritize resident safety.",
+      "ko": "확인된 보고 · DAY {day}\n\n{report}\n\n대응 방침 / 안전 범위 초과 시 접근 중단. 전문기관과 연결하고, 주민 보호를 우선합니다.",
+      "tid": "office.district.report"
+    },
+    {
+      "en": "{name} / {status}",
+      "ko": "{name}  /  {status}",
+      "tid": "office.ending.person"
+    },
+    {
+      "en": "{report}\n\nGraduation and mentoring remain each person's next choice.",
+      "ko": "{report}\n\n졸업과 멘토 참여는 당사자의 다음 선택으로 남겨둡니다.",
+      "tid": "office.ending.report"
+    },
+    {
+      "en": "calendar.exe",
+      "ko": "calendar.exe",
+      "tid": "office.executable.calendar"
+    },
+    {
+      "en": "diary.exe",
+      "ko": "diary.exe",
+      "tid": "office.executable.diary"
+    },
+    {
+      "en": "friends.exe",
+      "ko": "friends.exe",
+      "tid": "office.executable.friends"
+    },
+    {
+      "en": "letter.exe",
+      "ko": "letter.exe",
+      "tid": "office.executable.letter"
+    },
+    {
+      "en": "settings.exe",
+      "ko": "settings.exe",
+      "tid": "office.executable.settings"
+    },
+    {
+      "en": "today.exe",
+      "ko": "today.exe",
+      "tid": "office.executable.today"
+    },
+    {
+      "en": "town.exe",
+      "ko": "town.exe",
+      "tid": "office.executable.town"
+    },
+    {
+      "en": "DAY {day} / {title}",
+      "ko": "DAY {day}  ·  {title}",
+      "tid": "office.journal.heading"
+    },
+    {
+      "en": "Hana",
+      "ko": "하나",
+      "tid": "office.names.0"
+    },
+    {
+      "en": "Sori",
+      "ko": "소리",
+      "tid": "office.names.1"
+    },
+    {
+      "en": "Yuna",
+      "ko": "유나",
+      "tid": "office.names.2"
+    },
+    {
+      "en": "No decision has been made yet.",
+      "ko": "아직 결정하지 않았습니다.",
+      "tid": "office.no_decision"
+    },
+    {
+      "en": "Schedule after-school investigation",
+      "ko": "수업 후 조사 예약",
+      "tid": "office.options.0"
+    },
+    {
+      "en": "Ask a partner agency to investigate",
+      "ko": "협력기관에 조사 요청",
+      "tid": "office.options.1"
+    },
+    {
+      "en": "Run preventive community checks",
+      "ko": "지역 예방 점검",
+      "tid": "office.options.10"
+    },
+    {
+      "en": "Organize school and support contacts",
+      "ko": "학교·지원기관 연락망 정리",
+      "tid": "office.options.11"
+    },
+    {
+      "en": "Record next week's commitments",
+      "ko": "다음 주 약속 정리",
+      "tid": "office.options.12"
+    },
+    {
+      "en": "Review the support plan together",
+      "ko": "지원 계획 함께 검토",
+      "tid": "office.options.13"
+    },
+    {
+      "en": "Secure a full day of rest",
+      "ko": "하루 휴식 확보",
+      "tid": "office.options.2"
+    },
+    {
+      "en": "Arrange counseling with consent",
+      "ko": "동의 후 지원센터 상담 예약",
+      "tid": "office.options.3"
+    },
+    {
+      "en": "Prepare observations with Yuna",
+      "ko": "유나와 관측 준비",
+      "tid": "office.options.4"
+    },
+    {
+      "en": "Request specialist support first",
+      "ko": "전문기관 지원 먼저 요청",
+      "tid": "office.options.5"
+    },
+    {
+      "en": "Observe and guide residents within safe limits",
+      "ko": "안전 범위에서 관측·주민 안내",
+      "tid": "office.options.6"
+    },
+    {
+      "en": "Hand field response to specialists",
+      "ko": "현장 대응을 전문기관에 인계",
+      "tid": "office.options.7"
+    },
+    {
+      "en": "Protect time for career exploration",
+      "ko": "진로 탐색 시간 확보",
+      "tid": "office.options.8"
+    },
+    {
+      "en": "Prepare the handover notes she wants to leave",
+      "ko": "희망하는 인계 자료 함께 정리",
+      "tid": "office.options.9"
+    },
+    {
+      "en": "{name} / {role}",
+      "ko": "{name}  /  {role}",
+      "tid": "office.person.heading"
+    },
+    {
+      "en": "Personal message / DAY {day}",
+      "ko": "본인이 전한 이야기  ·  DAY {day}",
+      "tid": "office.person.message_day"
+    },
+    {
+      "en": "Support plan / {role}\nPersonal records stay with the same person after graduation.",
+      "ko": "지원 계획  /  {role}\n개인 기록은 졸업 이후에도 같은 사람에게 남습니다.",
+      "tid": "office.person.plan"
+    },
+    {
+      "en": "Verified status / DAY {day}",
+      "ko": "확인된 상태  ·  DAY {day}",
+      "tid": "office.person.status_day"
+    },
+    {
+      "en": "Protect presentation time and move the investigation after school.",
+      "ko": "발표 시간을 보호하고 조사 시작을 방과 후로 옮깁니다.",
+      "tid": "office.reasons.0"
+    },
+    {
+      "en": "Hana focuses on her presentation while adult partners investigate.",
+      "ko": "하나는 발표에 집중하고 성인 협력기관이 조사합니다.",
+      "tid": "office.reasons.1"
+    },
+    {
+      "en": "Check local conditions early to reduce repeated callouts.",
+      "ko": "반복 출동을 줄일 수 있도록 지역 상황을 미리 확인합니다.",
+      "tid": "office.reasons.10"
+    },
+    {
+      "en": "Identify contacts and routes to reach help when needed.",
+      "ko": "도움이 필요할 때 바로 연결할 담당과 연락 경로를 정리합니다.",
+      "tid": "office.reasons.11"
+    },
+    {
+      "en": "Record individual commitments for school, recovery and future plans.",
+      "ko": "학교·회복·진로에 대한 각자의 약속을 기록합니다.",
+      "tid": "office.reasons.12"
+    },
+    {
+      "en": "Review the need and approach for continued support with each person.",
+      "ko": "본인과 함께 지원의 지속 여부와 방식을 돌아봅니다.",
+      "tid": "office.reasons.13"
+    },
+    {
+      "en": "Remove field duties and secure uninterrupted recovery time.",
+      "ko": "오늘 출동을 제외하고 회복할 시간을 온전히 확보합니다.",
+      "tid": "office.reasons.2"
+    },
+    {
+      "en": "Remove field duties and connect counseling after confirming Sori's consent.",
+      "ko": "출동을 제외하고, 소리의 동의를 확인한 뒤 상담을 연결합니다.",
+      "tid": "office.reasons.3"
+    },
+    {
+      "en": "Agree on approach limits and return criteria with experienced Yuna.",
+      "ko": "경험 있는 유나와 접근 한계·복귀 기준을 정리합니다.",
+      "tid": "office.reasons.4"
+    },
+    {
+      "en": "Prioritize specialist support and information over field access.",
+      "ko": "현장 접근보다 기관 지원과 정보 확보를 우선합니다.",
+      "tid": "office.reasons.5"
+    },
+    {
+      "en": "Yuna stays within agreed limits and supports the professional team.",
+      "ko": "유나는 정해진 범위를 지키고 전문 대응팀을 지원합니다.",
+      "tid": "office.reasons.6"
+    },
+    {
+      "en": "Hand over observations and resident guidance without going deeper.",
+      "ko": "더 깊이 접근하지 않고 자료와 주민 안내를 인계합니다.",
+      "tid": "office.reasons.7"
+    },
+    {
+      "en": "Protect time to explore the future she wants.",
+      "ko": "당사자가 원하는 다음 생활을 알아볼 시간을 지킵니다.",
+      "tid": "office.reasons.8"
+    },
+    {
+      "en": "Record only the experiences Yuna wants to leave for successors.",
+      "ko": "유나가 남기고 싶은 경험만 후임용 자료로 정리합니다.",
+      "tid": "office.reasons.9"
+    },
+    {
+      "en": "Report after confirmation\n{report}",
+      "ko": "확정 후 도착할 보고\n{report}",
+      "tid": "office.report.preview"
+    },
+    {
+      "en": "Hana: I finished my presentation. Thanks for changing the time. I recorded the after-school observations.",
+      "ko": "하나: 발표를 마쳤어요. 시간을 바꿔줘서 고마워요. 방과 후 조사 기록을 남겼어요.",
+      "tid": "office.results.0"
+    },
+    {
+      "en": "Hana: I could focus on my presentation. I also read the partner agency's river report.",
+      "ko": "하나: 발표에 집중할 수 있었어요. 협력기관이 보내온 하천 조사 보고도 확인했어요.",
+      "tid": "office.results.1"
+    },
+    {
+      "en": "Community report: Preventive checks are complete. Next week we protected school and recovery time instead of repeated checks.",
+      "ko": "지역 보고: 예방 점검을 마쳤습니다. 다음 주에는 반복 확인 대신 학교와 회복 일정을 확보했습니다.",
+      "tid": "office.results.10"
+    },
+    {
+      "en": "School and support center: The contact network is ready. Future requests will be connected to shared support.",
+      "ko": "학교·지원센터: 담당 연락망이 정리됐습니다. 다음 요청은 혼자 해결하지 않고 함께 연결합니다.",
+      "tid": "office.results.11"
+    },
+    {
+      "en": "Weekly commitments: Continue Hana's school time, Sori's recovery and Yuna's career exploration next week.",
+      "ko": "한 주의 약속: 하나의 학교 시간, 소리의 회복, 유나의 진로 탐색을 다음 주에도 이어갑니다.",
+      "tid": "office.results.12"
+    },
+    {
+      "en": "Weekly review: We confirmed individual consent and support routes. We will adjust the plan as needs change.",
+      "ko": "한 주의 검토: 각자의 동의와 지원 경로를 확인했습니다. 도움이 달라지면 계획도 다시 조정합니다.",
+      "tid": "office.results.13"
+    },
+    {
+      "en": "Sori: I rested well today. I'm glad I spoke up early. I'd like to plan the next schedule together.",
+      "ko": "소리: 오늘 푹 쉬었어요. 미리 말하길 잘한 것 같아요. 다음 일정은 함께 정하고 싶어요.",
+      "tid": "office.results.2"
+    },
+    {
+      "en": "Sori: Thank you for asking my consent first. I arranged the next session with the support center.",
+      "ko": "소리: 제 동의를 먼저 물어봐줘서 좋았어요. 지원센터와 다음 상담 일정을 정했어요.",
+      "tid": "office.results.3"
+    },
+    {
+      "en": "Yuna: We set observation points and return criteria. I'll hand over to the support team if conditions exceed our limits.",
+      "ko": "유나: 관측 지점과 복귀 기준을 정리했어요. 범위를 넘으면 지원팀에 넘길게요.",
+      "tid": "office.results.4"
+    },
+    {
+      "en": "Partner agency: Request received. We shared observation records with the response team.",
+      "ko": "협력기관: 지원 요청을 접수했습니다. 현장 대응팀과 관측 자료를 공유했습니다.",
+      "tid": "office.results.5"
+    },
+    {
+      "en": "Field report: Residents were guided within safe limits. The specialist team stabilized the unusual activity.",
+      "ko": "현장 보고: 안전 범위를 지키며 주민을 안내했습니다. 전문 대응팀이 이상 반응을 안정시켰습니다.",
+      "tid": "office.results.6"
+    },
+    {
+      "en": "Agency report: We took over and stabilized the site. Yuna returned and her observations were preserved.",
+      "ko": "기관 보고: 현장을 인계받아 안정화했습니다. 유나는 복귀했고 관측 기록은 보존했습니다.",
+      "tid": "office.results.7"
+    },
+    {
+      "en": "Yuna: I explored what I want to learn next. Let's discuss mentoring later when I know my circumstances.",
+      "ko": "유나: 다음에 배우고 싶은 걸 찾아봤어요. 멘토 여부는 나중에 제 상황을 보고 이야기할게요.",
+      "tid": "office.results.8"
+    },
+    {
+      "en": "Yuna: I recorded difficult moments and what helped me. I'm still thinking about life after graduation.",
+      "ko": "유나: 제가 어려웠던 순간과 도움받은 방법을 남겼어요. 졸업 후 계획은 계속 생각하고 있어요.",
+      "tid": "office.results.9"
+    },
+    {
+      "en": "Balancing school and activities",
+      "ko": "학교와 활동 사이의 균형",
+      "tid": "office.roles.0"
+    },
+    {
+      "en": "Rest, then take it slowly",
+      "ko": "회복하고, 다시 천천히",
+      "tid": "office.roles.1"
+    },
+    {
+      "en": "Preparing for life after graduation",
+      "ko": "졸업 너머의 일상을 준비",
+      "tid": "office.roles.2"
+    },
+    {
+      "en": "Hana / personal message",
+      "ko": "하나 · 본인 메시지",
+      "tid": "office.senders.0"
+    },
+    {
+      "en": "Sori / personal message",
+      "ko": "소리 · 본인 메시지",
+      "tid": "office.senders.1"
+    },
+    {
+      "en": "District liaison / verified report",
+      "ko": "구청 협력 담당 · 확인된 보고",
+      "tid": "office.senders.2"
+    },
+    {
+      "en": "Field coordinator / verified report",
+      "ko": "현장 담당 · 확인된 보고",
+      "tid": "office.senders.3"
+    },
+    {
+      "en": "Yuna / personal message",
+      "ko": "유나 · 본인 메시지",
+      "tid": "office.senders.4"
+    },
+    {
+      "en": "Community liaison / verified report",
+      "ko": "지역 협력 담당 · 확인된 보고",
+      "tid": "office.senders.5"
+    },
+    {
+      "en": "Office / weekly reflection",
+      "ko": "사무소 · 주간 회고",
+      "tid": "office.senders.6"
+    },
+    {
+      "en": "Who will investigate on presentation day?",
+      "ko": "발표가 있는 날, 조사는 누가 맡을까요?",
+      "tid": "office.titles.0"
+    },
+    {
+      "en": "May I take a rest today?",
+      "ko": "오늘은 쉬어도 괜찮을까요?",
+      "tid": "office.titles.1"
+    },
+    {
+      "en": "Riverside path: prepare before responding",
+      "ko": "하천 산책로 · 대응 전에 준비할 것",
+      "tid": "office.titles.2"
+    },
+    {
+      "en": "Set the limits for field work",
+      "ko": "현장에서 지킬 범위를 정해주세요",
+      "tid": "office.titles.3"
+    },
+    {
+      "en": "Preparing for Yuna's next season",
+      "ko": "유나의 다음 계절을 준비합니다",
+      "tid": "office.titles.4"
+    },
+    {
+      "en": "A day to prevent future callouts",
+      "ko": "다음 출동을 줄이는 하루",
+      "tid": "office.titles.5"
+    },
+    {
+      "en": "The week we protected",
+      "ko": "우리가 지킨 일주일",
+      "tid": "office.titles.6"
+    },
+    {
+      "en": "Open {page} →",
+      "ko": "{page} 열기 →",
+      "tid": "office.toast.open"
+    },
+    {
+      "en": "♡ {title}",
+      "ko": "♡ {title}",
+      "tid": "office.toast.title"
+    },
+    {
+      "en": "Today's work",
+      "ko": "오늘의 업무",
+      "tid": "office.ui.001"
+    },
+    {
+      "en": "Calendar",
+      "ko": "일정표",
+      "tid": "office.ui.002"
+    },
+    {
+      "en": "People",
+      "ko": "인물 기록",
+      "tid": "office.ui.003"
+    },
+    {
+      "en": "Neighborhood",
+      "ko": "지역 · 사건",
+      "tid": "office.ui.004"
+    },
+    {
+      "en": "Messenger",
+      "ko": "메신저",
+      "tid": "office.ui.005"
+    },
+    {
+      "en": "Activity log",
+      "ko": "활동 기록",
+      "tid": "office.ui.006"
+    },
+    {
+      "en": "Settings",
+      "ko": "설정",
+      "tid": "office.ui.007"
+    },
+    {
+      "en": "Please review your records",
+      "ko": "저장을 확인해주세요",
+      "tid": "office.ui.008"
+    },
+    {
+      "en": "A new day has begun",
+      "ko": "새로운 하루가 도착했어요",
+      "tid": "office.ui.009"
+    },
+    {
+      "en": "This save is not supported. Check Settings.",
+      "ko": "지원하지 않는 저장입니다. 설정에서 확인하세요.",
+      "tid": "office.ui.010"
+    },
+    {
+      "en": "Read the final agenda and each person’s story.",
+      "ko": "오늘의 안건을 열고 이야기를 확인하세요.",
+      "tid": "office.ui.011"
+    },
+    {
+      "en": "small office OS / Magical Girl Office",
+      "ko": "small office OS   /   마법소녀 사무소",
+      "tid": "office.ui.012"
+    },
+    {
+      "en": "Together, toward each person’s tomorrow. ♡",
+      "ko": "오늘도, 각자의 내일을 함께.  ♡",
+      "tid": "office.ui.013"
+    },
+    {
+      "en": "Week in review",
+      "ko": "♡ 설정",
+      "tid": "office.ui.014"
+    },
+    {
+      "en": "My computer / Notifications and display",
+      "ko": "내 컴퓨터 · 알림과 화면",
+      "tid": "office.ui.015"
+    },
+    {
+      "en": "Save error / Check Settings",
+      "ko": "저장 오류 · 설정에서 확인",
+      "tid": "office.ui.016"
+    },
+    {
+      "en": "Auto saved / small office OS",
+      "ko": "자동 저장  ·  small office OS",
+      "tid": "office.ui.017"
+    },
+    {
+      "en": "Confirm plan / End day",
+      "ko": "계획 확정 · 하루 마무리",
+      "tid": "office.ui.018"
+    },
+    {
+      "en": "Make this desktop your own",
+      "ko": "조금 더 나다운 바탕화면",
+      "tid": "office.ui.019"
+    },
+    {
+      "en": "Click an icon to open an app; drag its title bar to move it.\nMobile: swipe inside a window to scroll; pinch to resize.\nYou can also resize from the window corner.\nRestore minimized apps from the taskbar.",
+      "ko": "아이콘을 눌러 앱을 열고, 제목줄을 잡아 이동하세요.\n모바일: 창 안을 밀어 스크롤 / 두 손가락으로 창 확대·축소.\n창 모서리로도 크기 조절이 가능해요.\n최소화한 앱은 작업표시줄에서 다시 열 수 있어요.",
+      "tid": "office.ui.020"
+    },
+    {
+      "en": "Icon background effects ON",
+      "ko": "아이콘 배경 이펙트  ON",
+      "tid": "office.ui.021"
+    },
+    {
+      "en": "Icon background effects OFF",
+      "ko": "아이콘 배경 이펙트  OFF",
+      "tid": "office.ui.022"
+    },
+    {
+      "en": "Light, rotating halos and sparkles\nShown behind new agendas and selected icons.",
+      "ko": "빛 · 회전하는 후광 · 반짝임\n새 안건과 선택한 아이콘 뒤에서 표시돼요.",
+      "tid": "office.ui.023"
+    },
+    {
+      "en": "Preview full-screen notification",
+      "ko": "전체화면 알림 보기",
+      "tid": "office.ui.024"
+    },
+    {
+      "en": "Preview corner notification",
+      "ko": "우하단 알림 보기",
+      "tid": "office.ui.025"
+    },
+    {
+      "en": "A new message arrived",
+      "ko": "새 메시지가 왔어요",
+      "tid": "office.ui.026"
+    },
+    {
+      "en": "Open Messenger to read it.",
+      "ko": "메신저를 열어 이야기를 확인해보세요.",
+      "tid": "office.ui.027"
+    },
+    {
+      "en": "The original save has been preserved because it cannot be read. Confirm a reset below to start again.",
+      "ko": "현재 저장을 읽을 수 없어 원본을 보존했어요. 새로 시작하려면 아래에서 초기화를 확인해주세요.",
+      "tid": "office.ui.028"
+    },
+    {
+      "en": "Window layout lasts for this session.\nSeven-day scenario decisions are saved separately.",
+      "ko": "창 배치는 이번 접속 동안 유지됩니다.\n7일 시나리오의 결정은 따로 저장됩니다.",
+      "tid": "office.ui.029"
+    },
+    {
+      "en": "Restart the seven-day scenario",
+      "ko": "7일 시나리오 다시 시작",
+      "tid": "office.ui.030"
+    },
+    {
+      "en": "Return to the start screen",
+      "ko": "처음 화면으로 돌아가기",
+      "tid": "office.ui.031"
+    },
+    {
+      "en": " Open →",
+      "ko": " 열기 →",
+      "tid": "office.ui.032"
+    },
+    {
+      "en": "small office OS / Important notice",
+      "ko": "small office OS  /  중요한 알림",
+      "tid": "office.ui.033"
+    },
+    {
+      "en": "Start again from the beginning?",
+      "ko": "처음부터 다시 시작할까요?",
+      "tid": "office.ui.034"
+    },
+    {
+      "en": "Confirm today's plan?",
+      "ko": "오늘의 계획을 확정할까요?",
+      "tid": "office.ui.035"
+    },
+    {
+      "en": "Our little choices, another day!",
+      "ko": "우리의 작은 일주일, 저장 완료!",
+      "tid": "office.ui.036"
+    },
+    {
+      "en": "An important message has arrived",
+      "ko": "띵동! 중요한 이야기가 도착했어요",
+      "tid": "office.ui.037"
+    },
+    {
+      "en": "Today's report is here",
+      "ko": "오늘의 기록이 도착했어요",
+      "tid": "office.ui.038"
+    },
+    {
+      "en": "Only this prototype’s seven-day record will be reset.\nThe existing campaign and character records are unaffected.",
+      "ko": "이 프로토타입의 7일 기록만 초기화됩니다.\n기존 캠페인과 인물 기록에는 영향을 주지 않아요.",
+      "tid": "office.ui.039"
+    },
+    {
+      "en": "\n\nConfirm to record your decision and advance the day.",
+      "ko": "\n\n확정하면 오늘의 결정이 기록되고 하루가 진행됩니다.",
+      "tid": "office.ui.040"
+    },
+    {
+      "en": "Full-screen notifications wait for your important decision.\nConfirm to return to your open windows.",
+      "ko": "전체화면 알림은 중요한 결정을 잠시 기다려줘요.\n확인을 누르면 열어두었던 창으로 돌아갑니다.",
+      "tid": "office.ui.041"
+    },
+    {
+      "en": "Cancel / Go back",
+      "ko": "잠깐, 돌아갈게요",
+      "tid": "office.ui.042"
+    },
+    {
+      "en": "Yes, confirm",
+      "ko": "네, 확정할게요",
+      "tid": "office.ui.043"
+    },
+    {
+      "en": "Confirm / Back to desktop",
+      "ko": "확인 · 바탕화면으로",
+      "tid": "office.ui.044"
+    },
+    {
+      "en": "A fresh start",
+      "ko": "새로운 일주일",
+      "tid": "office.ui.045"
+    },
+    {
+      "en": "Your first agenda is here. Open Today’s work.",
+      "ko": "첫 안건이 도착했어요. 오늘의 업무를 열어주세요.",
+      "tid": "office.ui.046"
+    },
+    {
+      "en": "A week well lived",
+      "ko": "한 주를 마쳤어요",
+      "tid": "office.ui.047"
+    },
+    {
+      "en": "A new message arrived",
+      "ko": "새로운 메시지가 왔어요",
+      "tid": "office.ui.048"
+    },
+    {
+      "en": "Read the week’s stories in Activity log.",
+      "ko": "오늘의 업무에서 한 주의 이야기를 읽어보세요.",
+      "tid": "office.ui.049"
+    },
+    {
+      "en": "Check the next agenda and follow-up news.",
+      "ko": "다음 안건과 후속 소식을 확인해주세요.",
+      "tid": "office.ui.050"
+    },
+    {
+      "en": "Life comes first in the calendar.",
+      "ko": "시간표에, 각자의 삶을 먼저.",
+      "tid": "office.ui.051"
+    },
+    {
+      "en": "People beyond their status",
+      "ko": "상태 너머에 있는 사람들",
+      "tid": "office.ui.052"
+    },
+    {
+      "en": "Small changes in our neighborhood",
+      "ko": "우리 동네의 작은 변화",
+      "tid": "office.ui.053"
+    },
+    {
+      "en": "Thank you for telling us early.",
+      "ko": "먼저 말해줘서 고마워요.",
+      "tid": "office.ui.054"
+    },
+    {
+      "en": "Decisions and what followed",
+      "ko": "선택과 그 이후의 기록",
+      "tid": "office.ui.055"
+    },
+    {
+      "en": "What we need to care for today",
+      "ko": "오늘, 우리가 챙겨야 할 것들",
+      "tid": "office.ui.056"
+    },
+    {
+      "en": "Agenda awaiting response 01 / DAY ",
+      "ko": "응답할 안건  01     /     DAY ",
+      "tid": "office.ui.057"
+    },
+    {
+      "en": " deadline",
+      "ko": " 마감",
+      "tid": "office.ui.058"
+    },
+    {
+      "en": " / Today 09:00",
+      "ko": "  ·  오늘 09:00",
+      "tid": "office.ui.059"
+    },
+    {
+      "en": "Selected / ",
+      "ko": "선택됨  ·  ",
+      "tid": "office.ui.060"
+    },
+    {
+      "en": "Your choice was saved",
+      "ko": "선택을 저장했어요",
+      "tid": "office.ui.061"
+    },
+    {
+      "en": "Confirm the plan to finish today.",
+      "ko": "계획 확정으로 오늘을 마무리할 수 있어요.",
+      "tid": "office.ui.062"
+    },
+    {
+      "en": "Report after confirmation\n",
+      "ko": "확정 후 도착할 보고\n",
+      "tid": "office.ui.063"
+    },
+    {
+      "en": "Presentation complete / School schedule protected",
+      "ko": "발표 완료 · 학교 일정 유지",
+      "tid": "office.ui.064"
+    },
+    {
+      "en": "School presentation today / Scheduling needed",
+      "ko": "오늘 학교 발표 · 일정 조율 필요",
+      "tid": "office.ui.065"
+    },
+    {
+      "en": "Rest secured / Next schedule to discuss",
+      "ko": "휴식 확보 · 다음 일정 협의",
+      "tid": "office.ui.066"
+    },
+    {
+      "en": "Counseling connected / Consent confirmed",
+      "ko": "상담 연결 · 본인 동의 확인",
+      "tid": "office.ui.067"
+    },
+    {
+      "en": "Recovery needed / Field work on hold",
+      "ko": "회복이 필요한 때 · 출동 보류",
+      "tid": "office.ui.068"
+    },
+    {
+      "en": "Exploring careers / Preparing for the future",
+      "ko": "진로 탐색 중 · 다음 생활 준비",
+      "tid": "office.ui.069"
+    },
+    {
+      "en": "Writing handover notes / Sharing experience",
+      "ko": "인계 자료 작성 · 경험을 남기는 중",
+      "tid": "office.ui.070"
+    },
+    {
+      "en": "Supporting activities / Graduation ahead",
+      "ko": "활동 지원 · 졸업 준비 예정",
+      "tid": "office.ui.071"
+    },
+    {
+      "en": "Verified status / DAY ",
+      "ko": "확인된 상태  ·  DAY ",
+      "tid": "office.ui.072"
+    },
+    {
+      "en": "Personal message / DAY ",
+      "ko": "본인이 전한 이야기  ·  DAY ",
+      "tid": "office.ui.073"
+    },
+    {
+      "en": "No message has arrived yet. Records update when the person shares their story.",
+      "ko": "아직 도착한 메시지가 없습니다. 당사자가 전하는 시점에 기록을 갱신합니다.",
+      "tid": "office.ui.074"
+    },
+    {
+      "en": "Support plan / ",
+      "ko": "지원 계획  /  ",
+      "tid": "office.ui.075"
+    },
+    {
+      "en": "\nPersonal records stay with the same person after graduation.",
+      "ko": "\n개인 기록은 졸업 이후에도 같은 사람에게 남습니다.",
+      "tid": "office.ui.076"
+    },
+    {
+      "en": "WEEK 01 / School, rest, local response and the next chapter",
+      "ko": "WEEK 01     학교 · 휴식 · 지역 대응 · 다음 삶",
+      "tid": "office.ui.077"
+    },
+    {
+      "en": "Plan / Adjust to the request on that day",
+      "ko": "계획 · 당일 요청에 맞춰 조정",
+      "tid": "office.ui.078"
+    },
+    {
+      "en": "Plan pending / Respond in Today’s work",
+      "ko": "계획 미확정 · 오늘의 업무에서 응답",
+      "tid": "office.ui.079"
+    },
+    {
+      "en": "01 School",
+      "ko": "01  학교",
+      "tid": "office.ui.080"
+    },
+    {
+      "en": "02 Riverside path",
+      "ko": "02  하천 산책로",
+      "tid": "office.ui.081"
+    },
+    {
+      "en": "03 Support center",
+      "ko": "03  지원센터",
+      "tid": "office.ui.082"
+    },
+    {
+      "en": "Protect Hana's presentation and class time.",
+      "ko": "하나의 발표와 수업 시간을 보호합니다.",
+      "tid": "office.ui.083"
+    },
+    {
+      "en": "Incident stable / Prevention and community follow-up",
+      "ko": "사건 안정 · 후속 예방과 지역 연결",
+      "tid": "office.ui.084"
+    },
+    {
+      "en": "Unusual activity observed / Public access restricted",
+      "ko": "이상 반응 관측 · 주민 접근 제한",
+      "tid": "office.ui.085"
+    },
+    {
+      "en": "Connect recovery, counseling and specialist support.",
+      "ko": "회복·상담과 전문기관 지원을 연결합니다.",
+      "tid": "office.ui.086"
+    },
+    {
+      "en": "Riverside incident / Investigate → Prepare → Respond → Follow up",
+      "ko": "하천 사건   /   조사 → 준비 → 대응 → 후속 점검",
+      "tid": "office.ui.087"
+    },
+    {
+      "en": "Verified report / DAY ",
+      "ko": "확인된 보고 · DAY ",
+      "tid": "office.ui.088"
+    },
+    {
+      "en": "Public access is restricted while observations continue. The cause and extent need further investigation.",
+      "ko": "주민 접근을 제한하고 관측 중입니다. 사건의 원인과 범위는 추가 확인이 필요합니다.",
+      "tid": "office.ui.089"
+    },
+    {
+      "en": "\n\nResponse policy: Stop when safety limits are exceeded. Connect specialists and prioritize resident safety.",
+      "ko": "\n\n대응 방침 / 안전 범위 초과 시 접근 중단. 전문기관과 연결하고, 주민 보호를 우선합니다.",
+      "tid": "office.ui.090"
+    },
+    {
+      "en": "See today's response decision →",
+      "ko": "오늘의 대응 결정 보기 →",
+      "tid": "office.ui.091"
+    },
+    {
+      "en": "Messages and follow-up news",
+      "ko": "받은 이야기와 후속 소식",
+      "tid": "office.ui.092"
+    },
+    {
+      "en": "Confirmed decisions are recorded here",
+      "ko": "확정한 결정은 이곳에 남습니다",
+      "tid": "office.ui.093"
+    },
+    {
+      "en": "Confirm today's plan to create the first record.",
+      "ko": "오늘의 계획을 확정하면 첫 기록이 남습니다.",
+      "tid": "office.ui.094"
+    },
+    {
+      "en": "Seven days, and a future for each person.",
+      "ko": "7일 동안 남긴 것은, 각자의 다음입니다.",
+      "tid": "office.ui.095"
+    },
+    {
+      "en": "Hana protected school time / Sori asked for help / Yuna prepared for the future",
+      "ko": "학교를 지킨 하나 · 도움을 요청한 소리 · 다음 생활을 준비하는 유나",
+      "tid": "office.ui.096"
+    },
+    {
+      "en": "\n\nGraduation and mentoring remain each person’s next choice.",
+      "ko": "\n\n졸업과 멘토 참여는 당사자의 다음 선택으로 남겨둡니다.",
+      "tid": "office.ui.097"
+    },
+    {
+      "en": "Read this week's activity log →",
+      "ko": "한 주의 활동 기록 읽기 →",
+      "tid": "office.ui.098"
+    },
+    {
+      "en": "a little everyday.",
+      "ko": "작은 일상.",
+      "tid": "office.wallpaper.everyday"
+    },
+    {
+      "en": "a little magic,",
+      "ko": "작은 마법과,",
+      "tid": "office.wallpaper.magic"
+    },
+    {
+      "en": "{page} / {executable}",
+      "ko": "{page}  /  {executable}",
+      "tid": "office.window.title"
+    },
+    {
+      "en": "Risky opportunities x0.7; safety checks +15 pp; snap decisions -10 pp",
+      "ko": "위험한 기회 ×0.7, 안전 점검 +15%p, 즉흥 결정 -10%p",
+      "tid": "perk.cautious.description"
+    },
+    {
+      "en": "Cautious",
+      "ko": "신중함",
+      "tid": "perk.cautious.name"
+    },
+    {
+      "en": "Contest offers x1.5; competition +15 pp; defeat stress +10",
+      "ko": "경쟁 제안 ×1.5, 경쟁 +15%p, 패배 스트레스 +10",
+      "tid": "perk.competitive.description"
+    },
+    {
+      "en": "Competitive",
+      "ko": "승부욕",
+      "tid": "perk.competitive.name"
+    },
+    {
+      "en": "New activities x1.5; inquiry +15 pp; routine tasks -5 pp",
+      "ko": "새 활동 발견 ×1.5, 탐구 +15%p, 반복 작업 -5%p",
+      "tid": "perk.curious.description"
+    },
+    {
+      "en": "Curious",
+      "ko": "호기심",
+      "tid": "perk.curious.name"
+    },
+    {
+      "en": "Advice requests x1.5; counseling +15 pp; hard bargaining -10 pp",
+      "ko": "상담 요청 ×1.5, 상담 +15%p, 강경 협상 -10%p",
+      "tid": "perk.empathetic.description"
+    },
+    {
+      "en": "Empathetic",
+      "ko": "공감 능력",
+      "tid": "perk.empathetic.name"
+    },
+    {
+      "en": "Urgent requests x1.4; response +15 pp; routine tasks -10 pp",
+      "ko": "돌발 지원 요청 ×1.4, 돌발 대응 +15%p, 반복 작업 -10%p",
+      "tid": "perk.improviser.description"
+    },
+    {
+      "en": "Improviser",
+      "ko": "임기응변",
+      "tid": "perk.improviser.name"
+    },
+    {
+      "en": "Error discovery x1.5; precision +15 pp; duration +20%",
+      "ko": "오류 발견 ×1.5, 정밀 작업 +15%p, 작업 시간 +20%",
+      "tid": "perk.meticulous.description"
+    },
+    {
+      "en": "Meticulous",
+      "ko": "꼼꼼함",
+      "tid": "perk.meticulous.name"
+    },
+    {
+      "en": "Late activities x1.5; night +10 pp; morning -10 pp",
+      "ko": "심야 활동 ×1.5, 밤 +10%p, 아침 -10%p",
+      "tid": "perk.night_owl.description"
+    },
+    {
+      "en": "Night Owl",
+      "ko": "야행성",
+      "tid": "perk.night_owl.name"
+    },
+    {
+      "en": "New encounters x0.6; strangers -10 pp; familiar people +10 pp",
+      "ko": "낯선 만남 ×0.6, 낯선 상대 -10%p, 익숙한 상대 +10%p",
+      "tid": "perk.reserved.description"
+    },
+    {
+      "en": "Reserved",
+      "ko": "낯가림",
+      "tid": "perk.reserved.name"
+    },
+    {
+      "en": "Cover requests x1.4; commitments +10 pp; failure stress +5",
+      "ko": "대타 요청 ×1.4, 약속 이행 +10%p, 실패 스트레스 +5",
+      "tid": "perk.responsible.description"
+    },
+    {
+      "en": "Responsible",
+      "ko": "책임감",
+      "tid": "perk.responsible.name"
+    },
+    {
+      "en": "Friend gatherings x1.5; affinity tasks +15 pp",
+      "ko": "친구 모임 ×1.5, 친화 작업 +15%p",
+      "tid": "perk.sociable.description"
+    },
+    {
+      "en": "Sociable",
+      "ko": "사교적",
+      "tid": "perk.sociable.name"
+    },
+    {
+      "en": "Requests x1.5; accepting a request adds 5 stress",
+      "ko": "부탁 요청 ×1.5, 부탁 수락 스트레스 +5",
+      "tid": "perk.weak_boundaries.description"
+    },
+    {
+      "en": "Difficulty Saying No",
+      "ko": "거절이 어려움",
+      "tid": "perk.weak_boundaries.name"
+    },
+    {
+      "en": "Introductions x1.5; networking +10 pp",
+      "ko": "지인 소개 ×1.5, 인맥 활용 +10%p",
+      "tid": "perk.well_connected.description"
+    },
+    {
+      "en": "Well Connected",
+      "ko": "넓은 인맥",
+      "tid": "perk.well_connected.name"
+    },
+    {
+      "en": "English",
+      "ko": "English",
+      "tid": "settings.language.en"
+    },
+    {
+      "en": "한국어",
+      "ko": "한국어",
+      "tid": "settings.language.ko"
+    },
+    {
+      "en": "Display language",
+      "ko": "표시 언어",
+      "tid": "settings.language.label"
+    },
+    {
+      "en": "tid",
+      "ko": "tid",
+      "tid": "settings.language.tid"
+    },
+    {
+      "en": "Cover a Shift",
+      "ko": "동료 대타 근무",
+      "tid": "task.cover_shift.name"
+    },
+    {
+      "en": "Enter a Contest",
+      "ko": "작은 대회 참가",
+      "tid": "task.enter_contest.name"
+    },
+    {
+      "en": "Listen to a Friend",
+      "ko": "친구의 이야기 들어주기",
+      "tid": "task.listen_to_friend.name"
+    },
+    {
+      "en": "Repair Equipment",
+      "ko": "설비 복구",
+      "tid": "task.repair_equipment.name"
+    },
+    {
+      "en": "Try a Workshop",
+      "ko": "체험 수업 참여",
+      "tid": "task.try_workshop.name"
+    }
+  ],
+  "schema_version": 1,
+  "source": {
+    "mode": "local_csv"
+  }
+}

@@ -21,8 +21,8 @@ namespace ProjectW.MilestonePrototype
         private static readonly Color Line = new Color(.73f, .64f, .83f);
         private static readonly Color Pink = new Color(.99f, .76f, .85f);
         private static readonly Color Mint = new Color(.74f, .91f, .86f);
-        private static readonly string[] Pages = { "오늘의 업무", "일정표", "인물 기록", "지역 · 사건", "메신저", "활동 기록", "설정" };
-        private static readonly string[] Executables = { "today.exe", "calendar.exe", "friends.exe", "town.exe", "letter.exe", "diary.exe", "settings.exe" };
+        private static string[] Pages => new[] { SheetContent.T("office.ui.001"), SheetContent.T("office.ui.002"), SheetContent.T("office.ui.003"), SheetContent.T("office.ui.004"), SheetContent.T("office.ui.005"), SheetContent.T("office.ui.006"), SheetContent.T("office.ui.007") };
+        private static string[] Executables => new[] { SheetContent.T("office.executable.today"), SheetContent.T("office.executable.calendar"), SheetContent.T("office.executable.friends"), SheetContent.T("office.executable.town"), SheetContent.T("office.executable.letter"), SheetContent.T("office.executable.diary"), SheetContent.T("office.executable.settings") };
         private enum Modal { None, ConfirmDay, DayReport, WeekReport, Reset, Preview }
         private Modal modal;
         private bool effects = true, started, leave;
@@ -83,7 +83,7 @@ namespace ProjectW.MilestonePrototype
             if (!started)
             {
                 started = true;
-                Notify(SaveBlocked ? "저장을 확인해주세요" : "새로운 하루가 도착했어요", SaveBlocked ? "지원하지 않는 저장입니다. 설정에서 확인하세요." : "오늘의 안건을 열고 이야기를 확인하세요.", SaveBlocked ? 6 : 0);
+                Notify(SaveBlocked ? SheetContent.T("office.ui.008") : SheetContent.T("office.ui.009"), SaveBlocked ? SheetContent.T("office.ui.010") : SheetContent.T("office.ui.011"), SaveBlocked ? 6 : 0);
             }
             if (pendingApp >= 0)
             {
@@ -169,13 +169,13 @@ namespace ProjectW.MilestonePrototype
             for (float x = 0; x < width; x += 48) Fill(new Rect(x, 32, 1, height - 86), new Color(.94f, .91f, .99f));
             for (float y = 32; y < height - 54; y += 48) Fill(new Rect(0, y, width, 1), new Color(.94f, .91f, .99f));
             Fill(new Rect(0, 0, width, 32), Paper);
-            Text(new Rect(20, 5, 600, 23), "small office OS   /   마법소녀 사무소", caption, Ink);
-            Text(new Rect(width - 270, 5, 250, 23), "WEEK 01     DAY " + Mathf.Min(Scenario.Day, 7).ToString("00") + "     ♡ ONLINE", caption, Teal);
+            Text(new Rect(20, 5, 600, 23), SheetContent.T("office.ui.012"), caption, Ink);
+            Text(new Rect(width - 270, 5, 250, 23), SheetContent.Format("office.clock.header", "day", Mathf.Min(Scenario.Day, 7).ToString("00")), caption, Teal);
             // Quiet wallpaper motif leaves room for overlapping applications.
             IconEffect(new Rect(width * .57f, height * .24f, 240, 240), Mint, false);
-            Text(new Rect(width * .52f, height * .38f, 430, 63), "a little magic,", large, new Color(.71f, .61f, .83f));
-            Text(new Rect(width * .52f + 50, height * .38f + 49, 420, 63), "a little everyday.", large, new Color(.71f, .61f, .83f));
-            Text(new Rect(width - 456, height - 134, 410, 42), "오늘도, 각자의 내일을 함께.  ♡", heading, Teal);
+            Text(new Rect(width * .52f, height * .38f, 430, 63), SheetContent.T("office.wallpaper.magic"), large, new Color(.71f, .61f, .83f));
+            Text(new Rect(width * .52f + 50, height * .38f + 49, 420, 63), SheetContent.T("office.wallpaper.everyday"), large, new Color(.71f, .61f, .83f));
+            Text(new Rect(width - 456, height - 134, 410, 42), SheetContent.T("office.ui.013"), heading, Teal);
         }
         private void DrawDesktopIcons()
         {
@@ -200,7 +200,7 @@ namespace ProjectW.MilestonePrototype
         private void DrawTaskbar()
         {
             Frame(new Rect(0, height - 54, width, 54), new Color(.94f, .89f, .98f), Line, false);
-            if (Action(new Rect(8, height - 46, 104, 38), "♡ 설정")) RequestApp(6);
+            if (Action(new Rect(8, height - 46, 104, 38), SheetContent.T("office.ui.014"))) RequestApp(6);
             float x = 124;
             for (int i = 0; i < Pages.Length; i++)
             {
@@ -213,7 +213,7 @@ namespace ProjectW.MilestonePrototype
                 }
                 x += 124;
             }
-            Text(new Rect(width - 160, height - 40, 150, 30), "DAY " + Mathf.Min(Scenario.Day, 7).ToString("00") + "  /  09:00", caption, Ink);
+            Text(new Rect(width - 160, height - 40, 150, 30), SheetContent.Format("office.clock.taskbar", "day", Mathf.Min(Scenario.Day, 7).ToString("00")), caption, Ink);
         }
         private void DrawAppWindow(int id)
         {
@@ -223,15 +223,15 @@ namespace ProjectW.MilestonePrototype
             Frame(new Rect(0, 0, ww, wh), Paper, Ink, true);
             Fill(new Rect(3, 3, ww - 6, 35), Layout.Front == app ? Pink : new Color(.85f, .80f, .92f));
             DrawIcon(new Rect(10, 9, 22, 22), app);
-            Text(new Rect(42, 8, ww - 165, 29), Pages[app] + "  /  " + Executables[app], caption, Ink);
+            Text(new Rect(42, 8, ww - 165, 29), SheetContent.Format("office.window.title", "page", Pages[app], "executable", Executables[app]), caption, Ink);
             if (Action(new Rect(ww - 76, 7, 30, 27), "_")) Layout.Minimize(app);
             if (Action(new Rect(ww - 39, 7, 30, 27), "×")) Layout.Close(app);
-            Text(new Rect(17, 47, ww - 34, 33), app == 6 ? "내 컴퓨터 · 알림과 화면" : PageHeading(app), caption, Muted);
+            Text(new Rect(17, 47, ww - 34, 33), app == 6 ? SheetContent.T("office.ui.015") : PageHeading(app), caption, Muted);
             Fill(new Rect(12, 84, ww - 24, 1), Line);
             int previousPage = page, previousPerson = person;
             Vector2 previousScroll = scroll;
             page = app; person = window.Person; scroll = window.Scroll;
-            float contentHeight = app == 1 ? 710 : app == 4 || app == 5 || (Scenario.Complete && app == 0) ? 1100 : 690;
+            float contentHeight = app == 6 ? 770 : app == 1 ? 710 : app == 4 || app == 5 || (Scenario.Complete && app == 0) ? 1100 : 690;
             window.ContentHeight = contentHeight;
             OfficeTouchGesture.ClampScroll(window);
             scroll = window.Scroll;
@@ -249,11 +249,11 @@ namespace ProjectW.MilestonePrototype
             window.Scroll = scroll; window.Person = person;
             page = previousPage; person = previousPerson; scroll = previousScroll;
             Fill(new Rect(12, wh - 56, ww - 24, 1), Line);
-            Text(new Rect(20, wh - 42, ww - 295, 33), SaveBlocked ? "저장 오류 · 설정에서 확인" : "자동 저장  ·  small office OS", caption, Muted);
+            Text(new Rect(20, wh - 42, ww - 295, 33), SaveBlocked ? SheetContent.T("office.ui.016") : SheetContent.T("office.ui.017"), caption, Muted);
             if (app == 0 && !Scenario.Complete)
             {
                 GUI.enabled = CanInteract && Scenario.CanAdvance && !SaveBlocked;
-                if (Action(new Rect(ww - 258, wh - 47, 223, 34), "계획 확정 · 하루 마무리", true)) modal = Modal.ConfirmDay;
+                if (Action(new Rect(ww - 258, wh - 47, 223, 34), SheetContent.T("office.ui.018"), true)) modal = Modal.ConfirmDay;
                 GUI.enabled = CanInteract;
             }
             for (int i = 0; i < 3; i++) Fill(new Rect(ww - 8 - i * 5, wh - 11 - i * 5, 2, 3 + i * 5), Ink);
@@ -262,24 +262,30 @@ namespace ProjectW.MilestonePrototype
         }
         private void DrawSettings(float w)
         {
-            Text(new Rect(8, 5, w - 16, 46), "조금 더 나다운 바탕화면", heading, Ink);
-            Text(new Rect(8, 64, w - 16, 104), "아이콘을 눌러 앱을 열고, 제목줄을 잡아 이동하세요.\n모바일: 창 안을 밀어 스크롤 / 두 손가락으로 창 확대·축소.\n창 모서리로도 크기 조절이 가능해요.\n최소화한 앱은 작업표시줄에서 다시 열 수 있어요.", body, Muted);
-            if (Action(new Rect(8, 175, w - 16, 48), effects ? "아이콘 배경 이펙트  ON" : "아이콘 배경 이펙트  OFF", effects)) effects = !effects;
-            Text(new Rect(8, 237, w - 16, 67), "빛 · 회전하는 후광 · 반짝임\n새 안건과 선택한 아이콘 뒤에서 표시돼요.", body, Muted);
-            if (Action(new Rect(8, 325, (w - 28) / 2, 49), "전체화면 알림 보기")) modal = Modal.Preview;
-            if (Action(new Rect(20 + (w - 28) / 2, 325, (w - 28) / 2, 49), "우하단 알림 보기")) Notify("새 메시지가 왔어요", "메신저를 열어 이야기를 확인해보세요.", 4);
-            Text(new Rect(8, 400, w - 16, 80), SaveBlocked ? "현재 저장을 읽을 수 없어 원본을 보존했어요. 새로 시작하려면 아래에서 초기화를 확인해주세요." : "창 배치는 이번 접속 동안 유지됩니다.\n7일 시나리오의 결정은 따로 저장됩니다.", body, Muted);
-            if (Action(new Rect(8, 503, w - 16, 48), "7일 시나리오 다시 시작")) modal = Modal.Reset;
-            if (Action(new Rect(8, 568, w - 16, 48), "처음 화면으로 돌아가기")) leave = true;
+            Text(new Rect(8, 632, w - 16, 30), SheetContent.T("settings.language.label"), caption, Ink);
+            string[] modes = { "ko", "en", "tid" };
+            for (int i = 0; i < modes.Length; i++)
+                if (Action(new Rect(8 + i * ((w - 28) / 3 + 6), 670, (w - 28) / 3, 48), SheetContent.T("settings.language." + modes[i]), SheetContent.Locale == modes[i]))
+                    SheetContent.SetLocale(modes[i]);
+
+            Text(new Rect(8, 5, w - 16, 46), SheetContent.T("office.ui.019"), heading, Ink);
+            Text(new Rect(8, 64, w - 16, 104), SheetContent.T("office.ui.020"), body, Muted);
+            if (Action(new Rect(8, 175, w - 16, 48), effects ? SheetContent.T("office.ui.021") : SheetContent.T("office.ui.022"), effects)) effects = !effects;
+            Text(new Rect(8, 237, w - 16, 67), SheetContent.T("office.ui.023"), body, Muted);
+            if (Action(new Rect(8, 325, (w - 28) / 2, 49), SheetContent.T("office.ui.024"))) modal = Modal.Preview;
+            if (Action(new Rect(20 + (w - 28) / 2, 325, (w - 28) / 2, 49), SheetContent.T("office.ui.025"))) Notify(SheetContent.T("office.ui.026"), SheetContent.T("office.ui.027"), 4);
+            Text(new Rect(8, 400, w - 16, 80), SaveBlocked ? SheetContent.T("office.ui.028") : SheetContent.T("office.ui.029"), body, Muted);
+            if (Action(new Rect(8, 503, w - 16, 48), SheetContent.T("office.ui.030"))) modal = Modal.Reset;
+            if (Action(new Rect(8, 568, w - 16, 48), SheetContent.T("office.ui.031"))) leave = true;
         }
         private void DrawToast()
         {
             Frame(new Rect(0, 0, 354, 140), Paper, Ink, true);
             Fill(new Rect(3, 3, 348, 29), Mint);
-            Text(new Rect(12, 5, 290, 27), "♡ " + toastTitle, caption, Ink);
+            Text(new Rect(12, 5, 290, 27), SheetContent.Format("office.toast.title", "title", toastTitle), caption, Ink);
             if (Action(new Rect(318, 5, 28, 24), "×")) toastUntil = 0;
             Text(new Rect(16, 43, 322, 52), toastMessage, body, Ink);
-            if (Action(new Rect(16, 100, 322, 30), Pages[toastApp] + " 열기 →")) { RequestApp(toastApp); toastUntil = 0; }
+            if (Action(new Rect(16, 100, 322, 30), SheetContent.Format("office.toast.open", "page", Pages[toastApp]))) { RequestApp(toastApp); toastUntil = 0; }
         }
         private void DrawModal()
         {
@@ -289,16 +295,16 @@ namespace ProjectW.MilestonePrototype
             GUI.BeginGroup(panel);
             Frame(new Rect(0, 0, mw, mh), Paper, Ink, true);
             Fill(new Rect(3, 3, mw - 6, 35), Pink);
-            Text(new Rect(16, 8, mw - 32, 28), "small office OS  /  중요한 알림", caption, Ink);
+            Text(new Rect(16, 8, mw - 32, 28), SheetContent.T("office.ui.033"), caption, Ink);
             IconEffect(new Rect(mw / 2 - 80, 43, 160, 160), Pink, true);
             DrawIcon(new Rect(mw / 2 - 36, 91, 72, 72), modal == Modal.Reset ? 6 : modal == Modal.Preview ? 4 : 0);
-            string title = modal == Modal.Reset ? "처음부터 다시 시작할까요?" : modal == Modal.ConfirmDay ? "오늘의 계획을 확정할까요?" : modal == Modal.WeekReport ? "우리의 작은 일주일, 저장 완료!" : modal == Modal.Preview ? "띵동! 중요한 이야기가 도착했어요" : "오늘의 기록이 도착했어요";
+            string title = modal == Modal.Reset ? SheetContent.T("office.ui.034") : modal == Modal.ConfirmDay ? SheetContent.T("office.ui.035") : modal == Modal.WeekReport ? SheetContent.T("office.ui.036") : modal == Modal.Preview ? SheetContent.T("office.ui.037") : SheetContent.T("office.ui.038");
             Text(new Rect(36, 203, mw - 72, 46), title, heading, Ink);
-            string message = modal == Modal.Reset ? "이 프로토타입의 7일 기록만 초기화됩니다.\n기존 캠페인과 인물 기록에는 영향을 주지 않아요." : modal == Modal.ConfirmDay ? OfficeScenario.Options[Scenario.CurrentIndex * 2 + Scenario.Choice(Scenario.CurrentIndex)] + "\n\n확정하면 오늘의 결정이 기록되고 하루가 진행됩니다." : modal == Modal.Preview ? "전체화면 알림은 중요한 결정을 잠시 기다려줘요.\n확인을 누르면 열어두었던 창으로 돌아갑니다." : report;
+            string message = modal == Modal.Reset ? SheetContent.T("office.ui.039") : modal == Modal.ConfirmDay ? SheetContent.Format("office.confirm_day", "choice", OfficeScenario.Options[Scenario.CurrentIndex * 2 + Scenario.Choice(Scenario.CurrentIndex)]) : modal == Modal.Preview ? SheetContent.T("office.ui.041") : report;
             Text(new Rect(36, 273, mw - 72, 126), message, body, Muted);
             bool confirm = modal == Modal.Reset || modal == Modal.ConfirmDay;
-            if (confirm && Action(new Rect(36, 435, 300, 48), "잠깐, 돌아갈게요", false, false, true)) modal = Modal.None;
-            if (Action(new Rect(confirm ? 354 : 202, 435, 314, 48), confirm ? "네, 확정할게요" : "확인 · 바탕화면으로", true, false, true))
+            if (confirm && Action(new Rect(36, 435, 300, 48), SheetContent.T("office.ui.042"), false, false, true)) modal = Modal.None;
+            if (Action(new Rect(confirm ? 354 : 202, 435, 314, 48), confirm ? SheetContent.T("office.ui.043") : SheetContent.T("office.ui.044"), true, false, true))
             {
                 if (modal == Modal.Reset)
                 {
@@ -306,7 +312,7 @@ namespace ProjectW.MilestonePrototype
                     Scenario.Restore(new OfficeScenario().Export()); SaveBlocked = false;
                     for (int i = 0; i < Pages.Length; i++) { Layout.Close(i); Layout.Get(i).Scroll = Vector2.zero; }
                     unreadDay = 0; modal = Modal.None;
-                    Notify("새로운 일주일", "첫 안건이 도착했어요. 오늘의 업무를 열어주세요.", 0);
+                    Notify(SheetContent.T("office.ui.045"), SheetContent.T("office.ui.046"), 0);
                 }
                 else if (modal == Modal.ConfirmDay)
                 {
@@ -322,7 +328,7 @@ namespace ProjectW.MilestonePrototype
                 {
                     bool preview = modal == Modal.Preview;
                     modal = Modal.None;
-                    if (!preview) Notify(Scenario.Complete ? "한 주를 마쳤어요" : "새로운 메시지가 왔어요", Scenario.Complete ? "오늘의 업무에서 한 주의 이야기를 읽어보세요." : "다음 안건과 후속 소식을 확인해주세요.", Scenario.Complete ? 0 : 4);
+                    if (!preview) Notify(Scenario.Complete ? SheetContent.T("office.ui.047") : SheetContent.T("office.ui.048"), Scenario.Complete ? SheetContent.T("office.ui.049") : SheetContent.T("office.ui.050"), Scenario.Complete ? 0 : 4);
                 }
             }
             GUI.EndGroup();
@@ -414,12 +420,12 @@ namespace ProjectW.MilestonePrototype
         {
             switch (app)
             {
-                case 1: return "시간표에, 각자의 삶을 먼저.";
-                case 2: return "상태 너머에 있는 사람들";
-                case 3: return "우리 동네의 작은 변화";
-                case 4: return "먼저 말해줘서 고마워요.";
-                case 5: return "선택과 그 이후의 기록";
-                default: return "오늘, 우리가 챙겨야 할 것들";
+                case 1: return SheetContent.T("office.ui.051");
+                case 2: return SheetContent.T("office.ui.052");
+                case 3: return SheetContent.T("office.ui.053");
+                case 4: return SheetContent.T("office.ui.054");
+                case 5: return SheetContent.T("office.ui.055");
+                default: return SheetContent.T("office.ui.056");
             }
         }
         private void DrawToday(float w)
@@ -434,104 +440,103 @@ namespace ProjectW.MilestonePrototype
                 if (GUI.Button(new Rect(cx, 0, card, 136), GUIContent.none, GUIStyle.none) && CanInteract) RequestApp(2, i);
             }
             int day = Scenario.CurrentIndex;
-            Text(new Rect(0, 151, w, 26), "응답할 안건  01     /     DAY " + Scenario.Day.ToString("00") + " 마감", caption, Teal);
+            Text(new Rect(0, 151, w, 26), SheetContent.Format("office.agenda.deadline", "day", Scenario.Day.ToString("00")), caption, Teal);
             Fill(new Rect(0, 187, w, 222), Color.white);
             Fill(new Rect(0, 187, 5, 222), Teal);
             Text(new Rect(25, 205, w - 50, 50), OfficeScenario.Titles[day], heading, Ink);
-            Text(new Rect(25, 262, w - 50, 27), OfficeScenario.Senders[day] + "  ·  오늘 09:00", caption, Muted);
+            Text(new Rect(25, 262, w - 50, 27), SheetContent.Format("office.agenda.sender", "sender", OfficeScenario.Senders[day]), caption, Muted);
             Text(new Rect(25, 304, w - 50, 83), OfficeScenario.Bodies[day], body, Ink);
             for (int i = 0; i < 2; i++)
             {
                 float cx = i * ((w - 14) / 2 + 14), bw = (w - 14) / 2;
                 GUI.enabled = CanInteract && !SaveBlocked && !Scenario.Complete;
-                if (Action(new Rect(cx, 428, bw, 55), (Scenario.Choice(day) == i ? "선택됨  ·  " : "") + OfficeScenario.Options[day * 2 + i], Scenario.Choice(day) == i))
-                { Scenario.Choose(i); Save(); Notify("선택을 저장했어요", "계획 확정으로 오늘을 마무리할 수 있어요.", 0); }
+                if (Action(new Rect(cx, 428, bw, 55), (Scenario.Choice(day) == i ? SheetContent.Format("office.choice.selected", "choice", OfficeScenario.Options[day * 2 + i]) : OfficeScenario.Options[day * 2 + i]), Scenario.Choice(day) == i))
+                { Scenario.Choose(i); Save(); Notify(SheetContent.T("office.ui.061"), SheetContent.T("office.ui.062"), 0); }
                 GUI.enabled = CanInteract;
                 Text(new Rect(cx + 8, 497, bw - 16, 68), OfficeScenario.Reasons[day * 2 + i], body, Muted);
             }
             if (Scenario.CanAdvance)
             {
                 Fill(new Rect(0, 571, w, 89), new Color(.86f, .92f, .86f));
-                Text(new Rect(18, 582, w - 36, 71), "확정 후 도착할 보고\n" + Scenario.Report(day), body, Teal);
+                Text(new Rect(18, 582, w - 36, 71), SheetContent.Format("office.report.preview", "report", Scenario.Report(day)), body, Teal);
             }
         }
         private string PersonStatus(int i)
         {
-            if (i == 0) return Scenario.Day > 1 ? "발표 완료 · 학교 일정 유지" : "오늘 학교 발표 · 일정 조율 필요";
-            if (i == 1) return Scenario.Day > 2 ? (Scenario.Choice(1) == 0 ? "휴식 확보 · 다음 일정 협의" : "상담 연결 · 본인 동의 확인") : "회복이 필요한 때 · 출동 보류";
-            return Scenario.Day > 5 ? (Scenario.Choice(4) == 0 ? "진로 탐색 중 · 다음 생활 준비" : "인계 자료 작성 · 경험을 남기는 중") : "활동 지원 · 졸업 준비 예정";
+            if (i == 0) return Scenario.Day > 1 ? SheetContent.T("office.ui.064") : SheetContent.T("office.ui.065");
+            if (i == 1) return Scenario.Day > 2 ? (Scenario.Choice(1) == 0 ? SheetContent.T("office.ui.066") : SheetContent.T("office.ui.067")) : SheetContent.T("office.ui.068");
+            return Scenario.Day > 5 ? (Scenario.Choice(4) == 0 ? SheetContent.T("office.ui.069") : SheetContent.T("office.ui.070")) : SheetContent.T("office.ui.071");
         }
         private void DrawPeople(float w)
         {
             for (int i = 0; i < 3; i++)
                 if (Action(new Rect(i * 170, 0, 156, 45), OfficeScenario.Names[i], person == i)) person = i;
             Fill(new Rect(0, 70, w, 470), Color.white);
-            Text(new Rect(26, 94, w - 52, 55), OfficeScenario.Names[person] + "  /  " + OfficeScenario.Roles[person], heading, Ink);
-            Text(new Rect(26, 160, w - 52, 40), "확인된 상태  ·  DAY " + Mathf.Min(Scenario.Day, 7).ToString("00"), caption, Teal);
+            Text(new Rect(26, 94, w - 52, 55), SheetContent.Format("office.person.heading", "name", OfficeScenario.Names[person], "role", OfficeScenario.Roles[person]), heading, Ink);
+            Text(new Rect(26, 160, w - 52, 40), SheetContent.Format("office.person.status_day", "day", Mathf.Min(Scenario.Day, 7).ToString("00")), caption, Teal);
             Text(new Rect(26, 205, w - 52, 50), PersonStatus(person), body, Ink);
             int source = person == 0 ? 0 : person == 1 ? 1 : 4;
-            Text(new Rect(26, 276, w - 52, 35), "본인이 전한 이야기  ·  DAY " + (source + 1).ToString("00"), caption, Teal);
-            Text(new Rect(26, 321, w - 52, 115), Scenario.Day >= source + 1 ? OfficeScenario.Bodies[source] : "아직 도착한 메시지가 없습니다. 당사자가 전하는 시점에 기록을 갱신합니다.", body, Ink);
-            Text(new Rect(26, 451, w - 52, 61), "지원 계획  /  " + OfficeScenario.Roles[person] + "\n개인 기록은 졸업 이후에도 같은 사람에게 남습니다.", body, Muted);
+            Text(new Rect(26, 276, w - 52, 35), SheetContent.Format("office.person.message_day", "day", (source + 1).ToString("00")), caption, Teal);
+            Text(new Rect(26, 321, w - 52, 115), Scenario.Day >= source + 1 ? OfficeScenario.Bodies[source] : SheetContent.T("office.ui.074"), body, Ink);
+            Text(new Rect(26, 451, w - 52, 61), SheetContent.Format("office.person.plan", "role", OfficeScenario.Roles[person]), body, Muted);
         }
         private void DrawSchedule(float w)
         {
-            Text(new Rect(0, 0, w, 45), "WEEK 01     학교 · 휴식 · 지역 대응 · 다음 삶", heading, Ink);
+            Text(new Rect(0, 0, w, 45), SheetContent.T("office.ui.077"), heading, Ink);
             for (int d = 0; d < 7; d++)
             {
                 float y = 62 + d * 88;
                 Fill(new Rect(0, y, w, 77), d == Scenario.CurrentIndex ? new Color(.85f, .91f, .86f) : Color.white);
-                Text(new Rect(18, y + 16, 90, 40), "DAY " + (d + 1).ToString("00"), heading, Teal);
+                Text(new Rect(18, y + 16, 90, 40), SheetContent.Format("office.day", "day", (d + 1).ToString("00")), heading, Teal);
                 Text(new Rect(120, y + 10, w - 140, 30), OfficeScenario.Titles[d], caption, Ink);
-                string plan = d > Scenario.CurrentIndex ? "계획 · 당일 요청에 맞춰 조정" : Scenario.Choice(d) < 0 ? "계획 미확정 · 오늘의 업무에서 응답" : OfficeScenario.Options[d * 2 + Scenario.Choice(d)];
+                string plan = d > Scenario.CurrentIndex ? SheetContent.T("office.ui.078") : Scenario.Choice(d) < 0 ? SheetContent.T("office.ui.079") : OfficeScenario.Options[d * 2 + Scenario.Choice(d)];
                 Text(new Rect(120, y + 43, w - 140, 27), plan, caption, Muted);
             }
         }
         private void DrawDistrict(float w)
         {
-            string[] sites = { "01  학교", "02  하천 산책로", "03  지원센터" };
-            string[] notes = { "하나의 발표와 수업 시간을 보호합니다.", Scenario.Day > 4 ? "사건 안정 · 후속 예방과 지역 연결" : "이상 반응 관측 · 주민 접근 제한", "회복·상담과 전문기관 지원을 연결합니다." };
+            string[] sites = { SheetContent.T("office.ui.080"), SheetContent.T("office.ui.081"), SheetContent.T("office.ui.082") };
+            string[] notes = { SheetContent.T("office.ui.083"), Scenario.Day > 4 ? SheetContent.T("office.ui.084") : SheetContent.T("office.ui.085"), SheetContent.T("office.ui.086") };
             for (int i = 0; i < 3; i++)
             {
                 Fill(new Rect(0, i * 113, w, 98), Color.white);
                 Text(new Rect(22, i * 113 + 14, 250, 36), sites[i], heading, Teal);
                 Text(new Rect(285, i * 113 + 20, w - 310, 65), notes[i], body, Ink);
             }
-            Text(new Rect(0, 360, w, 42), "하천 사건   /   조사 → 준비 → 대응 → 후속 점검", heading, Ink);
-            Text(new Rect(0, 421, w, 180), "확인된 보고 · DAY " + Mathf.Min(Scenario.Day, 7).ToString("00") + "\n\n" +
-                (Scenario.Day > 4 ? Scenario.Report(3) : "주민 접근을 제한하고 관측 중입니다. 사건의 원인과 범위는 추가 확인이 필요합니다.") +
-                "\n\n대응 방침 / 안전 범위 초과 시 접근 중단. 전문기관과 연결하고, 주민 보호를 우선합니다.", body, Muted);
-            if (Action(new Rect(0, 607, 255, 46), "오늘의 대응 결정 보기 →", true)) RequestApp(0);
+            Text(new Rect(0, 360, w, 42), SheetContent.T("office.ui.087"), heading, Ink);
+            Text(new Rect(0, 421, w, 180), SheetContent.Format("office.district.report", "day", Mathf.Min(Scenario.Day, 7).ToString("00"), "report",
+                Scenario.Day > 4 ? Scenario.Report(3) : SheetContent.T("office.ui.089")), body, Muted);
+            if (Action(new Rect(0, 607, 255, 46), SheetContent.T("office.ui.091"), true)) RequestApp(0);
         }
         private void DrawJournal(float w, bool messages)
         {
-            Text(new Rect(0, 0, w, 40), messages ? "받은 이야기와 후속 소식" : "확정한 결정은 이곳에 남습니다", heading, Ink);
+            Text(new Rect(0, 0, w, 40), messages ? SheetContent.T("office.ui.092") : SheetContent.T("office.ui.093"), heading, Ink);
             float y = 60;
             for (int d = Mathf.Min(Scenario.Day - 1, 6); d >= 0; d--)
             {
                 bool committed = d < Scenario.Day - 1;
                 if (!messages && !committed) continue;
                 Fill(new Rect(0, y, w, 130), Color.white);
-                Text(new Rect(18, y + 13, w - 36, 26), "DAY " + (d + 1).ToString("00") + "  ·  " + (messages ? OfficeScenario.Senders[d] : OfficeScenario.Titles[d]), caption, Teal);
+                Text(new Rect(18, y + 13, w - 36, 26), SheetContent.Format("office.journal.heading", "day", (d + 1).ToString("00"), "title", messages ? OfficeScenario.Senders[d] : OfficeScenario.Titles[d]), caption, Teal);
                 Text(new Rect(18, y + 51, w - 36, 70), committed ? Scenario.Report(d) : OfficeScenario.Bodies[d], body, Ink);
                 y += 142;
             }
-            if (y == 60) Text(new Rect(0, y, w, 60), "오늘의 계획을 확정하면 첫 기록이 남습니다.", body, Muted);
+            if (y == 60) Text(new Rect(0, y, w, 60), SheetContent.T("office.ui.094"), body, Muted);
         }
         private void DrawEnding(float w)
         {
             Fill(new Rect(0, 0, w, 132), Teal);
-            Text(new Rect(24, 20, w - 48, 40), "7일 동안 남긴 것은, 각자의 다음입니다.", heading, Color.white);
-            Text(new Rect(24, 74, w - 48, 42), "학교를 지킨 하나 · 도움을 요청한 소리 · 다음 생활을 준비하는 유나", body, Color.white);
+            Text(new Rect(24, 20, w - 48, 40), SheetContent.T("office.ui.095"), heading, Color.white);
+            Text(new Rect(24, 74, w - 48, 42), SheetContent.T("office.ui.096"), body, Color.white);
             for (int i = 0; i < 3; i++)
             {
                 float y = 154 + i * 160;
                 Fill(new Rect(0, y, w, 140), Color.white);
-                Text(new Rect(20, y + 13, w - 40, 39), OfficeScenario.Names[i] + "  /  " + PersonStatus(i), heading, Ink);
+                Text(new Rect(20, y + 13, w - 40, 39), SheetContent.Format("office.ending.person", "name", OfficeScenario.Names[i], "status", PersonStatus(i)), heading, Ink);
                 Text(new Rect(20, y + 62, w - 40, 68), Scenario.Report(i == 0 ? 0 : i == 1 ? 1 : 4), body, Muted);
             }
-            Text(new Rect(0, 657, w, 100), Scenario.Report(6) + "\n\n졸업과 멘토 참여는 당사자의 다음 선택으로 남겨둡니다.", body, Teal);
-            if (Action(new Rect(0, 787, 280, 48), "한 주의 활동 기록 읽기 →", true)) RequestApp(5);
+            Text(new Rect(0, 657, w, 100), SheetContent.Format("office.ending.report", "report", Scenario.Report(6)), body, Teal);
+            if (Action(new Rect(0, 787, 280, 48), SheetContent.T("office.ui.098"), true)) RequestApp(5);
         }
         private void Save()
         {

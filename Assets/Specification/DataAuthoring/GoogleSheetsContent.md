@@ -60,3 +60,17 @@ ContentDataStructure v1.1 describes a future legacy campaign compiler. This addi
 only the new sheet bundle, leaving that legacy contract intact. Ingame story outcomes unchanged;
 Outgame gains locale selection; Metadata gains TID and normalized tables; Operation gains a
 mandatory network/validation gate. Android base/patch distribution is not changed.
+
+## Verification — 2026-09-27
+
+- Created ProjectW folder and two native Sheets; parent IDs and tab names verified.
+- 242 ko/en text rows, 12 perks, 33 effect rows, 5 sample characters, 20 perk links,
+  6 events, 5 tasks, 2 relationship rows and 69 office text mappings.
+- Native Google export roundtrip matches local CSV data exactly; all required TIDs resolve.
+- Python validation tests: 10 passed. Unity focused EditMode tests: 20 passed,
+  including locale fallback, perk probabilities, eligibility, cooldown, and existing office saves.
+- New bundle/office localization is WebGL/Editor-only; legacy campaign text remains separate.
+- Public unauthenticated export currently returns HTTP 401. Connected Drive permissions API
+  cannot grant anyone-link access, and the available browser is signed out. The user has been
+  asked to set both new workbooks to anyone-with-link Viewer. Public fetch, WebGL build and
+  Butler delivery remain pending that setting. No publication is claimed.
