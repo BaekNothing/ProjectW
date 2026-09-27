@@ -2227,6 +2227,14 @@
   ],
   "schema_version": 1,
   "source": {
-    "mode": "local_csv"
+    "game_data": {
+      "id": "1uOFm5t18aEB_jEHs_R5rtvJfj15Q7r_grSeXwLOxtvU",
+      "sha256": "70646a919ab282efe3a5e8422e1a8eb7791a9faa957f1963b5ffcc1dba8081d1"
+    },
+    "mode": "google_sheets",
+    "text": {
+      "id": "1eIdY31tip9qJNvoc8nxHl25ZIRW7e_9EmdkI851w6No",
+      "sha256": "83b603d9a2c1638a492490d0b99a43e92bed5c95c067dfdbfb1bda6939a29ddf"
+    }
   }
 }

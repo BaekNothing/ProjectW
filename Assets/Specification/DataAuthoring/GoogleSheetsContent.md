@@ -70,7 +70,8 @@ mandatory network/validation gate. Android base/patch distribution is not change
 - Python validation tests: 10 passed. Unity focused EditMode tests: 20 passed,
   including locale fallback, perk probabilities, eligibility, cooldown, and existing office saves.
 - New bundle/office localization is WebGL/Editor-only; legacy campaign text remains separate.
-- Public unauthenticated export currently returns HTTP 401. Connected Drive permissions API
-  cannot grant anyone-link access, and the available browser is signed out. The user has been
-  asked to set both new workbooks to anyone-with-link Viewer. Public fetch, WebGL build and
-  Butler delivery remain pending that setting. No publication is claimed.
+- The user enabled anyone-with-link Viewer on both workbooks. Public unauthenticated import
+  now succeeds with 242 texts, 5 characters and no missing English translations. Source hashes
+  are recorded in the generated bundle. Python validation tests remain green (10 passed).
+- Per user direction, WebGL build/publication runs in the background without waiting for
+  completion. Build and Butler success must be established from logs, not launch alone.
