@@ -233,7 +233,9 @@ def main():
         snapshot.mkdir(parents=True, exist_ok=True)
         for name in SCHEMA:
             with (snapshot/(name+'.csv')).open('w', encoding='utf-8', newline='') as f:
-                csv.writer(f).writerows(raw[name])
+                width = len(SCHEMA[name].split())
+                rows = [(row + [''] * width)[:width] for row in raw[name] if any(str(v) for v in row)]
+                csv.writer(f, quoting=csv.QUOTE_ALL, lineterminator='\n').writerows(rows)
     missing = sum(not r['en'] for r in bundle['Texts'])
     print(f'SHEET_CONTENT_OK texts={len(bundle["Texts"])} characters={len(bundle["Characters"])} missing_en={missing} sha256={hashlib.sha256(encoded.encode()).hexdigest()}')
 

@@ -1,266 +1,266 @@
-tid,ko,en
-perk.sociable.name,사교적,Sociable
-perk.sociable.description,"친구 모임 ×1.5, 친화 작업 +15%p",Friend gatherings x1.5; affinity tasks +15 pp
-perk.reserved.name,낯가림,Reserved
-perk.reserved.description,"낯선 만남 ×0.6, 낯선 상대 -10%p, 익숙한 상대 +10%p",New encounters x0.6; strangers -10 pp; familiar people +10 pp
-perk.empathetic.name,공감 능력,Empathetic
-perk.empathetic.description,"상담 요청 ×1.5, 상담 +15%p, 강경 협상 -10%p",Advice requests x1.5; counseling +15 pp; hard bargaining -10 pp
-perk.meticulous.name,꼼꼼함,Meticulous
-perk.meticulous.description,"오류 발견 ×1.5, 정밀 작업 +15%p, 작업 시간 +20%",Error discovery x1.5; precision +15 pp; duration +20%
-perk.improviser.name,임기응변,Improviser
-perk.improviser.description,"돌발 지원 요청 ×1.4, 돌발 대응 +15%p, 반복 작업 -10%p",Urgent requests x1.4; response +15 pp; routine tasks -10 pp
-perk.responsible.name,책임감,Responsible
-perk.responsible.description,"대타 요청 ×1.4, 약속 이행 +10%p, 실패 스트레스 +5",Cover requests x1.4; commitments +10 pp; failure stress +5
-perk.curious.name,호기심,Curious
-perk.curious.description,"새 활동 발견 ×1.5, 탐구 +15%p, 반복 작업 -5%p",New activities x1.5; inquiry +15 pp; routine tasks -5 pp
-perk.competitive.name,승부욕,Competitive
-perk.competitive.description,"경쟁 제안 ×1.5, 경쟁 +15%p, 패배 스트레스 +10",Contest offers x1.5; competition +15 pp; defeat stress +10
-perk.cautious.name,신중함,Cautious
-perk.cautious.description,"위험한 기회 ×0.7, 안전 점검 +15%p, 즉흥 결정 -10%p",Risky opportunities x0.7; safety checks +15 pp; snap decisions -10 pp
-perk.night_owl.name,야행성,Night Owl
-perk.night_owl.description,"심야 활동 ×1.5, 밤 +10%p, 아침 -10%p",Late activities x1.5; night +10 pp; morning -10 pp
-perk.well_connected.name,넓은 인맥,Well Connected
-perk.well_connected.description,"지인 소개 ×1.5, 인맥 활용 +10%p",Introductions x1.5; networking +10 pp
-perk.weak_boundaries.name,거절이 어려움,Difficulty Saying No
-perk.weak_boundaries.description,"부탁 요청 ×1.5, 부탁 수락 스트레스 +5",Requests x1.5; accepting a request adds 5 stress
-character.yunha.name,윤하,Yunha
-character.seojin.name,서진,Seojin
-character.taeo.name,태오,Taeo
-character.narin.name,나린,Narin
-character.doyun.name,도윤,Doyun
-task.listen_to_friend.name,친구의 이야기 들어주기,Listen to a Friend
-task.cover_shift.name,동료 대타 근무,Cover a Shift
-task.repair_equipment.name,설비 복구,Repair Equipment
-task.try_workshop.name,체험 수업 참여,Try a Workshop
-task.enter_contest.name,작은 대회 참가,Enter a Contest
-event.friend_invitation.name,친구의 모임 초대,A Friend Invites You
-event.friend_consultation.name,친구의 고민 상담,A Friend Needs Advice
-event.shift_request.name,동료의 대타 부탁,A Colleague Needs Cover
-event.equipment_failure.name,갑작스러운 설비 고장,Equipment Failure
-event.new_workshop.name,새로운 체험 수업 발견,Discover a Workshop
-event.contest_offer.name,작은 대회 참가 제안,A Contest Invitation
-office.names.0,하나,Hana
-office.names.1,소리,Sori
-office.names.2,유나,Yuna
-office.roles.0,학교와 활동 사이의 균형,Balancing school and activities
-office.roles.1,"회복하고, 다시 천천히","Rest, then take it slowly"
-office.roles.2,졸업 너머의 일상을 준비,Preparing for life after graduation
-office.titles.0,"발표가 있는 날, 조사는 누가 맡을까요?",Who will investigate on presentation day?
-office.titles.1,오늘은 쉬어도 괜찮을까요?,May I take a rest today?
-office.titles.2,하천 산책로 · 대응 전에 준비할 것,Riverside path: prepare before responding
-office.titles.3,현장에서 지킬 범위를 정해주세요,Set the limits for field work
-office.titles.4,유나의 다음 계절을 준비합니다,Preparing for Yuna's next season
-office.titles.5,다음 출동을 줄이는 하루,A day to prevent future callouts
-office.titles.6,우리가 지킨 일주일,The week we protected
-office.senders.0,하나 · 본인 메시지,Hana / personal message
-office.senders.1,소리 · 본인 메시지,Sori / personal message
-office.senders.2,구청 협력 담당 · 확인된 보고,District liaison / verified report
-office.senders.3,현장 담당 · 확인된 보고,Field coordinator / verified report
-office.senders.4,유나 · 본인 메시지,Yuna / personal message
-office.senders.5,지역 협력 담당 · 확인된 보고,Community liaison / verified report
-office.senders.6,사무소 · 주간 회고,Office / weekly reflection
-office.bodies.0,오늘 오후에 학교 발표가 있어요. 제가 맡은 부분이라 빠지고 싶지 않아요. 하천 조사는 수업이 끝난 뒤에 가도 될까요?,I have a school presentation this afternoon. I don't want to miss my part. Could I visit the river after class?
-office.bodies.1,"어제부터 좀 지쳐 있어요. 심해진 건 아닌데, 이번에는 미리 말하고 싶었어요. 오늘 현장 일정은 쉬고 싶어요.","I've felt tired since yesterday. It hasn't become worse, but I wanted to tell you early this time. I'd like to rest from field work today."
-office.bodies.2,산책로의 이상 반응은 계속 관측되고 있습니다. 주민 접근은 제한했습니다. 대응 전에 관측 범위와 지원 경로를 정해주세요.,Unusual activity continues along the path. Public access is restricted. Please define observation limits and support routes before responding.
-office.bodies.3,관측 지점 밖에서 반응이 커졌습니다. 합의한 안전 범위를 넘는 접근은 하지 않습니다. 주민 안내를 계속할지 전문기관에 인계할지 결정해주세요.,Activity has intensified beyond the observation point. We will not cross the agreed safety boundary. Decide whether to continue guiding residents or hand over to specialists.
-office.bodies.4,"졸업한 뒤 어떤 생활을 할지 생각해보고 싶어요. 후배를 돕는 것도 좋지만, 바로 멘토가 되겠다는 약속은 아직 어렵고요.","I'd like time to think about life after graduation. Helping others sounds good, but I can't promise to become a mentor right away."
-office.bodies.5,하천 사건은 안정됐습니다. 오늘 확보한 여유를 예방 점검이나 학교·지원센터 연락망 정리에 사용할 수 있습니다.,The riverside incident has stabilized. We can use today for preventive checks or to organize school and support-center contacts.
-office.bodies.6,"많이 출동한 주보다, 필요한 도움을 제때 연결한 주를 기록합니다. 다음 주에도 이어갈 약속을 함께 정리해주세요.",We value connecting people to help in time over frequent callouts. Let us record the commitments we want to continue next week.
-office.options.0,수업 후 조사 예약,Schedule after-school investigation
-office.options.1,협력기관에 조사 요청,Ask a partner agency to investigate
-office.options.2,하루 휴식 확보,Secure a full day of rest
-office.options.3,동의 후 지원센터 상담 예약,Arrange counseling with consent
-office.options.4,유나와 관측 준비,Prepare observations with Yuna
-office.options.5,전문기관 지원 먼저 요청,Request specialist support first
-office.options.6,안전 범위에서 관측·주민 안내,Observe and guide residents within safe limits
-office.options.7,현장 대응을 전문기관에 인계,Hand field response to specialists
-office.options.8,진로 탐색 시간 확보,Protect time for career exploration
-office.options.9,희망하는 인계 자료 함께 정리,Prepare the handover notes she wants to leave
-office.options.10,지역 예방 점검,Run preventive community checks
-office.options.11,학교·지원기관 연락망 정리,Organize school and support contacts
-office.options.12,다음 주 약속 정리,Record next week's commitments
-office.options.13,지원 계획 함께 검토,Review the support plan together
-office.reasons.0,발표 시간을 보호하고 조사 시작을 방과 후로 옮깁니다.,Protect presentation time and move the investigation after school.
-office.reasons.1,하나는 발표에 집중하고 성인 협력기관이 조사합니다.,Hana focuses on her presentation while adult partners investigate.
-office.reasons.2,오늘 출동을 제외하고 회복할 시간을 온전히 확보합니다.,Remove field duties and secure uninterrupted recovery time.
-office.reasons.3,"출동을 제외하고, 소리의 동의를 확인한 뒤 상담을 연결합니다.",Remove field duties and connect counseling after confirming Sori's consent.
-office.reasons.4,경험 있는 유나와 접근 한계·복귀 기준을 정리합니다.,Agree on approach limits and return criteria with experienced Yuna.
-office.reasons.5,현장 접근보다 기관 지원과 정보 확보를 우선합니다.,Prioritize specialist support and information over field access.
-office.reasons.6,유나는 정해진 범위를 지키고 전문 대응팀을 지원합니다.,Yuna stays within agreed limits and supports the professional team.
-office.reasons.7,더 깊이 접근하지 않고 자료와 주민 안내를 인계합니다.,Hand over observations and resident guidance without going deeper.
-office.reasons.8,당사자가 원하는 다음 생활을 알아볼 시간을 지킵니다.,Protect time to explore the future she wants.
-office.reasons.9,유나가 남기고 싶은 경험만 후임용 자료로 정리합니다.,Record only the experiences Yuna wants to leave for successors.
-office.reasons.10,반복 출동을 줄일 수 있도록 지역 상황을 미리 확인합니다.,Check local conditions early to reduce repeated callouts.
-office.reasons.11,도움이 필요할 때 바로 연결할 담당과 연락 경로를 정리합니다.,Identify contacts and routes to reach help when needed.
-office.reasons.12,학교·회복·진로에 대한 각자의 약속을 기록합니다.,"Record individual commitments for school, recovery and future plans."
-office.reasons.13,본인과 함께 지원의 지속 여부와 방식을 돌아봅니다.,Review the need and approach for continued support with each person.
-office.results.0,하나: 발표를 마쳤어요. 시간을 바꿔줘서 고마워요. 방과 후 조사 기록을 남겼어요.,Hana: I finished my presentation. Thanks for changing the time. I recorded the after-school observations.
-office.results.1,하나: 발표에 집중할 수 있었어요. 협력기관이 보내온 하천 조사 보고도 확인했어요.,Hana: I could focus on my presentation. I also read the partner agency's river report.
-office.results.2,소리: 오늘 푹 쉬었어요. 미리 말하길 잘한 것 같아요. 다음 일정은 함께 정하고 싶어요.,Sori: I rested well today. I'm glad I spoke up early. I'd like to plan the next schedule together.
-office.results.3,소리: 제 동의를 먼저 물어봐줘서 좋았어요. 지원센터와 다음 상담 일정을 정했어요.,Sori: Thank you for asking my consent first. I arranged the next session with the support center.
-office.results.4,유나: 관측 지점과 복귀 기준을 정리했어요. 범위를 넘으면 지원팀에 넘길게요.,Yuna: We set observation points and return criteria. I'll hand over to the support team if conditions exceed our limits.
-office.results.5,협력기관: 지원 요청을 접수했습니다. 현장 대응팀과 관측 자료를 공유했습니다.,Partner agency: Request received. We shared observation records with the response team.
-office.results.6,현장 보고: 안전 범위를 지키며 주민을 안내했습니다. 전문 대응팀이 이상 반응을 안정시켰습니다.,Field report: Residents were guided within safe limits. The specialist team stabilized the unusual activity.
-office.results.7,기관 보고: 현장을 인계받아 안정화했습니다. 유나는 복귀했고 관측 기록은 보존했습니다.,Agency report: We took over and stabilized the site. Yuna returned and her observations were preserved.
-office.results.8,유나: 다음에 배우고 싶은 걸 찾아봤어요. 멘토 여부는 나중에 제 상황을 보고 이야기할게요.,Yuna: I explored what I want to learn next. Let's discuss mentoring later when I know my circumstances.
-office.results.9,유나: 제가 어려웠던 순간과 도움받은 방법을 남겼어요. 졸업 후 계획은 계속 생각하고 있어요.,Yuna: I recorded difficult moments and what helped me. I'm still thinking about life after graduation.
-office.results.10,지역 보고: 예방 점검을 마쳤습니다. 다음 주에는 반복 확인 대신 학교와 회복 일정을 확보했습니다.,Community report: Preventive checks are complete. Next week we protected school and recovery time instead of repeated checks.
-office.results.11,학교·지원센터: 담당 연락망이 정리됐습니다. 다음 요청은 혼자 해결하지 않고 함께 연결합니다.,School and support center: The contact network is ready. Future requests will be connected to shared support.
-office.results.12,"한 주의 약속: 하나의 학교 시간, 소리의 회복, 유나의 진로 탐색을 다음 주에도 이어갑니다.","Weekly commitments: Continue Hana's school time, Sori's recovery and Yuna's career exploration next week."
-office.results.13,한 주의 검토: 각자의 동의와 지원 경로를 확인했습니다. 도움이 달라지면 계획도 다시 조정합니다.,Weekly review: We confirmed individual consent and support routes. We will adjust the plan as needs change.
-settings.language.label,표시 언어,Display language
-settings.language.ko,한국어,한국어
-settings.language.en,English,English
-settings.language.tid,tid,tid
-choice.accept,수락,Accept
-choice.decline,거절,Decline
-office.ui.001,오늘의 업무,Today's work
-office.ui.002,일정표,Calendar
-office.ui.003,인물 기록,People
-office.ui.004,지역 · 사건,Neighborhood
-office.ui.005,메신저,Messenger
-office.ui.006,활동 기록,Activity log
-office.ui.007,설정,Settings
-office.ui.008,저장을 확인해주세요,Please review your records
-office.ui.009,새로운 하루가 도착했어요,A new day has begun
-office.ui.010,지원하지 않는 저장입니다. 설정에서 확인하세요.,This save is not supported. Check Settings.
-office.ui.011,오늘의 안건을 열고 이야기를 확인하세요.,Read the final agenda and each person’s story.
-office.ui.012,small office OS   /   마법소녀 사무소,small office OS / Magical Girl Office
-office.ui.013,"오늘도, 각자의 내일을 함께.  ♡","Together, toward each person’s tomorrow. ♡"
-office.ui.014,♡ 설정,Week in review
-office.ui.015,내 컴퓨터 · 알림과 화면,My computer / Notifications and display
-office.ui.016,저장 오류 · 설정에서 확인,Save error / Check Settings
-office.ui.017,자동 저장  ·  small office OS,Auto saved / small office OS
-office.ui.018,계획 확정 · 하루 마무리,Confirm plan / End day
-office.ui.019,조금 더 나다운 바탕화면,Make this desktop your own
-office.ui.020,"아이콘을 눌러 앱을 열고, 제목줄을 잡아 이동하세요.
+"tid","ko","en"
+"perk.sociable.name","사교적","Sociable"
+"perk.sociable.description","친구 모임 ×1.5, 친화 작업 +15%p","Friend gatherings x1.5; affinity tasks +15 pp"
+"perk.reserved.name","낯가림","Reserved"
+"perk.reserved.description","낯선 만남 ×0.6, 낯선 상대 -10%p, 익숙한 상대 +10%p","New encounters x0.6; strangers -10 pp; familiar people +10 pp"
+"perk.empathetic.name","공감 능력","Empathetic"
+"perk.empathetic.description","상담 요청 ×1.5, 상담 +15%p, 강경 협상 -10%p","Advice requests x1.5; counseling +15 pp; hard bargaining -10 pp"
+"perk.meticulous.name","꼼꼼함","Meticulous"
+"perk.meticulous.description","오류 발견 ×1.5, 정밀 작업 +15%p, 작업 시간 +20%","Error discovery x1.5; precision +15 pp; duration +20%"
+"perk.improviser.name","임기응변","Improviser"
+"perk.improviser.description","돌발 지원 요청 ×1.4, 돌발 대응 +15%p, 반복 작업 -10%p","Urgent requests x1.4; response +15 pp; routine tasks -10 pp"
+"perk.responsible.name","책임감","Responsible"
+"perk.responsible.description","대타 요청 ×1.4, 약속 이행 +10%p, 실패 스트레스 +5","Cover requests x1.4; commitments +10 pp; failure stress +5"
+"perk.curious.name","호기심","Curious"
+"perk.curious.description","새 활동 발견 ×1.5, 탐구 +15%p, 반복 작업 -5%p","New activities x1.5; inquiry +15 pp; routine tasks -5 pp"
+"perk.competitive.name","승부욕","Competitive"
+"perk.competitive.description","경쟁 제안 ×1.5, 경쟁 +15%p, 패배 스트레스 +10","Contest offers x1.5; competition +15 pp; defeat stress +10"
+"perk.cautious.name","신중함","Cautious"
+"perk.cautious.description","위험한 기회 ×0.7, 안전 점검 +15%p, 즉흥 결정 -10%p","Risky opportunities x0.7; safety checks +15 pp; snap decisions -10 pp"
+"perk.night_owl.name","야행성","Night Owl"
+"perk.night_owl.description","심야 활동 ×1.5, 밤 +10%p, 아침 -10%p","Late activities x1.5; night +10 pp; morning -10 pp"
+"perk.well_connected.name","넓은 인맥","Well Connected"
+"perk.well_connected.description","지인 소개 ×1.5, 인맥 활용 +10%p","Introductions x1.5; networking +10 pp"
+"perk.weak_boundaries.name","거절이 어려움","Difficulty Saying No"
+"perk.weak_boundaries.description","부탁 요청 ×1.5, 부탁 수락 스트레스 +5","Requests x1.5; accepting a request adds 5 stress"
+"character.yunha.name","윤하","Yunha"
+"character.seojin.name","서진","Seojin"
+"character.taeo.name","태오","Taeo"
+"character.narin.name","나린","Narin"
+"character.doyun.name","도윤","Doyun"
+"task.listen_to_friend.name","친구의 이야기 들어주기","Listen to a Friend"
+"task.cover_shift.name","동료 대타 근무","Cover a Shift"
+"task.repair_equipment.name","설비 복구","Repair Equipment"
+"task.try_workshop.name","체험 수업 참여","Try a Workshop"
+"task.enter_contest.name","작은 대회 참가","Enter a Contest"
+"event.friend_invitation.name","친구의 모임 초대","A Friend Invites You"
+"event.friend_consultation.name","친구의 고민 상담","A Friend Needs Advice"
+"event.shift_request.name","동료의 대타 부탁","A Colleague Needs Cover"
+"event.equipment_failure.name","갑작스러운 설비 고장","Equipment Failure"
+"event.new_workshop.name","새로운 체험 수업 발견","Discover a Workshop"
+"event.contest_offer.name","작은 대회 참가 제안","A Contest Invitation"
+"office.names.0","하나","Hana"
+"office.names.1","소리","Sori"
+"office.names.2","유나","Yuna"
+"office.roles.0","학교와 활동 사이의 균형","Balancing school and activities"
+"office.roles.1","회복하고, 다시 천천히","Rest, then take it slowly"
+"office.roles.2","졸업 너머의 일상을 준비","Preparing for life after graduation"
+"office.titles.0","발표가 있는 날, 조사는 누가 맡을까요?","Who will investigate on presentation day?"
+"office.titles.1","오늘은 쉬어도 괜찮을까요?","May I take a rest today?"
+"office.titles.2","하천 산책로 · 대응 전에 준비할 것","Riverside path: prepare before responding"
+"office.titles.3","현장에서 지킬 범위를 정해주세요","Set the limits for field work"
+"office.titles.4","유나의 다음 계절을 준비합니다","Preparing for Yuna's next season"
+"office.titles.5","다음 출동을 줄이는 하루","A day to prevent future callouts"
+"office.titles.6","우리가 지킨 일주일","The week we protected"
+"office.senders.0","하나 · 본인 메시지","Hana / personal message"
+"office.senders.1","소리 · 본인 메시지","Sori / personal message"
+"office.senders.2","구청 협력 담당 · 확인된 보고","District liaison / verified report"
+"office.senders.3","현장 담당 · 확인된 보고","Field coordinator / verified report"
+"office.senders.4","유나 · 본인 메시지","Yuna / personal message"
+"office.senders.5","지역 협력 담당 · 확인된 보고","Community liaison / verified report"
+"office.senders.6","사무소 · 주간 회고","Office / weekly reflection"
+"office.bodies.0","오늘 오후에 학교 발표가 있어요. 제가 맡은 부분이라 빠지고 싶지 않아요. 하천 조사는 수업이 끝난 뒤에 가도 될까요?","I have a school presentation this afternoon. I don't want to miss my part. Could I visit the river after class?"
+"office.bodies.1","어제부터 좀 지쳐 있어요. 심해진 건 아닌데, 이번에는 미리 말하고 싶었어요. 오늘 현장 일정은 쉬고 싶어요.","I've felt tired since yesterday. It hasn't become worse, but I wanted to tell you early this time. I'd like to rest from field work today."
+"office.bodies.2","산책로의 이상 반응은 계속 관측되고 있습니다. 주민 접근은 제한했습니다. 대응 전에 관측 범위와 지원 경로를 정해주세요.","Unusual activity continues along the path. Public access is restricted. Please define observation limits and support routes before responding."
+"office.bodies.3","관측 지점 밖에서 반응이 커졌습니다. 합의한 안전 범위를 넘는 접근은 하지 않습니다. 주민 안내를 계속할지 전문기관에 인계할지 결정해주세요.","Activity has intensified beyond the observation point. We will not cross the agreed safety boundary. Decide whether to continue guiding residents or hand over to specialists."
+"office.bodies.4","졸업한 뒤 어떤 생활을 할지 생각해보고 싶어요. 후배를 돕는 것도 좋지만, 바로 멘토가 되겠다는 약속은 아직 어렵고요.","I'd like time to think about life after graduation. Helping others sounds good, but I can't promise to become a mentor right away."
+"office.bodies.5","하천 사건은 안정됐습니다. 오늘 확보한 여유를 예방 점검이나 학교·지원센터 연락망 정리에 사용할 수 있습니다.","The riverside incident has stabilized. We can use today for preventive checks or to organize school and support-center contacts."
+"office.bodies.6","많이 출동한 주보다, 필요한 도움을 제때 연결한 주를 기록합니다. 다음 주에도 이어갈 약속을 함께 정리해주세요.","We value connecting people to help in time over frequent callouts. Let us record the commitments we want to continue next week."
+"office.options.0","수업 후 조사 예약","Schedule after-school investigation"
+"office.options.1","협력기관에 조사 요청","Ask a partner agency to investigate"
+"office.options.2","하루 휴식 확보","Secure a full day of rest"
+"office.options.3","동의 후 지원센터 상담 예약","Arrange counseling with consent"
+"office.options.4","유나와 관측 준비","Prepare observations with Yuna"
+"office.options.5","전문기관 지원 먼저 요청","Request specialist support first"
+"office.options.6","안전 범위에서 관측·주민 안내","Observe and guide residents within safe limits"
+"office.options.7","현장 대응을 전문기관에 인계","Hand field response to specialists"
+"office.options.8","진로 탐색 시간 확보","Protect time for career exploration"
+"office.options.9","희망하는 인계 자료 함께 정리","Prepare the handover notes she wants to leave"
+"office.options.10","지역 예방 점검","Run preventive community checks"
+"office.options.11","학교·지원기관 연락망 정리","Organize school and support contacts"
+"office.options.12","다음 주 약속 정리","Record next week's commitments"
+"office.options.13","지원 계획 함께 검토","Review the support plan together"
+"office.reasons.0","발표 시간을 보호하고 조사 시작을 방과 후로 옮깁니다.","Protect presentation time and move the investigation after school."
+"office.reasons.1","하나는 발표에 집중하고 성인 협력기관이 조사합니다.","Hana focuses on her presentation while adult partners investigate."
+"office.reasons.2","오늘 출동을 제외하고 회복할 시간을 온전히 확보합니다.","Remove field duties and secure uninterrupted recovery time."
+"office.reasons.3","출동을 제외하고, 소리의 동의를 확인한 뒤 상담을 연결합니다.","Remove field duties and connect counseling after confirming Sori's consent."
+"office.reasons.4","경험 있는 유나와 접근 한계·복귀 기준을 정리합니다.","Agree on approach limits and return criteria with experienced Yuna."
+"office.reasons.5","현장 접근보다 기관 지원과 정보 확보를 우선합니다.","Prioritize specialist support and information over field access."
+"office.reasons.6","유나는 정해진 범위를 지키고 전문 대응팀을 지원합니다.","Yuna stays within agreed limits and supports the professional team."
+"office.reasons.7","더 깊이 접근하지 않고 자료와 주민 안내를 인계합니다.","Hand over observations and resident guidance without going deeper."
+"office.reasons.8","당사자가 원하는 다음 생활을 알아볼 시간을 지킵니다.","Protect time to explore the future she wants."
+"office.reasons.9","유나가 남기고 싶은 경험만 후임용 자료로 정리합니다.","Record only the experiences Yuna wants to leave for successors."
+"office.reasons.10","반복 출동을 줄일 수 있도록 지역 상황을 미리 확인합니다.","Check local conditions early to reduce repeated callouts."
+"office.reasons.11","도움이 필요할 때 바로 연결할 담당과 연락 경로를 정리합니다.","Identify contacts and routes to reach help when needed."
+"office.reasons.12","학교·회복·진로에 대한 각자의 약속을 기록합니다.","Record individual commitments for school, recovery and future plans."
+"office.reasons.13","본인과 함께 지원의 지속 여부와 방식을 돌아봅니다.","Review the need and approach for continued support with each person."
+"office.results.0","하나: 발표를 마쳤어요. 시간을 바꿔줘서 고마워요. 방과 후 조사 기록을 남겼어요.","Hana: I finished my presentation. Thanks for changing the time. I recorded the after-school observations."
+"office.results.1","하나: 발표에 집중할 수 있었어요. 협력기관이 보내온 하천 조사 보고도 확인했어요.","Hana: I could focus on my presentation. I also read the partner agency's river report."
+"office.results.2","소리: 오늘 푹 쉬었어요. 미리 말하길 잘한 것 같아요. 다음 일정은 함께 정하고 싶어요.","Sori: I rested well today. I'm glad I spoke up early. I'd like to plan the next schedule together."
+"office.results.3","소리: 제 동의를 먼저 물어봐줘서 좋았어요. 지원센터와 다음 상담 일정을 정했어요.","Sori: Thank you for asking my consent first. I arranged the next session with the support center."
+"office.results.4","유나: 관측 지점과 복귀 기준을 정리했어요. 범위를 넘으면 지원팀에 넘길게요.","Yuna: We set observation points and return criteria. I'll hand over to the support team if conditions exceed our limits."
+"office.results.5","협력기관: 지원 요청을 접수했습니다. 현장 대응팀과 관측 자료를 공유했습니다.","Partner agency: Request received. We shared observation records with the response team."
+"office.results.6","현장 보고: 안전 범위를 지키며 주민을 안내했습니다. 전문 대응팀이 이상 반응을 안정시켰습니다.","Field report: Residents were guided within safe limits. The specialist team stabilized the unusual activity."
+"office.results.7","기관 보고: 현장을 인계받아 안정화했습니다. 유나는 복귀했고 관측 기록은 보존했습니다.","Agency report: We took over and stabilized the site. Yuna returned and her observations were preserved."
+"office.results.8","유나: 다음에 배우고 싶은 걸 찾아봤어요. 멘토 여부는 나중에 제 상황을 보고 이야기할게요.","Yuna: I explored what I want to learn next. Let's discuss mentoring later when I know my circumstances."
+"office.results.9","유나: 제가 어려웠던 순간과 도움받은 방법을 남겼어요. 졸업 후 계획은 계속 생각하고 있어요.","Yuna: I recorded difficult moments and what helped me. I'm still thinking about life after graduation."
+"office.results.10","지역 보고: 예방 점검을 마쳤습니다. 다음 주에는 반복 확인 대신 학교와 회복 일정을 확보했습니다.","Community report: Preventive checks are complete. Next week we protected school and recovery time instead of repeated checks."
+"office.results.11","학교·지원센터: 담당 연락망이 정리됐습니다. 다음 요청은 혼자 해결하지 않고 함께 연결합니다.","School and support center: The contact network is ready. Future requests will be connected to shared support."
+"office.results.12","한 주의 약속: 하나의 학교 시간, 소리의 회복, 유나의 진로 탐색을 다음 주에도 이어갑니다.","Weekly commitments: Continue Hana's school time, Sori's recovery and Yuna's career exploration next week."
+"office.results.13","한 주의 검토: 각자의 동의와 지원 경로를 확인했습니다. 도움이 달라지면 계획도 다시 조정합니다.","Weekly review: We confirmed individual consent and support routes. We will adjust the plan as needs change."
+"settings.language.label","표시 언어","Display language"
+"settings.language.ko","한국어","한국어"
+"settings.language.en","English","English"
+"settings.language.tid","tid","tid"
+"choice.accept","수락","Accept"
+"choice.decline","거절","Decline"
+"office.ui.001","오늘의 업무","Today's work"
+"office.ui.002","일정표","Calendar"
+"office.ui.003","인물 기록","People"
+"office.ui.004","지역 · 사건","Neighborhood"
+"office.ui.005","메신저","Messenger"
+"office.ui.006","활동 기록","Activity log"
+"office.ui.007","설정","Settings"
+"office.ui.008","저장을 확인해주세요","Please review your records"
+"office.ui.009","새로운 하루가 도착했어요","A new day has begun"
+"office.ui.010","지원하지 않는 저장입니다. 설정에서 확인하세요.","This save is not supported. Check Settings."
+"office.ui.011","오늘의 안건을 열고 이야기를 확인하세요.","Read the final agenda and each person’s story."
+"office.ui.012","small office OS   /   마법소녀 사무소","small office OS / Magical Girl Office"
+"office.ui.013","오늘도, 각자의 내일을 함께.  ♡","Together, toward each person’s tomorrow. ♡"
+"office.ui.014","♡ 설정","Week in review"
+"office.ui.015","내 컴퓨터 · 알림과 화면","My computer / Notifications and display"
+"office.ui.016","저장 오류 · 설정에서 확인","Save error / Check Settings"
+"office.ui.017","자동 저장  ·  small office OS","Auto saved / small office OS"
+"office.ui.018","계획 확정 · 하루 마무리","Confirm plan / End day"
+"office.ui.019","조금 더 나다운 바탕화면","Make this desktop your own"
+"office.ui.020","아이콘을 눌러 앱을 열고, 제목줄을 잡아 이동하세요.
 모바일: 창 안을 밀어 스크롤 / 두 손가락으로 창 확대·축소.
 창 모서리로도 크기 조절이 가능해요.
 최소화한 앱은 작업표시줄에서 다시 열 수 있어요.","Click an icon to open an app; drag its title bar to move it.
 Mobile: swipe inside a window to scroll; pinch to resize.
 You can also resize from the window corner.
 Restore minimized apps from the taskbar."
-office.ui.021,아이콘 배경 이펙트  ON,Icon background effects ON
-office.ui.022,아이콘 배경 이펙트  OFF,Icon background effects OFF
-office.ui.023,"빛 · 회전하는 후광 · 반짝임
+"office.ui.021","아이콘 배경 이펙트  ON","Icon background effects ON"
+"office.ui.022","아이콘 배경 이펙트  OFF","Icon background effects OFF"
+"office.ui.023","빛 · 회전하는 후광 · 반짝임
 새 안건과 선택한 아이콘 뒤에서 표시돼요.","Light, rotating halos and sparkles
 Shown behind new agendas and selected icons."
-office.ui.024,전체화면 알림 보기,Preview full-screen notification
-office.ui.025,우하단 알림 보기,Preview corner notification
-office.ui.026,새 메시지가 왔어요,A new message arrived
-office.ui.027,메신저를 열어 이야기를 확인해보세요.,Open Messenger to read it.
-office.ui.028,현재 저장을 읽을 수 없어 원본을 보존했어요. 새로 시작하려면 아래에서 초기화를 확인해주세요.,The original save has been preserved because it cannot be read. Confirm a reset below to start again.
-office.ui.029,"창 배치는 이번 접속 동안 유지됩니다.
+"office.ui.024","전체화면 알림 보기","Preview full-screen notification"
+"office.ui.025","우하단 알림 보기","Preview corner notification"
+"office.ui.026","새 메시지가 왔어요","A new message arrived"
+"office.ui.027","메신저를 열어 이야기를 확인해보세요.","Open Messenger to read it."
+"office.ui.028","현재 저장을 읽을 수 없어 원본을 보존했어요. 새로 시작하려면 아래에서 초기화를 확인해주세요.","The original save has been preserved because it cannot be read. Confirm a reset below to start again."
+"office.ui.029","창 배치는 이번 접속 동안 유지됩니다.
 7일 시나리오의 결정은 따로 저장됩니다.","Window layout lasts for this session.
 Seven-day scenario decisions are saved separately."
-office.ui.030,7일 시나리오 다시 시작,Restart the seven-day scenario
-office.ui.031,처음 화면으로 돌아가기,Return to the start screen
-office.ui.032, 열기 →, Open →
-office.ui.033,small office OS  /  중요한 알림,small office OS / Important notice
-office.ui.034,처음부터 다시 시작할까요?,Start again from the beginning?
-office.ui.035,오늘의 계획을 확정할까요?,Confirm today's plan?
-office.ui.036,"우리의 작은 일주일, 저장 완료!","Our little choices, another day!"
-office.ui.037,띵동! 중요한 이야기가 도착했어요,An important message has arrived
-office.ui.038,오늘의 기록이 도착했어요,Today's report is here
-office.ui.039,"이 프로토타입의 7일 기록만 초기화됩니다.
+"office.ui.030","7일 시나리오 다시 시작","Restart the seven-day scenario"
+"office.ui.031","처음 화면으로 돌아가기","Return to the start screen"
+"office.ui.032"," 열기 →"," Open →"
+"office.ui.033","small office OS  /  중요한 알림","small office OS / Important notice"
+"office.ui.034","처음부터 다시 시작할까요?","Start again from the beginning?"
+"office.ui.035","오늘의 계획을 확정할까요?","Confirm today's plan?"
+"office.ui.036","우리의 작은 일주일, 저장 완료!","Our little choices, another day!"
+"office.ui.037","띵동! 중요한 이야기가 도착했어요","An important message has arrived"
+"office.ui.038","오늘의 기록이 도착했어요","Today's report is here"
+"office.ui.039","이 프로토타입의 7일 기록만 초기화됩니다.
 기존 캠페인과 인물 기록에는 영향을 주지 않아요.","Only this prototype’s seven-day record will be reset.
 The existing campaign and character records are unaffected."
-office.ui.040,"
+"office.ui.040","
 
 확정하면 오늘의 결정이 기록되고 하루가 진행됩니다.","
 
 Confirm to record your decision and advance the day."
-office.ui.041,"전체화면 알림은 중요한 결정을 잠시 기다려줘요.
+"office.ui.041","전체화면 알림은 중요한 결정을 잠시 기다려줘요.
 확인을 누르면 열어두었던 창으로 돌아갑니다.","Full-screen notifications wait for your important decision.
 Confirm to return to your open windows."
-office.ui.042,"잠깐, 돌아갈게요",Cancel / Go back
-office.ui.043,"네, 확정할게요","Yes, confirm"
-office.ui.044,확인 · 바탕화면으로,Confirm / Back to desktop
-office.ui.045,새로운 일주일,A fresh start
-office.ui.046,첫 안건이 도착했어요. 오늘의 업무를 열어주세요.,Your first agenda is here. Open Today’s work.
-office.ui.047,한 주를 마쳤어요,A week well lived
-office.ui.048,새로운 메시지가 왔어요,A new message arrived
-office.ui.049,오늘의 업무에서 한 주의 이야기를 읽어보세요.,Read the week’s stories in Activity log.
-office.ui.050,다음 안건과 후속 소식을 확인해주세요.,Check the next agenda and follow-up news.
-office.ui.051,"시간표에, 각자의 삶을 먼저.",Life comes first in the calendar.
-office.ui.052,상태 너머에 있는 사람들,People beyond their status
-office.ui.053,우리 동네의 작은 변화,Small changes in our neighborhood
-office.ui.054,먼저 말해줘서 고마워요.,Thank you for telling us early.
-office.ui.055,선택과 그 이후의 기록,Decisions and what followed
-office.ui.056,"오늘, 우리가 챙겨야 할 것들",What we need to care for today
-office.ui.057,응답할 안건  01     /     DAY ,Agenda awaiting response 01 / DAY 
-office.ui.058, 마감, deadline
-office.ui.059,  ·  오늘 09:00, / Today 09:00
-office.ui.060,선택됨  ·  ,Selected / 
-office.ui.061,선택을 저장했어요,Your choice was saved
-office.ui.062,계획 확정으로 오늘을 마무리할 수 있어요.,Confirm the plan to finish today.
-office.ui.063,"확정 후 도착할 보고
+"office.ui.042","잠깐, 돌아갈게요","Cancel / Go back"
+"office.ui.043","네, 확정할게요","Yes, confirm"
+"office.ui.044","확인 · 바탕화면으로","Confirm / Back to desktop"
+"office.ui.045","새로운 일주일","A fresh start"
+"office.ui.046","첫 안건이 도착했어요. 오늘의 업무를 열어주세요.","Your first agenda is here. Open Today’s work."
+"office.ui.047","한 주를 마쳤어요","A week well lived"
+"office.ui.048","새로운 메시지가 왔어요","A new message arrived"
+"office.ui.049","오늘의 업무에서 한 주의 이야기를 읽어보세요.","Read the week’s stories in Activity log."
+"office.ui.050","다음 안건과 후속 소식을 확인해주세요.","Check the next agenda and follow-up news."
+"office.ui.051","시간표에, 각자의 삶을 먼저.","Life comes first in the calendar."
+"office.ui.052","상태 너머에 있는 사람들","People beyond their status"
+"office.ui.053","우리 동네의 작은 변화","Small changes in our neighborhood"
+"office.ui.054","먼저 말해줘서 고마워요.","Thank you for telling us early."
+"office.ui.055","선택과 그 이후의 기록","Decisions and what followed"
+"office.ui.056","오늘, 우리가 챙겨야 할 것들","What we need to care for today"
+"office.ui.057","응답할 안건  01     /     DAY ","Agenda awaiting response 01 / DAY "
+"office.ui.058"," 마감"," deadline"
+"office.ui.059","  ·  오늘 09:00"," / Today 09:00"
+"office.ui.060","선택됨  ·  ","Selected / "
+"office.ui.061","선택을 저장했어요","Your choice was saved"
+"office.ui.062","계획 확정으로 오늘을 마무리할 수 있어요.","Confirm the plan to finish today."
+"office.ui.063","확정 후 도착할 보고
 ","Report after confirmation
 "
-office.ui.064,발표 완료 · 학교 일정 유지,Presentation complete / School schedule protected
-office.ui.065,오늘 학교 발표 · 일정 조율 필요,School presentation today / Scheduling needed
-office.ui.066,휴식 확보 · 다음 일정 협의,Rest secured / Next schedule to discuss
-office.ui.067,상담 연결 · 본인 동의 확인,Counseling connected / Consent confirmed
-office.ui.068,회복이 필요한 때 · 출동 보류,Recovery needed / Field work on hold
-office.ui.069,진로 탐색 중 · 다음 생활 준비,Exploring careers / Preparing for the future
-office.ui.070,인계 자료 작성 · 경험을 남기는 중,Writing handover notes / Sharing experience
-office.ui.071,활동 지원 · 졸업 준비 예정,Supporting activities / Graduation ahead
-office.ui.072,확인된 상태  ·  DAY ,Verified status / DAY 
-office.ui.073,본인이 전한 이야기  ·  DAY ,Personal message / DAY 
-office.ui.074,아직 도착한 메시지가 없습니다. 당사자가 전하는 시점에 기록을 갱신합니다.,No message has arrived yet. Records update when the person shares their story.
-office.ui.075,지원 계획  /  ,Support plan / 
-office.ui.076,"
+"office.ui.064","발표 완료 · 학교 일정 유지","Presentation complete / School schedule protected"
+"office.ui.065","오늘 학교 발표 · 일정 조율 필요","School presentation today / Scheduling needed"
+"office.ui.066","휴식 확보 · 다음 일정 협의","Rest secured / Next schedule to discuss"
+"office.ui.067","상담 연결 · 본인 동의 확인","Counseling connected / Consent confirmed"
+"office.ui.068","회복이 필요한 때 · 출동 보류","Recovery needed / Field work on hold"
+"office.ui.069","진로 탐색 중 · 다음 생활 준비","Exploring careers / Preparing for the future"
+"office.ui.070","인계 자료 작성 · 경험을 남기는 중","Writing handover notes / Sharing experience"
+"office.ui.071","활동 지원 · 졸업 준비 예정","Supporting activities / Graduation ahead"
+"office.ui.072","확인된 상태  ·  DAY ","Verified status / DAY "
+"office.ui.073","본인이 전한 이야기  ·  DAY ","Personal message / DAY "
+"office.ui.074","아직 도착한 메시지가 없습니다. 당사자가 전하는 시점에 기록을 갱신합니다.","No message has arrived yet. Records update when the person shares their story."
+"office.ui.075","지원 계획  /  ","Support plan / "
+"office.ui.076","
 개인 기록은 졸업 이후에도 같은 사람에게 남습니다.","
 Personal records stay with the same person after graduation."
-office.ui.077,WEEK 01     학교 · 휴식 · 지역 대응 · 다음 삶,"WEEK 01 / School, rest, local response and the next chapter"
-office.ui.078,계획 · 당일 요청에 맞춰 조정,Plan / Adjust to the request on that day
-office.ui.079,계획 미확정 · 오늘의 업무에서 응답,Plan pending / Respond in Today’s work
-office.ui.080,01  학교,01 School
-office.ui.081,02  하천 산책로,02 Riverside path
-office.ui.082,03  지원센터,03 Support center
-office.ui.083,하나의 발표와 수업 시간을 보호합니다.,Protect Hana's presentation and class time.
-office.ui.084,사건 안정 · 후속 예방과 지역 연결,Incident stable / Prevention and community follow-up
-office.ui.085,이상 반응 관측 · 주민 접근 제한,Unusual activity observed / Public access restricted
-office.ui.086,회복·상담과 전문기관 지원을 연결합니다.,"Connect recovery, counseling and specialist support."
-office.ui.087,하천 사건   /   조사 → 준비 → 대응 → 후속 점검,Riverside incident / Investigate → Prepare → Respond → Follow up
-office.ui.088,확인된 보고 · DAY ,Verified report / DAY 
-office.ui.089,주민 접근을 제한하고 관측 중입니다. 사건의 원인과 범위는 추가 확인이 필요합니다.,Public access is restricted while observations continue. The cause and extent need further investigation.
-office.ui.090,"
+"office.ui.077","WEEK 01     학교 · 휴식 · 지역 대응 · 다음 삶","WEEK 01 / School, rest, local response and the next chapter"
+"office.ui.078","계획 · 당일 요청에 맞춰 조정","Plan / Adjust to the request on that day"
+"office.ui.079","계획 미확정 · 오늘의 업무에서 응답","Plan pending / Respond in Today’s work"
+"office.ui.080","01  학교","01 School"
+"office.ui.081","02  하천 산책로","02 Riverside path"
+"office.ui.082","03  지원센터","03 Support center"
+"office.ui.083","하나의 발표와 수업 시간을 보호합니다.","Protect Hana's presentation and class time."
+"office.ui.084","사건 안정 · 후속 예방과 지역 연결","Incident stable / Prevention and community follow-up"
+"office.ui.085","이상 반응 관측 · 주민 접근 제한","Unusual activity observed / Public access restricted"
+"office.ui.086","회복·상담과 전문기관 지원을 연결합니다.","Connect recovery, counseling and specialist support."
+"office.ui.087","하천 사건   /   조사 → 준비 → 대응 → 후속 점검","Riverside incident / Investigate → Prepare → Respond → Follow up"
+"office.ui.088","확인된 보고 · DAY ","Verified report / DAY "
+"office.ui.089","주민 접근을 제한하고 관측 중입니다. 사건의 원인과 범위는 추가 확인이 필요합니다.","Public access is restricted while observations continue. The cause and extent need further investigation."
+"office.ui.090","
 
 대응 방침 / 안전 범위 초과 시 접근 중단. 전문기관과 연결하고, 주민 보호를 우선합니다.","
 
 Response policy: Stop when safety limits are exceeded. Connect specialists and prioritize resident safety."
-office.ui.091,오늘의 대응 결정 보기 →,See today's response decision →
-office.ui.092,받은 이야기와 후속 소식,Messages and follow-up news
-office.ui.093,확정한 결정은 이곳에 남습니다,Confirmed decisions are recorded here
-office.ui.094,오늘의 계획을 확정하면 첫 기록이 남습니다.,Confirm today's plan to create the first record.
-office.ui.095,"7일 동안 남긴 것은, 각자의 다음입니다.","Seven days, and a future for each person."
-office.ui.096,학교를 지킨 하나 · 도움을 요청한 소리 · 다음 생활을 준비하는 유나,Hana protected school time / Sori asked for help / Yuna prepared for the future
-office.ui.097,"
+"office.ui.091","오늘의 대응 결정 보기 →","See today's response decision →"
+"office.ui.092","받은 이야기와 후속 소식","Messages and follow-up news"
+"office.ui.093","확정한 결정은 이곳에 남습니다","Confirmed decisions are recorded here"
+"office.ui.094","오늘의 계획을 확정하면 첫 기록이 남습니다.","Confirm today's plan to create the first record."
+"office.ui.095","7일 동안 남긴 것은, 각자의 다음입니다.","Seven days, and a future for each person."
+"office.ui.096","학교를 지킨 하나 · 도움을 요청한 소리 · 다음 생활을 준비하는 유나","Hana protected school time / Sori asked for help / Yuna prepared for the future"
+"office.ui.097","
 
 졸업과 멘토 참여는 당사자의 다음 선택으로 남겨둡니다.","
 
 Graduation and mentoring remain each person’s next choice."
-office.ui.098,한 주의 활동 기록 읽기 →,Read this week's activity log →
-office.no_decision,아직 결정하지 않았습니다.,No decision has been made yet.
-office.wallpaper.magic,"작은 마법과,","a little magic,"
-office.wallpaper.everyday,작은 일상.,a little everyday.
-office.clock.header,WEEK 01     DAY {day}     ♡ ONLINE,WEEK 01     DAY {day}     ♡ ONLINE
-office.clock.taskbar,DAY {day}  /  09:00,DAY {day}  /  09:00
-office.day,DAY {day},DAY {day}
-office.agenda.deadline,응답할 안건  01     /     DAY {day} 마감,Agenda awaiting response 01 / DAY {day} deadline
-office.agenda.sender,{sender}  ·  오늘 09:00,{sender} / Today 09:00
-office.choice.selected,선택됨  ·  {choice},Selected / {choice}
-office.report.preview,"확정 후 도착할 보고
+"office.ui.098","한 주의 활동 기록 읽기 →","Read this week's activity log →"
+"office.no_decision","아직 결정하지 않았습니다.","No decision has been made yet."
+"office.wallpaper.magic","작은 마법과,","a little magic,"
+"office.wallpaper.everyday","작은 일상.","a little everyday."
+"office.clock.header","WEEK 01     DAY {day}     ♡ ONLINE","WEEK 01     DAY {day}     ♡ ONLINE"
+"office.clock.taskbar","DAY {day}  /  09:00","DAY {day}  /  09:00"
+"office.day","DAY {day}","DAY {day}"
+"office.agenda.deadline","응답할 안건  01     /     DAY {day} 마감","Agenda awaiting response 01 / DAY {day} deadline"
+"office.agenda.sender","{sender}  ·  오늘 09:00","{sender} / Today 09:00"
+"office.choice.selected","선택됨  ·  {choice}","Selected / {choice}"
+"office.report.preview","확정 후 도착할 보고
 {report}","Report after confirmation
 {report}"
-office.person.heading,{name}  /  {role},{name} / {role}
-office.person.status_day,확인된 상태  ·  DAY {day},Verified status / DAY {day}
-office.person.message_day,본인이 전한 이야기  ·  DAY {day},Personal message / DAY {day}
-office.person.plan,"지원 계획  /  {role}
+"office.person.heading","{name}  /  {role}","{name} / {role}"
+"office.person.status_day","확인된 상태  ·  DAY {day}","Verified status / DAY {day}"
+"office.person.message_day","본인이 전한 이야기  ·  DAY {day}","Personal message / DAY {day}"
+"office.person.plan","지원 계획  /  {role}
 개인 기록은 졸업 이후에도 같은 사람에게 남습니다.","Support plan / {role}
 Personal records stay with the same person after graduation."
-office.district.report,"확인된 보고 · DAY {day}
+"office.district.report","확인된 보고 · DAY {day}
 
 {report}
 
@@ -269,782 +269,25 @@ office.district.report,"확인된 보고 · DAY {day}
 {report}
 
 Response policy: Stop when safety limits are exceeded. Connect specialists and prioritize resident safety."
-office.journal.heading,DAY {day}  ·  {title},DAY {day} / {title}
-office.ending.person,{name}  /  {status},{name} / {status}
-office.ending.report,"{report}
+"office.journal.heading","DAY {day}  ·  {title}","DAY {day} / {title}"
+"office.ending.person","{name}  /  {status}","{name} / {status}"
+"office.ending.report","{report}
 
 졸업과 멘토 참여는 당사자의 다음 선택으로 남겨둡니다.","{report}
 
 Graduation and mentoring remain each person's next choice."
-office.confirm_day,"{choice}
+"office.confirm_day","{choice}
 
 확정하면 오늘의 결정이 기록되고 하루가 진행됩니다.","{choice}
 
 Confirm to record your decision and advance the day."
-office.window.title,{page}  /  {executable},{page} / {executable}
-office.toast.title,♡ {title},♡ {title}
-office.toast.open,{page} 열기 →,Open {page} →
-office.executable.today,today.exe,today.exe
-office.executable.calendar,calendar.exe,calendar.exe
-office.executable.friends,friends.exe,friends.exe
-office.executable.town,town.exe,town.exe
-office.executable.letter,letter.exe,letter.exe
-office.executable.diary,diary.exe,diary.exe
-office.executable.settings,settings.exe,settings.exe
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+"office.window.title","{page}  /  {executable}","{page} / {executable}"
+"office.toast.title","♡ {title}","♡ {title}"
+"office.toast.open","{page} 열기 →","Open {page} →"
+"office.executable.today","today.exe","today.exe"
+"office.executable.calendar","calendar.exe","calendar.exe"
+"office.executable.friends","friends.exe","friends.exe"
+"office.executable.town","town.exe","town.exe"
+"office.executable.letter","letter.exe","letter.exe"
+"office.executable.diary","diary.exe","diary.exe"
+"office.executable.settings","settings.exe","settings.exe"
