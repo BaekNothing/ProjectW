@@ -48,6 +48,18 @@ Network access happens at build time, not in the running game.
 
 ## Implementation checklist
 
+### Office narrative revision — 2026-10-02
+
+User-authorized Update: existing Texts ko/en rows for the seven-day office story and UI.
+Spec Ref: MagicalGirlOfficePrototype, 업무 톤과 인물 행동 데이터.
+Keep IDs, group positions, sample Characters/perks, save schema and choice semantics stable.
+Roles carry the three authored personality profiles; Bodies carry requests and missing information;
+Options/Reasons carry handling boundaries and tradeoffs; Results carry the reaction and outstanding work.
+Dry administrative copy replaces compulsory warmth. Repeated appearances and the journal expose
+different temperaments without claiming a new conditional narrative or relationship simulator.
+Edit the configured native text workbook in place, preserve formatting, import both workbooks,
+and verify CSV/runtime parity. Existing source ownership and mandatory build import still apply.
+
 - Create and verify both native workbooks in the designated child folder.
 - Provide deterministic importer and failure/roundtrip tests.
 - Add WebGL build gate, bundled loader, locale resolver and ko/en/tid settings.
