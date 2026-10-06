@@ -1090,38 +1090,38 @@
       "tid": "office.agenda.sender"
     },
     {
-      "en": "I have a school presentation this afternoon. I don't want to miss my part. Could I visit the river after class?",
-      "ko": "오늘 오후에 학교 발표가 있어요. 제가 맡은 부분이라 빠지고 싶지 않아요. 하천 조사는 수업이 끝난 뒤에 가도 될까요?",
+      "en": "Hana: Hello. My presentation this afternoon cannot move. Please schedule the investigation after class. If an agency takes over, what happens to my activity credit? I do not want this recorded as a gap I caused.\nIntake note: Keep school time. Reply with the investigator and credit rules.",
+      "ko": "하나: 안녕하세요. 오늘 오후 발표는 변경할 수 없습니다. 조사는 방과 후로 옮겨주세요. 다른 기관이 하면 제 활동 실적은 어떻게 되나요? 제 일정 때문에 생긴 공백으로 기록되는 건 곤란합니다.\n접수 메모: 수업은 유지. 조사 담당과 실적 처리 기준을 함께 회신할 것.",
       "tid": "office.bodies.0"
     },
     {
-      "en": "I've felt tired since yesterday. It hasn't become worse, but I wanted to tell you early this time. I'd like to rest from field work today.",
-      "ko": "어제부터 좀 지쳐 있어요. 심해진 건 아닌데, 이번에는 미리 말하고 싶었어요. 오늘 현장 일정은 쉬고 싶어요.",
+      "en": "Sori: Can't come today. I don't feel like doing anything. Can't write a long explanation either.\nIntake note: Hold field assignment. Low energy is self-reported; condition and cause are unconfirmed. Arrange rest or counseling with consent. A short reply is not evidence of faking.",
+      "ko": "소리: 오늘 못 가요. 그냥 아무것도 하기 싫어요. 이유도 길게는 못 쓰겠어요.\n접수 메모: 현장 배정 보류. 기력 저하는 본인 표현이며 상태·원인은 미확인. 휴식 처리 또는 동의한 상담 접수를 결정한다. 답장이 짧다는 이유로 꾀병으로 분류하지 않는다.",
       "tid": "office.bodies.1"
     },
     {
-      "en": "Unusual activity continues along the path. Public access is restricted. Please define observation limits and support routes before responding.",
-      "ko": "산책로의 이상 반응은 계속 관측되고 있습니다. 주민 접근은 제한했습니다. 대응 전에 관측 범위와 지원 경로를 정해주세요.",
+      "en": "Yuna: Heeey, I sent the pics. You need the location and time too? I know the way. Can't I just go?\nIntake review: Photos do not establish the observation point or return time. Public access is restricted. Complete the record with Yuna or request specialists first.",
+      "ko": "유나: 담당님~ 사진 보냈잖아. 위치랑 시간도 또 쓰라고? 나 길 알아. 그냥 가면 안 됨?\n접수 검토: 사진만으로 관측 지점·복귀 시각을 확정할 수 없음. 주민 접근은 제한 중. 유나와 서류를 보완하거나 전문기관 지원을 먼저 요청해야 한다.",
       "tid": "office.bodies.2"
     },
     {
-      "en": "Activity has intensified beyond the observation point. We will not cross the agreed safety boundary. Decide whether to continue guiding residents or hand over to specialists.",
-      "ko": "관측 지점 밖에서 반응이 커졌습니다. 합의한 안전 범위를 넘는 접근은 하지 않습니다. 주민 안내를 계속할지 전문기관에 인계할지 결정해주세요.",
+      "en": "Field coordinator: Activity increased beyond the boundary. Specialists are on standby. Student entry is not authorized.\nYuna: It's right there. I'll be back in a second. You want me to just stand here giving directions?\nDecision: Assign guidance outside the boundary or end student field duties and hand everything to the agency.",
+      "ko": "현장 담당: 안전선 밖에서 반응 증가. 전문 대응팀 대기 중. 학생의 경계 안쪽 진입은 승인하지 않음.\n유나: 저 앞까지만 보면 되는데? 나 진짜 금방 갔다 온다니까. 여기서 안내만 하라고?\n처리 요청: 안전선 밖 안내만 맡길지, 학생 현장 업무를 종료하고 기관에 전부 넘길지 결정.",
       "tid": "office.bodies.3"
     },
     {
-      "en": "I'd like time to think about life after graduation. Helping others sounds good, but I can't promise to become a mentor right away.",
-      "ko": "졸업한 뒤 어떤 생활을 할지 생각해보고 싶어요. 후배를 돕는 것도 좋지만, 바로 멘토가 되겠다는 약속은 아직 어렵고요.",
+      "en": "Yuna: Booked a career trial for next week. Keep that slot clear. I'll write one page for handover. But don't put me down as a junior mentor. I never agreed to that.\nIntake note: Graduation is not confirmed. Use today's slot for exploration or the handover she agreed to. Carry the other item forward.",
+      "ko": "유나: 다음 주 진로 체험 예약했어. 그 시간은 빼줘. 인계는 한 장까진 쓸게. 근데 후배 멘토도 내가 한다고 적진 마. 아직 한다고 안 했잖아.\n접수 메모: 졸업 확정 아님. 오늘 확보할 시간은 진로 탐색 또는 본인이 동의한 인계 정리 중 하나. 남은 항목은 다음 일정으로 넘긴다.",
       "tid": "office.bodies.4"
     },
     {
-      "en": "The riverside incident has stabilized. We can use today for preventive checks or to organize school and support-center contacts.",
-      "ko": "하천 사건은 안정됐습니다. 오늘 확보한 여유를 예방 점검이나 학교·지원센터 연락망 정리에 사용할 수 있습니다.",
+      "en": "Agency report: Riverside activity has stabilized. Preventive checks and contact coordination both remain.\nHana: Please send next week's scope in writing. I have not agreed to additional duties.\nSori: Can I stop getting messages from several people? Even replying is hard.\nPrioritize agency checks or contact coordination today.",
+      "ko": "기관 보고: 하천 이상 반응 안정. 예방 점검과 연락망 정비는 모두 남아 있음.\n하나: 다음 주 업무 범위는 문서로 부탁드립니다. 추가 업무까지 동의한 것은 아닙니다.\n소리: 연락 여러 군데서 안 왔으면 좋겠어요. 답장하는 것도 힘들어요.\n오늘은 기관 예방 점검 또는 연락 창구 정리 중 하나를 우선 처리한다.",
       "tid": "office.bodies.5"
     },
     {
-      "en": "We value connecting people to help in time over frequent callouts. Let us record the commitments we want to continue next week.",
-      "ko": "많이 출동한 주보다, 필요한 도움을 제때 연결한 주를 기록합니다. 다음 주에도 이어갈 약속을 함께 정리해주세요.",
+      "en": "Hana: Send only confirmed assignments and credit rules for next week.\nSori: I don't know if I'll feel better next week. Can we only agree to what I can manage?\nYuna: Write down what you want done. No sneaking extra stuff in later.\nWeekly close: Safety response is complete; complaints and open work remain. Confirm scope and dates or review support arrangements first.",
+      "ko": "하나: 다음 주 담당과 실적 기준, 확정된 내용만 보내주세요.\n소리: 다음 주 괜찮아질지는 모르겠어요. 할 수 있는 만큼만 정하면 안 돼요?\n유나: 할 건 적어줘. 나중에 슬쩍 더 붙이지 말고.\n주간 마감: 안전 대응은 끝났지만 불만과 미결 업무는 남아 있다. 일정·범위를 확정하거나 지원 방식부터 재검토한다.",
       "tid": "office.bodies.6"
     },
     {
@@ -1130,8 +1130,8 @@
       "tid": "office.choice.selected"
     },
     {
-      "en": "WEEK 01     DAY {day}     ♡ ONLINE",
-      "ko": "WEEK 01     DAY {day}     ♡ ONLINE",
+      "en": "WEEK 01     DAY {day}     ONLINE",
+      "ko": "WEEK 01     DAY {day}     ONLINE",
       "tid": "office.clock.header"
     },
     {
@@ -1160,8 +1160,8 @@
       "tid": "office.ending.person"
     },
     {
-      "en": "{report}\n\nGraduation and mentoring remain each person's next choice.",
-      "ko": "{report}\n\n졸업과 멘토 참여는 당사자의 다음 선택으로 남겨둡니다.",
+      "en": "{report}\n\nGraduation and mentoring remain unconfirmed. Carry open items from earlier records into next week.",
+      "ko": "{report}\n\n졸업·멘토 참여는 미확정입니다. 이전 기록의 미결 항목은 다음 주로 이월합니다.",
       "tid": "office.ending.report"
     },
     {
@@ -1225,73 +1225,73 @@
       "tid": "office.no_decision"
     },
     {
-      "en": "Schedule after-school investigation",
-      "ko": "수업 후 조사 예약",
+      "en": "After-school survey / Set submission time",
+      "ko": "방과 후 조사 / 제출 시각 지정",
       "tid": "office.options.0"
     },
     {
-      "en": "Ask a partner agency to investigate",
-      "ko": "협력기관에 조사 요청",
+      "en": "Agency takeover / No survey credit for Hana",
+      "ko": "기관 이관 / 하나 실적 제외",
       "tid": "office.options.1"
     },
     {
-      "en": "Run preventive community checks",
-      "ko": "지역 예방 점검",
+      "en": "Prioritize agency preventive checks",
+      "ko": "기관 예방 점검 우선",
       "tid": "office.options.10"
     },
     {
-      "en": "Organize school and support contacts",
-      "ko": "학교·지원기관 연락망 정리",
+      "en": "Coordinate school and center contacts",
+      "ko": "학교·센터 연락 창구 정리",
       "tid": "office.options.11"
     },
     {
-      "en": "Record next week's commitments",
-      "ko": "다음 주 약속 정리",
+      "en": "Confirm next week's schedule and scope",
+      "ko": "다음 주 일정·업무 범위 확정",
       "tid": "office.options.12"
     },
     {
-      "en": "Review the support plan together",
-      "ko": "지원 계획 함께 검토",
+      "en": "Review support arrangements / Hold schedule",
+      "ko": "지원 방식 재검토 / 일정 보류",
       "tid": "office.options.13"
     },
     {
-      "en": "Secure a full day of rest",
-      "ko": "하루 휴식 확보",
+      "en": "Record rest / Check condition tomorrow",
+      "ko": "휴식 처리 / 내일 상태 확인",
       "tid": "office.options.2"
     },
     {
-      "en": "Arrange counseling with consent",
-      "ko": "동의 후 지원센터 상담 예약",
+      "en": "Obtain consent / Register counseling",
+      "ko": "동의 확인 후 상담 접수",
       "tid": "office.options.3"
     },
     {
-      "en": "Prepare observations with Yuna",
-      "ko": "유나와 관측 준비",
+      "en": "Prepare with Yuna / Complete required fields",
+      "ko": "유나와 준비 / 필수 서류 보완",
       "tid": "office.options.4"
     },
     {
       "en": "Request specialist support first",
-      "ko": "전문기관 지원 먼저 요청",
+      "ko": "전문기관 지원 우선 요청",
       "tid": "office.options.5"
     },
     {
-      "en": "Observe and guide residents within safe limits",
-      "ko": "안전 범위에서 관측·주민 안내",
+      "en": "Authorize observation and guidance outside boundary",
+      "ko": "안전선 밖 관측·안내만 승인",
       "tid": "office.options.6"
     },
     {
-      "en": "Hand field response to specialists",
-      "ko": "현장 대응을 전문기관에 인계",
+      "en": "End student field duties / Agency takeover",
+      "ko": "학생 현장 업무 종료 / 기관 인계",
       "tid": "office.options.7"
     },
     {
-      "en": "Protect time for career exploration",
-      "ko": "진로 탐색 시간 확보",
+      "en": "Allocate career exploration time",
+      "ko": "진로 탐색 시간 배정",
       "tid": "office.options.8"
     },
     {
-      "en": "Prepare the handover notes she wants to leave",
-      "ko": "희망하는 인계 자료 함께 정리",
+      "en": "Accept the agreed one-page handover",
+      "ko": "동의한 인계 한 장 접수",
       "tid": "office.options.9"
     },
     {
@@ -1305,8 +1305,8 @@
       "tid": "office.person.message_day"
     },
     {
-      "en": "Support plan / {role}\nPersonal records stay with the same person after graduation.",
-      "ko": "지원 계획  /  {role}\n개인 기록은 졸업 이후에도 같은 사람에게 남습니다.",
+      "en": "Work reference / {role}\nDistinguish personality impressions from confirmed conditions. Agree on extra duties separately.",
+      "ko": "업무상 참고 / {role}\n성격 인상과 확인된 상태를 구별합니다. 추가 업무는 별도 협의합니다.",
       "tid": "office.person.plan"
     },
     {
@@ -1315,73 +1315,73 @@
       "tid": "office.person.status_day"
     },
     {
-      "en": "Protect presentation time and move the investigation after school.",
-      "ko": "발표 시간을 보호하고 조사 시작을 방과 후로 옮깁니다.",
+      "en": "Survey within safe limits after class. Staff must review a late report; additional duties need a separate agreement.",
+      "ko": "수업 후 안전 범위 내 조사. 담당자는 늦게 들어올 보고를 확인해야 하며 추가 업무는 별도 협의한다.",
       "tid": "office.reasons.0"
     },
     {
-      "en": "Hana focuses on her presentation while adult partners investigate.",
-      "ko": "하나는 발표에 집중하고 성인 협력기관이 조사합니다.",
+      "en": "Adult partners investigate. School time remains intact, but no credit is awarded for unperformed work; Hana may object.",
+      "ko": "성인 기관이 조사한다. 하나의 수업은 유지되지만 수행하지 않은 조사를 실적으로 인정하지 않아 이의가 남을 수 있다.",
       "tid": "office.reasons.1"
     },
     {
-      "en": "Check local conditions early to reduce repeated callouts.",
-      "ko": "반복 출동을 줄일 수 있도록 지역 상황을 미리 확인합니다.",
+      "en": "Ask adult partners to check recurring risks. Checks finish today, but contact coordination and individual scopes remain open.",
+      "ko": "성인 기관에 반복 위험 점검을 맡긴다. 오늘 점검은 끝내지만 연락 창구와 학생별 범위 확정은 남는다.",
       "tid": "office.reasons.10"
     },
     {
-      "en": "Identify contacts and routes to reach help when needed.",
-      "ko": "도움이 필요할 때 바로 연결할 담당과 연락 경로를 정리합니다.",
+      "en": "Assign school and center contacts. Reduce repeated messages, but schedule field prevention separately.",
+      "ko": "학교·센터의 담당 창구를 지정한다. 반복 연락은 줄이지만 현장 예방 점검은 별도로 잡아야 한다.",
       "tid": "office.reasons.11"
     },
     {
-      "en": "Record individual commitments for school, recovery and future plans.",
-      "ko": "학교·회복·진로에 대한 각자의 약속을 기록합니다.",
+      "en": "Confirm only feasible duties around school, recovery and career plans. Do not promise recovery or additional participation.",
+      "ko": "학교·회복·진로 조건에 맞춰 확정 가능한 업무만 적는다. 불확실한 회복이나 추가 참여를 약속으로 쓰지 않는다.",
       "tid": "office.reasons.12"
     },
     {
-      "en": "Review the need and approach for continued support with each person.",
-      "ko": "본인과 함께 지원의 지속 여부와 방식을 돌아봅니다.",
+      "en": "Review contact frequency, support routes and consent first. Next week's schedule remains pending and needs coordination.",
+      "ko": "연락 빈도·지원 경로·동의 범위를 먼저 재검토한다. 다음 주 일정은 보류되어 추가 조율이 필요하다.",
       "tid": "office.reasons.13"
     },
     {
-      "en": "Remove field duties and secure uninterrupted recovery time.",
-      "ko": "오늘 출동을 제외하고 회복할 시간을 온전히 확보합니다.",
+      "en": "No field work today. Checking tomorrow leaves today's condition uncertain.",
+      "ko": "오늘 출동 제외. 상태 확인을 내일로 넘기므로 오늘은 추가 정보를 얻지 못한다.",
       "tid": "office.reasons.2"
     },
     {
-      "en": "Remove field duties and connect counseling after confirming Sori's consent.",
-      "ko": "출동을 제외하고, 소리의 동의를 확인한 뒤 상담을 연결합니다.",
+      "en": "No field work today. Ask consent first. Booking adds coordination work and is not proof of recovery.",
+      "ko": "오늘 출동 제외. 상담 의사를 먼저 확인한다. 접수·연락 업무가 생기며 상담 예약은 회복 판정이 아니다.",
       "tid": "office.reasons.3"
     },
     {
-      "en": "Agree on approach limits and return criteria with experienced Yuna.",
-      "ko": "경험 있는 유나와 접근 한계·복귀 기준을 정리합니다.",
+      "en": "Complete limits and return time before preparing. Use Yuna's local knowledge, but staff must check the corrections.",
+      "ko": "접근 한계·복귀 시각을 채운 뒤 준비한다. 유나의 현장 지식을 쓰는 대신 담당자가 보완을 확인해야 한다.",
       "tid": "office.reasons.4"
     },
     {
-      "en": "Prioritize specialist support and information over field access.",
-      "ko": "현장 접근보다 기관 지원과 정보 확보를 우선합니다.",
+      "en": "The agency organizes observations. Wait for its reply rather than student corrections; Yuna's participation request is declined.",
+      "ko": "기관이 관측 자료를 정리한다. 학생 서류 보완보다 기관 회신을 기다리며, 유나의 참여 요구는 받아들이지 않는다.",
       "tid": "office.reasons.5"
     },
     {
-      "en": "Yuna stays within agreed limits and supports the professional team.",
-      "ko": "유나는 정해진 범위를 지키고 전문 대응팀을 지원합니다.",
+      "en": "No entry beyond the boundary. Student duties are limited to guidance outside it and require field supervision.",
+      "ko": "경계 안쪽 진입은 불허. 학생은 안전선 밖 안내만 맡는다. 역할이 남는 대신 현장 담당의 감독이 필요하다.",
       "tid": "office.reasons.6"
     },
     {
-      "en": "Hand over observations and resident guidance without going deeper.",
-      "ko": "더 깊이 접근하지 않고 자료와 주민 안내를 인계합니다.",
+      "en": "Specialists handle response and guidance. Student supervision ends, but handover coordination and Yuna's complaint remain.",
+      "ko": "전문기관이 대응과 주민 안내를 모두 맡는다. 학생 감독은 끝나지만 인계 연락과 유나의 항의가 남는다.",
       "tid": "office.reasons.7"
     },
     {
-      "en": "Protect time to explore the future she wants.",
-      "ko": "당사자가 원하는 다음 생활을 알아볼 시간을 지킵니다.",
+      "en": "Prioritize her career exploration. Handover notes remain outstanding and need a later submission date.",
+      "ko": "본인이 예약한 진로 탐색을 우선한다. 인계 자료는 미제출로 남고 다음 제출 일정을 잡아야 한다.",
       "tid": "office.reasons.8"
     },
     {
-      "en": "Record only the experiences Yuna wants to leave for successors.",
-      "ko": "유나가 남기고 싶은 경험만 후임용 자료로 정리합니다.",
+      "en": "Accept only the agreed page. Do not attach extra documentation or mentoring; career exploration needs a separate slot.",
+      "ko": "본인이 동의한 한 장만 받는다. 추가 자료·멘토 참여를 묶지 않으며 진로 탐색은 별도 일정으로 남는다.",
       "tid": "office.reasons.9"
     },
     {
@@ -1390,158 +1390,158 @@
       "tid": "office.report.preview"
     },
     {
-      "en": "Hana: I finished my presentation. Thanks for changing the time. I recorded the after-school observations.",
-      "ko": "하나: 발표를 마쳤어요. 시간을 바꿔줘서 고마워요. 방과 후 조사 기록을 남겼어요.",
+      "en": "Processed: Presentation retained; after-school survey received. Staff review ran late.\nHana: Submitted. I did the agreed scope only. Please put extraediting work on tomorrow's list.",
+      "ko": "처리: 학교 발표 유지, 방과 후 조사 보고 접수. 담당자 마감 검토는 늦어졌다.\n하나: 제출했습니다. 말씀하신 범위까지만 했어요. 추가 정리는 내일 업무로 부탁드립니다.",
       "tid": "office.results.0"
     },
     {
-      "en": "Hana: I could focus on my presentation. I also read the partner agency's river report.",
-      "ko": "하나: 발표에 집중할 수 있었어요. 협력기관이 보내온 하천 조사 보고도 확인했어요.",
+      "en": "Processed: Agency survey received. No survey credit awarded to Hana.\nHana: I understand the rule. Please do not record this as me inconveniencing everyone.",
+      "ko": "처리: 기관 조사 보고 접수. 하나의 조사 실적은 미인정.\n하나: 기준은 알겠습니다. 다만 제 일정 때문에 민폐를 끼친 것처럼 기록하지는 말아주세요.",
       "tid": "office.results.1"
     },
     {
-      "en": "Community report: Preventive checks are complete. Next week we protected school and recovery time instead of repeated checks.",
-      "ko": "지역 보고: 예방 점검을 마쳤습니다. 다음 주에는 반복 확인 대신 학교와 회복 일정을 확보했습니다.",
+      "en": "Processed: Agency preventive checks complete. Contact coordination and individual scopes remain open.\nHana: Completed checks do not confirm my assignment, correct?\nSori: Got several messages again. Can it just be one contact?",
+      "ko": "처리: 기관 예방 점검 완료. 연락 창구·개인별 업무 범위는 미결.\n하나: 점검 완료와 제 담당 확정은 별개죠?\n소리: 오늘도 연락이 여러 번 왔어요. 한 군데에서만 해주면 안 돼요?",
       "tid": "office.results.10"
     },
     {
-      "en": "School and support center: The contact network is ready. Future requests will be connected to shared support.",
-      "ko": "학교·지원센터: 담당 연락망이 정리됐습니다. 다음 요청은 혼자 해결하지 않고 함께 연결합니다.",
+      "en": "Processed: School and center contacts coordinated. Field preventive checks remain unscheduled.\nSori: I get that I only reply to one person. Doesn't mean I'm better.\nHana: Please have that contact send my scope in writing too.",
+      "ko": "처리: 학교·센터 연락 창구 정리. 현장 예방 점검 일정은 미결.\n소리: 한 군데만 답하면 되는 건 알겠어요. 괜찮아졌다는 뜻은 아니에요.\n하나: 제 업무 범위도 그 창구에서 서면으로 보내주세요.",
       "tid": "office.results.11"
     },
     {
-      "en": "Weekly commitments: Continue Hana's school time, Sori's recovery and Yuna's career exploration next week.",
-      "ko": "한 주의 약속: 하나의 학교 시간, 소리의 회복, 유나의 진로 탐색을 다음 주에도 이어갑니다.",
+      "en": "Weekly close: Recorded Hana's school time and scope, Sori's next condition check and Yuna's career coordination items. Earlier open items carry forward.\nHana: I'll follow the written scope.\nSori: I'll reply to the condition check. Don't know about the rest.\nYuna: What's written. Ask before adding anything.",
+      "ko": "주간 마감: 하나의 학교 시간·업무 범위, 소리의 상태 확인 시점, 유나의 진로 조율 항목을 기록. 이전 기록의 미결 업무는 다음 주로 이월.\n하나: 적힌 범위로 알겠습니다.\n소리: 상태 확인 답장은 할게요. 나머지는 아직 모르겠어요.\n유나: 적힌 것만. 추가는 먼저 물어봐.",
       "tid": "office.results.12"
     },
     {
-      "en": "Weekly review: We confirmed individual consent and support routes. We will adjust the plan as needs change.",
-      "ko": "한 주의 검토: 각자의 동의와 지원 경로를 확인했습니다. 도움이 달라지면 계획도 다시 조정합니다.",
+      "en": "Weekly close: Reviewed contact frequency, support routes and consent. Next week's dates and earlier open work await coordination.\nHana: Send it in writing when confirmed.\nSori: Still can't talk about it in detail.\nYuna: No promise to mentor in there, right? Okay then.",
+      "ko": "주간 마감: 연락 빈도·지원 경로·동의 범위 재검토. 다음 주 일정과 이전 미결 업무는 조율 대기.\n하나: 확정되면 서면으로 주세요.\n소리: 자세한 얘기는 아직 못 하겠어요.\n유나: 멘토 확답은 빼둔 거지? 그럼 됐어.",
       "tid": "office.results.13"
     },
     {
-      "en": "Sori: I rested well today. I'm glad I spoke up early. I'd like to plan the next schedule together.",
-      "ko": "소리: 오늘 푹 쉬었어요. 미리 말하길 잘한 것 같아요. 다음 일정은 함께 정하고 싶어요.",
+      "en": "Processed: One day of rest, no field assignment. Tomorrow's condition check remains open.\nSori: Okay. Can that be the last message today? I don't know if resting will help.",
+      "ko": "처리: 하루 휴식, 현장 배정 제외. 내일 상태 확인 미결.\n소리: 알겠어요. 오늘은 더 연락 안 해도 돼요? 쉬면 괜찮아질지는 모르겠고요.",
       "tid": "office.results.2"
     },
     {
-      "en": "Sori: Thank you for asking my consent first. I arranged the next session with the support center.",
-      "ko": "소리: 제 동의를 먼저 물어봐줘서 좋았어요. 지원센터와 다음 상담 일정을 정했어요.",
+      "en": "Processed: Counseling booked with Sori's consent. No field assignment; outcome unconfirmed.\nSori: Book it. I don't know what I'll say when I get there, though.",
+      "ko": "처리: 소리 동의 후 센터 상담 예약. 현장 배정 제외, 상담 결과 미확인.\n소리: 예약은 해주세요. 근데 가서 무슨 말 할지는 모르겠어요.",
       "tid": "office.results.3"
     },
     {
-      "en": "Yuna: We set observation points and return criteria. I'll hand over to the support team if conditions exceed our limits.",
-      "ko": "유나: 관측 지점과 복귀 기준을 정리했어요. 범위를 넘으면 지원팀에 넘길게요.",
+      "en": "Processed: Yuna added the location and return time. Preparation complete after staff review.\nYuna: So many boxes. Done. You're not making me write the same thing tomorrow, right?",
+      "ko": "처리: 유나가 위치·복귀 시각 보완. 관측 준비 완료, 담당자 재검토 발생.\n유나: 아 진짜 칸 많네. 다 썼어. 내일 또 똑같은 거 쓰라는 건 아니지?",
       "tid": "office.results.4"
     },
     {
-      "en": "Partner agency: Request received. We shared observation records with the response team.",
-      "ko": "협력기관: 지원 요청을 접수했습니다. 현장 대응팀과 관측 자료를 공유했습니다.",
+      "en": "Processed: Agency support registered; observation data shared. Yuna's preparation role is on hold.\nYuna: Fine, the agency's doing it. Don't come back later asking me to sort their paperwork.",
+      "ko": "처리: 기관 지원 접수, 관측 자료 공유 완료. 유나의 준비 참여는 보류.\n유나: 그래, 기관에서 한다며. 그럼 나한테 뒤늦게 자료 정리까지 시키진 마.",
       "tid": "office.results.5"
     },
     {
-      "en": "Field report: Residents were guided within safe limits. The specialist team stabilized the unusual activity.",
-      "ko": "현장 보고: 안전 범위를 지키며 주민을 안내했습니다. 전문 대응팀이 이상 반응을 안정시켰습니다.",
+      "en": "Processed: Specialists stabilized the activity. Yuna guided people outside the boundary; supervision ended.\nYuna: Spent the whole time giving directions. Didn't cross the line. Happy?",
+      "ko": "처리: 전문팀이 이상 반응 안정화. 유나는 안전선 밖 안내 수행, 현장 담당 감독 종료.\n유나: 안내만 하다 끝났네. 안쪽은 안 갔어. 됐지?",
       "tid": "office.results.6"
     },
     {
-      "en": "Agency report: We took over and stabilized the site. Yuna returned and her observations were preserved.",
-      "ko": "기관 보고: 현장을 인계받아 안정화했습니다. 유나는 복귀했고 관측 기록은 보존했습니다.",
+      "en": "Processed: Specialists took over and stabilized the site. Yuna returned; observations preserved.\nYuna: I'm back. I said I could do it and you took me off completely. Doesn't mean I agree.",
+      "ko": "처리: 전문기관이 현장 인수·안정화. 유나 복귀, 관측 기록 보존.\n유나: 복귀했어. 할 수 있다고 한 건데 아예 빼버리네. 납득한 건 아냐.",
       "tid": "office.results.7"
     },
     {
-      "en": "Yuna: I explored what I want to learn next. Let's discuss mentoring later when I know my circumstances.",
-      "ko": "유나: 다음에 배우고 싶은 걸 찾아봤어요. 멘토 여부는 나중에 제 상황을 보고 이야기할게요.",
+      "en": "Processed: Career exploration time allocated. Handover remains outstanding; another slot is needed.\nYuna: Confirmed the trial booking. I'll go to that. Still haven't said yes to mentoring.",
+      "ko": "처리: 진로 탐색 시간 확보. 인계 자료 미제출, 다음 일정 조율 필요.\n유나: 체험 예약 확인했어. 그건 갈 거야. 멘토는 아직 대답 안 한 거고.",
       "tid": "office.results.8"
     },
     {
-      "en": "Yuna: I recorded difficult moments and what helped me. I'm still thinking about life after graduation.",
-      "ko": "유나: 제가 어려웠던 순간과 도움받은 방법을 남겼어요. 졸업 후 계획은 계속 생각하고 있어요.",
+      "en": "Processed: Agreed one-page handover received. Career scheduling and mentoring remain separate open items.\nYuna: Wrote down confusing turns and dead zones. You said one page. Ask me about anything else later.",
+      "ko": "처리: 동의한 한 장의 인계 자료 접수. 진로 일정·멘토 여부는 별도 미결.\n유나: 헷갈리는 길이랑 연락 안 되는 구간 적었어. 한 장이라며. 더는 다음에 얘기해.",
       "tid": "office.results.9"
     },
     {
-      "en": "Balancing school and activities",
-      "ko": "학교와 활동 사이의 균형",
+      "en": "Polite. Particular about scope and credit.",
+      "ko": "예의는 지킨다. 업무 범위와 실적은 따진다.",
       "tid": "office.roles.0"
     },
     {
-      "en": "Rest, then take it slowly",
-      "ko": "회복하고, 다시 천천히",
+      "en": "Low energy. Says little and wants fewer check-ins.",
+      "ko": "기력이 낮다. 필요한 말만 하고 연락을 줄이려 한다.",
       "tid": "office.roles.1"
     },
     {
-      "en": "Preparing for life after graduation",
-      "ko": "졸업 너머의 일상을 준비",
+      "en": "Gyaru style, familiar requests. Often pushes against rules.",
+      "ko": "갸루 말투, 거리감 없는 부탁. 규정에는 자주 반발한다.",
       "tid": "office.roles.2"
     },
     {
-      "en": "Hana / personal message",
-      "ko": "하나 · 본인 메시지",
+      "en": "Hana / Schedule change request",
+      "ko": "하나 · 일정 변경 요청",
       "tid": "office.senders.0"
     },
     {
-      "en": "Sori / personal message",
-      "ko": "소리 · 본인 메시지",
+      "en": "Sori / Absence notice",
+      "ko": "소리 · 결석 연락",
       "tid": "office.senders.1"
     },
     {
-      "en": "District liaison / verified report",
-      "ko": "구청 협력 담당 · 확인된 보고",
+      "en": "Liaison / Intake review with Yuna's message",
+      "ko": "협력 담당 · 접수 검토 / 유나 메시지 첨부",
       "tid": "office.senders.2"
     },
     {
-      "en": "Field coordinator / verified report",
-      "ko": "현장 담당 · 확인된 보고",
+      "en": "Field coordinator / Report with Yuna's request",
+      "ko": "현장 담당 · 상황 보고 / 유나 요청 첨부",
       "tid": "office.senders.3"
     },
     {
-      "en": "Yuna / personal message",
-      "ko": "유나 · 본인 메시지",
+      "en": "Yuna / Graduation planning request",
+      "ko": "유나 · 졸업 준비 요청",
       "tid": "office.senders.4"
     },
     {
-      "en": "Community liaison / verified report",
-      "ko": "지역 협력 담당 · 확인된 보고",
+      "en": "Office / Follow-up work and student replies",
+      "ko": "사무소 · 후속 업무 / 학생 회신",
       "tid": "office.senders.5"
     },
     {
-      "en": "Office / weekly reflection",
-      "ko": "사무소 · 주간 회고",
+      "en": "Office / Weekly open items",
+      "ko": "사무소 · 주간 미결 항목",
       "tid": "office.senders.6"
     },
     {
-      "en": "Who will investigate on presentation day?",
-      "ko": "발표가 있는 날, 조사는 누가 맡을까요?",
+      "en": "School presentation / Separate investigation credit",
+      "ko": "학교 발표 / 조사 실적은 별도 처리",
       "tid": "office.titles.0"
     },
     {
-      "en": "May I take a rest today?",
-      "ko": "오늘은 쉬어도 괜찮을까요?",
+      "en": "Two-line absence notice / Condition unconfirmed",
+      "ko": "결석 연락 두 줄 / 상태는 미확인",
       "tid": "office.titles.1"
     },
     {
-      "en": "Riverside path: prepare before responding",
-      "ko": "하천 산책로 · 대응 전에 준비할 것",
+      "en": "Photos received, required fields blank",
+      "ko": "사진은 왔고, 필수 항목은 비었다",
       "tid": "office.titles.2"
     },
     {
-      "en": "Set the limits for field work",
-      "ko": "현장에서 지킬 범위를 정해주세요",
+      "en": "The safety boundary is not negotiable",
+      "ko": "안전선은 협상 대상이 아니다",
       "tid": "office.titles.3"
     },
     {
-      "en": "Preparing for Yuna's next season",
-      "ko": "유나의 다음 계절을 준비합니다",
+      "en": "Graduation planning / Limits on handover",
+      "ko": "졸업 준비 / 인계는 어디까지",
       "tid": "office.titles.4"
     },
     {
-      "en": "A day to prevent future callouts",
-      "ko": "다음 출동을 줄이는 하루",
+      "en": "Incident closed. Follow-up work remains.",
+      "ko": "사건은 끝났다. 후속 업무는 남았다",
       "tid": "office.titles.5"
     },
     {
-      "en": "The week we protected",
-      "ko": "우리가 지킨 일주일",
+      "en": "Weekly close / Agreements and open items",
+      "ko": "주간 마감 / 합의한 것과 남은 것",
       "tid": "office.titles.6"
     },
     {
@@ -1550,8 +1550,8 @@
       "tid": "office.toast.open"
     },
     {
-      "en": "♡ {title}",
-      "ko": "♡ {title}",
+      "en": "{title}",
+      "ko": "{title}",
       "tid": "office.toast.title"
     },
     {
@@ -1595,8 +1595,8 @@
       "tid": "office.ui.008"
     },
     {
-      "en": "A new day has begun",
-      "ko": "새로운 하루가 도착했어요",
+      "en": "Workday started",
+      "ko": "업무일 시작",
       "tid": "office.ui.009"
     },
     {
@@ -1605,8 +1605,8 @@
       "tid": "office.ui.010"
     },
     {
-      "en": "Read the final agenda and each person’s story.",
-      "ko": "오늘의 안건을 열고 이야기를 확인하세요.",
+      "en": "Review today's agenda and open items.",
+      "ko": "오늘의 안건과 미결 항목을 확인하세요.",
       "tid": "office.ui.011"
     },
     {
@@ -1615,13 +1615,13 @@
       "tid": "office.ui.012"
     },
     {
-      "en": "Together, toward each person’s tomorrow. ♡",
-      "ko": "오늘도, 각자의 내일을 함께.  ♡",
+      "en": "Intake / Coordinate / Process / Carry forward",
+      "ko": "접수 · 조율 · 처리 · 이월",
       "tid": "office.ui.013"
     },
     {
-      "en": "Week in review",
-      "ko": "♡ 설정",
+      "en": "Settings",
+      "ko": "설정",
       "tid": "office.ui.014"
     },
     {
@@ -1645,13 +1645,13 @@
       "tid": "office.ui.018"
     },
     {
-      "en": "Make this desktop your own",
-      "ko": "조금 더 나다운 바탕화면",
+      "en": "Display and notification settings",
+      "ko": "화면·알림 설정",
       "tid": "office.ui.019"
     },
     {
-      "en": "Click an icon to open an app; drag its title bar to move it.\nMobile: swipe inside a window to scroll; pinch to resize.\nYou can also resize from the window corner.\nRestore minimized apps from the taskbar.",
-      "ko": "아이콘을 눌러 앱을 열고, 제목줄을 잡아 이동하세요.\n모바일: 창 안을 밀어 스크롤 / 두 손가락으로 창 확대·축소.\n창 모서리로도 크기 조절이 가능해요.\n최소화한 앱은 작업표시줄에서 다시 열 수 있어요.",
+      "en": "Click an icon to open an app. Drag the title bar to move it.\nMobile: swipe content to scroll; pinch to resize.\nWindow corners also resize.\nRestore minimized apps from the taskbar.",
+      "ko": "아이콘을 눌러 앱을 엽니다. 제목줄을 드래그해 이동합니다.\n모바일: 내용 드래그로 스크롤, 두 손가락으로 창 크기 조절.\n모서리로도 크기를 조절할 수 있습니다.\n최소화한 앱은 작업표시줄에서 복원합니다.",
       "tid": "office.ui.020"
     },
     {
@@ -1665,8 +1665,8 @@
       "tid": "office.ui.022"
     },
     {
-      "en": "Light, rotating halos and sparkles\nShown behind new agendas and selected icons.",
-      "ko": "빛 · 회전하는 후광 · 반짝임\n새 안건과 선택한 아이콘 뒤에서 표시돼요.",
+      "en": "Display light, rotation and sparkles behind new agendas and selected icons.",
+      "ko": "빛·회전·반짝임을 새 안건과 선택한 아이콘 뒤에 표시합니다.",
       "tid": "office.ui.023"
     },
     {
@@ -1680,18 +1680,18 @@
       "tid": "office.ui.025"
     },
     {
-      "en": "A new message arrived",
-      "ko": "새 메시지가 왔어요",
+      "en": "New message received",
+      "ko": "새 메시지 수신",
       "tid": "office.ui.026"
     },
     {
-      "en": "Open Messenger to read it.",
-      "ko": "메신저를 열어 이야기를 확인해보세요.",
+      "en": "Review the message in Messenger.",
+      "ko": "메신저에서 내용을 확인하세요.",
       "tid": "office.ui.027"
     },
     {
-      "en": "The original save has been preserved because it cannot be read. Confirm a reset below to start again.",
-      "ko": "현재 저장을 읽을 수 없어 원본을 보존했어요. 새로 시작하려면 아래에서 초기화를 확인해주세요.",
+      "en": "The unreadable save has been preserved. Confirm a reset below to restart.",
+      "ko": "저장을 읽을 수 없어 원본을 보존했습니다. 다시 시작하려면 아래에서 초기화를 확인하세요.",
       "tid": "office.ui.028"
     },
     {
@@ -1730,23 +1730,23 @@
       "tid": "office.ui.035"
     },
     {
-      "en": "Our little choices, another day!",
-      "ko": "우리의 작은 일주일, 저장 완료!",
+      "en": "Processing record saved",
+      "ko": "처리 기록 저장 완료",
       "tid": "office.ui.036"
     },
     {
-      "en": "An important message has arrived",
-      "ko": "띵동! 중요한 이야기가 도착했어요",
+      "en": "Office notification",
+      "ko": "업무 알림",
       "tid": "office.ui.037"
     },
     {
-      "en": "Today's report is here",
-      "ko": "오늘의 기록이 도착했어요",
+      "en": "Processing report received",
+      "ko": "처리 결과 수신",
       "tid": "office.ui.038"
     },
     {
-      "en": "Only this prototype’s seven-day record will be reset.\nThe existing campaign and character records are unaffected.",
-      "ko": "이 프로토타입의 7일 기록만 초기화됩니다.\n기존 캠페인과 인물 기록에는 영향을 주지 않아요.",
+      "en": "Only this prototype's seven-day record will be reset.\nExisting campaign and character records are unaffected.",
+      "ko": "이 프로토타입의 7일 기록만 초기화됩니다.\n기존 캠페인과 인물 기록에는 영향을 주지 않습니다.",
       "tid": "office.ui.039"
     },
     {
@@ -1755,18 +1755,18 @@
       "tid": "office.ui.040"
     },
     {
-      "en": "Full-screen notifications wait for your important decision.\nConfirm to return to your open windows.",
-      "ko": "전체화면 알림은 중요한 결정을 잠시 기다려줘요.\n확인을 누르면 열어두었던 창으로 돌아갑니다.",
+      "en": "Important decisions pause progression until confirmed.\nConfirm to return to the open windows.",
+      "ko": "중요 결정은 확인 전까지 진행을 멈춥니다.\n확인하면 열어둔 창으로 돌아갑니다.",
       "tid": "office.ui.041"
     },
     {
-      "en": "Cancel / Go back",
-      "ko": "잠깐, 돌아갈게요",
+      "en": "Cancel",
+      "ko": "취소",
       "tid": "office.ui.042"
     },
     {
-      "en": "Yes, confirm",
-      "ko": "네, 확정할게요",
+      "en": "Confirm",
+      "ko": "확정",
       "tid": "office.ui.043"
     },
     {
@@ -1775,28 +1775,28 @@
       "tid": "office.ui.044"
     },
     {
-      "en": "A fresh start",
-      "ko": "새로운 일주일",
+      "en": "Day 1 work begins",
+      "ko": "1일차 업무 시작",
       "tid": "office.ui.045"
     },
     {
-      "en": "Your first agenda is here. Open Today’s work.",
-      "ko": "첫 안건이 도착했어요. 오늘의 업무를 열어주세요.",
+      "en": "First agenda received. Open Today's work.",
+      "ko": "첫 안건이 접수됐습니다. 오늘의 업무를 여세요.",
       "tid": "office.ui.046"
     },
     {
-      "en": "A week well lived",
-      "ko": "한 주를 마쳤어요",
+      "en": "Weekly close",
+      "ko": "주간 마감",
       "tid": "office.ui.047"
     },
     {
-      "en": "A new message arrived",
-      "ko": "새로운 메시지가 왔어요",
+      "en": "New message received",
+      "ko": "새 메시지 수신",
       "tid": "office.ui.048"
     },
     {
-      "en": "Read the week’s stories in Activity log.",
-      "ko": "오늘의 업무에서 한 주의 이야기를 읽어보세요.",
+      "en": "Review the weekly outcome in Today's work.",
+      "ko": "오늘의 업무에서 주간 처리 결과를 확인하세요.",
       "tid": "office.ui.049"
     },
     {
@@ -1805,23 +1805,23 @@
       "tid": "office.ui.050"
     },
     {
-      "en": "Life comes first in the calendar.",
-      "ko": "시간표에, 각자의 삶을 먼저.",
+      "en": "Fixed schedules and work conflicts",
+      "ko": "고정 일정과 업무 충돌",
       "tid": "office.ui.051"
     },
     {
-      "en": "People beyond their status",
-      "ko": "상태 너머에 있는 사람들",
+      "en": "Individual conditions, requests and scope",
+      "ko": "인물별 상태·요구·업무 범위",
       "tid": "office.ui.052"
     },
     {
-      "en": "Small changes in our neighborhood",
-      "ko": "우리 동네의 작은 변화",
+      "en": "Districts and incident handling",
+      "ko": "관할 지역과 사건 처리",
       "tid": "office.ui.053"
     },
     {
-      "en": "Thank you for telling us early.",
-      "ko": "먼저 말해줘서 고마워요.",
+      "en": "Requests, complaints and replies",
+      "ko": "요청·항의·회신",
       "tid": "office.ui.054"
     },
     {
@@ -1830,8 +1830,8 @@
       "tid": "office.ui.055"
     },
     {
-      "en": "What we need to care for today",
-      "ko": "오늘, 우리가 챙겨야 할 것들",
+      "en": "Today's processing queue",
+      "ko": "오늘 처리할 안건",
       "tid": "office.ui.056"
     },
     {
@@ -1855,13 +1855,13 @@
       "tid": "office.ui.060"
     },
     {
-      "en": "Your choice was saved",
-      "ko": "선택을 저장했어요",
+      "en": "Choice saved",
+      "ko": "선택 저장",
       "tid": "office.ui.061"
     },
     {
-      "en": "Confirm the plan to finish today.",
-      "ko": "계획 확정으로 오늘을 마무리할 수 있어요.",
+      "en": "Confirm the plan to advance to the next day.",
+      "ko": "계획을 확정하면 다음 날로 진행합니다.",
       "tid": "office.ui.062"
     },
     {
@@ -1870,43 +1870,43 @@
       "tid": "office.ui.063"
     },
     {
-      "en": "Presentation complete / School schedule protected",
-      "ko": "발표 완료 · 학교 일정 유지",
+      "en": "Presentation complete / Survey handling rules sent",
+      "ko": "학교 발표 완료 · 조사 처리 기준 통보",
       "tid": "office.ui.064"
     },
     {
-      "en": "School presentation today / Scheduling needed",
-      "ko": "오늘 학교 발표 · 일정 조율 필요",
+      "en": "School presentation fixed / Survey assignment pending",
+      "ko": "학교 발표 고정 · 조사 담당 미정",
       "tid": "office.ui.065"
     },
     {
-      "en": "Rest secured / Next schedule to discuss",
-      "ko": "휴식 확보 · 다음 일정 협의",
+      "en": "Rest recorded / Condition recheck pending",
+      "ko": "휴식 처리 · 상태 재확인 대기",
       "tid": "office.ui.066"
     },
     {
-      "en": "Counseling connected / Consent confirmed",
-      "ko": "상담 연결 · 본인 동의 확인",
+      "en": "Counseling booked with consent / Outcome unconfirmed",
+      "ko": "동의 후 상담 예약 · 결과 미확인",
       "tid": "office.ui.067"
     },
     {
-      "en": "Recovery needed / Field work on hold",
-      "ko": "회복이 필요한 때 · 출동 보류",
+      "en": "Self-reported low energy / Field assignment held",
+      "ko": "기력 저하 본인 보고 · 출동 보류",
       "tid": "office.ui.068"
     },
     {
-      "en": "Exploring careers / Preparing for the future",
-      "ko": "진로 탐색 중 · 다음 생활 준비",
+      "en": "Career exploration slot allocated / Handover open",
+      "ko": "진로 탐색 시간 배정 · 인계 미결",
       "tid": "office.ui.069"
     },
     {
-      "en": "Writing handover notes / Sharing experience",
-      "ko": "인계 자료 작성 · 경험을 남기는 중",
+      "en": "One-page handover received / Career schedule open",
+      "ko": "인계 한 장 접수 · 진로 일정 미결",
       "tid": "office.ui.070"
     },
     {
-      "en": "Supporting activities / Graduation ahead",
-      "ko": "활동 지원 · 졸업 준비 예정",
+      "en": "Activity support / No graduation or mentoring commitment",
+      "ko": "활동 지원 · 졸업·멘토 약속 없음",
       "tid": "office.ui.071"
     },
     {
@@ -1925,8 +1925,8 @@
       "tid": "office.ui.074"
     },
     {
-      "en": "Support plan / ",
-      "ko": "지원 계획  /  ",
+      "en": "Work reference / ",
+      "ko": "업무상 참고 / ",
       "tid": "office.ui.075"
     },
     {
@@ -1935,8 +1935,8 @@
       "tid": "office.ui.076"
     },
     {
-      "en": "WEEK 01 / School, rest, local response and the next chapter",
-      "ko": "WEEK 01     학교 · 휴식 · 지역 대응 · 다음 삶",
+      "en": "WEEK 01 / Schedule conflict, absence, corrections, field limits, handover, close",
+      "ko": "WEEK 01 / 일정 충돌 · 결석 · 서류 보완 · 현장 통제 · 인계 · 정산",
       "tid": "office.ui.077"
     },
     {
@@ -1965,13 +1965,13 @@
       "tid": "office.ui.082"
     },
     {
-      "en": "Protect Hana's presentation and class time.",
-      "ko": "하나의 발표와 수업 시간을 보호합니다.",
+      "en": "Hana's presentation is fixed. Process survey assignment and credit separately.",
+      "ko": "하나의 발표는 고정 일정입니다. 조사 담당과 실적은 별도 처리합니다.",
       "tid": "office.ui.083"
     },
     {
-      "en": "Incident stable / Prevention and community follow-up",
-      "ko": "사건 안정 · 후속 예방과 지역 연결",
+      "en": "Activity stabilized / Some follow-up work remains",
+      "ko": "이상 반응 안정 · 후속 업무 일부 미결",
       "tid": "office.ui.084"
     },
     {
@@ -1980,8 +1980,8 @@
       "tid": "office.ui.085"
     },
     {
-      "en": "Connect recovery, counseling and specialist support.",
-      "ko": "회복·상담과 전문기관 지원을 연결합니다.",
+      "en": "Register agreed counseling and coordinate contacts. Recovery needs separate confirmation.",
+      "ko": "동의한 상담을 접수하고 연락 창구를 조율합니다. 회복 여부는 별도 확인합니다.",
       "tid": "office.ui.086"
     },
     {
@@ -2010,8 +2010,8 @@
       "tid": "office.ui.091"
     },
     {
-      "en": "Messages and follow-up news",
-      "ko": "받은 이야기와 후속 소식",
+      "en": "Received messages and processing replies",
+      "ko": "접수 메시지와 처리 회신",
       "tid": "office.ui.092"
     },
     {
@@ -2025,18 +2025,18 @@
       "tid": "office.ui.094"
     },
     {
-      "en": "Seven days, and a future for each person.",
-      "ko": "7일 동안 남긴 것은, 각자의 다음입니다.",
+      "en": "Seven-day close. Finished work, unfinished situations.",
+      "ko": "7일 마감. 끝난 업무와 남은 사정.",
       "tid": "office.ui.095"
     },
     {
-      "en": "Hana protected school time / Sori asked for help / Yuna prepared for the future",
-      "ko": "학교를 지킨 하나 · 도움을 요청한 소리 · 다음 생활을 준비하는 유나",
+      "en": "Hana questions the scope, Sori says little, and Yuna is still dissatisfied.",
+      "ko": "하나는 범위를 따지고, 소리는 말을 아끼고, 유나는 여전히 불만이다.",
       "tid": "office.ui.096"
     },
     {
-      "en": "\n\nGraduation and mentoring remain each person’s next choice.",
-      "ko": "\n\n졸업과 멘토 참여는 당사자의 다음 선택으로 남겨둡니다.",
+      "en": "\n\nGraduation and mentoring remain unconfirmed. Carry open items into next week.",
+      "ko": "\n\n졸업·멘토 참여는 미확정입니다. 미결 항목은 다음 주로 이월합니다.",
       "tid": "office.ui.097"
     },
     {
@@ -2045,13 +2045,13 @@
       "tid": "office.ui.098"
     },
     {
-      "en": "a little everyday.",
-      "ko": "작은 일상.",
+      "en": "process one at a time.",
+      "ko": "하나씩 처리.",
       "tid": "office.wallpaper.everyday"
     },
     {
-      "en": "a little magic,",
-      "ko": "작은 마법과,",
+      "en": "Start with the queue,",
+      "ko": "접수된 일부터,",
       "tid": "office.wallpaper.magic"
     },
     {
@@ -2229,12 +2229,12 @@
   "source": {
     "game_data": {
       "id": "1uOFm5t18aEB_jEHs_R5rtvJfj15Q7r_grSeXwLOxtvU",
-      "sha256": "745a3bcf5daf6207c7439e43919ff8a17ce5d3144f2bd4c74dc484a496ae0445"
+      "sha256": "0a494836601d055d42c13fbca12841c663a912a0de7b27de8ea273688761eba8"
     },
     "mode": "google_sheets",
     "text": {
       "id": "1eIdY31tip9qJNvoc8nxHl25ZIRW7e_9EmdkI851w6No",
-      "sha256": "a2a4057b33e62d6d0dd6ca315724d73f7cd309d0446f4c60f209950da7ea7d26"
+      "sha256": "99563cb2d21ef591aa9eccab0633d3d9055575f52ece3ba12ccaa17c198f9f2c"
     }
   }
 }

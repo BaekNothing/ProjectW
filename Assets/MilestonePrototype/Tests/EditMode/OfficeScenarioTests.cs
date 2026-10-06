@@ -4,6 +4,38 @@ namespace ProjectW.MilestonePrototype.Tests
 {
     public sealed class OfficeScenarioTests
     {
+        [TestCase("ko")]
+        [TestCase("en")]
+        [TestCase("tid")]
+        public void EverySevenDayPathKeepsLocalizedReportsAfterSaveRestore(string locale)
+        {
+            string originalLocale = SheetContent.Locale;
+            try
+            {
+                SheetContent.SetLocale(locale);
+                for (int path = 0; path < 128; path++)
+                {
+                    var scenario = new OfficeScenario();
+                    var reports = new string[7];
+                    for (int day = 0; day < 7; day++)
+                    {
+                        Assert.That(scenario.Choose((path >> day) & 1), Is.True);
+                        reports[day] = scenario.Report(day);
+                        Assert.That(reports[day], Is.Not.Empty);
+                        if (locale != "tid") Assert.That(reports[day], Does.Not.StartWith("office."));
+                        Assert.That(scenario.Advance(), Is.True);
+                        var restored = new OfficeScenario();
+                        Assert.That(restored.Restore(scenario.Export()), Is.True);
+                        for (int prior = 0; prior <= day; prior++)
+                            Assert.That(restored.Report(prior), Is.EqualTo(reports[prior]));
+                        scenario = restored;
+                    }
+                    Assert.That(scenario.Complete, Is.True);
+                }
+            }
+            finally { SheetContent.SetLocale(originalLocale); }
+        }
+
         [TestCase(0)]
         [TestCase(1)]
         public void SevenDaysPreserveDecisionsAndEndWithoutFurtherTransitions(int option)

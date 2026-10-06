@@ -231,7 +231,7 @@ namespace ProjectW.MilestonePrototype
             int previousPage = page, previousPerson = person;
             Vector2 previousScroll = scroll;
             page = app; person = window.Person; scroll = window.Scroll;
-            float contentHeight = app == 6 ? 770 : app == 1 ? 710 : app == 4 || app == 5 || (Scenario.Complete && app == 0) ? 1100 : 690;
+            float contentHeight = Mathf.Max(window.ContentHeight, app == 6 ? 770 : app == 1 ? 710 : 690);
             window.ContentHeight = contentHeight;
             OfficeTouchGesture.ClampScroll(window);
             scroll = window.Scroll;
@@ -239,13 +239,14 @@ namespace ProjectW.MilestonePrototype
             scroll = GUI.BeginScrollView(view, scroll, new Rect(0, 0, view.width - 22, contentHeight));
             float cw = view.width - 22;
             if (app == 6) DrawSettings(cw);
-            else if (Scenario.Complete && app == 0) DrawEnding(cw);
-            else if (app == 0) DrawToday(cw);
+            else if (Scenario.Complete && app == 0) contentHeight = DrawEnding(cw);
+            else if (app == 0) contentHeight = DrawToday(cw);
             else if (app == 1) DrawSchedule(cw);
-            else if (app == 2) DrawPeople(cw);
-            else if (app == 3) DrawDistrict(cw);
-            else DrawJournal(cw, app == 4);
+            else if (app == 2) contentHeight = DrawPeople(cw);
+            else if (app == 3) contentHeight = DrawDistrict(cw);
+            else contentHeight = DrawJournal(cw, app == 4);
             GUI.EndScrollView();
+            window.ContentHeight = contentHeight;
             window.Scroll = scroll; window.Person = person;
             page = previousPage; person = previousPerson; scroll = previousScroll;
             Fill(new Rect(12, wh - 56, ww - 24, 1), Line);
@@ -290,7 +291,8 @@ namespace ProjectW.MilestonePrototype
         private void DrawModal()
         {
             Fill(new Rect(0, 0, width, height), new Color(.20f, .13f, .32f, .82f));
-            float mw = 704, mh = 514;
+            string message = modal == Modal.Reset ? SheetContent.T("office.ui.039") : modal == Modal.ConfirmDay ? SheetContent.Format("office.confirm_day", "choice", OfficeScenario.Options[Scenario.CurrentIndex * 2 + Scenario.Choice(Scenario.CurrentIndex)]) : modal == Modal.Preview ? SheetContent.T("office.ui.041") : report;
+            float mw = 704, mh = Mathf.Max(514, 388 + TextHeight(message, body, 632, 126));
             Rect panel = new Rect((width - mw) / 2, (height - mh) / 2, mw, mh);
             GUI.BeginGroup(panel);
             Frame(new Rect(0, 0, mw, mh), Paper, Ink, true);
@@ -300,11 +302,10 @@ namespace ProjectW.MilestonePrototype
             DrawIcon(new Rect(mw / 2 - 36, 91, 72, 72), modal == Modal.Reset ? 6 : modal == Modal.Preview ? 4 : 0);
             string title = modal == Modal.Reset ? SheetContent.T("office.ui.034") : modal == Modal.ConfirmDay ? SheetContent.T("office.ui.035") : modal == Modal.WeekReport ? SheetContent.T("office.ui.036") : modal == Modal.Preview ? SheetContent.T("office.ui.037") : SheetContent.T("office.ui.038");
             Text(new Rect(36, 203, mw - 72, 46), title, heading, Ink);
-            string message = modal == Modal.Reset ? SheetContent.T("office.ui.039") : modal == Modal.ConfirmDay ? SheetContent.Format("office.confirm_day", "choice", OfficeScenario.Options[Scenario.CurrentIndex * 2 + Scenario.Choice(Scenario.CurrentIndex)]) : modal == Modal.Preview ? SheetContent.T("office.ui.041") : report;
-            Text(new Rect(36, 273, mw - 72, 126), message, body, Muted);
+            Text(new Rect(36, 273, mw - 72, mh - 388), message, body, Muted);
             bool confirm = modal == Modal.Reset || modal == Modal.ConfirmDay;
-            if (confirm && Action(new Rect(36, 435, 300, 48), SheetContent.T("office.ui.042"), false, false, true)) modal = Modal.None;
-            if (Action(new Rect(confirm ? 354 : 202, 435, 314, 48), confirm ? SheetContent.T("office.ui.043") : SheetContent.T("office.ui.044"), true, false, true))
+            if (confirm && Action(new Rect(36, mh - 79, 300, 48), SheetContent.T("office.ui.042"), false, false, true)) modal = Modal.None;
+            if (Action(new Rect(confirm ? 354 : 202, mh - 79, 314, 48), confirm ? SheetContent.T("office.ui.043") : SheetContent.T("office.ui.044"), true, false, true))
             {
                 if (modal == Modal.Reset)
                 {
@@ -428,7 +429,7 @@ namespace ProjectW.MilestonePrototype
                 default: return SheetContent.T("office.ui.056");
             }
         }
-        private void DrawToday(float w)
+        private float DrawToday(float w)
         {
             float card = (w - 24) / 3;
             for (int i = 0; i < 3; i++)
@@ -441,25 +442,43 @@ namespace ProjectW.MilestonePrototype
             }
             int day = Scenario.CurrentIndex;
             Text(new Rect(0, 151, w, 26), SheetContent.Format("office.agenda.deadline", "day", Scenario.Day.ToString("00")), caption, Teal);
-            Fill(new Rect(0, 187, w, 222), Color.white);
-            Fill(new Rect(0, 187, 5, 222), Teal);
-            Text(new Rect(25, 205, w - 50, 50), OfficeScenario.Titles[day], heading, Ink);
-            Text(new Rect(25, 262, w - 50, 27), SheetContent.Format("office.agenda.sender", "sender", OfficeScenario.Senders[day]), caption, Muted);
-            Text(new Rect(25, 304, w - 50, 83), OfficeScenario.Bodies[day], body, Ink);
+            string sender = SheetContent.Format("office.agenda.sender", "sender", OfficeScenario.Senders[day]);
+            float titleH = TextHeight(OfficeScenario.Titles[day], heading, w - 50, 50);
+            float senderH = TextHeight(sender, caption, w - 50, 27);
+            float bodyH = TextHeight(OfficeScenario.Bodies[day], body, w - 50, 83);
+            float bodyY = 205 + titleH + 7 + senderH + 15;
+            float optionY = bodyY + bodyH + 40;
+            Fill(new Rect(0, 187, w, optionY - 206), Color.white);
+            Fill(new Rect(0, 187, 5, optionY - 206), Teal);
+            Text(new Rect(25, 205, w - 50, titleH), OfficeScenario.Titles[day], heading, Ink);
+            Text(new Rect(25, 212 + titleH, w - 50, senderH), sender, caption, Muted);
+            Text(new Rect(25, bodyY, w - 50, bodyH), OfficeScenario.Bodies[day], body, Ink);
+            float bw = (w - 14) / 2;
+            float optionH = 55, reasonH = 68;
             for (int i = 0; i < 2; i++)
             {
-                float cx = i * ((w - 14) / 2 + 14), bw = (w - 14) / 2;
+                optionH = Mathf.Max(optionH, TextHeight(SheetContent.Format("office.choice.selected", "choice", OfficeScenario.Options[day * 2 + i]), button, bw, 55));
+                reasonH = Mathf.Max(reasonH, TextHeight(OfficeScenario.Reasons[day * 2 + i], body, bw - 16, 68));
+            }
+            for (int i = 0; i < 2; i++)
+            {
+                float cx = i * (bw + 14);
                 GUI.enabled = CanInteract && !SaveBlocked && !Scenario.Complete;
-                if (Action(new Rect(cx, 428, bw, 55), (Scenario.Choice(day) == i ? SheetContent.Format("office.choice.selected", "choice", OfficeScenario.Options[day * 2 + i]) : OfficeScenario.Options[day * 2 + i]), Scenario.Choice(day) == i))
+                if (Action(new Rect(cx, optionY, bw, optionH), (Scenario.Choice(day) == i ? SheetContent.Format("office.choice.selected", "choice", OfficeScenario.Options[day * 2 + i]) : OfficeScenario.Options[day * 2 + i]), Scenario.Choice(day) == i))
                 { Scenario.Choose(i); Save(); Notify(SheetContent.T("office.ui.061"), SheetContent.T("office.ui.062"), 0); }
                 GUI.enabled = CanInteract;
-                Text(new Rect(cx + 8, 497, bw - 16, 68), OfficeScenario.Reasons[day * 2 + i], body, Muted);
+                Text(new Rect(cx + 8, optionY + optionH + 14, bw - 16, reasonH), OfficeScenario.Reasons[day * 2 + i], body, Muted);
             }
+            float reportY = optionY + optionH + 14 + reasonH + 12;
             if (Scenario.CanAdvance)
             {
-                Fill(new Rect(0, 571, w, 89), new Color(.86f, .92f, .86f));
-                Text(new Rect(18, 582, w - 36, 71), SheetContent.Format("office.report.preview", "report", Scenario.Report(day)), body, Teal);
+                string report = SheetContent.Format("office.report.preview", "report", Scenario.Report(day));
+                float reportH = TextHeight(report, body, w - 36, 71);
+                Fill(new Rect(0, reportY, w, reportH + 22), new Color(.86f, .92f, .86f));
+                Text(new Rect(18, reportY + 11, w - 36, reportH), report, body, Teal);
+                reportY += reportH + 22;
             }
+            return reportY + 20;
         }
         private string PersonStatus(int i)
         {
@@ -467,18 +486,28 @@ namespace ProjectW.MilestonePrototype
             if (i == 1) return Scenario.Day > 2 ? (Scenario.Choice(1) == 0 ? SheetContent.T("office.ui.066") : SheetContent.T("office.ui.067")) : SheetContent.T("office.ui.068");
             return Scenario.Day > 5 ? (Scenario.Choice(4) == 0 ? SheetContent.T("office.ui.069") : SheetContent.T("office.ui.070")) : SheetContent.T("office.ui.071");
         }
-        private void DrawPeople(float w)
+        private float DrawPeople(float w)
         {
             for (int i = 0; i < 3; i++)
                 if (Action(new Rect(i * 170, 0, 156, 45), OfficeScenario.Names[i], person == i)) person = i;
-            Fill(new Rect(0, 70, w, 470), Color.white);
-            Text(new Rect(26, 94, w - 52, 55), SheetContent.Format("office.person.heading", "name", OfficeScenario.Names[person], "role", OfficeScenario.Roles[person]), heading, Ink);
-            Text(new Rect(26, 160, w - 52, 40), SheetContent.Format("office.person.status_day", "day", Mathf.Min(Scenario.Day, 7).ToString("00")), caption, Teal);
-            Text(new Rect(26, 205, w - 52, 50), PersonStatus(person), body, Ink);
             int source = person == 0 ? 0 : person == 1 ? 1 : 4;
-            Text(new Rect(26, 276, w - 52, 35), SheetContent.Format("office.person.message_day", "day", (source + 1).ToString("00")), caption, Teal);
-            Text(new Rect(26, 321, w - 52, 115), Scenario.Day >= source + 1 ? OfficeScenario.Bodies[source] : SheetContent.T("office.ui.074"), body, Ink);
-            Text(new Rect(26, 451, w - 52, 61), SheetContent.Format("office.person.plan", "role", OfficeScenario.Roles[person]), body, Muted);
+            string title = SheetContent.Format("office.person.heading", "name", OfficeScenario.Names[person], "role", OfficeScenario.Roles[person]);
+            string message = Scenario.Day >= source + 1 ? OfficeScenario.Bodies[source] : SheetContent.T("office.ui.074");
+            string plan = SheetContent.Format("office.person.plan", "role", OfficeScenario.Roles[person]);
+            float titleH = TextHeight(title, heading, w - 52, 55);
+            float statusH = TextHeight(PersonStatus(person), body, w - 52, 50);
+            float messageY = 94 + titleH + 11 + 45 + statusH + 21 + 45;
+            float messageH = TextHeight(message, body, w - 52, 115);
+            float planY = messageY + messageH + 15;
+            float planH = TextHeight(plan, body, w - 52, 61);
+            Fill(new Rect(0, 70, w, planY + planH - 46), Color.white);
+            Text(new Rect(26, 94, w - 52, titleH), title, heading, Ink);
+            Text(new Rect(26, 105 + titleH, w - 52, 40), SheetContent.Format("office.person.status_day", "day", Mathf.Min(Scenario.Day, 7).ToString("00")), caption, Teal);
+            Text(new Rect(26, 150 + titleH, w - 52, statusH), PersonStatus(person), body, Ink);
+            Text(new Rect(26, messageY - 45, w - 52, 35), SheetContent.Format("office.person.message_day", "day", (source + 1).ToString("00")), caption, Teal);
+            Text(new Rect(26, messageY, w - 52, messageH), message, body, Ink);
+            Text(new Rect(26, planY, w - 52, planH), plan, body, Muted);
+            return planY + planH + 44;
         }
         private void DrawSchedule(float w)
         {
@@ -493,7 +522,7 @@ namespace ProjectW.MilestonePrototype
                 Text(new Rect(120, y + 43, w - 140, 27), plan, caption, Muted);
             }
         }
-        private void DrawDistrict(float w)
+        private float DrawDistrict(float w)
         {
             string[] sites = { SheetContent.T("office.ui.080"), SheetContent.T("office.ui.081"), SheetContent.T("office.ui.082") };
             string[] notes = { SheetContent.T("office.ui.083"), Scenario.Day > 4 ? SheetContent.T("office.ui.084") : SheetContent.T("office.ui.085"), SheetContent.T("office.ui.086") };
@@ -504,11 +533,14 @@ namespace ProjectW.MilestonePrototype
                 Text(new Rect(285, i * 113 + 20, w - 310, 65), notes[i], body, Ink);
             }
             Text(new Rect(0, 360, w, 42), SheetContent.T("office.ui.087"), heading, Ink);
-            Text(new Rect(0, 421, w, 180), SheetContent.Format("office.district.report", "day", Mathf.Min(Scenario.Day, 7).ToString("00"), "report",
-                Scenario.Day > 4 ? Scenario.Report(3) : SheetContent.T("office.ui.089")), body, Muted);
-            if (Action(new Rect(0, 607, 255, 46), SheetContent.T("office.ui.091"), true)) RequestApp(0);
+            string report = SheetContent.Format("office.district.report", "day", Mathf.Min(Scenario.Day, 7).ToString("00"), "report",
+                Scenario.Day > 4 ? Scenario.Report(3) : SheetContent.T("office.ui.089"));
+            float reportH = TextHeight(report, body, w, 180);
+            Text(new Rect(0, 421, w, reportH), report, body, Muted);
+            if (Action(new Rect(0, 427 + reportH, 255, 46), SheetContent.T("office.ui.091"), true)) RequestApp(0);
+            return 493 + reportH;
         }
-        private void DrawJournal(float w, bool messages)
+        private float DrawJournal(float w, bool messages)
         {
             Text(new Rect(0, 0, w, 40), messages ? SheetContent.T("office.ui.092") : SheetContent.T("office.ui.093"), heading, Ink);
             float y = 60;
@@ -516,27 +548,42 @@ namespace ProjectW.MilestonePrototype
             {
                 bool committed = d < Scenario.Day - 1;
                 if (!messages && !committed) continue;
-                Fill(new Rect(0, y, w, 130), Color.white);
-                Text(new Rect(18, y + 13, w - 36, 26), SheetContent.Format("office.journal.heading", "day", (d + 1).ToString("00"), "title", messages ? OfficeScenario.Senders[d] : OfficeScenario.Titles[d]), caption, Teal);
-                Text(new Rect(18, y + 51, w - 36, 70), committed ? Scenario.Report(d) : OfficeScenario.Bodies[d], body, Ink);
-                y += 142;
+                string title = SheetContent.Format("office.journal.heading", "day", (d + 1).ToString("00"), "title", messages ? OfficeScenario.Senders[d] : OfficeScenario.Titles[d]);
+                string message = committed ? Scenario.Report(d) : OfficeScenario.Bodies[d];
+                float titleH = TextHeight(title, caption, w - 36, 26);
+                float messageH = TextHeight(message, body, w - 36, 70);
+                float height = 13 + titleH + 12 + messageH + 12;
+                Fill(new Rect(0, y, w, height), Color.white);
+                Text(new Rect(18, y + 13, w - 36, titleH), title, caption, Teal);
+                Text(new Rect(18, y + 25 + titleH, w - 36, messageH), message, body, Ink);
+                y += height + 12;
             }
             if (y == 60) Text(new Rect(0, y, w, 60), SheetContent.T("office.ui.094"), body, Muted);
+            return Mathf.Max(140, y + 20);
         }
-        private void DrawEnding(float w)
+        private float DrawEnding(float w)
         {
             Fill(new Rect(0, 0, w, 132), Teal);
             Text(new Rect(24, 20, w - 48, 40), SheetContent.T("office.ui.095"), heading, Color.white);
             Text(new Rect(24, 74, w - 48, 42), SheetContent.T("office.ui.096"), body, Color.white);
+            float y = 154;
             for (int i = 0; i < 3; i++)
             {
-                float y = 154 + i * 160;
-                Fill(new Rect(0, y, w, 140), Color.white);
-                Text(new Rect(20, y + 13, w - 40, 39), SheetContent.Format("office.ending.person", "name", OfficeScenario.Names[i], "status", PersonStatus(i)), heading, Ink);
-                Text(new Rect(20, y + 62, w - 40, 68), Scenario.Report(i == 0 ? 0 : i == 1 ? 1 : 4), body, Muted);
+                string title = SheetContent.Format("office.ending.person", "name", OfficeScenario.Names[i], "status", PersonStatus(i));
+                string report = Scenario.Report(i == 0 ? 0 : i == 1 ? 1 : 4);
+                float titleH = TextHeight(title, heading, w - 40, 39);
+                float reportH = TextHeight(report, body, w - 40, 68);
+                float height = 13 + titleH + 10 + reportH + 12;
+                Fill(new Rect(0, y, w, height), Color.white);
+                Text(new Rect(20, y + 13, w - 40, titleH), title, heading, Ink);
+                Text(new Rect(20, y + 23 + titleH, w - 40, reportH), report, body, Muted);
+                y += height + 20;
             }
-            Text(new Rect(0, 657, w, 100), SheetContent.Format("office.ending.report", "report", Scenario.Report(6)), body, Teal);
-            if (Action(new Rect(0, 787, 280, 48), SheetContent.T("office.ui.098"), true)) RequestApp(5);
+            string ending = SheetContent.Format("office.ending.report", "report", Scenario.Report(6));
+            float endingH = TextHeight(ending, body, w, 100);
+            Text(new Rect(0, y, w, endingH), ending, body, Teal);
+            if (Action(new Rect(0, y + endingH + 30, 280, 48), SheetContent.T("office.ui.098"), true)) RequestApp(5);
+            return y + endingH + 98;
         }
         private void Save()
         {
@@ -560,6 +607,9 @@ namespace ProjectW.MilestonePrototype
             GUI.DrawTexture(r, Texture2D.whiteTexture);
             GUI.color = old;
         }
+        public static float TextHeight(string value, GUIStyle style, float width, float minimum)
+            => Mathf.Max(minimum, Mathf.Ceil(style.CalcHeight(new GUIContent(value), Mathf.Max(1, width))) + 4);
+
         private static void Text(Rect r, string value, GUIStyle style, Color c)
         {
             style.normal.textColor = c;
