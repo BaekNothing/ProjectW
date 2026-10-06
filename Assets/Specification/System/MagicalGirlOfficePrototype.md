@@ -105,8 +105,20 @@ M2–M4의 일반 시뮬레이션, 경제 산식, 실제 졸업·멘토 시스�
   스크롤 높이는 그리기 결과로 갱신한다. 런타임과 테스트를 Unity 6000.3.8f1 Roslyn/Editor 참조로 컴파일했다.
 - 검증 제한(2026-10-06): Unity EditMode 실행은 활성 Editor 라이선스 없음(exit 198)으로 시작 전 중단.
   컴파일 성공은 테스트 실행 성공이 아니다. 추가한 128경로 저장/복원·언어 테스트와 문구 높이 테스트는 실행 대기.
-- TODO: Unity Hub 로그인·라이선스 활성화 후 Office/SheetContent 테스트, WebGL 빌드,
-  포함 리소스 검사와 Butler html5 게시 확인. 이번 개정의 웹 게시 완료를 주장하지 않는다.
+- 위 라이선스 차단은 사용자 활성화 후 해소됨. 아래 배포 검증 기록으로 후속 TODO를 완료했다.
+
+### 업무 톤 개정 배포 검증 — 2026-10-06
+
+- Office/SheetContent EditMode 테스트 47개 통과, 실패 0 (`Logs/office-tone-editmode.xml`).
+  128개 선택 경로의 저장·복원과 ko/en/tid 결과, 최소 창 너비의 보고 높이 테스트 포함.
+- WebGL 빌드 성공: `WEB_PREVIEW_BUILD_OK bytes=32217547`.
+  공개 시트 수입 성공: 242 texts, 5 sample characters, missing_en=0.
+- 빌드의 catalog.bin/hash, 효과 bundle(37,220 bytes), 인물 bundle(453,169 bytes) 포함 확인.
+- Butler `baeknothing/managingheaven:html5` 업로드 및 서버 처리 완료.
+  Version `office-tone-20261006-091826`, build `2073186`, upload `19215817`.
+  최신 CLI status에서 해당 버전이 head이며 state=completed, pending 없음 확인.
+- 빌드 중 다시 수입한 시트의 원본 해시만 갱신됨. 문구·게임 데이터 내용 변경 없음.
+- 웹·브라우저·플레이 검증과 페이지 공개 설정 변경은 수행하지 않았다.
 
 ## 독립 저장과 전이
 

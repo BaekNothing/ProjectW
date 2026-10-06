@@ -2229,12 +2229,12 @@
   "source": {
     "game_data": {
       "id": "1uOFm5t18aEB_jEHs_R5rtvJfj15Q7r_grSeXwLOxtvU",
-      "sha256": "0a494836601d055d42c13fbca12841c663a912a0de7b27de8ea273688761eba8"
+      "sha256": "cc1c3ccf501362fd9061a734d67fe03cb78ead43d164d82e0a294d6d3fd8b4e8"
     },
     "mode": "google_sheets",
     "text": {
       "id": "1eIdY31tip9qJNvoc8nxHl25ZIRW7e_9EmdkI851w6No",
-      "sha256": "99563cb2d21ef591aa9eccab0633d3d9055575f52ece3ba12ccaa17c198f9f2c"
+      "sha256": "3bd5818046d2507a4a5b3b7e1c55399c96864719a26996cfa53d66d67765ceba"
     }
   }
 }
