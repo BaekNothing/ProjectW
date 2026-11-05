@@ -884,12 +884,12 @@ Base APK v6 uses the project's active Input System package rather than the disab
 - Base APK v6 preserves the required `Unity.InputSystem` types and embeds the same behavior for
   offline fallback.
 
-### Current Base APK v9 Activation
+### Current Base APK v12 Activation
 
-- The currently supported installed baseline is base APK v9. Base APK v7 added patch diagnostics,
-  v8 added stable window-front ordering, and v9 added update requests and the gameplay-data editor's
-  approved text-editing surface.
-- Current development patches declare `minBaseVersion = 9`. Earlier base compatibility notes in
+- The currently supported installed baseline is base APK v12. Base APK v11 added the unified remote
+  Addressables path, and v12 adds the StudioUI UI Toolkit runtime after removing the prototype IMGUI
+  desktop and sample scenes.
+- Current development patches declare `minBaseVersion = 12`. Earlier base compatibility notes in
   this document are historical constraints, not supported alternatives for the active dev channel.
 - The exact approved AOT and Contracts surface remains authoritative in
   `Assets/Specification/Operation/HotUpdateAotSafety.md`; this section does not authorize additional

@@ -37,15 +37,15 @@ native plugins, Android settings, Unity, or HybridCLR change.
 
 ### Current base APK
 
-- Base version: `11`
+- Base version: `12`
 - Artifact: `APK/ProjectW-HybridCLR.apk`
-- Size: `51,427,973` bytes
-- SHA-256: `bc21f669d80476023611be7a706388faae985f5b8cc4ea6434418c9f088c1bba`
-- Required for: the unified remote Addressables catalog/effect bundle pipeline and all earlier timed
-  notification, title, update, gameplay-data, diagnostics, and desktop-window operations
+- Size: `52,859,744` bytes
+- SHA-256: `5b4bc2dbf40899010787d8ea5cd5a2977bb49f8635bc970b8fe1d506fceb3b4c`
+- Required for: the StudioUI UI Toolkit title and operations workspace, plus the unified remote
+  Addressables catalog/content pipeline and all fixed Bootstrap operations
 
-Older base APKs reject manifests whose `minBaseVersion` is `11`. Install base APK v11 once before
-consuming patches that include remote Addressables content.
+Older base APKs reject manifests whose `minBaseVersion` is `12`. Install base APK v12 once before
+consuming StudioUI patches.
 
 ## Routine code patch workflow
 

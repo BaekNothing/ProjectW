@@ -1,0 +1,102 @@
+.app-root { flex-grow: 1; background-color: var(--surface-canvas); }
+.title-screen {
+    flex-grow: 1;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background-color: var(--surface-canvas);
+}
+
+.title-orbit { position: absolute; border-width: 1px; border-color: var(--border-subtle); border-radius: 500px; }
+.title-orbit-large { width: 760px; height: 760px; opacity: 0.6; }
+.title-orbit-small { width: 510px; height: 510px; border-color: var(--accent); opacity: 0.16; }
+.title-card { width: 620px; max-width: 88%; align-items: center; padding: 56px; }
+.title-eyebrow { margin-bottom: 18px; }
+.display-title { font-size: 64px; -unity-font-style: bold; letter-spacing: 7px; color: var(--text-primary); }
+.title-description { margin-top: 18px; margin-bottom: 32px; font-size: 17px; color: var(--text-secondary); -unity-text-align: middle-center; white-space: normal; }
+.title-start { width: 270px; }
+.title-footer { position: absolute; bottom: 28px; font-size: 10px; letter-spacing: 1.6px; color: var(--text-secondary); }
+
+.desktop-screen { display: none; flex-grow: 1; }
+.topbar {
+    height: 72px;
+    min-height: 72px;
+    padding-left: 22px;
+    padding-right: 22px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    background-color: var(--surface-panel);
+    border-bottom-width: 1px;
+    border-bottom-color: var(--border-subtle);
+}
+.brand-lockup, .topbar-status { flex-direction: row; align-items: center; }
+.brand-mark { width: 40px; height: 40px; border-radius: 11px; margin-right: 11px; align-items: center; justify-content: center; background-color: var(--accent); }
+.brand-mark-text { color: white; font-size: 18px; -unity-font-style: bold; }
+.brand-title { font-size: 15px; -unity-font-style: bold; letter-spacing: 1.2px; color: var(--text-primary); }
+.brand-subtitle { font-size: 9px; letter-spacing: 1.4px; color: var(--text-secondary); }
+.status-pill { min-height: 36px; margin-right: 8px; padding: 9px 13px; border-radius: 10px; background-color: var(--surface-raised); color: var(--text-secondary); -unity-font-style: bold; font-size: 12px; }
+.status-accent { background-color: var(--accent-soft); color: var(--accent); }
+
+.workspace { flex-grow: 1; flex-direction: row; }
+.sidebar { width: 224px; min-width: 200px; padding: 18px 14px; background-color: var(--surface-panel); border-right-width: 1px; border-right-color: var(--border-subtle); }
+.sidebar-label { margin: 8px 10px 12px 10px; font-size: 10px; letter-spacing: 1.6px; color: var(--text-secondary); -unity-font-style: bold; }
+.nav-button { height: 44px; margin-bottom: 4px; padding-left: 14px; border-width: 0; border-radius: 10px; -unity-text-align: middle-left; background-color: rgba(0, 0, 0, 0); color: var(--text-secondary); font-size: 14px; }
+.nav-button:hover { background-color: var(--surface-raised); color: var(--text-primary); }
+.nav-button.is-selected { background-color: var(--accent-soft); color: var(--accent); -unity-font-style: bold; }
+.sidebar-spacer { flex-grow: 1; }
+.sidebar-note { margin-top: 14px; padding: 14px; border-radius: 12px; background-color: var(--surface-raised); }
+.sidebar-note-text { margin-top: 7px; font-size: 11px; color: var(--text-secondary); white-space: normal; }
+
+.main-panel { flex-grow: 1; min-width: 0; }
+.page-header { height: 92px; min-height: 92px; padding-left: 30px; padding-right: 30px; flex-direction: row; align-items: center; justify-content: space-between; }
+.page-title { margin-top: 5px; font-size: 27px; -unity-font-style: bold; color: var(--text-primary); }
+.page-scroll { flex-grow: 1; padding-left: 30px; padding-right: 30px; }
+.page-content { padding-bottom: 28px; }
+.command-bar { min-height: 74px; padding-left: 30px; padding-right: 30px; flex-direction: row; align-items: center; justify-content: space-between; background-color: var(--surface-panel); border-top-width: 1px; border-top-color: var(--border-subtle); }
+.next-day-button { min-width: 166px; }
+
+.metric-grid, .card-grid { flex-direction: row; flex-wrap: wrap; margin: -6px; margin-bottom: 18px; }
+.metric-card { min-width: 190px; flex-grow: 1; margin: 6px; }
+.metric-value { margin-top: 7px; margin-bottom: 3px; font-size: 30px; -unity-font-style: bold; color: var(--text-primary); }
+.card-grid > .section-card { min-width: 310px; flex-basis: 46%; flex-grow: 1; margin: 6px; }
+.summary-row, .mail-row, .codex-row { min-height: 56px; padding-top: 12px; padding-bottom: 12px; border-bottom-width: 1px; border-bottom-color: var(--border-subtle); }
+.summary-row { flex-direction: row; align-items: center; }
+.summary-row > * { margin-right: 12px; }
+.summary-title { font-size: 14px; -unity-font-style: bold; color: var(--text-primary); }
+.mail-row { flex-direction: row; }
+.mail-row > .badge { margin-right: 12px; }
+.mail-copy { flex-grow: 1; }
+.codex-row > * { margin-bottom: 5px; }
+.page-toolbar { min-height: 54px; padding: 8px 12px; margin-bottom: 10px; flex-direction: row; align-items: center; justify-content: space-between; }
+
+.gantt-frame { background-color: var(--surface-panel); border-width: 1px; border-color: var(--border-subtle); border-radius: 14px; overflow: hidden; }
+.gantt-header-row, .gantt-body { flex-direction: row; }
+.gantt-fixed-header { width: 300px; min-width: 300px; height: 58px; padding: 21px 18px; border-right-width: 1px; border-right-color: var(--border-subtle); color: var(--text-secondary); font-size: 10px; letter-spacing: 1px; -unity-font-style: bold; }
+.gantt-horizontal { flex-grow: 1; min-width: 0; }
+.gantt-horizontal > .unity-scroll-view__vertical-scroller { display: none; }
+.gantt-date-row { height: 58px; flex-direction: row; }
+.gantt-date-cell { height: 58px; min-width: 64px; padding-top: 13px; border-right-width: 1px; border-bottom-width: 1px; border-color: var(--timeline-grid); -unity-text-align: middle-center; color: var(--text-secondary); font-size: 11px; }
+.gantt-date-cell.is-today { background-color: var(--accent-soft); color: var(--accent); -unity-font-style: bold; }
+.gantt-date-cell.is-weekend { background-color: var(--surface-raised); }
+.gantt-labels { width: 300px; min-width: 300px; border-right-width: 1px; border-right-color: var(--border-subtle); }
+.gantt-timeline { position: relative; }
+.gantt-work-label, .gantt-task-label { height: 54px; min-height: 54px; padding-left: 16px; padding-right: 12px; justify-content: center; border-bottom-width: 1px; border-bottom-color: var(--timeline-grid); }
+.gantt-work-label { height: 60px; min-height: 60px; background-color: var(--surface-raised); }
+.gantt-label-title-row { flex-direction: row; align-items: center; justify-content: space-between; }
+.gantt-work-title { font-size: 13px; -unity-font-style: bold; color: var(--text-primary); }
+.gantt-task-title { font-size: 12px; color: var(--text-primary); }
+.gantt-task-label.is-complete { opacity: 0.52; background-color: var(--surface-raised); }
+.timeline-work-row, .timeline-task-row { position: relative; overflow: hidden; border-bottom-width: 1px; border-bottom-color: var(--timeline-grid); }
+.timeline-work-row { height: 60px; min-height: 60px; background-color: var(--surface-raised); }
+.timeline-task-row { height: 54px; min-height: 54px; }
+.timeline-cell { position: absolute; top: 0; bottom: 0; border-right-width: 1px; border-right-color: var(--timeline-grid); }
+.timeline-cell.is-weekend { background-color: rgba(120, 130, 150, 0.07); }
+.timeline-cell.is-today { background-color: var(--accent-soft); opacity: 0.55; }
+.deadline-marker { position: absolute; top: 8px; bottom: 8px; width: 2px; background-color: var(--warning); }
+.deadline-marker.is-hard { background-color: var(--error); }
+.gantt-bar { position: absolute; top: 10px; height: 34px; border-radius: 8px; overflow: hidden; justify-content: center; background-color: var(--accent-soft); border-width: 1px; border-color: var(--accent); }
+.gantt-bar-progress { position: absolute; left: 0; top: 0; bottom: 0; background-color: var(--accent); opacity: 0.86; }
+.gantt-bar-text { margin-left: 8px; color: white; font-size: 10px; -unity-font-style: bold; }
+.gantt-bar.is-complete { opacity: 0.55; border-color: var(--text-secondary); background-color: var(--surface-pressed); }
+.gantt-bar.is-complete > .gantt-bar-progress { background-color: var(--text-secondary); }

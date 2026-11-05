@@ -14,7 +14,7 @@ namespace ProjectW.Bootstrap
 {
     public sealed class PatchBootstrapper : MonoBehaviour, IPatchDiagnostics
     {
-        public const int BaseVersion = 11;
+        public const int BaseVersion = 12;
         private readonly PlayerPrefsStringStorage storage = new PlayerPrefsStringStorage();
         public const string DefaultChannelUrl =
             "https://raw.githubusercontent.com/BaekNothing/ProjectW/ai-integration/PatchChannels/dev.json";
@@ -74,7 +74,22 @@ namespace ProjectW.Bootstrap
 
         private void Awake()
         {
+            EnsureUiCamera();
             Application.logMessageReceivedThreaded += CaptureLog;
+        }
+
+        private static void EnsureUiCamera()
+        {
+            if (FindFirstObjectByType<Camera>() == null)
+            {
+                var cameraObject = new GameObject("ProjectW UI Camera");
+                cameraObject.tag = "MainCamera";
+                Camera camera = cameraObject.AddComponent<Camera>();
+                camera.clearFlags = CameraClearFlags.SolidColor;
+                camera.backgroundColor = Color.black;
+                camera.cullingMask = 0;
+            }
+
         }
 
         private void OnDestroy()

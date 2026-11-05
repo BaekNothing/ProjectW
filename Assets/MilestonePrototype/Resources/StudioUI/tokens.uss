@@ -1,0 +1,49 @@
+.app-root {
+    --surface-canvas: rgb(244, 246, 250);
+    --surface-panel: rgb(255, 255, 255);
+    --surface-raised: rgb(250, 251, 253);
+    --surface-pressed: rgb(229, 233, 240);
+    --text-primary: rgb(25, 29, 36);
+    --text-secondary: rgb(101, 109, 123);
+    --border-subtle: rgb(218, 223, 231);
+    --accent: rgb(18, 113, 255);
+    --accent-soft: rgb(226, 238, 255);
+    --success: rgb(24, 142, 83);
+    --success-soft: rgb(225, 246, 235);
+    --warning: rgb(180, 110, 5);
+    --warning-soft: rgb(255, 243, 219);
+    --error: rgb(205, 52, 62);
+    --error-soft: rgb(255, 230, 232);
+    --timeline-grid: rgb(228, 232, 239);
+    color: var(--text-primary);
+}
+
+.app-root.theme-dark {
+    --surface-canvas: rgb(19, 22, 29);
+    --surface-panel: rgb(29, 33, 42);
+    --surface-raised: rgb(36, 41, 52);
+    --surface-pressed: rgb(51, 58, 72);
+    --text-primary: rgb(241, 244, 249);
+    --text-secondary: rgb(165, 174, 190);
+    --border-subtle: rgb(58, 65, 80);
+    --accent: rgb(82, 158, 255);
+    --accent-soft: rgb(31, 57, 91);
+    --success: rgb(73, 207, 132);
+    --success-soft: rgb(29, 68, 50);
+    --warning: rgb(245, 179, 70);
+    --warning-soft: rgb(78, 58, 25);
+    --error: rgb(255, 105, 117);
+    --error-soft: rgb(83, 38, 43);
+    --timeline-grid: rgb(57, 64, 78);
+}
+
+.eyebrow {
+    font-size: 11px;
+    -unity-font-style: bold;
+    letter-spacing: 1.8px;
+    color: var(--accent);
+}
+
+.body { font-size: 14px; color: var(--text-primary); }
+.muted { font-size: 13px; color: var(--text-secondary); white-space: normal; }
+.caption { font-size: 11px; color: var(--text-secondary); }

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="tokens.uss" />
+    <Style src="components.uss" />
+    <Style src="workspace.uss" />
+
+    <ui:VisualElement name="app-root" class="app-root theme-light">
+        <ui:VisualElement name="title-screen" class="title-screen">
+            <ui:VisualElement class="title-orbit title-orbit-large" />
+            <ui:VisualElement class="title-orbit title-orbit-small" />
+            <ui:VisualElement class="title-card">
+                <ui:Label text="COLONY OPERATIONS" class="eyebrow title-eyebrow" />
+                <ui:Label text="PROJECT W" class="display-title" />
+                <ui:Label text="사람과 일정, 제한된 자원을 조율해&#10;식민지 운영을 이어가세요." class="title-description" />
+                <ui:Button name="start-button" text="PRESS TO START" class="ds-button button-primary title-start" />
+                <ui:Button name="title-options-button" text="OPTIONS" class="text-button" />
+            </ui:VisualElement>
+            <ui:Label text="STUDIOUI · UNITY UI TOOLKIT" class="title-footer" />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="desktop-screen" class="desktop-screen">
+            <ui:VisualElement class="topbar">
+                <ui:VisualElement class="brand-lockup">
+                    <ui:VisualElement class="brand-mark"><ui:Label text="W" class="brand-mark-text" /></ui:VisualElement>
+                    <ui:VisualElement>
+                        <ui:Label text="PROJECT W" class="brand-title" />
+                        <ui:Label text="COLONY OPERATIONS" class="brand-subtitle" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement class="topbar-status">
+                    <ui:Label name="day-label" text="DAY 01" class="status-pill" />
+                    <ui:Label name="resource-label" text="RESOURCES 0" class="status-pill status-accent" />
+                    <ui:Button name="theme-button" text="◐" tooltip="테마 전환" class="icon-button" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <ui:VisualElement class="workspace">
+                <ui:VisualElement class="sidebar">
+                    <ui:Label text="WORKSPACE" class="sidebar-label" />
+                    <ui:Button name="nav-overview" text="개요" class="nav-button" />
+                    <ui:Button name="nav-schedule" text="일정" class="nav-button is-selected" />
+                    <ui:Button name="nav-crew" text="승무원" class="nav-button" />
+                    <ui:Button name="nav-mail" text="메일" class="nav-button" />
+                    <ui:Button name="nav-proposals" text="제안서" class="nav-button" />
+                    <ui:Button name="nav-codex" text="코덱스" class="nav-button" />
+                    <ui:VisualElement class="sidebar-spacer" />
+                    <ui:Button name="nav-settings" text="설정" class="nav-button" />
+                    <ui:VisualElement class="sidebar-note">
+                        <ui:Label text="ORGANIZATION PLAN" class="eyebrow" />
+                        <ui:Label text="빈 작업은 우선순위와 운영 방침에 따라 자동 배정됩니다." class="sidebar-note-text" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <ui:VisualElement class="main-panel">
+                    <ui:VisualElement class="page-header">
+                        <ui:VisualElement>
+                            <ui:Label name="page-eyebrow" text="TASK SYSTEM" class="eyebrow" />
+                            <ui:Label name="page-title" text="일정과 우선순위" class="page-title" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:ScrollView name="page-scroll" class="page-scroll">
+                        <ui:VisualElement name="page-content" class="page-content" />
+                    </ui:ScrollView>
+                    <ui:VisualElement class="command-bar">
+                        <ui:Label text="오늘의 결정을 마치면 하루를 진행합니다." class="muted" />
+                        <ui:Button name="next-day-button" text="다음날로  →" class="ds-button button-primary next-day-button" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <ui:VisualElement name="modal-host" class="modal-host" picking-mode="Ignore" />
+    </ui:VisualElement>
+</ui:UXML>

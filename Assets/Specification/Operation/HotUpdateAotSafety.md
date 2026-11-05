@@ -286,3 +286,32 @@ size-check, hash-check, stage, promote, and roll back the complete release as on
 
 Base APK v11 becomes the active baseline when its APK is built and verified. Manifests containing
 remote Addressables content must declare `minBaseVersion = 11`.
+
+## Base APK v12 AOT Baseline
+
+Base APK v12 replaces the removed prototype IMGUI presentation with the StudioUI runtime built on
+Unity UI Toolkit. This is a reviewed base rebuild because UI Toolkit was not part of the v11
+HotUpdate-facing AOT baseline.
+
+It must bundle:
+
+- `BaseVersion = 12`
+- the fixed Bootstrap scene as the only Player scene
+- a fixed-layer UI camera so Editor and Player rendering never depend on a HotUpdate camera API
+- UI Toolkit's runtime Input System event path for pointer and keyboard input; no separate uGUI `EventSystem` is created
+- the latest embedded `ProjectW.HotUpdate.dll.bytes`, `task-system.json`, UXML, and USS resources
+- regenerated Android AOT metadata
+- stable linker preservation for `UnityEngine.UIElementsModule` and `UnityEngine.UIModule`
+- the complete v11 preservation surface
+
+The approved HotUpdate-facing surface is limited to the shipped StudioUI implementation:
+`UIDocument`, the Resources-loaded `PanelSettings`/`ThemeStyleSheet`,
+`Resources.Load<VisualTreeAsset>`, `Resources.Load<PanelSettings>`, UXML cloning,
+`VisualElement`, `Label`, `Button`, `ScrollView`, UQuery, class-list and inline-style operations,
+button callbacks, and the panel scale settings used by `ProjectWUiController`. This authorization
+does not extend to arbitrary UI Toolkit controls, editor-only UIElements APIs, new generic view
+types, custom mesh rendering, or unrelated resource types without another exact-member review.
+
+Patches using the StudioUI runtime must declare `minBaseVersion = 12`. Editor compilation is not
+device proof; the new title, navigation, theme switch, Gantt scrolling, next-day action, and modal
+decision paths require an on-device smoke test before compatibility is claimed.
