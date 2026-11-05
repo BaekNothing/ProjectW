@@ -54,9 +54,9 @@ namespace ProjectW.MilestonePrototype.Tests
                 }
             };
 
-            Assert.That(MilestonePrototypeController.WorkCompletionDay(work, tasks), Is.EqualTo(22));
-            Assert.That(MilestonePrototypeController.ShouldShowWorkInTaskPanel(work, tasks, 35), Is.True);
-            Assert.That(MilestonePrototypeController.ShouldShowWorkInTaskPanel(work, tasks, 36), Is.False);
+            Assert.That(MilestoneRules.WorkCompletionDay(work, tasks), Is.EqualTo(22));
+            Assert.That(MilestoneRules.ShouldShowWorkInTaskPanel(work, tasks, 35), Is.True);
+            Assert.That(MilestoneRules.ShouldShowWorkInTaskPanel(work, tasks, 36), Is.False);
         }
 
         [Test]
@@ -65,7 +65,7 @@ namespace ProjectW.MilestonePrototype.Tests
             var work = new WorkGroup { Id = "active", State = WorkState.InProgress };
             var tasks = new List<WorkTask>();
 
-            Assert.That(MilestonePrototypeController.ShouldShowWorkInTaskPanel(work, tasks, 999), Is.True);
+            Assert.That(MilestoneRules.ShouldShowWorkInTaskPanel(work, tasks, 999), Is.True);
         }
 
         [Test]
@@ -85,10 +85,10 @@ namespace ProjectW.MilestonePrototype.Tests
                 }
             };
 
-            Assert.That(MilestonePrototypeController.HasWorkHistory(work, tasks), Is.True);
-            Assert.That(MilestonePrototypeController.WorkHistoryStartDay(tasks), Is.EqualTo(4));
-            Assert.That(MilestonePrototypeController.WorkHistoryEndDay(work, tasks, 8), Is.EqualTo(8));
-            Assert.That(MilestonePrototypeController.WorkHistoryElapsedDays(work, tasks, 8), Is.EqualTo(5));
+            Assert.That(MilestoneRules.HasWorkHistory(work, tasks), Is.True);
+            Assert.That(MilestoneRules.WorkHistoryStartDay(tasks), Is.EqualTo(4));
+            Assert.That(MilestoneRules.WorkHistoryEndDay(work, tasks, 8), Is.EqualTo(8));
+            Assert.That(MilestoneRules.WorkHistoryElapsedDays(work, tasks, 8), Is.EqualTo(5));
         }
 
         [Test]
@@ -114,7 +114,7 @@ namespace ProjectW.MilestonePrototype.Tests
                 }
             };
 
-            Assert.That(MilestonePrototypeController.WorkHistoryParticipants(tasks, crew),
+            Assert.That(MilestoneRules.WorkHistoryParticipants(tasks, crew),
                 Is.EqualTo("민서, 도윤"));
         }
 
@@ -124,7 +124,7 @@ namespace ProjectW.MilestonePrototype.Tests
             var work = new WorkGroup { State = WorkState.Available };
             var tasks = new List<WorkTask> { new WorkTask { State = TaskState.Available } };
 
-            Assert.That(MilestonePrototypeController.HasWorkHistory(work, tasks), Is.False);
+            Assert.That(MilestoneRules.HasWorkHistory(work, tasks), Is.False);
         }
 
         [Test]
@@ -392,7 +392,7 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(game.CampaignEndDay, Is.EqualTo(90));
             Assert.That(game.MidpointReviewDay, Is.EqualTo(45));
             Assert.That(game.Crew[0].PortraitLabel, Is.Not.Empty);
-            Assert.That(game.Crew[0].PortraitAddress, Is.EqualTo(CrewPortraitCatalog.HanTech));
+            Assert.That(game.Crew[0].PortraitAddress, Is.EqualTo("portraits/crew/crew-han-tech"));
             Assert.That(game.Crew[0].Personality, Is.Not.Empty);
             Assert.That(game.Crew[0].Memo, Is.Not.Empty);
             Assert.That(game.Crew[0].Perks, Is.Not.Null.And.Not.Empty);
@@ -843,7 +843,7 @@ namespace ProjectW.MilestonePrototype.Tests
 
             Assert.That(survey.StartedDay, Is.EqualTo(started));
             Assert.That(survey.CompletedDay, Is.EqualTo(completed));
-            Assert.That(MilestonePrototypeController.TaskActualDurationDays(survey, game.Day),
+            Assert.That(MilestoneRules.TaskActualDurationDays(survey, game.Day),
                 Is.EqualTo(1));
         }
 
@@ -1694,19 +1694,6 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void StatusTextKeepsOnlyTheLatestTwoEventsOnSeparateLines()
-        {
-            var report = new DayReport();
-            report.Lines.Add("first");
-            report.Lines.Add("second");
-            report.Lines.Add("third");
-
-            string status = MilestonePrototypeController.FormatStatus(report, false, false);
-
-            Assert.That(status, Is.EqualTo("second\nthird"));
-        }
-
-        [Test]
         public void MessengerStatusQuestionAddsOneCombinedConversationItem()
         {
             var game = new MilestoneSimulation(1);
@@ -1752,16 +1739,6 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void StatusTextOnlyOverridesEventLinesForResourceDepletion()
-        {
-            var report = new DayReport();
-            report.Lines.Add("event");
-
-            Assert.That(MilestonePrototypeController.FormatStatus(report, true, false), Is.EqualTo("event"));
-            Assert.That(MilestonePrototypeController.FormatStatus(report, false, true), Is.EqualTo("자원 고갈 — 생존 기록 종료"));
-        }
-
-        [Test]
         public void PatchChannelCacheBusterPreservesExistingQueryString()
         {
             Assert.That(PatchBootstrapper.AddCacheBuster("https://example.test/channel.json", 123),
@@ -1792,71 +1769,6 @@ namespace ProjectW.MilestonePrototype.Tests
         public void BaseVersionMatchesCurrentAotBaseline()
         {
             Assert.That(PatchBootstrapper.BaseVersion, Is.EqualTo(11));
-        }
-
-        [Test]
-        public void TimedPopupAndToastExpireIndependently()
-        {
-            var presenter = new TimedNotificationPresenter();
-            presenter.ShowPopup(new TimedPopupData { DurationSeconds = 5f }, 10f);
-            presenter.ShowToast(new TimedToastData { DurationSeconds = 3f }, 10f);
-
-            presenter.Update(12.99f);
-            Assert.That(presenter.HasPopup, Is.True);
-            Assert.That(presenter.HasToast, Is.True);
-            presenter.Update(13f);
-            Assert.That(presenter.HasPopup, Is.True);
-            Assert.That(presenter.HasToast, Is.False);
-            presenter.Update(15f);
-            Assert.That(presenter.HasPopup, Is.False);
-        }
-
-        [Test]
-        public void ZeroDurationPopupWaitsForAButton()
-        {
-            var presenter = new TimedNotificationPresenter();
-            presenter.ShowPopup(new TimedPopupData { DurationSeconds = 0f }, 2f);
-
-            presenter.Update(999f);
-
-            Assert.That(presenter.HasPopup, Is.True);
-        }
-
-        [Test]
-        public void ExpandingRingMaskOnlyShowsTheRingBand()
-        {
-            Assert.That(TimedNotificationPresenter.RingAlpha(0f), Is.EqualTo(0f));
-            Assert.That(TimedNotificationPresenter.RingAlpha(.78f), Is.EqualTo(1f));
-            Assert.That(TimedNotificationPresenter.RingAlpha(1.2f), Is.EqualTo(0f));
-        }
-
-        [Test]
-        public void RadialRotationPivotMatchesTheScaledTextureCenter()
-        {
-            Rect effectRect = new Rect(100f, 50f, 112f, 112f);
-
-            Vector2 pivot = TimedNotificationPresenter.ScaledRotationPivot(effectRect, 1.8f);
-
-            Assert.That(pivot.x, Is.EqualTo(effectRect.center.x * 1.8f).Within(.001f));
-            Assert.That(pivot.y, Is.EqualTo(effectRect.center.y * 1.8f).Within(.001f));
-        }
-
-        [Test]
-        public void BurstLoopHasAVisibleWindowAndARealPause()
-        {
-            Assert.That(TimedNotificationPresenter.BurstPhase(0f, 1), Is.EqualTo(-1f));
-            Assert.That(TimedNotificationPresenter.BurstPhase(.12f, 1), Is.EqualTo(0f));
-            Assert.That(TimedNotificationPresenter.BurstPhase(.53f, 1), Is.EqualTo(.5f).Within(.001f));
-            Assert.That(TimedNotificationPresenter.BurstPhase(1.2f, 1), Is.EqualTo(-1f));
-            Assert.That(TimedNotificationPresenter.BurstPhase(1.77f, 1), Is.EqualTo(0f).Within(.001f));
-        }
-
-        [Test]
-        public void GlowMaskHasATransparentEdgeAndBrightCore()
-        {
-            Assert.That(TimedNotificationPresenter.GlowAlpha(1.4f), Is.EqualTo(0f));
-            Assert.That(TimedNotificationPresenter.GlowAlpha(0f), Is.EqualTo(1f));
-            Assert.That(TimedNotificationPresenter.GlowAlpha(.48f), Is.InRange(.2f, .3f));
         }
 
         [Test]
@@ -2264,81 +2176,6 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void ContentDragStartsOnlyAfterTheMovementThreshold()
-        {
-            Assert.That(MilestonePrototypeController.HasExceededDragThreshold(
-                Vector2.zero, new Vector2(4f, 4f), 8f), Is.False);
-            Assert.That(MilestonePrototypeController.HasExceededDragThreshold(
-                Vector2.zero, new Vector2(8f, 0f), 8f), Is.True);
-        }
-
-        [Test]
-        public void ContentDragMovesScrollOppositeToPointerAndStopsAtZero()
-        {
-            Vector2 moved = MilestonePrototypeController.CalculateDragScroll(
-                new Vector2(100f, 80f), new Vector2(50f, 50f), new Vector2(20f, 10f));
-            Vector2 clamped = MilestonePrototypeController.CalculateDragScroll(
-                new Vector2(5f, 7f), Vector2.zero, new Vector2(30f, 40f));
-
-            Assert.That(moved, Is.EqualTo(new Vector2(130f, 120f)));
-            Assert.That(clamped, Is.EqualTo(Vector2.zero));
-        }
-
-        [Test]
-        public void ContentDragVelocityFollowsTheScrollDirection()
-        {
-            Vector2 velocity = MilestonePrototypeController.CalculateScrollVelocity(
-                new Vector2(50f, 50f), new Vector2(30f, 20f), .02f);
-
-            Assert.That(velocity, Is.EqualTo(new Vector2(1000f, 1500f)));
-            Assert.That(MilestonePrototypeController.CalculateScrollVelocity(
-                Vector2.zero, Vector2.one, 0f), Is.EqualTo(Vector2.zero));
-        }
-
-        [Test]
-        public void ScrollInertiaDeceleratesWithoutReversingDirection()
-        {
-            Vector2 slowed = MilestonePrototypeController.DecayScrollVelocity(
-                new Vector2(300f, 400f), .1f, 1000f);
-            Vector2 stopped = MilestonePrototypeController.DecayScrollVelocity(
-                new Vector2(30f, 40f), .1f, 1000f);
-
-            Assert.That(slowed, Is.EqualTo(new Vector2(240f, 320f)));
-            Assert.That(stopped, Is.EqualTo(Vector2.zero));
-        }
-
-        [Test]
-        public void HiddenScrollbarsLeaveTheWholeViewportDraggable()
-        {
-            Rect viewport = MilestonePrototypeController.ContentDragViewport(
-                new Rect(10f, 20f, 300f, 200f), 0f, 0f);
-
-            Assert.That(viewport, Is.EqualTo(new Rect(10f, 20f, 300f, 200f)));
-            Assert.That(viewport.Contains(new Vector2(295f, 100f)), Is.True);
-            Assert.That(viewport.Contains(new Vector2(100f, 210f)), Is.True);
-        }
-
-        [Test]
-        public void GanttOwnsAnInsetScrollViewportForIndependentDragging()
-        {
-            Assert.That(MilestonePrototypeController.UsesIndependentWindowScroll("gantt"), Is.True);
-            Assert.That(MilestonePrototypeController.UsesIndependentWindowScroll("mail"), Is.False);
-            Assert.That(MilestonePrototypeController.GanttViewportHeight(500f), Is.EqualTo(390f));
-            Assert.That(MilestonePrototypeController.GanttViewportHeight(200f), Is.EqualTo(120f));
-        }
-
-        [Test]
-        public void GanttTodayButtonLeavesThreePastDaysVisibleAndClampsAtTimelineEdges()
-        {
-            Assert.That(MilestonePrototypeController.GanttTodayScrollX(1, 28f, 280f, 1000f),
-                Is.Zero);
-            Assert.That(MilestonePrototypeController.GanttTodayScrollX(20, 28f, 280f, 1000f),
-                Is.EqualTo(448f));
-            Assert.That(MilestonePrototypeController.GanttTodayScrollX(40, 28f, 280f, 1000f),
-                Is.EqualTo(720f));
-        }
-
-        [Test]
         public void PrioritySchedulePlacesDependentTasksAfterTheirForecastPredecessor()
         {
             var game = new MilestoneSimulation(41);
@@ -2355,18 +2192,6 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void GanttDependencyAnchorsPreferTheDisplayedPrioritySchedule()
-        {
-            var displayed = new TaskScheduleEstimate { TaskId = "next", StartDay = 12 };
-            var isolated = new TaskScheduleEstimate { TaskId = "next", StartDay = 4 };
-
-            Assert.That(MilestonePrototypeController.GanttScheduleForTask(
-                new[] { displayed }, "next", isolated), Is.SameAs(displayed));
-            Assert.That(MilestonePrototypeController.GanttScheduleForTask(
-                new TaskScheduleEstimate[0], "next", isolated), Is.SameAs(isolated));
-        }
-
-        [Test]
         public void OperationsReportCountsDynamicRiskAndLoad()
         {
             var game = new MilestoneSimulation(1);
@@ -2376,308 +2201,6 @@ namespace ProjectW.MilestonePrototype.Tests
             OperationsReport report = game.BuildReport();
             Assert.That(report.Active + report.Complete + report.Available + report.Locked, Is.EqualTo(game.Tasks.Count));
             Assert.That(report.HighRisk, Is.GreaterThanOrEqualTo(1));
-        }
-
-        [Test]
-        public void WindowClampKeepsRectInsideWorkArea()
-        {
-            Rect result = MilestonePrototypeController.ClampWindowRect(new Rect(-20, 500, 900, 700), 800, 600);
-            Assert.That(result.x, Is.EqualTo(0));
-            Assert.That(result.y, Is.EqualTo(0));
-            Assert.That(result.width, Is.EqualTo(800));
-            Assert.That(result.height, Is.EqualTo(600));
-        }
-
-        [Test]
-        public void VisiblePanelBlocksPointerInsideItsEmptyArea()
-        {
-            Rect panel = new Rect(100, 80, 400, 300);
-
-            Assert.That(MilestonePrototypeController.IsPointInsideVisiblePanel(
-                panel, false, new Vector2(250, 200)), Is.True);
-            Assert.That(MilestonePrototypeController.IsPointInsideVisiblePanel(
-                panel, false, new Vector2(50, 50)), Is.False);
-        }
-
-        [Test]
-        public void MinimizedPanelDoesNotBlockPointer()
-        {
-            Assert.That(MilestonePrototypeController.IsPointInsideVisiblePanel(
-                new Rect(100, 80, 400, 300), true, new Vector2(250, 200)), Is.False);
-        }
-
-        [Test]
-        public void PointerControlEventsAreBlockedWithoutChangingRepaintState()
-        {
-            Assert.That(MilestonePrototypeController.CanActivateControl(EventType.MouseDown), Is.True);
-            Assert.That(MilestonePrototypeController.CanActivateControl(EventType.MouseDrag), Is.True);
-            Assert.That(MilestonePrototypeController.CanActivateControl(EventType.MouseUp), Is.True);
-            Assert.That(MilestonePrototypeController.CanActivateControl(EventType.Repaint), Is.False);
-            Assert.That(MilestonePrototypeController.CanActivateControl(EventType.Layout), Is.False);
-        }
-
-        [Test]
-        public void ExpandedHitRectDoublesButtonHitAreaWithoutMovingCenter()
-        {
-            Rect visual = new Rect(100, 20, 25, 20);
-
-            Rect result = MilestonePrototypeController.ExpandHitRect(visual);
-
-            Assert.That(result.size, Is.EqualTo(new Vector2(50, 40)));
-            Assert.That(result.center, Is.EqualTo(visual.center));
-        }
-
-        [Test]
-        public void WindowTitleBarAndControlsAreTwentyFivePercentThicker()
-        {
-            Rect result = MilestonePrototypeController.WindowDragHitRect(710);
-            Rect minimize = MilestonePrototypeController.WindowMinimizeButtonRect(710);
-            Rect close = MilestonePrototypeController.WindowCloseButtonRect(710);
-
-            Assert.That(result, Is.EqualTo(new Rect(0, 0, 600, 65)));
-            Assert.That(MilestonePrototypeController.WindowTitleBarHeight, Is.EqualTo(25f));
-            Assert.That(MilestonePrototypeController.WindowContentTopSpacing, Is.EqualTo(6f));
-            Assert.That(minimize.height, Is.EqualTo(25f));
-            Assert.That(close, Is.EqualTo(new Rect(674f, 1f, 31f, 25f)));
-        }
-
-        [Test]
-        public void ResizeHandleExtendsInsideAndOutsideBottomRightCorner()
-        {
-            Rect result = MilestonePrototypeController.ResizeHandleRect(
-                new Rect(100, 80, 710, 500));
-
-            Assert.That(result, Is.EqualTo(new Rect(770, 540, 80, 80)));
-            Assert.That(result.Contains(new Vector2(825, 595)), Is.True);
-        }
-
-        [Test]
-        public void WindowResizeTracksPointerAndStaysInsideDesktop()
-        {
-            Rect original = new Rect(100, 80, 500, 350);
-
-            Rect enlarged = MilestonePrototypeController.CalculateResizedWindowRect(
-                original, new Vector2(600, 430), new Vector2(750, 520), 1280, 720);
-            Rect clamped = MilestonePrototypeController.CalculateResizedWindowRect(
-                original, new Vector2(600, 430), new Vector2(2000, 2000), 1280, 720);
-
-            Assert.That(enlarged, Is.EqualTo(new Rect(100, 80, 650, 440)));
-            Assert.That(clamped.xMax, Is.EqualTo(1274));
-            Assert.That(clamped.yMax, Is.EqualTo(670));
-        }
-
-        [Test]
-        public void WindowGuiIdsRemainStableWhenFocusOrderChanges()
-        {
-            int nextGuiId = 100;
-
-            int first = MilestonePrototypeController.AllocateStableWindowGuiId(ref nextGuiId);
-            int second = MilestonePrototypeController.AllocateStableWindowGuiId(ref nextGuiId);
-
-            Assert.That(first, Is.EqualTo(100));
-            Assert.That(second, Is.EqualTo(101));
-            Assert.That(first, Is.Not.EqualTo(second));
-        }
-
-        [Test]
-        public void WindowResizeHonorsMinimumSize()
-        {
-            Rect result = MilestonePrototypeController.CalculateResizedWindowRect(
-                new Rect(100, 80, 710, 500), new Vector2(810, 580), Vector2.zero,
-                1280, 720);
-
-            Assert.That(result.width, Is.EqualTo(420));
-            Assert.That(result.height, Is.EqualTo(280));
-        }
-
-        [Test]
-        public void PinchResizesAroundCenterAndDragMovesWindow()
-        {
-            Rect result = MilestonePrototypeController.CalculatePinchedWindowRect(
-                new Rect(100, 80, 500, 350), new Vector2(350, 255),
-                new Vector2(400, 285), 1.2f, 1280, 720);
-
-            Assert.That(result.x, Is.EqualTo(100).Within(.001f));
-            Assert.That(result.y, Is.EqualTo(75).Within(.001f));
-            Assert.That(result.width, Is.EqualTo(600).Within(.001f));
-            Assert.That(result.height, Is.EqualTo(420).Within(.001f));
-        }
-
-        [Test]
-        public void PinchRespectsMinimumWindowSize()
-        {
-            Rect result = MilestonePrototypeController.CalculatePinchedWindowRect(
-                new Rect(100, 80, 710, 500), new Vector2(455, 330),
-                new Vector2(455, 330), .1f, 1280, 720);
-
-            Assert.That(result.width, Is.EqualTo(420));
-            Assert.That(result.height, Is.EqualTo(280));
-        }
-
-        [Test]
-        public void TouchCoordinatesConvertFromScreenBottomLeftToLogicalTopLeft()
-        {
-            Vector2 result = MilestonePrototypeController.TouchToLogicalPosition(
-                new Vector2(360, 200), 1280, 2f);
-
-            Assert.That(result, Is.EqualTo(new Vector2(180, 540)));
-        }
-
-        [Test]
-        public void NextDayButtonStaysAtBottomRightAboveTaskbar()
-        {
-            Rect result = MilestonePrototypeController.NextDayButtonRect(1280, 720);
-
-            Assert.That(result.xMax, Is.EqualTo(1270));
-            Assert.That(result.yMax, Is.EqualTo(670));
-            Assert.That(result.width, Is.EqualTo(170));
-            Assert.That(result.height, Is.EqualTo(48));
-        }
-
-        [Test]
-        public void UiScaleMagnifiesFontsPanelsAndSpacingByOnePointEight()
-        {
-            Assert.That(MilestonePrototypeController.DefaultUiMagnification, Is.EqualTo(1.8f));
-            Assert.That(MilestonePrototypeController.CalculateUiScale(1280), Is.EqualTo(1.8f).Within(.001f));
-            Assert.That(MilestonePrototypeController.CalculateUiScale(1920), Is.EqualTo(2.7f).Within(.001f));
-        }
-
-        [Test]
-        public void UiScaleSupportsOptionsAndDefaultsOldSavesToOnePointEight()
-        {
-            Assert.That(MilestonePrototypeController.CalculateUiScale(1280, 1f),
-                Is.EqualTo(1f).Within(.001f));
-            Assert.That(MilestonePrototypeController.CalculateUiScale(1280, 1.4f),
-                Is.EqualTo(1.4f).Within(.001f));
-            Assert.That(MilestonePrototypeController.CalculateUiScale(1280, 2.2f),
-                Is.EqualTo(2.2f).Within(.001f));
-            Assert.That(MilestonePrototypeController.NormalizeUiMagnification(0f),
-                Is.EqualTo(1.8f));
-        }
-
-        [Test]
-        public void DesktopSettingsRoundTripSelectedUiMagnification()
-        {
-            string key = $"projectw.desktop.test.{Guid.NewGuid():N}";
-            var storage = new MemoryStringStorage();
-            ProjectWSaveStore.Configure(storage);
-            try
-            {
-                var snapshot = new DesktopSnapshot
-                {
-                    SchemaVersion = ProjectWSaveStore.DesktopSchema,
-                    UiMagnification = 1.4f,
-                    MessengerSeenUpdateCount = 12,
-                    Windows = new[]
-                    {
-                        new WindowSnapshot { Id = "mail", Width = 640f, Height = 420f, Open = true }
-                    }
-                };
-
-                Assert.That(ProjectWSaveStore.SaveDesktop(key, snapshot), Is.True);
-                Assert.That(ProjectWSaveStore.TryLoadDesktop(key, out DesktopSnapshot loaded), Is.True);
-                Assert.That(loaded.UiMagnification, Is.EqualTo(1.4f));
-                Assert.That(loaded.MessengerSeenUpdateCount, Is.EqualTo(12));
-                Assert.That(loaded.Windows[0].Width, Is.EqualTo(640f));
-                Assert.That(loaded.Windows[0].Height, Is.EqualTo(420f));
-            }
-            finally
-            {
-                ProjectWSaveStore.Delete(key);
-            }
-        }
-
-        [Test]
-        public void MagnifiedLandscapeDesktopKeepsStatusAndReportClearOfNextDayButton()
-        {
-            float scale = MilestonePrototypeController.CalculateUiScale(1280);
-            float width = 1280 / scale;
-            float height = 720 / scale;
-            Rect nextDay = MilestonePrototypeController.NextDayButtonRect(width, height);
-            Rect report = MilestonePrototypeController.DesktopReportRect(width, height);
-            Rect status = MilestonePrototypeController.DesktopStatusRect(width, height);
-
-            Assert.That(report.Overlaps(nextDay), Is.False);
-            Assert.That(status.Overlaps(nextDay), Is.False);
-            Assert.That(report.yMax, Is.LessThanOrEqualTo(status.y));
-        }
-
-        [Test]
-        public void OptionsIconRemainsInTwoRowSixColumnGridAtMaximumScale()
-        {
-            float width = 1280 / MilestonePrototypeController.CalculateUiScale(1280, 2.2f);
-            Rect options = MilestonePrototypeController.DesktopIconRect(9, width);
-            Rect optionsLabel = MilestonePrototypeController.DesktopIconLabelRect(9, width);
-            Rect report = MilestonePrototypeController.DesktopReportRect(width, 720 / 2.2f);
-
-            Assert.That(options.xMax, Is.LessThanOrEqualTo(width));
-            Assert.That(optionsLabel.yMax, Is.LessThan(report.y));
-        }
-
-        [Test]
-        public void DesktopIconsUseOneThirdSizeGapsAndSquareButtons()
-        {
-            Rect first = MilestonePrototypeController.DesktopIconRect(0, 1280);
-            Rect second = MilestonePrototypeController.DesktopIconRect(1, 1280);
-            Rect sixth = MilestonePrototypeController.DesktopIconRect(5, 1280);
-            Rect nextRow = MilestonePrototypeController.DesktopIconRect(6, 1280);
-            Rect firstLabel = MilestonePrototypeController.DesktopIconLabelRect(0, 1280);
-
-            Assert.That(first.width, Is.EqualTo(first.height));
-            Assert.That(second.x - first.xMax, Is.EqualTo(first.width / 3f).Within(.001f));
-            Assert.That(sixth.y, Is.EqualTo(first.y));
-            Assert.That(nextRow.x, Is.EqualTo(first.x));
-            Assert.That(firstLabel.y, Is.EqualTo(first.yMax - 8f));
-            Assert.That(firstLabel.height, Is.EqualTo(22f));
-            Assert.That(nextRow.y - first.yMax - 18f, Is.EqualTo(first.height / 3f).Within(.001f));
-        }
-
-        [Test]
-        public void DesktopBadgeOverlapsIconTopRightCorner()
-        {
-            Rect icon = MilestonePrototypeController.DesktopIconRect(0, 1280);
-            Rect badge = MilestonePrototypeController.DesktopIconBadgeRect(0, 1280);
-
-            Assert.That(badge.center.x, Is.EqualTo(icon.xMax));
-            Assert.That(badge.y, Is.LessThan(icon.y));
-            Assert.That(badge.Overlaps(icon), Is.True);
-        }
-
-        [Test]
-        public void DesktopBadgeCountCanBeUsedByAnyDesktopApp()
-        {
-            var host = new GameObject("desktop-badge-test");
-            try
-            {
-                var controller = host.AddComponent<MilestonePrototypeController>();
-                controller.SetDesktopBadgeCount("report", 3);
-                controller.SetDesktopBadgeCount("options", 7);
-
-                Assert.That(controller.DesktopBadgeCount("report"), Is.EqualTo(3));
-                Assert.That(controller.DesktopBadgeCount("options"), Is.EqualTo(7));
-                Assert.That(controller.DesktopBadgeCount("mail"), Is.Zero);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(host);
-            }
-        }
-
-        [Test]
-        public void DesktopIconNamesStayOnOneLineAndWithinSevenCharacters()
-        {
-            string[] ids =
-            {
-                "mail", "gantt", "milestone", "workers", "report",
-                "codex", "messenger", "profile", "options"
-            };
-
-            foreach (string id in ids)
-            {
-                string name = MilestonePrototypeController.DesktopIconName(id);
-                Assert.That(name, Does.Not.Contain("\n"), id);
-                Assert.That(name.Length, Is.LessThanOrEqualTo(7), id);
-            }
         }
 
         [Test]
