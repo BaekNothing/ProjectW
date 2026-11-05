@@ -2,13 +2,13 @@
 
 ## Document Control
 
-- Version: 4.3
+- Version: 5.0
 - Status: Approved for implementation
 - Action: Update
 - SSOT Change: Yes
-- Rationale: Recast Milestone as a persistent project history of completed and ongoing work while
-  retaining the established crew portrait, endurance, desktop, update, reset, live-data, and weekly
-  field-report rules.
+- Rationale: Move the core control layer from repeated Task-by-Task assignment to manager-level
+  staffing, role depth charts, rotation policies, and exception intervention while retaining Task
+  ownership, handover cost, Work priority, deadlines, and the established operations desktop.
 - Idea references: `IDEA.md` items 1, 2, 4, and 8
 
 ## Scope
@@ -16,7 +16,8 @@
 This document defines:
 
 - parent work items (`Work`)
-- executable assignment units (`Task`)
+- automatically dispatched execution units (`Task`)
+- role depth charts, crew operating modes, fatigue limits, and operations styles
 - work and task prerequisites
 - soft and hard deadlines
 - one-primary-task-per-worker daily capacity
@@ -40,7 +41,9 @@ A Work is a player-facing objective that groups one or more Tasks.
 
 ### Task
 
-A Task is the smallest unit to which the player assigns a worker.
+A Task is the smallest execution unit owned by one worker. Normal ownership is selected by the
+staffing dispatcher from the player's organization plan; direct player assignment is an exception
+intervention rather than the default daily interaction.
 
 - A Task belongs to exactly one Work.
 - A Task has a duration measured in half-day increments.
@@ -106,6 +109,11 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 - The operations desktop exposes an always-visible `다음날로` button at the bottom-right above the
   taskbar. It is disabled only after resources reach zero.
 - A worker can hold at most one primary Task for that day.
+- The player normally manages the organization plan and Work priorities, then advances the day.
+  Available Tasks are staffed without requiring a Task-detail visit.
+- Direct primary assignment, parallel assignment, and start reservation remain available as
+  explicit intervention tools. They may override the organization plan and retain their existing
+  interruption and handover costs.
 - Completing a Task preserves its assignee as historical ownership. The completed assignment does
   not consume current worker capacity and is not cleared when that worker starts another Task.
 
@@ -183,49 +191,61 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 - When accumulated output reaches effective required work, the Task records that cycle's day as
   its completion day, enters `Complete`, and releases its assignee.
 
-## Learned Assignment Rules
+## Staffing Plan and Role Rotation
 
-- The first assignment for a work situation is always made manually by the player.
-- A confirmed manual primary assignment records the player's choice as an assignment rule.
-- A work situation is identified by the Task's kind, required role, difficulty, risk, and
-  importance. Task and Work IDs are not part of the key, so the decision can apply to later work
-  with the same nature.
-- A rule maps one situation to one crew member. A later manual primary assignment for the same
-  situation replaces the recorded crew member and increments the rule's update count.
-- At the beginning of each daily cycle, an unassigned, unscheduled, available Task matching a
-  learned rule is assigned to that rule's crew member when that member is available and has no
-  other primary Task.
-- Automatic assignment never chooses a substitute worker, interrupts current work, consumes a
-  future reservation, or creates/updates another rule. If the recorded worker cannot take the Task,
-  the Task remains unassigned.
-- Rules and their update counts are part of the campaign save snapshot.
-- `My Info` lists the current rules in readable form so the player can inspect how their judgments
-  are being learned.
-- The optimization goal is that repeated situations eventually continue correctly through daily
-  advancement alone, while novel situations still require player judgment.
+- Each of the four Work roles owns a depth chart containing every current crew member exactly once.
+  Earlier positions are preferred for Tasks requiring that role.
+- Each crew member has an operating mode: `Starter` is a normal first-team candidate with a
+  selection bonus; `Support` is a normal candidate; `Recovery` automatically rests and receives no
+  new automatic assignment; and `Emergency` receives new work only for a `긴급!` Work.
+- Each crew member has a fatigue limit from `40` through `95`, adjusted in increments of `5`.
+  At the beginning of a working day, reaching the limit schedules automatic rest unless that worker
+  is currently assigned to a `총력!` Work. Automatic rest preserves the current Task and context.
+- The organization owns one operations style: `Continuity` weighs depth order most heavily;
+  `Balanced` combines depth, competency, fatigue, and mode; `Deadline` weighs competency most
+  heavily; and `Growth` prefers a rested, qualified lower-depth worker when expected competency
+  output remains at least `0.75`.
+- Changing the plan affects future automatic decisions and never detaches a current owner by itself.
+- The staffing plan is campaign state. A legacy save without it migrates to `Balanced`,
+  specialty-first depth charts, `Starter` modes, and fatigue limit `70`.
 
-## Competency Automatic Assignment
+## Staffing Dispatcher
 
-- The Gantt header owns a campaign-level `자동배정` checkbox. It is on by default and its value is
-  preserved in the campaign save.
-- At the beginning of a daily cycle, start reservations are applied first, learned assignment rules
-  second, and competency automatic assignment third.
-- When enabled, competency automatic assignment considers each unassigned, unscheduled `Available`
-  Task in player-defined Work-priority order. It normally never interrupts an existing assignment
-  or consumes a future reservation.
-- `Available` alone is not sufficient for automatic assignment because manual planning may preassign
-  a successor under the 30% prerequisite cap. Learned and competency automatic assignment both
-  require every predecessor Work and the Task's direct predecessor Task to be `Complete`.
-- A blocked successor remains unassigned during automatic operation and is reconsidered at the next
-  daily cycle after its final predecessor completes. Automatic execution never uses the 30% early
-  progress allowance; that allowance remains available only through explicit player assignment.
-- For each considered Task, choose among available workers without another primary Task. The worker
-  with the highest competency output multiplier for that Task is selected. Equal multipliers prefer
-  lower fatigue, then the earlier field-team position for deterministic behavior.
-- The resulting primary assignment starts and produces output in the same daily cycle. A Task that
-  becomes available only after that cycle's completion/state refresh waits until the next daily cycle.
-- Competency automatic assignments do not create or update learned assignment rules.
-- Turning the checkbox off stops future competency assignments but does not remove existing assignments.
+- The daily staffing sequence is automatic recovery, explicit reservations, urgent preemption,
+  learned intervention rules, then the staffing dispatcher.
+- The dispatcher visits unassigned, unscheduled, dependency-complete Tasks in player-defined Work
+  priority and stable Task-ID order.
+- Current owners continue their Tasks. The dispatcher fills vacancies and does not replace a valid
+  owner merely because another worker has a higher score.
+- Candidate selection uses required-role depth position, competency output, fatigue, operating mode,
+  parent Work urgency, and operations style. Ties use lower fatigue and earlier roster position.
+- The Gantt preview uses the same decision and identifies the source as the organization plan.
+- With no eligible worker, the Task remains unassigned and the operations UI reports the gap. The
+  player may change the lineup or use a direct intervention.
+
+## Learned Intervention Rules
+
+- A confirmed direct primary intervention records the player's choice as an exception rule.
+- A work situation is identified by Task kind, required role, difficulty, risk, and importance.
+- At the beginning of a daily cycle, an unassigned matching Task uses the remembered worker when
+  available. The rule never substitutes another worker or interrupts current work.
+- Rules remain campaign state and `My Info` presents them as remembered interventions.
+- Novel situations require no manual teaching because organization dispatch handles them.
+
+## Organization Automatic Assignment
+
+- Organization dispatch is the core loop and is enabled by default. The existing campaign switch is
+  retained only as an advanced hold control for future automatic assignments.
+- Recovery policy runs first, followed by explicit reservations, urgent preemption, learned
+  intervention rules, and organization dispatch.
+- Dispatch considers each unassigned, unscheduled `Available` Task in Work-priority order. It never
+  consumes a future reservation and requires every Work and Task predecessor to be complete.
+- Automatic execution never uses the 30% early-progress allowance; that remains an explicit
+  intervention option.
+- The resulting primary assignment starts in the same daily cycle. Tasks unlocked by that cycle's
+  completion wait until the following cycle.
+- Organization assignments do not create learned intervention rules. Holding future dispatch does
+  not remove current assignments.
 
 ## Work Priority and Focus Flags
 
