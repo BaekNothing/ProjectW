@@ -520,25 +520,4 @@ namespace ProjectW.MilestonePrototype
         public StaffingPlan StaffingPlan;
     }
 
-    [Serializable]
-    public sealed class DesktopSnapshot
-    {
-        public int SchemaVersion = 1;
-        public float UiMagnification;
-        public int MessengerSeenUpdateCount;
-        public WindowSnapshot[] Windows;
-    }
-
-    [Serializable]
-    public sealed class WindowSnapshot
-    {
-        public string Id;
-        public float X;
-        public float Y;
-        public float Width;
-        public float Height;
-        public bool Open;
-        public bool Minimized;
-        public int Order;
-    }
 }

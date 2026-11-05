@@ -833,18 +833,8 @@ or the mouse wheel.
 - The crew list, detail, and messenger show trust toward the responsible officer on a 0–100 scale
   with a readable relationship summary.
 - Crew profile metadata is owned by `task-system.json`.
-- The portrait area composes registered remote `Texture2D` layers for body/background, shared face,
-  condition dark circles, eyes, eyebrows, mouth, and hair. The apparent face area is approximately
-  25 percent larger than the preceding complete-portrait set.
-- Eyes, eyebrows, mouth, and hair each provide four catalog variants. Dark circles use the existing
-  condition thresholds: none below 30 fatigue, fatigue at 30, overwork at 55, and illness/burnout
-  for injury or fatigue 80 and above.
-- Crew portrait addresses owned by `task-system.json` remain the stable complete-image fallback.
-  Modular addresses and deterministic roster-slot combinations are owned by `CrewPortraitCatalog`.
-  All runtime exports live in the reviewed remote portrait Addressables group and follow
-  `Assets/Specification/Art/ResourceAssetPolicy.md`.
-- The consumption path reuses the v11-approved `LoadAssetAsync<Texture2D>` and v10-approved
-  `GUI.DrawTexture(Rect, Texture)` surface; it does not introduce a `Sprite` load path.
+- Crew portrait labels and addresses remain optional profile metadata owned by `task-system.json`.
+  Rendering and presentation behavior are intentionally outside this rules specification.
 
 Unity IMGUI touch-to-mouse synthesis is the runtime input path for this prototype. Drag calculation remains a pure tested function so a later input-system migration does not redefine the interaction.
 
