@@ -536,7 +536,7 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void CompetencyAssignmentPreviewMatchesNextAutomaticAssignment()
+        public void OrganizationPreviewMatchesNextAutomaticAssignment()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
             DisableAccidents(data);
@@ -546,13 +546,13 @@ namespace ProjectW.MilestonePrototype.Tests
             int preview = game.PreviewAutomaticAssignee("survey", out string source);
 
             Assert.That(preview, Is.GreaterThanOrEqualTo(0));
-            Assert.That(source, Does.StartWith("역량"));
+            Assert.That(source, Does.StartWith("조직"));
             game.AdvanceDay();
             Assert.That(game.Tasks.Find(task => task.Id == "survey").AssignedCharacter, Is.EqualTo(preview));
         }
 
         [Test]
-        public void CompetencyAutoAssignmentChoosesBestAvailableWorker()
+        public void OrganizationAssignmentUsesDefaultRoleDepthChart()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
             DisableAccidents(data);
@@ -562,11 +562,11 @@ namespace ProjectW.MilestonePrototype.Tests
             game.AdvanceDay();
 
             Assert.That(game.Tasks.Find(task => task.Id == "survey").AssignedCharacter, Is.EqualTo(1));
-            Assert.That(game.LastReport.Lines, Has.Some.Contains("역량 자동 배정"));
+            Assert.That(game.LastReport.Lines, Has.Some.Contains("조직 자동 배정"));
         }
 
         [Test]
-        public void CompetencyAutoAssignmentBreaksEqualScoresByLowerFatigue()
+        public void BalancedOrganizationKeepsRoleDepthPriorityOverSmallFatigueDifference()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
             DisableAccidents(data);
@@ -576,7 +576,7 @@ namespace ProjectW.MilestonePrototype.Tests
 
             game.AdvanceDay();
 
-            Assert.That(game.Tasks.Find(task => task.Id == "survey").AssignedCharacter, Is.EqualTo(3));
+            Assert.That(game.Tasks.Find(task => task.Id == "survey").AssignedCharacter, Is.EqualTo(1));
         }
 
         [Test]
@@ -901,7 +901,7 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void FullyFatiguedWorkerKeepsAssignmentAndContinuesWorking()
+        public void FullyFatiguedWorkerKeepsAssignmentButAutomaticallyRests()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
             data.Crew[1].Fatigue = 100;
@@ -915,8 +915,9 @@ namespace ProjectW.MilestonePrototype.Tests
             game.AdvanceDay();
 
             Assert.That(survey.AssignedCharacter, Is.EqualTo(1));
-            Assert.That(survey.LastOutput, Is.EqualTo(.75f).Within(.001f));
-            Assert.That(game.Crew[1].Fatigue, Is.EqualTo(100));
+            Assert.That(survey.LastOutput, Is.EqualTo(0f).Within(.001f));
+            Assert.That(game.Crew[1].Fatigue, Is.LessThan(100));
+            Assert.That(game.LastReport.Lines, Has.Some.Contains("피로 한계"));
         }
 
         [Test]
@@ -2884,6 +2885,99 @@ namespace ProjectW.MilestonePrototype.Tests
                 Is.EqualTo(expected).Within(.001f));
             Assert.That(game.PendingMedicalResults, Has.Length.EqualTo(game.Crew.Count - 1));
             Assert.That(Array.Exists(game.PendingMedicalResults, result => result.CrewIndex == 1), Is.False);
+        }
+
+        [Test]
+        public void ContinuityStyleUsesPlayerRoleDepthChartForAutomaticStaffing()
+        {
+            var game = new MilestoneSimulation(31);
+            WorkTask survey = game.Tasks.Find(task => task.Id == "survey");
+            int selectedWorker = 3;
+            game.SetOperationsStyle(OperationsStyle.Continuity);
+            while (Array.IndexOf(game.RoleDepthOrder(survey.RequiredRole), selectedWorker) > 0)
+                Assert.That(game.MoveRoleDepth(survey.RequiredRole, selectedWorker, -1), Is.True);
+
+            game.AdvanceDay();
+
+            Assert.That(survey.AssignedCharacter, Is.EqualTo(selectedWorker));
+            Assert.That(game.LastReport.Lines, Has.Some.Contains("조직 자동 배정"));
+        }
+
+        [Test]
+        public void FatiguePolicyRestsWorkerWithoutLosingCurrentTaskContext()
+        {
+            var game = new MilestoneSimulation(32);
+            game.SetCompetencyAutoAssignment(false);
+            WorkTask survey = game.Tasks.Find(task => task.Id == "survey");
+            Assert.That(game.Assign(survey.Id, 0), Is.True);
+            game.Crew[0].Fatigue = 40;
+            game.AdjustCrewFatigueLimit(0, -30);
+            float progress = survey.Progress;
+
+            game.AdvanceDay();
+
+            Assert.That(survey.AssignedCharacter, Is.EqualTo(0));
+            Assert.That(survey.Progress, Is.EqualTo(progress));
+            Assert.That(game.Crew[0].Fatigue, Is.LessThan(40));
+            Assert.That(game.LastReport.Lines, Has.Some.Contains("피로 한계"));
+        }
+
+        [Test]
+        public void RecoveryAndEmergencyModesRestrictNormalAutomaticStaffing()
+        {
+            var game = new MilestoneSimulation(33);
+            WorkTask survey = game.Tasks.Find(task => task.Id == "survey");
+            game.SetCrewOperatingMode(0, CrewOperatingMode.Recovery);
+            game.SetCrewOperatingMode(1, CrewOperatingMode.Emergency);
+            while (Array.IndexOf(game.RoleDepthOrder(survey.RequiredRole), 0) > 0)
+                game.MoveRoleDepth(survey.RequiredRole, 0, -1);
+            while (Array.IndexOf(game.RoleDepthOrder(survey.RequiredRole), 1) > 1)
+                game.MoveRoleDepth(survey.RequiredRole, 1, -1);
+
+            game.AdvanceDay();
+
+            Assert.That(survey.AssignedCharacter, Is.Not.EqualTo(0));
+            Assert.That(survey.AssignedCharacter, Is.Not.EqualTo(1));
+        }
+
+        [Test]
+        public void StaffingPlanSurvivesCampaignSnapshotAndLegacySnapshotGetsDefaults()
+        {
+            var original = new MilestoneSimulation(34);
+            original.SetOperationsStyle(OperationsStyle.Growth);
+            original.SetCrewOperatingMode(2, CrewOperatingMode.Support);
+            original.AdjustCrewFatigueLimit(2, 15);
+            WorkRole role = WorkRole.Management;
+            while (Array.IndexOf(original.RoleDepthOrder(role), 2) > 0)
+                original.MoveRoleDepth(role, 2, -1);
+
+            CampaignSnapshot snapshot = original.CreateSnapshot();
+            var restored = new MilestoneSimulation(35);
+            Assert.That(restored.Restore(snapshot), Is.True);
+            Assert.That(restored.StaffingPlan.Style, Is.EqualTo(OperationsStyle.Growth));
+            Assert.That(restored.CrewPolicy(2).Mode, Is.EqualTo(CrewOperatingMode.Support));
+            Assert.That(restored.CrewPolicy(2).FatigueLimit, Is.EqualTo(85));
+            Assert.That(restored.RoleDepthOrder(role)[0], Is.EqualTo(2));
+
+            snapshot.StaffingPlan = null;
+            var legacy = new MilestoneSimulation(36);
+            Assert.That(legacy.Restore(snapshot), Is.True);
+            Assert.That(legacy.StaffingPlan.Style, Is.EqualTo(OperationsStyle.Balanced));
+            Assert.That(legacy.CrewPolicy(0).FatigueLimit, Is.EqualTo(70));
+        }
+
+        [Test]
+        public void OrganizationRunsThirtyDaysWithoutManualTaskAssignment()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            DisableAccidents(data);
+            var game = new MilestoneSimulation(data, 37);
+
+            for (int day = 0; day < 30 && !game.IsLost; day++) game.AdvanceDay();
+
+            Assert.That(game.Day, Is.EqualTo(31));
+            Assert.That(game.Tasks.Exists(task => task.Progress > 0f || task.State == TaskState.Complete), Is.True);
+            Assert.That(game.SystemLog, Has.Some.Contains("조직 자동 배정"));
         }
 
         private static void CompleteSurvey(MilestoneSimulation game)

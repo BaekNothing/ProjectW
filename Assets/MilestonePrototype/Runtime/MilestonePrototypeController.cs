@@ -766,8 +766,62 @@ namespace ProjectW.MilestonePrototype
 
         private void DrawPriority(DeskWindow window)
         {
+            GUILayout.Label("ORGANIZATION / 운영 편성", title);
+            GUILayout.Label("역할별 뎁스 차트와 대원 운용 정책이 실제 Task 배정을 결정합니다.", small);
+            GUILayout.Label($"현재 운영: {OperationsStyleName(game.StaffingPlan.Style)} · " +
+                            $"미배치 공백 {game.StaffingGapCount()}건", section);
+            GUILayout.BeginHorizontal();
+            DrawOperationsStyleButton(OperationsStyle.Continuity);
+            DrawOperationsStyleButton(OperationsStyle.Balanced);
+            DrawOperationsStyleButton(OperationsStyle.Deadline);
+            DrawOperationsStyleButton(OperationsStyle.Growth);
+            GUILayout.EndHorizontal();
+            GUILayout.Space(8);
+            GUILayout.Label("대원 운용", section);
+            for (int crewIndex = 0; crewIndex < game.Crew.Count; crewIndex++)
+            {
+                CrewMember member = game.Crew[crewIndex];
+                CrewOperatingPolicy policy = game.CrewPolicy(crewIndex);
+                GUILayout.BeginVertical(GUI.skin.box);
+                GUILayout.BeginHorizontal();
+                GUILayout.Label($"{member.Name} · {RoleName(member.Specialty)} · 피로 {member.Fatigue}",
+                    GUILayout.MinWidth(230));
+                if (LayoutButton(CrewModeName(policy.Mode), GUILayout.Width(105)))
+                {
+                    game.SetCrewOperatingMode(crewIndex, NextCrewMode(policy.Mode));
+                    SaveCampaign();
+                }
+                GUILayout.Label($"휴식선 {policy.FatigueLimit}", GUILayout.Width(85));
+                if (LayoutButton("-", GUILayout.Width(38))) { game.AdjustCrewFatigueLimit(crewIndex, -5); SaveCampaign(); }
+                if (LayoutButton("+", GUILayout.Width(38))) { game.AdjustCrewFatigueLimit(crewIndex, 5); SaveCampaign(); }
+                GUILayout.EndHorizontal();
+                GUILayout.EndVertical();
+            }
+            GUILayout.Space(8);
+            GUILayout.Label("역할별 뎁스 차트", section);
+            for (int roleIndex = 0; roleIndex < 4; roleIndex++)
+            {
+                WorkRole role = (WorkRole)roleIndex;
+                int[] order = game.RoleDepthOrder(role);
+                GUILayout.BeginVertical(GUI.skin.box);
+                GUILayout.Label(RoleName(role), section);
+                for (int rank = 0; rank < order.Length; rank++)
+                {
+                    int worker = order[rank];
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Label($"{rank + 1}. {game.Crew[worker].Name}", GUILayout.MinWidth(170));
+                    SetControlEnabled(rank > 0);
+                    if (LayoutButton("↑", GUILayout.Width(42))) { game.MoveRoleDepth(role, worker, -1); SaveCampaign(); }
+                    SetControlEnabled(rank < order.Length - 1);
+                    if (LayoutButton("↓", GUILayout.Width(42))) { game.MoveRoleDepth(role, worker, 1); SaveCampaign(); }
+                    SetControlEnabled(true);
+                    GUILayout.EndHorizontal();
+                }
+                GUILayout.EndVertical();
+            }
+            GUILayout.Space(10);
             GUILayout.Label("WORK PRIORITY", title);
-            GUILayout.Label("자동배정은 위에서 아래 순서로 가용 작업을 검토합니다.", small);
+            GUILayout.Label("조직 배치는 아래 우선순위대로 가용 Task를 검토합니다.", small);
             GUILayout.Label("긴급! = 최적 담당자를 낮은 우선순위 일에서 빼와 선점 · 총력! = 해당 일 담당자의 검진과 주말 휴식 생략", warning);
             DrawSectionRule();
             List<WorkGroup> works = game.Groups.Where(group => game.IsWorkVisible(group) &&
@@ -809,6 +863,49 @@ namespace ProjectW.MilestonePrototype
             if (works.Count == 0) GUILayout.Label("우선순위를 조정할 진행 가능 일이 없습니다.");
         }
 
+        private void DrawOperationsStyleButton(OperationsStyle style)
+        {
+            string label = OperationsStyleName(style);
+            if (LayoutButton(game.StaffingPlan.Style == style ? $"[{label}]" : label))
+            {
+                game.SetOperationsStyle(style);
+                SaveCampaign();
+            }
+        }
+
+        private static CrewOperatingMode NextCrewMode(CrewOperatingMode mode)
+        {
+            switch (mode)
+            {
+                case CrewOperatingMode.Starter: return CrewOperatingMode.Support;
+                case CrewOperatingMode.Support: return CrewOperatingMode.Recovery;
+                case CrewOperatingMode.Recovery: return CrewOperatingMode.Emergency;
+                default: return CrewOperatingMode.Starter;
+            }
+        }
+
+        private static string CrewModeName(CrewOperatingMode mode)
+        {
+            switch (mode)
+            {
+                case CrewOperatingMode.Starter: return "주력";
+                case CrewOperatingMode.Support: return "지원";
+                case CrewOperatingMode.Recovery: return "회복조";
+                default: return "비상대기";
+            }
+        }
+
+        private static string OperationsStyleName(OperationsStyle style)
+        {
+            switch (style)
+            {
+                case OperationsStyle.Continuity: return "연속성";
+                case OperationsStyle.Deadline: return "마감";
+                case OperationsStyle.Growth: return "성장";
+                default: return "균형";
+            }
+        }
+
         private void DrawGantt(DeskWindow window)
         {
             GUILayout.BeginHorizontal();
@@ -816,7 +913,7 @@ namespace ProjectW.MilestonePrototype
             GUILayout.FlexibleSpace();
             if (LayoutButton("오늘로", GUILayout.Width(75f), GUILayout.Height(30f)))
                 window.CenterTimelineOnToday = true;
-            if (LayoutButton(game.CompetencyAutoAssignment ? "[✓] 자동배정" : "[ ] 자동배정",
+            if (LayoutButton(game.CompetencyAutoAssignment ? "[✓] 조직운영" : "[ ] 배치보류",
                     GUILayout.Width(125f), GUILayout.Height(30f)))
             {
                 game.SetCompetencyAutoAssignment(!game.CompetencyAutoAssignment);
@@ -1305,10 +1402,10 @@ namespace ProjectW.MilestonePrototype
             GUILayout.Label($"현재 담당: {assignee}", section);
             GUILayout.BeginHorizontal();
             SetControlEnabled(task.State == TaskState.Available || task.State == TaskState.Active);
-            if (LayoutButton("주 작업 담당 순환")) { AssignNext(task); SaveCampaign(); }
+            if (LayoutButton("직접 개입 · 주담당 변경")) { AssignNext(task); SaveCampaign(); }
             SetControlEnabled((task.State == TaskState.Available || task.State == TaskState.Active) &&
                               cost.CanRunInParallel);
-            if (LayoutButton("병행 담당 순환")) { AssignNextParallel(task); SaveCampaign(); }
+            if (LayoutButton("직접 개입 · 병행 변경")) { AssignNextParallel(task); SaveCampaign(); }
             SetControlEnabled(task.AssignedCharacter >= 0);
             if (LayoutButton("배정 해제")) { game.Assign(task.Id, -1); SaveCampaign(); }
             SetControlEnabled(true);
@@ -1950,9 +2047,9 @@ namespace ProjectW.MilestonePrototype
                 $"자원 {game.Resources}\n작업 성공 보정 {game.TaskSuccessChanceModifier:+#;-#;0}%p\n" +
                 $"월 기본급 합계 {game.TotalPayroll()} · 다음 지급 DAY {game.NextPayrollDay}\n패치 {patchVersion}");
             GUILayout.Space(12);
-            GUILayout.Label($"자동지정 규칙 {game.AssignmentRules.Count}개", section);
+            GUILayout.Label($"기억된 직접 개입 {game.AssignmentRules.Count}개", section);
             if (game.AssignmentRules.Count == 0)
-                GUILayout.Label("아직 학습된 규칙이 없습니다. 작업자를 손으로 지정하면 기록됩니다.", small);
+                GUILayout.Label("직접 개입 기록이 없습니다. 정상 Task는 조직 편성에 따라 자동 운영됩니다.", small);
             foreach (AssignmentRule rule in game.AssignmentRules)
                 GUILayout.Label(
                     $"{RoleName(rule.RequiredRole)} / {rule.Kind} / 난이도 {rule.Difficulty} / " +

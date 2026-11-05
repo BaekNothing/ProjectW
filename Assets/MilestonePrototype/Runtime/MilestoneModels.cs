@@ -15,6 +15,8 @@ namespace ProjectW.MilestonePrototype
     public enum ProposalStage { None, Draft, Question, Accepted, Declined }
     public enum ProposalPitch { Stability, Growth, Efficiency, Decline }
     public enum BossPreference { Stability, Growth, Efficiency }
+    public enum CrewOperatingMode { Starter, Support, Recovery, Emergency }
+    public enum OperationsStyle { Continuity, Balanced, Deadline, Growth }
 
     [Serializable]
     public sealed class WorkTask
@@ -324,6 +326,29 @@ namespace ProjectW.MilestonePrototype
     }
 
     [Serializable]
+    public sealed class RoleDepthChart
+    {
+        public WorkRole Role;
+        public int[] CrewOrder;
+    }
+
+    [Serializable]
+    public sealed class CrewOperatingPolicy
+    {
+        public int CrewIndex;
+        public CrewOperatingMode Mode;
+        public int FatigueLimit = 70;
+    }
+
+    [Serializable]
+    public sealed class StaffingPlan
+    {
+        public OperationsStyle Style = OperationsStyle.Balanced;
+        public RoleDepthChart[] RoleDepthCharts;
+        public CrewOperatingPolicy[] CrewPolicies;
+    }
+
+    [Serializable]
     public sealed class TaskSystemData
     {
         public int SchemaVersion;
@@ -492,6 +517,7 @@ namespace ProjectW.MilestonePrototype
         public string ActiveCriticalNodeId;
         public int ActiveCriticalNodeArrivalDay;
         public int TaskSuccessChanceModifier;
+        public StaffingPlan StaffingPlan;
     }
 
     [Serializable]

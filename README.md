@@ -29,7 +29,7 @@ draft/interchange aid and is not loaded by the game.
 | People | Implemented core: competencies, fatigue, injury, medical files, experience, salary, regeneration, trust display |
 | Outcomes | Implemented: fatigue-driven failure/success/great-success, accidents, rewards and resource penalties |
 | Mail and events | Implemented: critical chains, PM proposals, boss requests, Monday field-status digest, medical results |
-| Automation | Implemented: learned assignment and competency assignment with reservation/priority constraints |
+| Automation | Implemented: role depth charts, crew modes, fatigue limits, operations styles, automatic rotation, and remembered interventions |
 | Content | 20 authored Works, 39 Tasks, 20 authored mail entries, 7 critical-event chains, generated missions |
 | Save | Implemented: campaign schema 2 and separate desktop schema 1, with selected legacy backfills |
 | Data operations | Implemented: local JSON category editing, validation, working-copy reload, clipboard export |

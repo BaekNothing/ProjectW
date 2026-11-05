@@ -66,6 +66,7 @@ namespace ProjectW.MilestonePrototype
         public DayReport LastReport { get; private set; } = new DayReport();
         public bool MidpointReviewIssued { get; private set; }
         public bool CompetencyAutoAssignment { get; private set; }
+        public StaffingPlan StaffingPlan { get; private set; }
         public Weekday CurrentWeekday => (Weekday)((Day - 1) % 7);
         public int UnscheduledCheckupResourceCost => balance.UnscheduledCheckupResourceCost;
         public MedicalResult[] PendingMedicalResults { get; private set; } = new MedicalResult[0];
@@ -133,6 +134,60 @@ namespace ProjectW.MilestonePrototype
 
         public void SetCompetencyAutoAssignment(bool enabled) =>
             CompetencyAutoAssignment = enabled;
+
+        public void SetOperationsStyle(OperationsStyle style) => StaffingPlan.Style = style;
+
+        public CrewOperatingPolicy CrewPolicy(int crewIndex)
+        {
+            foreach (CrewOperatingPolicy policy in StaffingPlan.CrewPolicies)
+                if (policy.CrewIndex == crewIndex) return policy;
+            return null;
+        }
+
+        public void SetCrewOperatingMode(int crewIndex, CrewOperatingMode mode)
+        {
+            if (crewIndex < 0 || crewIndex >= Crew.Count) return;
+            CrewPolicy(crewIndex).Mode = mode;
+        }
+
+        public void AdjustCrewFatigueLimit(int crewIndex, int delta)
+        {
+            if (crewIndex < 0 || crewIndex >= Crew.Count) return;
+            CrewOperatingPolicy policy = CrewPolicy(crewIndex);
+            policy.FatigueLimit = Math.Max(40, Math.Min(95, policy.FatigueLimit + delta));
+        }
+
+        public int[] RoleDepthOrder(WorkRole role)
+        {
+            foreach (RoleDepthChart chart in StaffingPlan.RoleDepthCharts)
+                if (chart.Role == role) return chart.CrewOrder;
+            return new int[0];
+        }
+
+        public bool MoveRoleDepth(WorkRole role, int crewIndex, int direction)
+        {
+            int[] order = RoleDepthOrder(role);
+            int index = IndexOfWorker(order, crewIndex);
+            int target = index + direction;
+            if (index < 0 || target < 0 || target >= order.Length) return false;
+            int swap = order[target];
+            order[target] = crewIndex;
+            order[index] = swap;
+            return true;
+        }
+
+        public int StaffingGapCount()
+        {
+            int count = 0;
+            foreach (WorkTask task in Tasks)
+            {
+                if (task.AssignedCharacter >= 0 || task.ScheduledDay > 0 ||
+                    task.State != TaskState.Available || !AutomaticDependenciesComplete(task)) continue;
+                string source;
+                if (PreviewAutomaticAssignee(task.Id, out source) < 0) count++;
+            }
+            return count;
+        }
 
         public bool MoveWorkPriority(string workId, int direction)
         {
@@ -204,7 +259,7 @@ namespace ProjectW.MilestonePrototype
             if (rule != null)
             {
                 int learnedWorker = Crew.FindIndex(member => member.Name == rule.CrewName);
-                if (WorkerCanTakePrimary(learnedWorker))
+                if (WorkerCanTakePrimary(learnedWorker) && IsStaffingCandidate(task, learnedWorker))
                 {
                     source = "학습 규칙";
                     return learnedWorker;
@@ -212,22 +267,9 @@ namespace ProjectW.MilestonePrototype
             }
             if (!CompetencyAutoAssignment) return -1;
 
-            int bestWorker = -1;
-            float bestMultiplier = -1f;
-            int bestFatigue = int.MaxValue;
-            for (int worker = 0; worker < Crew.Count; worker++)
-            {
-                if (!WorkerCanTakePrimary(worker)) continue;
-                CrewMember member = Crew[worker];
-                float multiplier = CompetencyOutputMultiplier(member, task);
-                if (multiplier < bestMultiplier ||
-                    Math.Abs(multiplier - bestMultiplier) < .001f && member.Fatigue >= bestFatigue)
-                    continue;
-                bestWorker = worker;
-                bestMultiplier = multiplier;
-                bestFatigue = member.Fatigue;
-            }
-            if (bestWorker >= 0) source = $"역량 ×{bestMultiplier:0.##}";
+            int bestWorker = SelectStaffingWorker(task, false);
+            if (bestWorker >= 0)
+                source = $"조직 {StaffingPlan.Style} · {RoleDepthRank(task.RequiredRole, bestWorker) + 1}순위";
             return bestWorker;
         }
 
@@ -279,6 +321,7 @@ namespace ProjectW.MilestonePrototype
             Groups.AddRange(data.Works);
             Tasks.AddRange(data.Tasks);
             Crew.AddRange(data.Crew);
+            StaffingPlan = CreateDefaultStaffingPlan();
             if (data.Mail != null) Mail.AddRange(data.Mail);
             ExtractWeeklyFieldItemsFromMail();
             Codex.AddRange(baseCodex);
@@ -1107,6 +1150,7 @@ namespace ProjectW.MilestonePrototype
 
             bool weekendRest = CurrentWeekday == Weekday.Saturday || CurrentWeekday == Weekday.Sunday;
             bool regularFridayCheckup = IsRegularCheckupDay(Day);
+            ApplyStaffingRecoveryPolicy(report, weekendRest);
             ApplyScheduledAssignments(report);
             ApplyPriorityPreemption(report);
             ApplyLearnedAssignments(report);
@@ -1627,25 +1671,22 @@ namespace ProjectW.MilestonePrototype
             if (rule != null)
             {
                 int learned = Crew.FindIndex(member => member.Name == rule.CrewName);
-                if (learned >= 0 && learned < Crew.Count && Crew[learned].Available) return learned;
+                if (learned >= 0 && learned < Crew.Count && IsStaffingCandidate(task, learned)) return learned;
             }
             if (!CompetencyAutoAssignment) return -1;
             int earliest = int.MaxValue;
             for (int worker = 0; worker < Crew.Count; worker++)
-                if (Crew[worker].Available) earliest = Math.Min(earliest, workerFreeDay[worker]);
+                if (IsStaffingCandidate(task, worker)) earliest = Math.Min(earliest, workerFreeDay[worker]);
             int best = -1;
-            float bestMultiplier = -1f;
-            int bestFatigue = int.MaxValue;
+            float bestScore = float.MinValue;
             for (int worker = 0; worker < Crew.Count; worker++)
             {
-                if (!Crew[worker].Available || workerFreeDay[worker] != earliest) continue;
+                if (!IsStaffingCandidate(task, worker) || workerFreeDay[worker] != earliest) continue;
                 float multiplier = CompetencyOutputMultiplier(Crew[worker], task);
-                if (multiplier < bestMultiplier ||
-                    Math.Abs(multiplier - bestMultiplier) < .001f && Crew[worker].Fatigue >= bestFatigue)
-                    continue;
+                float score = StaffingScore(task, worker, multiplier, ParentWork(task)?.Urgent == true);
+                if (score < bestScore - .001f) continue;
                 best = worker;
-                bestMultiplier = multiplier;
-                bestFatigue = Crew[worker].Fatigue;
+                bestScore = score;
             }
             return best;
         }
@@ -1848,6 +1889,65 @@ namespace ProjectW.MilestonePrototype
             return value - whole > .001f ? whole + 1 : Math.Max(1, whole);
         }
 
+        private StaffingPlan CreateDefaultStaffingPlan()
+        {
+            var charts = new RoleDepthChart[4];
+            for (int roleIndex = 0; roleIndex < charts.Length; roleIndex++)
+            {
+                var order = new int[Crew.Count];
+                int next = 0;
+                for (int worker = 0; worker < Crew.Count; worker++)
+                    if ((int)Crew[worker].Specialty == roleIndex) order[next++] = worker;
+                for (int worker = 0; worker < Crew.Count; worker++)
+                    if ((int)Crew[worker].Specialty != roleIndex) order[next++] = worker;
+                charts[roleIndex] = new RoleDepthChart { Role = (WorkRole)roleIndex, CrewOrder = order };
+            }
+            var policies = new CrewOperatingPolicy[Crew.Count];
+            for (int worker = 0; worker < Crew.Count; worker++)
+                policies[worker] = new CrewOperatingPolicy
+                {
+                    CrewIndex = worker,
+                    Mode = CrewOperatingMode.Starter,
+                    FatigueLimit = 70
+                };
+            return new StaffingPlan
+            {
+                Style = OperationsStyle.Balanced,
+                RoleDepthCharts = charts,
+                CrewPolicies = policies
+            };
+        }
+
+        private StaffingPlan NormalizeStaffingPlan(StaffingPlan plan)
+        {
+            if (plan == null || plan.RoleDepthCharts == null || plan.RoleDepthCharts.Length != 4 ||
+                plan.CrewPolicies == null || plan.CrewPolicies.Length != Crew.Count)
+                return CreateDefaultStaffingPlan();
+            for (int role = 0; role < 4; role++)
+            {
+                RoleDepthChart chart = null;
+                foreach (RoleDepthChart candidate in plan.RoleDepthCharts)
+                    if ((int)candidate.Role == role) chart = candidate;
+                if (chart == null || chart.CrewOrder == null || chart.CrewOrder.Length != Crew.Count)
+                    return CreateDefaultStaffingPlan();
+                var seen = new bool[Crew.Count];
+                foreach (int worker in chart.CrewOrder)
+                {
+                    if (worker < 0 || worker >= Crew.Count || seen[worker]) return CreateDefaultStaffingPlan();
+                    seen[worker] = true;
+                }
+            }
+            for (int worker = 0; worker < Crew.Count; worker++)
+            {
+                CrewOperatingPolicy policy = null;
+                foreach (CrewOperatingPolicy candidate in plan.CrewPolicies)
+                    if (candidate.CrewIndex == worker) policy = candidate;
+                if (policy == null) return CreateDefaultStaffingPlan();
+                policy.FatigueLimit = Math.Max(40, Math.Min(95, policy.FatigueLimit));
+            }
+            return plan;
+        }
+
         public CampaignSnapshot CreateSnapshot() => new CampaignSnapshot
         {
             SchemaVersion = ProjectWSaveStore.CampaignSchema,
@@ -1874,7 +1974,8 @@ namespace ProjectW.MilestonePrototype
             ActiveCriticalEventId = ActiveCriticalEventId,
             ActiveCriticalNodeId = ActiveCriticalNodeId,
             ActiveCriticalNodeArrivalDay = ActiveCriticalNodeArrivalDay,
-            TaskSuccessChanceModifier = TaskSuccessChanceModifier
+            TaskSuccessChanceModifier = TaskSuccessChanceModifier,
+            StaffingPlan = StaffingPlan
         };
 
         public bool Restore(CampaignSnapshot snapshot)
@@ -1891,6 +1992,7 @@ namespace ProjectW.MilestonePrototype
             var restoredCrew = new CrewMember[restoredCrewCount];
             for (int i = 0; i < restoredCrewCount; i++) restoredCrew[i] = snapshot.Crew[i];
             Crew.AddRange(restoredCrew);
+            StaffingPlan = NormalizeStaffingPlan(snapshot.StaffingPlan);
             Mail.Clear(); Mail.AddRange(snapshot.Mail);
             pendingWeeklyFieldItems.Clear();
             if (snapshot.PendingWeeklyFieldItems != null)
@@ -2529,12 +2631,31 @@ namespace ProjectW.MilestonePrototype
                          candidate.ScheduledDay > 0 && candidate.ScheduledDay <= Day).ToList())
             {
                 int worker = task.ScheduledWorker;
+                if (worker >= 0 && worker < Crew.Count) Crew[worker].RestScheduled = false;
                 bool assigned = worker >= 0 && worker < Crew.Count && AssignPrimary(task, worker);
                 report.Lines.Add(assigned
                     ? $"작업 시작: {Crew[worker].Name} → {task.Name}"
                     : $"시작 예약 불발: {task.Name}");
                 task.ScheduledDay = 0;
                 task.ScheduledWorker = -1;
+            }
+        }
+
+        private void ApplyStaffingRecoveryPolicy(DayReport report, bool weekendRest)
+        {
+            if (weekendRest) return;
+            for (int worker = 0; worker < Crew.Count; worker++)
+            {
+                CrewMember member = Crew[worker];
+                CrewOperatingPolicy policy = CrewPolicy(worker);
+                bool recoveryMode = policy.Mode == CrewOperatingMode.Recovery;
+                if (!recoveryMode && member.Fatigue < policy.FatigueLimit) continue;
+                if (HasAllOutAssignment(worker) || member.InjuryDays > 0 || member.RestScheduled) continue;
+                member.RestScheduled = true;
+                member.History.Add($"DAY {Day}: 운영 정책 자동 휴식");
+                report.Lines.Add(recoveryMode
+                    ? $"자동 로테이션: {member.Name} 회복조 휴식"
+                    : $"자동 로테이션: {member.Name} 피로 한계 {policy.FatigueLimit} 도달 · 휴식");
             }
         }
 
@@ -2572,7 +2693,7 @@ namespace ProjectW.MilestonePrototype
                 AssignmentRule rule = AssignmentRules.FirstOrDefault(candidate => candidate.Matches(task));
                 if (rule == null || !AutomaticDependenciesComplete(task)) continue;
                 int worker = Crew.FindIndex(member => member.Name == rule.CrewName);
-                if (!WorkerCanTakePrimary(worker)) continue;
+                if (!WorkerCanTakePrimary(worker) || !IsStaffingCandidate(task, worker)) continue;
                 if (!AssignPrimary(task, worker)) continue;
                 report.Lines.Add($"자동 배정: {Crew[worker].Name} → {task.Name}");
             }
@@ -2586,25 +2707,85 @@ namespace ProjectW.MilestonePrototype
             {
                 if (task.AssignedCharacter >= 0 || task.ScheduledDay > 0 ||
                     task.State != TaskState.Available || !AutomaticDependenciesComplete(task)) continue;
-                int bestWorker = -1;
-                float bestMultiplier = -1f;
-                int bestFatigue = int.MaxValue;
-                for (int worker = 0; worker < Crew.Count; worker++)
-                {
-                    CrewMember member = Crew[worker];
-                    if (!WorkerCanTakePrimary(worker)) continue;
-                    float multiplier = CompetencyOutputMultiplier(member, task);
-                    if (multiplier < bestMultiplier ||
-                        Math.Abs(multiplier - bestMultiplier) < .001f && member.Fatigue >= bestFatigue)
-                        continue;
-                    bestWorker = worker;
-                    bestMultiplier = multiplier;
-                    bestFatigue = member.Fatigue;
-                }
+                int bestWorker = SelectStaffingWorker(task, false);
                 if (bestWorker < 0 || !AssignPrimary(task, bestWorker)) continue;
+                float bestMultiplier = CompetencyOutputMultiplier(Crew[bestWorker], task);
                 report.Lines.Add(
-                    $"역량 자동 배정: {Crew[bestWorker].Name} → {task.Name} (×{bestMultiplier:0.##})");
+                    $"조직 자동 배정: {Crew[bestWorker].Name} → {task.Name} " +
+                    $"({StaffingPlan.Style} · {RoleDepthRank(task.RequiredRole, bestWorker) + 1}순위 · ×{bestMultiplier:0.##})");
             }
+        }
+
+        private int SelectStaffingWorker(WorkTask task, bool allowBusy)
+        {
+            int bestWorker = -1;
+            float bestScore = float.MinValue;
+            for (int worker = 0; worker < Crew.Count; worker++)
+            {
+                if (allowBusy)
+                {
+                    if (!Crew[worker].Available) continue;
+                }
+                else if (!WorkerCanTakePrimary(worker)) continue;
+                if (!IsStaffingCandidate(task, worker)) continue;
+                bool urgent = ParentWork(task)?.Urgent == true;
+                float multiplier = CompetencyOutputMultiplier(Crew[worker], task);
+                float score = StaffingScore(task, worker, multiplier, urgent);
+                if (score < bestScore - .001f) continue;
+                if (Math.Abs(score - bestScore) < .001f && bestWorker >= 0 &&
+                    (Crew[worker].Fatigue > Crew[bestWorker].Fatigue ||
+                     Crew[worker].Fatigue == Crew[bestWorker].Fatigue && worker > bestWorker)) continue;
+                bestWorker = worker;
+                bestScore = score;
+            }
+            return bestWorker;
+        }
+
+        private bool IsStaffingCandidate(WorkTask task, int worker)
+        {
+            if (worker < 0 || worker >= Crew.Count || !Crew[worker].Available) return false;
+            CrewOperatingPolicy policy = CrewPolicy(worker);
+            bool urgent = ParentWork(task)?.Urgent == true;
+            if (policy.Mode == CrewOperatingMode.Recovery) return false;
+            if (policy.Mode == CrewOperatingMode.Emergency && !urgent) return false;
+            if (Crew[worker].Fatigue >= policy.FatigueLimit && !urgent) return false;
+            return StaffingPlan.Style != OperationsStyle.Growth ||
+                   CompetencyOutputMultiplier(Crew[worker], task) >= .75f;
+        }
+
+        private float StaffingScore(WorkTask task, int worker, float multiplier, bool urgent)
+        {
+            int rank = RoleDepthRank(task.RequiredRole, worker);
+            CrewOperatingPolicy policy = CrewPolicy(worker);
+            float starter = policy.Mode == CrewOperatingMode.Starter ? 8f : 0f;
+            float emergency = policy.Mode == CrewOperatingMode.Emergency && urgent ? 6f : 0f;
+            switch (StaffingPlan.Style)
+            {
+                case OperationsStyle.Continuity:
+                    return 160f - rank * 36f + multiplier * 14f - Crew[worker].Fatigue * .2f + starter;
+                case OperationsStyle.Deadline:
+                    return 90f - rank * 12f + multiplier * 60f - Crew[worker].Fatigue * .2f + starter + emergency;
+                case OperationsStyle.Growth:
+                    return 120f - rank * 10f - Crew[worker].Fatigue * .5f +
+                           (2f - multiplier) * 12f + starter;
+                default:
+                    return 120f - rank * 22f + multiplier * 32f - Crew[worker].Fatigue * .35f + starter;
+            }
+        }
+
+        private int RoleDepthRank(WorkRole role, int worker)
+        {
+            int[] order = RoleDepthOrder(role);
+            int rank = IndexOfWorker(order, worker);
+            return rank >= 0 ? rank : Crew.Count;
+        }
+
+        private static int IndexOfWorker(int[] order, int worker)
+        {
+            if (order == null) return -1;
+            for (int index = 0; index < order.Length; index++)
+                if (order[index] == worker) return index;
+            return -1;
         }
 
         private void ApplyPriorityPreemption(DayReport report)
@@ -2619,20 +2800,13 @@ namespace ProjectW.MilestonePrototype
                     AutomaticDependenciesComplete(task)).ToList();
                 foreach (WorkTask target in eligible)
                 {
-                    int bestWorker = -1;
-                    float bestMultiplier = -1f;
-                    for (int worker = 0; worker < Crew.Count; worker++)
-                    {
-                        if (!Crew[worker].Available) continue;
-                        float multiplier = CompetencyOutputMultiplier(Crew[worker], target);
-                        if (multiplier <= bestMultiplier) continue;
-                        WorkTask current = Tasks.FirstOrDefault(task => task.AssignedCharacter == worker &&
-                            !task.IsParallelAssignment && IsOngoingAssignment(task));
-                        if (current != null && (ParentWork(current)?.Priority ?? int.MaxValue) <= work.Priority)
-                            continue;
-                        bestWorker = worker;
-                        bestMultiplier = multiplier;
-                    }
+                    int bestWorker = SelectStaffingWorker(target, true);
+                    WorkTask selectedCurrent = bestWorker < 0 ? null : Tasks.FirstOrDefault(task =>
+                        task.AssignedCharacter == bestWorker && !task.IsParallelAssignment &&
+                        IsOngoingAssignment(task));
+                    if (selectedCurrent != null &&
+                        (ParentWork(selectedCurrent)?.Priority ?? int.MaxValue) <= work.Priority)
+                        bestWorker = -1;
                     if (bestWorker < 0 || WorkerCanTakePrimary(bestWorker)) continue;
                     WorkTask interrupted = Tasks.FirstOrDefault(task => task.AssignedCharacter == bestWorker &&
                         !task.IsParallelAssignment && IsOngoingAssignment(task));
