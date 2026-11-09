@@ -13,6 +13,9 @@ namespace ProjectW.MilestonePrototype
         private const string UiThemeKey = "projectw.ui.theme.v1";
         private const int TimelineDays = 21;
         private const float DayWidth = 64f;
+        private const int NotificationHistoryLimit = 50;
+        private const int VisibleBannerLimit = 3;
+        private const float NotificationBannerSeconds = 6f;
 
         private UIDocument document;
         private PanelSettings panelSettings;
@@ -26,7 +29,14 @@ namespace ProjectW.MilestonePrototype
         private Label dayLabel;
         private Label resourceLabel;
         private Button nextDayButton;
+        private Button notificationButton;
+        private VisualElement notificationPanel;
+        private VisualElement notificationToastHost;
         private MilestoneSimulation game;
+        private NotificationCenter notifications;
+        private readonly List<string> knownMailIds = new List<string>();
+        private string lastKnownSystemLog;
+        private float nextNotificationExpiry = float.MaxValue;
         private IPatchDiagnostics diagnostics;
         private string patchVersion;
         private string activePage = "schedule";
@@ -39,10 +49,13 @@ namespace ProjectW.MilestonePrototype
             game = new MilestoneSimulation();
             if (ProjectWSaveStore.TryLoadCampaign(CampaignSaveKey, out CampaignSnapshot snapshot))
                 game.Restore(snapshot);
+            notifications = new NotificationCenter(NotificationHistoryLimit, NotificationBannerSeconds);
+            ResetNotificationTracking();
 
             darkTheme = PlayerPrefs.GetInt(UiThemeKey, 0) == 1;
             BuildDocument();
             BindShell();
+            BuildNotificationUi();
             ShowTitle();
         }
 
@@ -97,6 +110,120 @@ namespace ProjectW.MilestonePrototype
                 string destination = button.name.Replace("nav-", string.Empty);
                 button.clicked += () => Navigate(destination);
             }
+        }
+
+        private void BuildNotificationUi()
+        {
+            notificationButton = ActionButton("알림 0", "secondary");
+            notificationButton.clicked += ToggleNotificationHistory;
+            Require<Button>("theme-button").parent.Add(notificationButton);
+
+            notificationToastHost = Box("notification-toast-host");
+            notificationToastHost.style.position = Position.Absolute;
+            notificationToastHost.style.right = 20f;
+            notificationToastHost.style.bottom = 88f;
+            notificationToastHost.style.width = 360f;
+            desktopScreen.Add(notificationToastHost);
+
+            notificationPanel = Box("section-card");
+            notificationPanel.style.position = Position.Absolute;
+            notificationPanel.style.right = 18f;
+            notificationPanel.style.top = 64f;
+            notificationPanel.style.width = 420f;
+            notificationPanel.style.maxHeight = 520f;
+            notificationPanel.style.display = DisplayStyle.None;
+            desktopScreen.Add(notificationPanel);
+            RefreshNotificationUi(Time.unscaledTime);
+        }
+
+        private void ToggleNotificationHistory()
+        {
+            bool show = notificationPanel.style.display == DisplayStyle.None;
+            notificationPanel.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
+            if (show) RebuildNotificationHistory();
+        }
+
+        private void RebuildNotificationHistory()
+        {
+            notificationPanel.Clear();
+            var header = Box("page-toolbar");
+            header.Add(Text($"알림 이력 · {notifications.Count}", "section-title"));
+            Button clear = ActionButton("모두 지우기", "secondary");
+            clear.SetEnabled(notifications.Count > 0);
+            clear.clicked += () =>
+            {
+                notifications.Clear();
+                RefreshNotificationUi(Time.unscaledTime);
+            };
+            header.Add(clear);
+            notificationPanel.Add(header);
+
+            var scroll = new ScrollView(ScrollViewMode.Vertical);
+            scroll.style.flexGrow = 1f;
+            if (notifications.Count == 0) scroll.Add(Empty("아직 도착한 알림이 없습니다."));
+            for (int index = 0; index < notifications.Count; index++)
+            {
+                NotificationEntry entry = notifications.Get(index);
+                var row = Box("codex-row");
+                row.Add(Badge(entry.Category, entry.Category == "메일" ? "accent" : "neutral"));
+                row.Add(Text(entry.Title, "summary-title"));
+                row.Add(Text($"D{entry.Day:00} · {entry.Message}", "muted"));
+                scroll.Add(row);
+            }
+            notificationPanel.Add(scroll);
+        }
+
+        private void ResetNotificationTracking()
+        {
+            knownMailIds.Clear();
+            foreach (MailEvent mail in game.Mail)
+                if (mail.ArrivalDay <= game.Day) knownMailIds.Add(mail.Id);
+            lastKnownSystemLog = game.SystemLog.Count == 0
+                ? null
+                : game.SystemLog[game.SystemLog.Count - 1];
+        }
+
+        private void CaptureNotifications()
+        {
+            float now = Time.unscaledTime;
+            foreach (MailEvent mail in game.Mail)
+            {
+                if (mail.ArrivalDay > game.Day || knownMailIds.Contains(mail.Id)) continue;
+                knownMailIds.Add(mail.Id);
+                notifications.Add("메일", mail.Subject, mail.Body, game.Day, now);
+            }
+
+            int firstNewLog = 0;
+            if (!string.IsNullOrEmpty(lastKnownSystemLog))
+            {
+                int lastKnownIndex = game.SystemLog.LastIndexOf(lastKnownSystemLog);
+                firstNewLog = lastKnownIndex >= 0 ? lastKnownIndex + 1 : Math.Max(0, game.SystemLog.Count - 1);
+            }
+            for (int index = firstNewLog; index < game.SystemLog.Count; index++)
+                notifications.Add("활동", "운영 업데이트", game.SystemLog[index], game.Day, now);
+            lastKnownSystemLog = game.SystemLog.Count == 0
+                ? null
+                : game.SystemLog[game.SystemLog.Count - 1];
+
+            RefreshNotificationUi(now);
+        }
+
+        private void RefreshNotificationUi(float now)
+        {
+            notificationButton.text = $"알림 {notifications.Count}";
+            notificationToastHost.Clear();
+            int count = notifications.ActiveBannerCount(now, VisibleBannerLimit);
+            for (int index = 0; index < count; index++)
+            {
+                NotificationEntry entry = notifications.ActiveBannerAt(now, index);
+                var toast = Box("section-card");
+                toast.Add(Badge(entry.Category, entry.Category == "메일" ? "accent" : "neutral"));
+                toast.Add(Text(entry.Title, "summary-title"));
+                toast.Add(Text(entry.Message, "muted"));
+                notificationToastHost.Add(toast);
+            }
+            nextNotificationExpiry = notifications.NextExpiry(now);
+            if (notificationPanel.style.display == DisplayStyle.Flex) RebuildNotificationHistory();
         }
 
         private T Require<T>(string elementName) where T : VisualElement
@@ -448,6 +575,9 @@ namespace ProjectW.MilestonePrototype
             {
                 ProjectWSaveStore.Delete(CampaignSaveKey);
                 game = new MilestoneSimulation();
+                notifications.Clear();
+                ResetNotificationTracking();
+                RefreshNotificationUi(Time.unscaledTime);
                 modalHost.Clear();
                 ShowTitle();
             };
@@ -508,8 +638,15 @@ namespace ProjectW.MilestonePrototype
 
         private void SaveAndRefresh(string page)
         {
+            CaptureNotifications();
             ProjectWSaveStore.SaveCampaign(CampaignSaveKey, game.CreateSnapshot());
             Navigate(page);
+        }
+
+        private void Update()
+        {
+            if (notifications != null && Time.unscaledTime >= nextNotificationExpiry)
+                RefreshNotificationUi(Time.unscaledTime);
         }
 
         private void SetPageHeader(string eyebrow, string title)
