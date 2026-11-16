@@ -94,12 +94,12 @@ second competing core loop.
 
 ### Clarification
 
-- Before delivery, the player may request a stakeholder call or meeting when the request is not
-  clear enough to staff confidently.
+- Before confirming the Task plan, the player may request a stakeholder call or meeting when the
+  request is not clear enough to staff confidently.
 - A clarification action has an authored lead time in days and an authored clarity gain. The action
   is scheduled for `current day + lead time` and is shown on the request plan and calendar.
 - Only one clarification may be pending for a request. The player may continue planning while it is
-  pending, but may not deliver the Work before the scheduled clarification resolves.
+  pending, but may not confirm the plan before the scheduled clarification resolves.
 - When the scheduled day begins, the interaction resolves, increases request clarity up to `100`,
   and reveals additional stakeholder-intent guidance from external data.
 - Calls use a shorter lead time and smaller clarity gain. Meetings use a longer lead time and larger
