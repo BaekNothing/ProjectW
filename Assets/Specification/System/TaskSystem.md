@@ -147,6 +147,9 @@ base fit = sum(Task fit × Task contribution weight) / 100
   breakdown, the matched and missed intent guidance, delivery timing, and assigned workers.
 - Campaign score is the sum of resolved stakeholder-fit scores. Resource-life day count remains an
   endurance statistic and is no longer the only score presented by the prototype.
+- Restoring a campaign created before a Stakeholder Request was authored merges the missing request
+  entry mail from current external data by stable mail ID. Existing mail and already-created request
+  state are preserved, and the merge never duplicates a request mail.
 
 ## State Rules
 
@@ -701,6 +704,8 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 - Completing all required Tasks resolves one immutable `0..100` weighted stakeholder-fit score;
   hard-deadline failure resolves no score.
 - Stakeholder-request Tasks are not filled or replaced by automatic staffing systems.
+- A legacy campaign snapshot missing a newly authored Stakeholder Request mail receives that mail
+  once on restore without losing existing campaign state.
 - The dashboard exposes the current state needed to make request-planning decisions without adding
   a second mandatory management loop.
 - Work prerequisites prevent early Task assignment.
