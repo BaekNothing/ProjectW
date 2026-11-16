@@ -2,12 +2,13 @@
 
 ## Document Control
 
-- Version: 1.1
+- Version: 1.2
 - Status: Authoring specification
 - Action: Update
 - SSOT Change: Yes
-- Rationale: Record the current production-data baseline and clarify that weekly digest decision
-  state is runtime-owned rather than core mail authoring input.
+- Rationale: Add the authored Stakeholder Request contract used by the mail-driven core prototype,
+  including clarity guidance, clarification timing, weighted Task slots, interpretation choices,
+  hidden intent tags, and stakeholder-fit scoring inputs.
 - Runtime schema: `ProjectW.MilestonePrototype.TaskSystemData`, schema version 1
 - Runtime artifact: `Assets/MilestonePrototype/Resources/task-system.json`
 - Authoring template: `Docs/DataAuthoring/ProjectW-CoreAuthoringTemplate.md`
@@ -129,6 +130,35 @@ One row per authored Task. Tasks are the smallest assignable units.
 Do not author `Progress`, `AssignedCharacter`, `State`, `DelayDays`, `ContextCostDays`, `SplitCount`,
 `LastWorker`, result fields, scheduling fields, generated word IDs, or records. They are runtime state.
 
+### `StakeholderRequests`
+
+One approved request row owns the ambiguous inbound brief and its delivery/scoring contract.
+
+| Column | Type | Owner | Runtime mapping / meaning |
+|---|---|---|---|
+| `RequestId` | stable ID | CORE | `StakeholderRequests[].Id` |
+| `MailId` | Mail ID | CORE | Entry mail and `StakeholderRequests[].MailId` |
+| `Stakeholder` | text | CORE | Request owner and result-mail sender |
+| `Brief` | multiline text | CORE | Intentionally ambiguous player-facing request |
+| `PlannedWeeks` | positive integer | CORE | Presentation duration |
+| `SoftDeadlineDays` / `HardDeadlineDays` | positive integer | CORE | Days relative to mail arrival |
+| `InitialClarity` | `0..100` | CORE | Information visible before clarification |
+| `LateScoreMultiplier` | `0..1` | CORE | Soft-deadline fit multiplier |
+| `Guidance` | linked rows | CORE | `MinimumClarity` threshold and revealed text |
+| `Clarifications` | linked rows | CORE | Stable ID, display name, lead days, and clarity gain |
+
+Each request has exactly three linked Stakeholder Task rows for the prototype. Their contribution
+weights must be `60`, `30`, and `10`, total `100`, and remain designer-owned. Each Task row contains
+role, one-to-three competency indices, matching minimum values, workload, hidden target intent tags,
+and two or more player-facing interpretation rows. An interpretation owns a stable ID, display name,
+description, and emitted intent tags. Hidden target tags are scoring inputs and must not be exposed
+before their guidance threshold is reached.
+
+Clarification lead time and clarity gain are authored values. The compiler and runtime must reject
+non-positive timing/gain, invalid clarity ranges, missing guidance, missing intent tags, mismatched
+competency/minimum array lengths, duplicate IDs, missing entry mail, or weights that do not total
+`100`.
+
 ### `CoreMail`
 
 One row per authored mail item.
@@ -147,6 +177,7 @@ One row per authored mail item.
 | `DeadlineDelta` | CORE | `Mail[].DeadlineDelta` |
 | `ResourceDelta` | CORE | `Mail[].ResourceDelta` |
 | `Risk` | CORE | `Mail[].Risk` |
+| `StakeholderRequestId` | CORE | Optional request link; required for Stakeholder Request entry mail |
 | `GenerationBrief` / `DoNotGenerate` | CORE | Assistance boundary |
 | `Validation` | DERIVED | Arrival, target, and required-field checks |
 
@@ -326,6 +357,8 @@ A future Markdown authoring compiler must:
 The current loader requires:
 
 - `SchemaVersion = 1`;
+- valid Stakeholder Requests with matching mail, exactly three weighted Tasks totaling `100`,
+  valid competency minimums, clarification options, guidance, intent tags, and interpretations;
 - positive campaign and midpoint-review days;
 - non-negative starting resources;
 - non-null Balance, Works, Tasks, Crew, RandomTaskWords, and non-empty Codex and word-pool arrays;
