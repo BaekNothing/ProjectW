@@ -55,6 +55,133 @@
     "LowOutputMultiplier": 0.5,
     "HighOutputMultiplier": 1.5
   },
+  "StakeholderRequests": [
+    {
+      "Id": "landing-brief",
+      "MailId": "mail-stakeholder-landing",
+      "Stakeholder": "정착위원회 박서진",
+      "Brief": "새 정착지 운영안을 준비해 주세요. 안전하면서도 너무 느리지 않고, 본부가 납득할 수 있는 형태면 좋겠습니다.",
+      "PlannedWeeks": 3,
+      "SoftDeadlineDays": 17,
+      "HardDeadlineDays": 21,
+      "InitialClarity": 20,
+      "LateScoreMultiplier": 0.8,
+      "Clarifications": [
+        {
+          "Id": "call",
+          "Name": "통화",
+          "LeadDays": 2,
+          "ClarityGain": 25
+        },
+        {
+          "Id": "meeting",
+          "Name": "회의",
+          "LeadDays": 4,
+          "ClarityGain": 50
+        }
+      ],
+      "Guidance": [
+        {
+          "MinimumClarity": 0,
+          "Text": "본부가 납득할 수 있는 운영안이 필요하다."
+        },
+        {
+          "MinimumClarity": 40,
+          "Text": "속도보다 현장 안전 근거와 검증 기록을 우선한다."
+        },
+        {
+          "MinimumClarity": 70,
+          "Text": "운영 중단 없이 유지할 수 있고 예산 설명이 가능한 안을 원한다."
+        }
+      ],
+      "Tasks": [
+        {
+          "Id": "analysis",
+          "Name": "A. 현장 요구 분석",
+          "ContributionWeight": 60,
+          "RequiredRole": 1,
+          "RequiredCompetencies": [1, 3],
+          "MinimumCompetencies": [5, 4],
+          "RequiredWork": 8,
+          "TargetIntentTags": ["safety", "evidence"],
+          "Interpretations": [
+            {
+              "Id": "field-evidence",
+              "Name": "현장 안전 근거 중심",
+              "Description": "위험 조사와 검증 기록을 먼저 정리합니다.",
+              "IntentTags": ["safety", "evidence"]
+            },
+            {
+              "Id": "fast-outline",
+              "Name": "빠른 개요 중심",
+              "Description": "짧은 일정 안에 큰 방향만 제시합니다.",
+              "IntentTags": ["speed"]
+            },
+            {
+              "Id": "cost-evidence",
+              "Name": "비용 근거 중심",
+              "Description": "비용과 일부 검증 자료를 묶어 설명합니다.",
+              "IntentTags": ["cost", "evidence"]
+            }
+          ]
+        },
+        {
+          "Id": "operations",
+          "Name": "B. 운영 계획 수립",
+          "ContributionWeight": 30,
+          "RequiredRole": 2,
+          "RequiredCompetencies": [2, 5],
+          "MinimumCompetencies": [5, 5],
+          "RequiredWork": 6,
+          "TargetIntentTags": ["continuity", "cost"],
+          "Interpretations": [
+            {
+              "Id": "continuity-budget",
+              "Name": "연속 운영·예산 균형",
+              "Description": "중단 없는 운영과 예산 설명을 함께 설계합니다.",
+              "IntentTags": ["continuity", "cost"]
+            },
+            {
+              "Id": "maximum-output",
+              "Name": "최대 산출 우선",
+              "Description": "비용보다 단기 산출량을 우선합니다.",
+              "IntentTags": ["output", "speed"]
+            },
+            {
+              "Id": "budget-only",
+              "Name": "최저 비용 우선",
+              "Description": "운영 여유보다 초기 비용 절감을 우선합니다.",
+              "IntentTags": ["cost"]
+            }
+          ]
+        },
+        {
+          "Id": "handoff",
+          "Name": "C. 인수인계 패키지",
+          "ContributionWeight": 10,
+          "RequiredRole": 0,
+          "RequiredCompetencies": [0],
+          "MinimumCompetencies": [5],
+          "RequiredWork": 3,
+          "TargetIntentTags": ["maintainability"],
+          "Interpretations": [
+            {
+              "Id": "maintainable-guide",
+              "Name": "유지보수 절차서",
+              "Description": "현장 인력이 반복 사용할 점검·복구 절차를 남깁니다.",
+              "IntentTags": ["maintainability"]
+            },
+            {
+              "Id": "executive-summary",
+              "Name": "경영진 요약본",
+              "Description": "결정권자용 한 장 요약을 남깁니다.",
+              "IntentTags": ["presentation"]
+            }
+          ]
+        }
+      ]
+    }
+  ],
   "RandomTaskWords": {
     "Adjectives": [
       {
@@ -1762,6 +1889,28 @@
   ],
   "Mail": [
     {
+      "Id": "mail-stakeholder-landing",
+      "ArrivalDay": 1,
+      "From": "정착위원회 박서진",
+      "Subject": "[요청] 새 정착지 운영안",
+      "Body": "안전하면서도 너무 느리지 않고, 본부가 납득할 수 있는 운영안을 부탁드립니다.",
+      "Instruction": "요청을 열어 60/30/10 작업을 해석하고 적격 담당자를 배정하세요.",
+      "TargetTaskId": "",
+      "TargetWorkId": "",
+      "DeadlineDelta": 0,
+      "ResourceDelta": 0,
+      "Risk": 1,
+      "Read": false,
+      "Resolved": false,
+      "ActivatesWork": false,
+      "IsCritical": false,
+      "CriticalEventId": "",
+      "CriticalNodeId": "",
+      "IsMedicalReport": false,
+      "MedicalResults": [],
+      "StakeholderRequestId": "landing-brief"
+    },
+    {
       "Id": "mail-2",
       "ArrivalDay": 4,
       "From": "보급 통제실",
@@ -1910,6 +2059,12 @@
     }
   ],
   "Codex": [
+    {
+      "Id": "stakeholder-request-loop",
+      "Category": "핵심 운영",
+      "Name": "스테이크홀더 요청과 부합도",
+      "Description": "스테이크홀더 요청은 메일로 도착합니다. 요청을 열면 60/30/10 비중의 세 Task가 생성되며, 각 산출물 해석과 적격 담당자 슬롯을 직접 선택해야 실행을 시작할 수 있습니다.\n\n요청이 모호하면 통화나 회의를 예약할 수 있습니다. 예정일에 명확도와 추가 요구 정보가 늘어나지만 마감은 연장되지 않아 실행 일정은 더 빠듯해집니다.\n\n모든 Task가 끝나면 선택한 산출물 해석이 숨은 요구에 얼마나 맞는지 비중별로 합산해 0~100점 부합도를 받습니다. 하드 마감 실패는 점수를 주지 않습니다."
+    },
     {
       "Id": "guide-campaign-goal",
       "Category": "시작과 목표",

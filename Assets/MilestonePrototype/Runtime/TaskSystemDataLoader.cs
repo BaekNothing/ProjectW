@@ -140,6 +140,73 @@ namespace ProjectW.MilestonePrototype
             }
             foreach (WorkTask task in data.Tasks)
                 ValidateRequiredCompetencies(task?.RequiredCompetencies, "Every Task");
+            if (data.StakeholderRequests != null)
+            {
+                foreach (StakeholderRequestDefinition request in data.StakeholderRequests)
+                {
+                    if (request == null || string.IsNullOrWhiteSpace(request.Id) ||
+                        string.IsNullOrWhiteSpace(request.MailId) ||
+                        string.IsNullOrWhiteSpace(request.Stakeholder) ||
+                        string.IsNullOrWhiteSpace(request.Brief) || request.PlannedWeeks <= 0 ||
+                        request.SoftDeadlineDays <= 0 ||
+                        request.HardDeadlineDays < request.SoftDeadlineDays ||
+                        request.InitialClarity < 0 || request.InitialClarity > 100 ||
+                        request.LateScoreMultiplier < 0f || request.LateScoreMultiplier > 1f ||
+                        request.Clarifications == null || request.Clarifications.Length == 0 ||
+                        request.Guidance == null || request.Guidance.Length == 0 ||
+                        request.Tasks == null || request.Tasks.Length != 3)
+                        throw new InvalidOperationException(
+                            "Every stakeholder request requires valid timing, clarity, guidance, and three Tasks.");
+                    int totalWeight = 0;
+                    foreach (StakeholderClarificationDefinition clarification in request.Clarifications)
+                        if (clarification == null || string.IsNullOrWhiteSpace(clarification.Id) ||
+                            string.IsNullOrWhiteSpace(clarification.Name) || clarification.LeadDays <= 0 ||
+                            clarification.ClarityGain <= 0)
+                            throw new InvalidOperationException(
+                                "Every stakeholder clarification requires a name, lead time, and clarity gain.");
+                    foreach (StakeholderGuidanceDefinition guidance in request.Guidance)
+                        if (guidance == null || guidance.MinimumClarity < 0 ||
+                            guidance.MinimumClarity > 100 || string.IsNullOrWhiteSpace(guidance.Text))
+                            throw new InvalidOperationException(
+                                "Every stakeholder guidance item requires a clarity threshold and text.");
+                    foreach (StakeholderTaskDefinition task in request.Tasks)
+                    {
+                        if (task == null || string.IsNullOrWhiteSpace(task.Id) ||
+                            string.IsNullOrWhiteSpace(task.Name) || task.ContributionWeight <= 0 ||
+                            task.RequiredWork <= 0f || task.MinimumCompetencies == null ||
+                            task.RequiredCompetencies == null ||
+                            task.MinimumCompetencies.Length != task.RequiredCompetencies.Length ||
+                            task.TargetIntentTags == null || task.TargetIntentTags.Length == 0 ||
+                            task.Interpretations == null || task.Interpretations.Length < 2)
+                            throw new InvalidOperationException(
+                                "Every stakeholder Task requires weight, workload, competency minimums, intent, and interpretations.");
+                        ValidateRequiredCompetencies(task.RequiredCompetencies, "Every stakeholder Task");
+                        foreach (int minimum in task.MinimumCompetencies)
+                            if (minimum < 0 || minimum > CrewMember.MaximumCompetency)
+                                throw new InvalidOperationException(
+                                    "Stakeholder Task competency minimums are out of range.");
+                        foreach (StakeholderInterpretationDefinition interpretation in task.Interpretations)
+                            if (interpretation == null || string.IsNullOrWhiteSpace(interpretation.Id) ||
+                                string.IsNullOrWhiteSpace(interpretation.Name) ||
+                                interpretation.IntentTags == null || interpretation.IntentTags.Length == 0)
+                                throw new InvalidOperationException(
+                                    "Every stakeholder Task interpretation requires intent tags.");
+                        totalWeight += task.ContributionWeight;
+                    }
+                    if (totalWeight != 100)
+                        throw new InvalidOperationException(
+                            "Stakeholder Task contribution weights must total 100.");
+                    bool mailExists = false;
+                    if (data.Mail != null)
+                        foreach (MailEvent mail in data.Mail)
+                            if (mail != null && mail.Id == request.MailId &&
+                                mail.StakeholderRequestId == request.Id)
+                                mailExists = true;
+                    if (!mailExists)
+                        throw new InvalidOperationException(
+                            "Every stakeholder request requires a matching request mail.");
+                }
+            }
             if (data.CriticalEvents != null)
             {
                 foreach (CriticalEventDefinition definition in data.CriticalEvents)

@@ -284,6 +284,7 @@ namespace ProjectW.MilestonePrototype
             grid.Add(Metric("인력 공백", game.StaffingGapCount().ToString(), "STAFFING"));
             grid.Add(Metric("다음 급여", $"D{game.NextPayrollDay:00}", "PAYROLL"));
             grid.Add(Metric("읽지 않은 메일", game.Mail.Count(mail => !mail.Read && mail.ArrivalDay <= game.Day).ToString(), "INBOX"));
+            grid.Add(Metric("요청 부합도", game.CampaignFitScore.ToString(), "FIT SCORE"));
             pageContent.Add(grid);
 
             var section = Section("오늘의 운영 상태", "조직 계획에 따라 빈 작업이 자동 배정됩니다.");
@@ -479,8 +480,8 @@ namespace ProjectW.MilestonePrototype
 
         private void BuildMail()
         {
-            SetPageHeader("COMMUNICATION", "메일");
-            var list = Section("수신함", "읽지 않은 메일과 중요한 결정이 먼저 표시됩니다.");
+            SetPageHeader("REQUEST DESK", "스테이크홀더 요청과 메일");
+            var list = Section("수신함", "모호한 요청을 열어 작업 해석과 담당자를 결정합니다.");
             foreach (MailEvent mail in game.Mail.Where(item => item.ArrivalDay <= game.Day)
                          .OrderBy(item => item.Read).ThenByDescending(item => item.ArrivalDay))
             {
@@ -490,11 +491,153 @@ namespace ProjectW.MilestonePrototype
                 var copy = Box("mail-copy");
                 copy.Add(Text(mail.Subject, "summary-title"));
                 copy.Add(Text($"D{mail.ArrivalDay:00} · {mail.Body}", "muted"));
+                if (!string.IsNullOrEmpty(mail.StakeholderRequestId) &&
+                    !mail.Id.StartsWith("stakeholder-result-"))
+                {
+                    Button open = ActionButton(
+                        game.StakeholderState(mail.StakeholderRequestId) == null ? "요청 열기" : "요청 보드 보기",
+                        "primary");
+                    string mailId = mail.Id;
+                    open.clicked += () =>
+                    {
+                        game.OpenStakeholderRequest(mailId);
+                        SaveAndRefresh("mail");
+                    };
+                    copy.Add(open);
+                }
                 row.Add(copy);
                 list.Add(row);
             }
             if (game.Mail.Count == 0) list.Add(Empty("도착한 메일이 없습니다."));
             pageContent.Add(list);
+            foreach (StakeholderRequestState request in game.StakeholderRequests)
+                BuildStakeholderRequestBoard(request);
+        }
+
+        private void BuildStakeholderRequestBoard(StakeholderRequestState request)
+        {
+            StakeholderRequestDefinition definition = game.StakeholderDefinition(request.Id);
+            WorkGroup work = game.Groups.FirstOrDefault(group => group.Id == request.WorkId);
+            if (definition == null || work == null) return;
+
+            string status = request.FitScore >= 0
+                ? $"납품 완료 · {request.FitScore}점"
+                : request.PlanConfirmed ? "실행 중" : "계획 중";
+            var board = Section(definition.Stakeholder, $"{definition.PlannedWeeks}주 요청 · {status}");
+            board.Add(Text(definition.Brief, "body"));
+            var metrics = Box("metric-grid");
+            metrics.Add(Metric("명확도", $"{request.Clarity}%", "CLARITY"));
+            metrics.Add(Metric("남은 일정", $"{Math.Max(0, work.HardDeadline - game.Day + 1)}일", "DEADLINE"));
+            metrics.Add(Metric("소프트 마감", $"D{work.SoftDeadline:00}", "TARGET"));
+            metrics.Add(Metric("누적 점수", game.CampaignFitScore.ToString(), "SCORE"));
+            board.Add(metrics);
+
+            var guidance = Box("summary-row");
+            guidance.Add(Text("현재 확인된 요구", "summary-title"));
+            int revealed = 0;
+            foreach (StakeholderGuidanceDefinition item in definition.Guidance)
+            {
+                if (item.MinimumClarity > request.Clarity) continue;
+                guidance.Add(Text("• " + item.Text, "muted"));
+                revealed++;
+            }
+            if (revealed < definition.Guidance.Length)
+                guidance.Add(Text($"추가 정보 {definition.Guidance.Length - revealed}건 미확인", "caption"));
+            board.Add(guidance);
+
+            if (!request.PlanConfirmed && request.FitScore < 0)
+            {
+                var clarification = Box("button-row");
+                if (!string.IsNullOrEmpty(request.PendingClarificationId))
+                    clarification.Add(Badge($"D{request.PendingClarificationDay:00} 교감 예정", "accent"));
+                foreach (StakeholderClarificationDefinition option in definition.Clarifications)
+                {
+                    StakeholderClarificationDefinition selected = option;
+                    Button action = ActionButton(
+                        $"{option.Name} 요청 · {option.LeadDays}일 / 명확도 +{option.ClarityGain}",
+                        "secondary");
+                    action.SetEnabled(string.IsNullOrEmpty(request.PendingClarificationId));
+                    action.clicked += () =>
+                    {
+                        game.RequestStakeholderClarification(request.Id, selected.Id);
+                        SaveAndRefresh("mail");
+                    };
+                    clarification.Add(action);
+                }
+                board.Add(clarification);
+            }
+
+            foreach (WorkTask task in game.Tasks.Where(item => item.StakeholderRequestId == request.Id)
+                         .OrderByDescending(item => item.ContributionWeight))
+                board.Add(BuildStakeholderTaskCard(request, task));
+
+            if (!request.PlanConfirmed && request.FitScore < 0)
+            {
+                Button confirm = ActionButton("작업 계획 확정", "primary");
+                confirm.SetEnabled(game.CanConfirmStakeholderPlan(request.Id));
+                confirm.clicked += () =>
+                {
+                    game.ConfirmStakeholderPlan(request.Id);
+                    SaveAndRefresh("mail");
+                };
+                board.Add(confirm);
+                board.Add(Text("모든 Task의 해석과 적격 담당자를 선택해야 확정할 수 있습니다.", "caption"));
+            }
+            pageContent.Add(board);
+        }
+
+        private VisualElement BuildStakeholderTaskCard(StakeholderRequestState request, WorkTask task)
+        {
+            StakeholderTaskDefinition definition = game.StakeholderTaskDefinition(task);
+            var card = Box("summary-row");
+            card.Add(Badge($"{task.ContributionWeight}%", task.ContributionWeight >= 60 ? "accent" : "neutral"));
+            card.Add(Text(task.Name, "summary-title"));
+            card.Add(Text($"{task.RequiredRole} · {task.RequiredWork:0.#}일 · 진행 {task.Completion * 100f:0}%", "muted"));
+
+            if (definition != null)
+            {
+                card.Add(Text("산출물 해석", "caption"));
+                var interpretations = Box("button-row");
+                foreach (StakeholderInterpretationDefinition interpretation in definition.Interpretations)
+                {
+                    StakeholderInterpretationDefinition selected = interpretation;
+                    Button choice = ActionButton(interpretation.Name,
+                        task.SelectedInterpretationId == interpretation.Id ? "primary" : "secondary");
+                    choice.SetEnabled(!request.PlanConfirmed);
+                    choice.clicked += () =>
+                    {
+                        game.ChooseStakeholderInterpretation(task.Id, selected.Id);
+                        SaveAndRefresh("mail");
+                    };
+                    interpretations.Add(choice);
+                }
+                card.Add(interpretations);
+            }
+
+            card.Add(Text("담당자 슬롯", "caption"));
+            var workers = Box("button-row");
+            for (int crewIndex = 0; crewIndex < game.Crew.Count; crewIndex++)
+            {
+                int selectedCrew = crewIndex;
+                CrewMember crew = game.Crew[crewIndex];
+                string blocked = game.StakeholderAssignmentBlockReason(task.Id, crewIndex);
+                bool assigned = task.AssignedCharacter == crewIndex;
+                Button worker = ActionButton(assigned ? crew.Name + " · 배정됨" : crew.Name,
+                    assigned ? "primary" : "secondary");
+                worker.SetEnabled(request.FitScore < 0 && (assigned || string.IsNullOrEmpty(blocked)));
+                worker.clicked += () =>
+                {
+                    game.AssignStakeholderTask(task.Id, selectedCrew);
+                    SaveAndRefresh("mail");
+                };
+                workers.Add(worker);
+                if (!assigned && !string.IsNullOrEmpty(blocked))
+                    workers.Add(Text(crew.Name + ": " + blocked, "caption"));
+            }
+            card.Add(workers);
+            if (request.FitScore >= 0)
+                card.Add(Text($"부합도 {game.StakeholderTaskFit(task.Id)}점 × {task.ContributionWeight}%", "body"));
+            return card;
         }
 
         private void BuildProposals()

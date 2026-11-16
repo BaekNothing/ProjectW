@@ -52,6 +52,11 @@ namespace ProjectW.MilestonePrototype
         public string GeneratedAdjectiveId;
         public string GeneratedTargetId;
         public string GeneratedActionId;
+        public string StakeholderRequestId;
+        public int ContributionWeight;
+        public int[] MinimumCompetencies;
+        public string SelectedInterpretationId;
+        public string[] SelectedIntentTags;
         public List<TaskRecord> Records = new List<TaskRecord>();
 
         public float EffectiveRequiredWork => RequiredWork + ContextCostDays;
@@ -136,6 +141,7 @@ namespace ProjectW.MilestonePrototype
         public int Priority;
         public bool Urgent;
         public bool AllOut;
+        public string StakeholderRequestId;
     }
 
     [Serializable]
@@ -365,6 +371,77 @@ namespace ProjectW.MilestonePrototype
         public MailEvent[] Mail;
         public CriticalEventDefinition[] CriticalEvents;
         public CodexEntry[] Codex;
+        public StakeholderRequestDefinition[] StakeholderRequests;
+    }
+
+    [Serializable]
+    public sealed class StakeholderRequestDefinition
+    {
+        public string Id;
+        public string MailId;
+        public string Stakeholder;
+        public string Brief;
+        public int PlannedWeeks;
+        public int SoftDeadlineDays;
+        public int HardDeadlineDays;
+        public int InitialClarity;
+        public float LateScoreMultiplier = .8f;
+        public StakeholderClarificationDefinition[] Clarifications;
+        public StakeholderGuidanceDefinition[] Guidance;
+        public StakeholderTaskDefinition[] Tasks;
+    }
+
+    [Serializable]
+    public sealed class StakeholderClarificationDefinition
+    {
+        public string Id;
+        public string Name;
+        public int LeadDays;
+        public int ClarityGain;
+    }
+
+    [Serializable]
+    public sealed class StakeholderGuidanceDefinition
+    {
+        public int MinimumClarity;
+        public string Text;
+    }
+
+    [Serializable]
+    public sealed class StakeholderTaskDefinition
+    {
+        public string Id;
+        public string Name;
+        public int ContributionWeight;
+        public WorkRole RequiredRole;
+        public int[] RequiredCompetencies;
+        public int[] MinimumCompetencies;
+        public float RequiredWork;
+        public string[] TargetIntentTags;
+        public StakeholderInterpretationDefinition[] Interpretations;
+    }
+
+    [Serializable]
+    public sealed class StakeholderInterpretationDefinition
+    {
+        public string Id;
+        public string Name;
+        public string Description;
+        public string[] IntentTags;
+    }
+
+    [Serializable]
+    public sealed class StakeholderRequestState
+    {
+        public string Id;
+        public string MailId;
+        public string WorkId;
+        public int Clarity;
+        public bool PlanConfirmed;
+        public string PendingClarificationId;
+        public int PendingClarificationDay;
+        public int FitScore = -1;
+        public int ScoredDay;
     }
 
     [Serializable]
@@ -437,6 +514,7 @@ namespace ProjectW.MilestonePrototype
           public bool IncludedInWeeklyFieldReport;
           public bool IsWeeklyFieldReport;
           public WeeklyFieldDecisionItem[] WeeklyFieldItems;
+          public string StakeholderRequestId;
     }
 
     [Serializable]
@@ -518,6 +596,7 @@ namespace ProjectW.MilestonePrototype
         public int ActiveCriticalNodeArrivalDay;
         public int TaskSuccessChanceModifier;
         public StaffingPlan StaffingPlan;
+        public StakeholderRequestState[] StakeholderRequests;
     }
 
 }

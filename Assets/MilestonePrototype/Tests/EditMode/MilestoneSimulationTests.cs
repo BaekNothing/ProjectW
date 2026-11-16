@@ -9,6 +9,114 @@ namespace ProjectW.MilestonePrototype.Tests
 {
     public sealed class MilestoneSimulationTests
     {
+        [Test]
+        public void StakeholderMailCreatesWeightedTasksWithoutAutomaticStaffing()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            var game = new MilestoneSimulation(data, 1);
+
+            Assert.That(game.OpenStakeholderRequest("mail-stakeholder-landing"), Is.True);
+            List<WorkTask> tasks = game.Tasks.FindAll(task => task.StakeholderRequestId == "landing-brief");
+
+            Assert.That(tasks.Count, Is.EqualTo(3));
+            Assert.That(tasks.ConvertAll(task => task.ContributionWeight),
+                Is.EquivalentTo(new[] { 60, 30, 10 }));
+            game.AdvanceDay();
+            Assert.That(tasks, Has.All.Matches<WorkTask>(task => task.AssignedCharacter < 0));
+        }
+
+        [Test]
+        public void StakeholderAssignmentRequiresRoleCompetencyAndFreePrimarySlot()
+        {
+            var game = new MilestoneSimulation(TaskSystemDataLoader.Load(), 1);
+            game.OpenStakeholderRequest("mail-stakeholder-landing");
+            WorkTask analysis = game.Tasks.Find(task => task.Id == "stakeholder-landing-brief-analysis");
+
+            Assert.That(game.AssignStakeholderTask(analysis.Id, 0), Is.False,
+                "The Tech specialist must not fill an Analysis slot.");
+            Assert.That(game.AssignStakeholderTask(analysis.Id, 1), Is.True);
+            Assert.That(analysis.AssignedCharacter, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void ClarificationRaisesClarityOnDueDayWithoutMovingDeadline()
+        {
+            var game = new MilestoneSimulation(TaskSystemDataLoader.Load(), 1);
+            game.OpenStakeholderRequest("mail-stakeholder-landing");
+            StakeholderRequestState request = game.StakeholderState("landing-brief");
+            WorkGroup work = game.Groups.Find(group => group.Id == request.WorkId);
+            int hardDeadline = work.HardDeadline;
+
+            Assert.That(game.RequestStakeholderClarification(request.Id, "call"), Is.True);
+            game.AdvanceDay();
+            Assert.That(request.Clarity, Is.EqualTo(20));
+            game.AdvanceDay();
+
+            Assert.That(request.Clarity, Is.EqualTo(45));
+            Assert.That(request.PendingClarificationId, Is.Empty);
+            Assert.That(work.HardDeadline, Is.EqualTo(hardDeadline));
+        }
+
+        [Test]
+        public void CompletedStakeholderPlanScoresWeightedIntentFitOnce()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            DisableAccidents(data);
+            var game = new MilestoneSimulation(data, 1);
+            game.OpenStakeholderRequest("mail-stakeholder-landing");
+            Assert.That(game.ChooseStakeholderInterpretation(
+                "stakeholder-landing-brief-analysis", "field-evidence"), Is.True);
+            Assert.That(game.ChooseStakeholderInterpretation(
+                "stakeholder-landing-brief-operations", "continuity-budget"), Is.True);
+            Assert.That(game.ChooseStakeholderInterpretation(
+                "stakeholder-landing-brief-handoff", "maintainable-guide"), Is.True);
+            Assert.That(game.AssignStakeholderTask("stakeholder-landing-brief-analysis", 1), Is.True);
+            Assert.That(game.AssignStakeholderTask("stakeholder-landing-brief-operations", 2), Is.True);
+            Assert.That(game.AssignStakeholderTask("stakeholder-landing-brief-handoff", 0), Is.True);
+            Assert.That(game.ConfirmStakeholderPlan("landing-brief"), Is.True);
+            game.Crew[0].DailyOutput = 100f;
+            game.Crew[1].DailyOutput = 100f;
+            game.Crew[2].DailyOutput = 100f;
+
+            game.AdvanceDay();
+            StakeholderRequestState result = game.StakeholderState("landing-brief");
+
+            Assert.That(result.FitScore, Is.EqualTo(100));
+            Assert.That(game.CampaignFitScore, Is.EqualTo(100));
+            Assert.That(game.Mail.FindAll(mail => mail.Id.StartsWith("stakeholder-result-")).Count,
+                Is.EqualTo(1));
+            game.AdvanceDay();
+            Assert.That(game.Mail.FindAll(mail => mail.Id.StartsWith("stakeholder-result-")).Count,
+                Is.EqualTo(1));
+        }
+
+        [Test]
+        public void StakeholderRequestPlanSurvivesCampaignRestore()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            var game = new MilestoneSimulation(data, 1);
+            game.OpenStakeholderRequest("mail-stakeholder-landing");
+            game.ChooseStakeholderInterpretation(
+                "stakeholder-landing-brief-analysis", "field-evidence");
+            game.AssignStakeholderTask("stakeholder-landing-brief-analysis", 1);
+            game.RequestStakeholderClarification("landing-brief", "meeting");
+
+            CampaignSnapshot snapshot = game.CreateSnapshot();
+            snapshot.Mail = new MailEvent[0];
+            var restored = new MilestoneSimulation(data, 2);
+            Assert.That(restored.Restore(snapshot), Is.True);
+            StakeholderRequestState state = restored.StakeholderState("landing-brief");
+            WorkTask task = restored.Tasks.Find(candidate =>
+                candidate.Id == "stakeholder-landing-brief-analysis");
+
+            Assert.That(state, Is.Not.Null);
+            Assert.That(state.PendingClarificationId, Is.EqualTo("meeting"));
+            Assert.That(task.SelectedInterpretationId, Is.EqualTo("field-evidence"));
+            Assert.That(task.AssignedCharacter, Is.EqualTo(1));
+            Assert.That(restored.Mail.Exists(mail => mail.Id == "mail-stakeholder-landing"), Is.True,
+                "A patch must add the request entry mail to an older campaign snapshot.");
+        }
+
         [TestCase(1, 1, 10, 1, 4)]
         [TestCase(92, 1, 12, 31, 4)]
         [TestCase(93, 1, 1, 1, 1)]
@@ -1861,6 +1969,7 @@ namespace ProjectW.MilestonePrototype.Tests
                     TargetWorkId = "foundation", DeadlineDelta = -1
                 }
             };
+            data.StakeholderRequests = new StakeholderRequestDefinition[0];
             var game = new MilestoneSimulation(data, 1);
             WorkGroup foundation = game.Groups.Find(group => group.Id == "foundation");
             int softDeadline = foundation.SoftDeadline;
@@ -1894,6 +2003,7 @@ namespace ProjectW.MilestonePrototype.Tests
                     TargetWorkId = "foundation", DeadlineDelta = -1
                 }
             };
+            data.StakeholderRequests = new StakeholderRequestDefinition[0];
             var game = new MilestoneSimulation(data, 1);
             WorkGroup foundation = game.Groups.Find(group => group.Id == "foundation");
             int softDeadline = foundation.SoftDeadline;
@@ -1922,6 +2032,7 @@ namespace ProjectW.MilestonePrototype.Tests
                     TargetWorkId = "foundation", DeadlineDelta = -1
                 }
             };
+            data.StakeholderRequests = new StakeholderRequestDefinition[0];
             var game = new MilestoneSimulation(data, 1);
 
             while (game.Day < 8) game.AdvanceDay();
