@@ -2,19 +2,25 @@
 
 ## Document Control
 
-- Version: 5.0
+- Version: 6.0
 - Status: Approved for implementation
 - Action: Update
 - SSOT Change: Yes
-- Rationale: Move the core control layer from repeated Task-by-Task assignment to manager-level
-  staffing, role depth charts, rotation policies, and exception intervention while retaining Task
-  ownership, handover cost, Work priority, deadlines, and the established operations desktop.
+- Rationale: Refocus the core prototype on interpreting ambiguous stakeholder request mail,
+  decomposing each accepted request into weighted Tasks, assigning only eligible workers, and
+  earning a stakeholder-fit score from the delivered result. Clarification calls and meetings trade
+  schedule slack for better request understanding. Existing operations systems remain supporting
+  status dashboards rather than the primary player decision loop.
 - Idea references: `IDEA.md` items 1, 2, 4, and 8
 
 ## Scope
 
 This document defines:
 
+- stakeholder requests delivered through mail
+- request clarity, clarification calls and meetings, and the schedule tradeoff they create
+- weighted Task decomposition and worker assignment slots
+- stakeholder-fit scoring for completed request deliverables
 - parent work items (`Work`)
 - automatically dispatched execution units (`Task`)
 - role depth charts, crew operating modes, fatigue limits, and operations styles
@@ -51,6 +57,96 @@ intervention rather than the default daily interaction.
   assigned but cannot progress beyond 30% of its effective workload.
 - An unassigned Task does not progress.
 - Optional Tasks do not block Work completion.
+
+### Stakeholder Request
+
+A Stakeholder Request is an ambiguous inbound objective delivered through mail. Accepting it creates
+one Work and opens its planning board; it does not assign or start any Task by itself.
+
+- A request owns a stakeholder, a brief, a hidden intent profile, an initial clarity value, and a
+  delivery deadline measured in campaign days.
+- The player converts the request into weighted Tasks and fills each Task's worker slot.
+- The prototype default is three required Tasks with contribution weights `60 / 30 / 10`. Authored
+  requests may name those Tasks differently, but their contribution weights must total `100`.
+- A request's planned duration is expressed as `N` weeks for presentation and converted to campaign
+  days for simulation. Clarification consumes days inside that same delivery window; it never moves
+  the deadline automatically.
+- The request is delivered when every required child Task is complete. Delivery resolves a
+  stakeholder-fit score and preserves the request, Task plan, ownership, and score in history.
+
+## Core Prototype Loop
+
+The primary player loop is:
+
+1. Receive an ambiguous Stakeholder Request by mail.
+2. Inspect the brief, current clarity, remaining schedule, eligible workers, and organizational
+   status presented by the dashboard.
+3. Either clarify the request or proceed with the current interpretation.
+4. Confirm the request's weighted Task plan and assign one eligible worker to every required Task
+   slot. The initial prototype uses the authored `60 / 30 / 10` plan rather than free-form weights.
+5. Advance days while assigned workers execute their Tasks.
+6. When all required Tasks finish, deliver the combined result and receive a stakeholder-fit score.
+
+The player's essential adjustment is how an ambiguous request is interpreted and staffed. Fatigue,
+health, schedules, competencies, deadlines, mail, Gantt projections, and other existing systems
+provide realistic decision context. They must not replace the request-planning decision with a
+second competing core loop.
+
+### Clarification
+
+- Before delivery, the player may request a stakeholder call or meeting when the request is not
+  clear enough to staff confidently.
+- A clarification action has an authored lead time in days and an authored clarity gain. The action
+  is scheduled for `current day + lead time` and is shown on the request plan and calendar.
+- Only one clarification may be pending for a request. The player may continue planning while it is
+  pending, but may not deliver the Work before the scheduled clarification resolves.
+- When the scheduled day begins, the interaction resolves, increases request clarity up to `100`,
+  and reveals additional stakeholder-intent guidance from external data.
+- Calls use a shorter lead time and smaller clarity gain. Meetings use a longer lead time and larger
+  clarity gain. Exact values are request data, not hard-coded runtime constants.
+- Clarification does not extend soft or hard deadlines. Every clarification therefore increases
+  information while reducing the remaining execution window.
+- Clarification is optional. Proceeding with low clarity is valid and may preserve schedule slack,
+  but leaves more of the hidden intent unrevealed.
+
+### Task Plan and Eligible Assignment Slots
+
+- Every request Task owns a contribution weight, required role, one to three required competencies,
+  and intent tags describing the interpretation embodied by its deliverable.
+- A required Task slot must be filled before the request plan can start. Reassignment after work has
+  started follows the existing interruption and handover rules.
+- A worker is eligible only when they are not injured or scheduled for rest, can hold the requested
+  primary assignment, satisfy the Task's authored role eligibility, and have every required
+  competency at or above that Task's authored minimum.
+- Ineligible workers remain visible in the assignment picker with an explicit reason, but cannot be
+  confirmed into the slot.
+- Stakeholder-request Tasks are never filled by organization automatic assignment, learned
+  intervention rules, urgent preemption, or implicit fallback. Their staffing is the player's core
+  decision and requires explicit confirmation.
+- Once every required slot is valid, the player confirms the plan. Confirmed Tasks execute through
+  the existing daily progress, fatigue, condition, interruption, and completion rules.
+
+### Stakeholder-Fit Score
+
+- A completed request is scored from `0` through `100` when its last required Task completes.
+- Each Task receives a `0..100` fit result by comparing its authored intent tags with the request's
+  hidden intent profile. Guidance revealed by clarification helps the player choose compatible Task
+  interpretations but does not directly add score.
+- The request's base fit is the weighted sum of Task fit results:
+
+```text
+base fit = sum(Task fit × Task contribution weight) / 100
+```
+
+- On-time delivery keeps the full base fit. Delivery after the soft deadline applies the existing
+  externally-authored late multiplier. Hard-deadline failure produces no fit score.
+- Ordinary daily Failure, Success, and Great Success outcomes affect completion speed and condition,
+  not the hidden intent match. Worker eligibility and execution determine whether the plan can be
+  delivered; interpretation determines how well it fits the stakeholder request.
+- The resolved score is immutable history. The UI shows the total, the `60 / 30 / 10` contribution
+  breakdown, the matched and missed intent guidance, delivery timing, and assigned workers.
+- Campaign score is the sum of resolved stakeholder-fit scores. Resource-life day count remains an
+  endurance statistic and is no longer the only score presented by the prototype.
 
 ## State Rules
 
@@ -213,6 +309,8 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 
 - The daily staffing sequence is automatic recovery, explicit reservations, urgent preemption,
   learned intervention rules, then the staffing dispatcher.
+- Stakeholder-request Tasks are excluded from this sequence. Their explicitly confirmed worker
+  slots remain unchanged until the player reassigns them or normal completion/failure clears them.
 - The dispatcher visits unassigned, unscheduled, dependency-complete Tasks in player-defined Work
   priority and stable Task-ID order.
 - Current owners continue their Tasks. The dispatcher fills vacancies and does not replace a valid
@@ -226,6 +324,7 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 ## Learned Intervention Rules
 
 - A confirmed direct primary intervention records the player's choice as an exception rule.
+- Stakeholder-request Task assignment does not create or consume a learned intervention rule.
 - A work situation is identified by Task kind, required role, difficulty, risk, and importance.
 - At the beginning of a daily cycle, an unassigned matching Task uses the remembered worker when
   available. The rule never substitutes another worker or interrupts current work.
@@ -234,8 +333,9 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 
 ## Organization Automatic Assignment
 
-- Organization dispatch is the core loop and is enabled by default. The existing campaign switch is
-  retained only as an advanced hold control for future automatic assignments.
+- Organization dispatch supports legacy and background operations but is not the core prototype
+  loop. It is enabled by default, and the existing campaign switch remains an advanced hold control
+  for future automatic assignments outside Stakeholder Requests.
 - Recovery policy runs first, followed by explicit reservations, urgent preemption, learned
   intervention rules, and organization dispatch.
 - Dispatch considers each unassigned, unscheduled `Available` Task in Work-priority order. It never
@@ -478,6 +578,10 @@ External data includes:
 
 - initial planning baseline and starting resources
 - midpoint review day
+- Stakeholder Request definitions: stakeholder, brief, hidden intent profile, initial clarity,
+  planned weeks, deadlines, clarification options, revealed guidance thresholds, and result text
+- request Task definitions: `60 / 30 / 10` contribution weights, interpretation/intent tags,
+  role eligibility, competency minimums, workload, and late-score multiplier
 - Work definitions and predecessor IDs
 - Task definitions, durations, roles, one-to-three competency requirements, difficulty, and prerequisite IDs
 - worker definitions and initial stats
@@ -577,13 +681,28 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 
 | Area | Impact |
 |---|---|
-| Ingame | Work availability, daily assignment, progress, fatigue, deadline failure |
+| Ingame | Mail-driven request intake, clarification timing, weighted Task planning, eligible assignment, progress, delivery, and stakeholder-fit scoring |
 | Outgame | Title, startup Options, reset confirmation, and update status |
-| Metadata | External JSON schema, validated local override, and campaign save schema |
+| Metadata | External request/intent/clarification data, weighted Tasks, score history, validated local override, and campaign save schema |
 | Operation | Patch builder includes and verifies gameplay JSON; update activation requires restart |
 
 ## Acceptance Criteria
 
+- An arrived Stakeholder Request mail opens a request plan and creates no assignment until the
+  player confirms its Task slots.
+- The prototype request plan contains three required Tasks whose contribution weights are
+  `60 / 30 / 10` and total `100`.
+- Only workers satisfying availability, capacity, role eligibility, and every Task competency
+  minimum can be confirmed into a stakeholder Task slot.
+- Requesting a call or meeting schedules one future interaction, increases clarity on its due day,
+  reveals authored intent guidance, and never extends the delivery deadline.
+- A request cannot be delivered while a clarification is pending or while a required Task is
+  incomplete.
+- Completing all required Tasks resolves one immutable `0..100` weighted stakeholder-fit score;
+  hard-deadline failure resolves no score.
+- Stakeholder-request Tasks are not filled or replaced by automatic staffing systems.
+- The dashboard exposes the current state needed to make request-planning decisions without adding
+  a second mandatory management loop.
 - Work prerequisites prevent early Task assignment.
 - One worker cannot have two primary assignments.
 - A Task with at most one day remaining can be assigned in parallel at an additional fatigue cost.
@@ -705,6 +824,13 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 
 ## Mail and Messenger Ordering
 
+- Stakeholder Request mail is the entry point for the core prototype. Its primary action opens the
+  request planning board with the brief, clarity, remaining days, weighted Tasks, and assignment
+  slots. Reading mail alone never accepts, staffs, or starts the request.
+- A clarification request and its eventual stakeholder response are shown as one request-thread
+  history. The scheduled response day remains visible until it resolves.
+- Delivery creates a result mail containing the final stakeholder-fit score and weighted Task
+  breakdown. This result is historical and cannot be rerolled by reopening the mail.
 - Arrived unread mail marked `[NEW]` is listed above every read or resolved message. Within each
   read state, newer arrival days appear first while equal-day insertion order remains stable.
 - Critical mail is listed together with all other arrived mail, including while its choice is
@@ -723,6 +849,26 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
   available in Task detail but are not rendered as a separate report section below conversation.
 
 ## Gantt and Task Detail UI
+
+### Request Planning Board
+
+- The request planning board is the primary interaction surface opened from Stakeholder Request
+  mail.
+- Its header shows stakeholder, original brief, clarity, remaining days, planned duration in weeks,
+  and soft/hard delivery dates.
+- It shows the currently revealed guidance separately from unrevealed intent so low clarity remains
+  legible as uncertainty rather than missing UI.
+- It exposes `통화 요청` and `회의 요청` with their scheduled response day and clarity gain before
+  confirmation. While one is pending, both actions are disabled and the pending interaction is
+  visible.
+- The body presents the three weighted Task rows in `60 / 30 / 10` order. Each row shows its
+  interpretation, workload, role, competency minimums, current assignee, and eligible-worker picker.
+- Ineligible workers stay visible with a concise blocking reason. The confirm-plan action is enabled
+  only when every required Task has one eligible worker.
+- After confirmation, the same board becomes a live delivery view showing progress, schedule risk,
+  ownership, clarification history, and the eventual score breakdown.
+- The broader operations desktop and Gantt are read-oriented status surfaces for this loop. They may
+  open the request board but must not require duplicate assignment work.
 
 ### Gantt
 
