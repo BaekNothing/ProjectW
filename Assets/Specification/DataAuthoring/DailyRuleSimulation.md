@@ -2,12 +2,12 @@
 
 ## Document Control
 
-- Version: 1.1
+- Version: 1.2
 - Status: Authoring specification
 - Action: Update
 - SSOT Change: Yes
-- Rationale: Align simulation commands and day processing order with Task System v4.0, including
-  Work focus preemption and the Monday weekly field-status decision digest.
+- Rationale: Align the deterministic day cycle with the Stakeholder Request core loop, including
+  future clarification delivery and one-time weighted stakeholder-fit resolution.
 - SSOT relationship: This document explains how to simulate the day cycle defined by
   `Assets/Specification/System/TaskSystem.md` and implemented by `MilestoneSimulation`.
 - Runtime data source: `Assets/MilestonePrototype/Resources/task-system.json`
@@ -70,6 +70,8 @@ A scenario may issue these actions before `AdvanceDay`:
 - read or resolve mail;
 - approve or ignore one item in a Monday `주간현장 현황공유` mail;
 - choose a critical-event option;
+- open a Stakeholder Request, select Task interpretations, fill eligible worker slots, confirm its
+  plan, or request an authored clarification call/meeting;
 - enable or disable competency automatic assignment; set Work priority, `긴급!`, and `총력!` flags.
 
 Rejected actions must be recorded with their rejection reason. A simulator must never silently repair
@@ -105,20 +107,22 @@ For current day `D`, a conforming simulation performs the following sequence.
 12. Process assigned incomplete Tasks, primary Tasks before parallel Tasks.
 13. Charge payroll when `D` is a configured payroll interval.
 14. Increment the calendar from `D` to `D + 1`.
-15. On Monday, collect due ordinary schedule-changing mini incidents into one
+15. Resolve due Stakeholder Request calls/meetings, increase clarity, reveal newly eligible authored
+    guidance, and resolve a waiting delivery score when all required Tasks were already complete.
+16. On Monday, collect due ordinary schedule-changing mini incidents into one
     `주간현장 현황공유` mail. Do not apply their schedule deltas before item approval.
-16. Deliver due medical results.
-17. Deliver due PM proposal review results, assigning accepted Work deadlines relative to this day.
-18. Remove expired ready-made proposal candidates and generate a three-to-four-item batch when its
+17. Deliver due medical results.
+18. Deliver due PM proposal review results, assigning accepted Work deadlines relative to this day.
+19. Remove expired ready-made proposal candidates and generate a three-to-four-item batch when its
     randomized 14–21-day cadence is due; send one arrival notification mail for a new batch.
-19. Refresh Work and Task states.
-20. Apply soft- and hard-deadline results against the new current day.
-21. Issue the midpoint review when due.
-22. Refresh states again.
-23. Generate random side missions when eligible.
-24. Deliver scheduled critical-event mail.
-25. Trigger an eligible critical event.
-26. Persist the report and derived state.
+20. Refresh Work and Task states.
+21. Apply soft- and hard-deadline results against the new current day.
+22. Issue the midpoint review when due.
+23. Refresh states again.
+24. Generate random side missions when eligible.
+25. Deliver scheduled critical-event mail.
+26. Trigger an eligible critical event.
+27. Persist the report and derived state.
 
 The order is observable. In particular, daily output and payroll occur before the day increments,
 while deadline checks and newly generated side missions occur after it increments.
@@ -243,6 +247,10 @@ fatigueGain += SoftDeadlineFatigue when parent Work missed its soft deadline
 - When current day becomes greater than `HardDeadline`, fail the Work, apply `HardPenaltyCredits`
   once, fail all incomplete child Tasks, and clear their assignments and reservations.
 - Resource deductions clamp at zero.
+- A Stakeholder Request waits for any pending clarification even when all three required Tasks are
+  complete. Otherwise its last required Task completion resolves the weighted `60 / 30 / 10` fit
+  score once. A due clarification may resolve that waiting score at step 15. Hard-deadline failure
+  resolves no fit score.
 - Required and optional Work failures are reported as Work outcomes and resource pressure. Neither
   is itself a run-ending condition; only resource depletion ends the run.
 
