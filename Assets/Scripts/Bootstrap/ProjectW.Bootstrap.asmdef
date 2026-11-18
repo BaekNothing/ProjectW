@@ -1,5 +1,5 @@
 {
   "name": "ProjectW.Bootstrap",
   "rootNamespace": "ProjectW.Bootstrap",
-  "references": ["ProjectW.Contracts", "HybridCLR.Runtime"]
+  "references": ["ProjectW.Contracts", "HybridCLR.Runtime", "Unity.InputSystem"]
 }

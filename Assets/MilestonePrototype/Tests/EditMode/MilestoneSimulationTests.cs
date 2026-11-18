@@ -1855,7 +1855,7 @@ namespace ProjectW.MilestonePrototype.Tests
         [Test]
         public void BaseVersionMatchesCurrentAotBaseline()
         {
-            Assert.That(PatchBootstrapper.BaseVersion, Is.EqualTo(13));
+            Assert.That(PatchBootstrapper.BaseVersion, Is.EqualTo(14));
         }
 
         [Test]

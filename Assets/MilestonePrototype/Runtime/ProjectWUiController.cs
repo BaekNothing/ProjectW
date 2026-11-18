@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using ProjectW.Contracts;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 
 namespace ProjectW.MilestonePrototype
@@ -116,6 +117,8 @@ namespace ProjectW.MilestonePrototype
             Require<Button>("title-options-button").clicked += ShowTitleOptions;
             Require<Button>("theme-button").clicked += ToggleTheme;
             nextDayButton.clicked += AdvanceDay;
+            root.RegisterCallback<PointerDownEvent>(DismissWorkerPreviewOnPointerDown);
+            root.RegisterCallback<PointerUpEvent>(DismissWorkerPreviewOnPointerUp);
             skipEventButton.clicked += () =>
             {
                 skipToNextEvent = !skipToNextEvent;
@@ -872,8 +875,29 @@ namespace ProjectW.MilestonePrototype
             if (!string.IsNullOrEmpty(heldWorkerTaskId) && !heldWorkerPreviewVisible &&
                 Time.unscaledTime - heldWorkerStartedAt >= WorkerPreviewHoldSeconds)
                 ShowWorkerPreview();
+            if (heldWorkerPreviewVisible && IsWorkerPreviewDismissInputPressed())
+                EndWorkerPreview();
             if (notifications != null && Time.unscaledTime >= nextNotificationExpiry)
                 RefreshNotificationUi(Time.unscaledTime);
+        }
+
+        private void DismissWorkerPreviewOnPointerDown(PointerDownEvent pointerEvent)
+        {
+            if (heldWorkerPreviewVisible)
+                EndWorkerPreview();
+        }
+
+        private void DismissWorkerPreviewOnPointerUp(PointerUpEvent pointerEvent)
+        {
+            if (!string.IsNullOrEmpty(heldWorkerTaskId))
+                EndWorkerPreview();
+        }
+
+        private static bool IsWorkerPreviewDismissInputPressed()
+        {
+            Keyboard keyboard = Keyboard.current;
+            return keyboard != null &&
+                   (keyboard.escapeKey.isPressed || keyboard.anyKey.isPressed);
         }
 
         private void BeginWorkerPreview(string taskId, int crewIndex)

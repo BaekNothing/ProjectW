@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Version: 7.0
+- Version: 7.1
 - Status: Approved for implementation
 - Action: Update
 - SSOT Change: Yes
@@ -939,7 +939,9 @@ Costs must be shown before the player confirms a reassignment. The UI must not r
 - The preview shows the worker's required competency grades, Task required grades, specialty match,
   expected efficiency, current dissatisfaction, expected dissatisfaction per workday, active Task
   count, and whether this would be a forced parallel assignment.
-- Releasing the pointer closes the preview. Viewing it never mutates assignment or campaign state.
+- Releasing the pointer anywhere closes the preview. Any additional pointer/touch press, any
+  keyboard input, Android Back, or Escape also closes it immediately. Viewing it never mutates
+  assignment or campaign state.
 
 ## Scroll and Touch Interaction
 
@@ -1038,18 +1040,20 @@ Base APK v6 uses the project's active Input System package rather than the disab
 - Base APK v6 preserves the required `Unity.InputSystem` types and embeds the same behavior for
   offline fallback.
 
-### Current Base APK v13 Activation
+### Current Base APK v14 Activation
 
-- The currently supported installed baseline is base APK v12. Base APK v11 added the unified remote
-  Addressables path, and v12 adds the StudioUI UI Toolkit runtime after removing the prototype IMGUI
-  desktop and sample scenes.
-- Current development patches declare `minBaseVersion = 13`. Earlier base compatibility notes in
+- The currently supported installed baseline is base APK v14. Base APK v11 added the unified remote
+  Addressables path, v12 added the StudioUI UI Toolkit runtime, v13 added pointer callbacks, and v14
+  adds the exact keyboard controls used to dismiss assignment previews.
+- Current development patches declare `minBaseVersion = 14`. Earlier base compatibility notes in
   this document are historical constraints, not supported alternatives for the active dev channel.
 - The exact approved AOT and Contracts surface remains authoritative in
   `Assets/Specification/Operation/HotUpdateAotSafety.md`; this section does not authorize additional
   Unity, package, platform, native, reflection, serialization, delegate, or generic dependencies.
-- Base APK v13 adds only the reviewed UI Toolkit pointer-down/up callback surface used by worker
-  press-and-hold previews. It must be installed once before consuming v13 patches.
+- Base APK v14 retains the reviewed UI Toolkit pointer-down/up callback surface and adds only the
+  Input System `Keyboard.current`, `Keyboard.escapeKey`, `Keyboard.anyKey`, and existing
+  `ButtonControl.isPressed` surface used to dismiss worker previews. It must be installed once
+  before consuming v14 patches.
 - Saturday and Sunday columns use a distinct background treatment and weekday labels so the
   non-working weekend cadence remains identifiable across the full planning horizon.
 - An unassigned Task row shows its next automatic-assignment candidate when one can currently be

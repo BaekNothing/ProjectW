@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Version: 1.2
+- Version: 1.3
 - Status: Mandatory
 - Action: Update
 - SSOT Change: Yes
@@ -335,3 +335,22 @@ This authorization is limited to detecting pointer press and release for the shi
 It does not authorize unrelated UI Toolkit event types, pointer capture, event synthesis, custom
 rendering, or editor-only UI APIs. Patches using press-and-hold previews must declare
 `minBaseVersion = 13`, and device compatibility still requires an on-device smoke test.
+
+## Base APK v14 AOT Baseline
+
+Base APK v14 adds the exact Input System keyboard surface required to dismiss a worker-assignment
+preview from keyboard, Escape, or Android Back input while retaining v13 pointer dismissal.
+
+It must bundle:
+
+- `BaseVersion = 14`;
+- the latest embedded `ProjectW.HotUpdate.dll.bytes`, `task-system.json`, UXML, and USS resources;
+- regenerated Android AOT metadata;
+- a fixed-layer reference to `Keyboard.current`, `Keyboard.escapeKey`, `Keyboard.anyKey`, and
+  `ButtonControl.isPressed`;
+- stable preservation for `Keyboard`, `KeyControl`, `AnyKeyControl`, and the complete v13 surface.
+
+This authorization is limited to dismissing the shipped worker preview on any key press, including
+Escape and the Android Back mapping. It does not authorize text entry, synthetic input, arbitrary
+Input System devices or controls, or unrelated keyboard members. Patches using this dismissal path
+must declare `minBaseVersion = 14`, and device compatibility still requires an on-device smoke test.
