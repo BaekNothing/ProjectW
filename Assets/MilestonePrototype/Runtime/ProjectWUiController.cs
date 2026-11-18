@@ -16,6 +16,7 @@ namespace ProjectW.MilestonePrototype
         private const int NotificationHistoryLimit = 50;
         private const int VisibleBannerLimit = 3;
         private const float NotificationBannerSeconds = 6f;
+        private const float WorkerPreviewHoldSeconds = .45f;
 
         private UIDocument document;
         private PanelSettings panelSettings;
@@ -44,6 +45,12 @@ namespace ProjectW.MilestonePrototype
         private string activeStakeholderRequestId;
         private bool darkTheme;
         private bool skipToNextEvent;
+        private string heldWorkerTaskId;
+        private int heldWorkerCrewIndex = -1;
+        private float heldWorkerStartedAt;
+        private bool heldWorkerPreviewVisible;
+        private string suppressedWorkerTaskId;
+        private int suppressedWorkerCrewIndex = -1;
 
         public void Initialize(string version, IPatchDiagnostics patchDiagnostics)
         {
@@ -269,7 +276,6 @@ namespace ProjectW.MilestonePrototype
                 case "overview": BuildOverview(); break;
                 case "crew": BuildCrew(); break;
                 case "mail": BuildMail(); break;
-                case "proposals": BuildProposals(); break;
                 case "codex": BuildCodex(); break;
                 case "settings": BuildSettings(); break;
                 default: BuildSchedule(); break;
@@ -323,7 +329,7 @@ namespace ProjectW.MilestonePrototype
             var toolbar = Box("page-toolbar");
             toolbar.Add(Text("21일 계획 · 오늘 기준 과거 3일 표시", "muted"));
             Button today = ActionButton("오늘로", "secondary");
-            today.clicked += BuildSchedule;
+            today.clicked += () => Navigate("schedule");
             toolbar.Add(today);
             pageContent.Add(toolbar);
 
@@ -474,8 +480,10 @@ namespace ProjectW.MilestonePrototype
                 var card = Section(crew.Name, $"{crew.Personality} · {crew.Specialty}");
                 card.Add(Badge(crew.Condition, ConditionIntent(crew)));
                 card.Add(Progress("피로", crew.Fatigue));
+                card.Add(Progress("불만", crew.Dissatisfaction));
                 card.Add(Progress("신뢰", crew.Trust));
-                card.Add(Text($"운영 모드  {policy.Mode}  ·  휴식 기준 {policy.FatigueLimit}", "body"));
+                card.Add(Text($"전문 영역  {crew.Specialty}  ·  운영 모드 {policy.Mode}", "body"));
+                card.Add(Text(CrewStatsText(crew), "caption"));
                 var actions = Box("button-row");
                 Button mode = ActionButton("모드 변경", "secondary");
                 mode.clicked += () => { CycleMode(crewIndex); SaveAndRefresh("crew"); };
@@ -677,8 +685,12 @@ namespace ProjectW.MilestonePrototype
                 Button worker = ActionButton(assigned ? crew.Name + " · 배정됨" : crew.Name,
                     assigned ? "primary" : "secondary");
                 worker.SetEnabled(request.FitScore < 0 && (assigned || string.IsNullOrEmpty(blocked)));
+                worker.RegisterCallback<PointerDownEvent>(_ =>
+                    BeginWorkerPreview(task.Id, selectedCrew));
+                worker.RegisterCallback<PointerUpEvent>(_ => EndWorkerPreview());
                 worker.clicked += () =>
                 {
+                    if (ConsumeSuppressedWorkerClick(task.Id, selectedCrew)) return;
                     game.AssignStakeholderTask(task.Id, selectedCrew);
                     SaveAndRefresh("mail");
                 };
@@ -690,21 +702,6 @@ namespace ProjectW.MilestonePrototype
             if (request.FitScore >= 0)
                 card.Add(Text($"부합도 {game.StakeholderTaskFit(task.Id)}점 × {task.ContributionWeight}%", "body"));
             return card;
-        }
-
-        private void BuildProposals()
-        {
-            SetPageHeader("PROPOSAL", "제안서");
-            var grid = Box("card-grid");
-            foreach (ReadyMadeProposal proposal in game.ReadyMadeProposals.Where(item => game.Day <= item.ExpiresDay))
-            {
-                var card = Section(proposal.TargetId, $"만료 D{proposal.ExpiresDay:00}");
-                card.Add(Text($"투자 {proposal.CostCredits} · 보상 {proposal.RewardCredits}", "body"));
-                card.Add(Text($"위험 {proposal.Risk} · 작업 {proposal.ActionIds?.Length ?? 0}개 · 총 {proposal.TotalWork:0.#}일", "muted"));
-                grid.Add(card);
-            }
-            if (grid.childCount == 0) grid.Add(Empty("현재 검토 가능한 제안서가 없습니다."));
-            pageContent.Add(grid);
         }
 
         private void BuildCodex()
@@ -730,6 +727,12 @@ namespace ProjectW.MilestonePrototype
             theme.clicked += ToggleTheme;
             appearance.Add(theme);
             pageContent.Add(appearance);
+
+            var progress = Section("진행 상황", "화면과 패치 설정은 유지하고 현재 캠페인만 처음부터 다시 시작합니다.");
+            Button resetProgress = ActionButton("진행상황 리셋", "danger");
+            resetProgress.clicked += ShowProgressResetConfirmation;
+            progress.Add(resetProgress);
+            pageContent.Add(progress);
 
             var update = Section("업데이트", "설치된 패치는 다음 재시작부터 적용됩니다.");
             update.Add(Text($"실행 버전  {patchVersion}", "body"));
@@ -775,6 +778,31 @@ namespace ProjectW.MilestonePrototype
                 RefreshNotificationUi(Time.unscaledTime);
                 modalHost.Clear();
                 ShowTitle();
+            };
+            Button cancel = ActionButton("취소", "secondary");
+            cancel.clicked += () => modalHost.Clear();
+            dialog.Add(confirm);
+            dialog.Add(cancel);
+            overlay.Add(dialog);
+            modalHost.Add(overlay);
+        }
+
+        private void ShowProgressResetConfirmation()
+        {
+            modalHost.Clear();
+            var overlay = Box("modal-overlay");
+            var dialog = Section("진행 상황을 리셋할까요?", "현재 캠페인의 날짜, 작업, 인원 상태와 메일 기록이 초기화됩니다.");
+            Button confirm = ActionButton("진행상황 리셋 확인", "danger");
+            confirm.clicked += () =>
+            {
+                ProjectWSaveStore.Delete(CampaignSaveKey);
+                game = new MilestoneSimulation();
+                activeStakeholderRequestId = null;
+                notifications.Clear();
+                ResetNotificationTracking();
+                RefreshNotificationUi(Time.unscaledTime);
+                modalHost.Clear();
+                Navigate("overview");
             };
             Button cancel = ActionButton("취소", "secondary");
             cancel.clicked += () => modalHost.Clear();
@@ -841,8 +869,107 @@ namespace ProjectW.MilestonePrototype
 
         private void Update()
         {
+            if (!string.IsNullOrEmpty(heldWorkerTaskId) && !heldWorkerPreviewVisible &&
+                Time.unscaledTime - heldWorkerStartedAt >= WorkerPreviewHoldSeconds)
+                ShowWorkerPreview();
             if (notifications != null && Time.unscaledTime >= nextNotificationExpiry)
                 RefreshNotificationUi(Time.unscaledTime);
+        }
+
+        private void BeginWorkerPreview(string taskId, int crewIndex)
+        {
+            heldWorkerTaskId = taskId;
+            heldWorkerCrewIndex = crewIndex;
+            heldWorkerStartedAt = Time.unscaledTime;
+            heldWorkerPreviewVisible = false;
+            suppressedWorkerTaskId = null;
+            suppressedWorkerCrewIndex = -1;
+        }
+
+        private void EndWorkerPreview()
+        {
+            if (heldWorkerPreviewVisible)
+            {
+                suppressedWorkerTaskId = heldWorkerTaskId;
+                suppressedWorkerCrewIndex = heldWorkerCrewIndex;
+                modalHost.Clear();
+            }
+            heldWorkerTaskId = null;
+            heldWorkerCrewIndex = -1;
+            heldWorkerPreviewVisible = false;
+        }
+
+        private bool ConsumeSuppressedWorkerClick(string taskId, int crewIndex)
+        {
+            bool suppressed = suppressedWorkerTaskId == taskId &&
+                              suppressedWorkerCrewIndex == crewIndex;
+            suppressedWorkerTaskId = null;
+            suppressedWorkerCrewIndex = -1;
+            return suppressed;
+        }
+
+        private void ShowWorkerPreview()
+        {
+            WorkTask task = game.Tasks.FirstOrDefault(item => item.Id == heldWorkerTaskId);
+            if (task == null || heldWorkerCrewIndex < 0 || heldWorkerCrewIndex >= game.Crew.Count)
+                return;
+            heldWorkerPreviewVisible = true;
+            CrewMember crew = game.Crew[heldWorkerCrewIndex];
+            bool parallel = game.Tasks.Any(item => item != task &&
+                item.AssignedCharacter == heldWorkerCrewIndex && !item.IsParallelAssignment &&
+                item.State != TaskState.Complete && item.State != TaskState.Failed);
+            float efficiency = game.AssignmentEfficiencyMultiplier(task.Id, heldWorkerCrewIndex);
+            int dissatisfaction = game.AssignmentDissatisfactionGain(
+                task.Id, heldWorkerCrewIndex, parallel);
+            int activeTasks = game.Tasks.Count(item => item.AssignedCharacter == heldWorkerCrewIndex &&
+                item.State != TaskState.Complete && item.State != TaskState.Failed);
+
+            modalHost.Clear();
+            var overlay = Box("modal-overlay");
+            var dialog = Section(crew.Name + " · 배정 미리보기",
+                $"{task.Name} · 전문 영역 {(crew.Specialty == task.RequiredRole ? "일치" : "불일치")}");
+            if (task.RequiredCompetencies != null)
+                for (int index = 0; index < task.RequiredCompetencies.Length; index++)
+                {
+                    int competency = task.RequiredCompetencies[index];
+                    int actual = competency >= 0 && competency < crew.Competencies.Length
+                        ? crew.Competencies[competency] : CrewMember.MinimumCompetency;
+                    int required = task.MinimumCompetencies != null &&
+                                   index < task.MinimumCompetencies.Length
+                        ? task.MinimumCompetencies[index] : 4;
+                    dialog.Add(Text($"{CompetencyName(competency)}  {CrewMember.CompetencyGrade(actual)}급 " +
+                                    $"/ 요구 {CrewMember.CompetencyGrade(required)}급",
+                        actual >= required ? "body" : "muted"));
+                }
+            dialog.Add(Text($"예상 효율  {efficiency * 100f:0}%", "summary-title"));
+            dialog.Add(Text($"예상 불만  +{dissatisfaction}/일 · 현재 {crew.Dissatisfaction}",
+                dissatisfaction > 0 ? "muted" : "body"));
+            dialog.Add(Text($"현재 작업 {activeTasks}개 · {(parallel ? "강제 병행 배정" : "주 작업 배정")}", "caption"));
+            overlay.Add(dialog);
+            modalHost.Add(overlay);
+        }
+
+        private static string CrewStatsText(CrewMember crew)
+        {
+            return $"기지 {CrewMember.CompetencyGrade(crew.Competencies[0])} · " +
+                   $"과학 {CrewMember.CompetencyGrade(crew.Competencies[1])} · " +
+                   $"자원 {CrewMember.CompetencyGrade(crew.Competencies[2])} · " +
+                   $"환경 {CrewMember.CompetencyGrade(crew.Competencies[3])} · " +
+                   $"생명 {CrewMember.CompetencyGrade(crew.Competencies[4])} · " +
+                   $"지휘 {CrewMember.CompetencyGrade(crew.Competencies[5])}";
+        }
+
+        private static string CompetencyName(int competency)
+        {
+            switch (competency)
+            {
+                case 0: return "기지 공학";
+                case 1: return "과학 탐사";
+                case 2: return "자원 운영";
+                case 3: return "환경 적응";
+                case 4: return "생명 유지";
+                default: return "지휘·외교";
+            }
         }
 
         private void SetPageHeader(string eyebrow, string title)

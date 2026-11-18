@@ -110,9 +110,10 @@ namespace ProjectW.MilestonePrototype
                     throw new InvalidOperationException(
                         $"Every crew member requires exactly {CrewMember.CompetencyCount} competencies.");
                 foreach (int competency in member.Competencies)
-                    if (competency < 0 || competency > CrewMember.MaximumCompetency)
+                    if (competency < CrewMember.MinimumCompetency ||
+                        competency > CrewMember.MaximumCompetency)
                         throw new InvalidOperationException(
-                            $"Crew competencies must be between 0 and {CrewMember.MaximumCompetency}.");
+                            $"Crew competencies must be between {CrewMember.MinimumCompetency} and {CrewMember.MaximumCompetency}.");
                 if (member.Perks != null)
                     foreach (string perkName in member.Perks)
                     {
@@ -182,7 +183,8 @@ namespace ProjectW.MilestonePrototype
                                 "Every stakeholder Task requires weight, workload, competency minimums, intent, and interpretations.");
                         ValidateRequiredCompetencies(task.RequiredCompetencies, "Every stakeholder Task");
                         foreach (int minimum in task.MinimumCompetencies)
-                            if (minimum < 0 || minimum > CrewMember.MaximumCompetency)
+                            if (minimum < CrewMember.MinimumCompetency ||
+                                minimum > CrewMember.MaximumCompetency)
                                 throw new InvalidOperationException(
                                     "Stakeholder Task competency minimums are out of range.");
                         foreach (StakeholderInterpretationDefinition interpretation in task.Interpretations)

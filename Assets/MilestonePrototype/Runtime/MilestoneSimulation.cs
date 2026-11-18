@@ -9,7 +9,7 @@ namespace ProjectW.MilestonePrototype
         private enum PerkEffect { Fatigue, RestRecovery, WeekendRecovery }
 
         public const int CriticalResponseWindowDays = 7;
-        public const int TeamSize = 4;
+        public const int TeamSize = 12;
         private readonly Random random;
         private readonly Random proposalRandom;
         private readonly TaskSystemBalance balance;
@@ -24,6 +24,7 @@ namespace ProjectW.MilestonePrototype
         private readonly float[] crewDailyOutputs;
         private readonly RandomTaskWordPool randomTaskWords;
         private readonly WorkTask[] baseTasks;
+        private readonly CrewMember[] baseCrew;
         private readonly CodexEntry[] baseCodex;
         private readonly CriticalEventDefinition[] criticalEvents;
         private readonly PerkDefinition[] perkDefinitions;
@@ -157,7 +158,6 @@ namespace ProjectW.MilestonePrototype
                     if (estimate == null) continue;
                     next = EarlierFutureDay(next, estimate.CompletionDay + 1, Day);
                 }
-                next = EarlierFutureDay(next, nextProposalBatchDay, Day);
                 if (!MidpointReviewIssued)
                     next = EarlierFutureDay(next, MidpointReviewDay, Day);
                 foreach (WorkGroup group in Groups)
@@ -190,7 +190,6 @@ namespace ProjectW.MilestonePrototype
                         group.HardDeadline == eventDay)) return "마감";
                 foreach (MailEvent mail in Mail)
                     if (mail != null && mail.ArrivalDay == eventDay) return "메일";
-                if (nextProposalBatchDay == eventDay) return "제안서";
                 if (!MidpointReviewIssued && MidpointReviewDay == eventDay) return "중간평가";
                 foreach (WorkGroup group in Groups)
                     if (group != null && group.RevealDay == eventDay) return "작업 공개";
@@ -414,6 +413,7 @@ namespace ProjectW.MilestonePrototype
             balance = data.Balance;
             randomTaskWords = data.RandomTaskWords;
             baseTasks = data.Tasks;
+            baseCrew = data.Crew;
             baseCodex = data.Codex ?? new CodexEntry[0];
             criticalEvents = data.CriticalEvents ?? new CriticalEventDefinition[0];
             perkDefinitions = data.PerkDefinitions ?? new PerkDefinition[0];
@@ -449,14 +449,13 @@ namespace ProjectW.MilestonePrototype
             CompetencyAutoAssignment = true;
             Groups.AddRange(data.Works);
             Tasks.AddRange(data.Tasks);
-            Crew.AddRange(data.Crew);
+            for (int i = 0; i < data.Crew.Length; i++) Crew.Add(CloneCrewDefinition(data.Crew[i]));
             StaffingPlan = CreateDefaultStaffingPlan();
             Mail.AddRange(baseMail);
             ExtractWeeklyFieldItemsFromMail();
             Codex.AddRange(baseCodex);
             DiscoverCurrentCrewTraits();
             NormalizeLoadedData();
-            GenerateReadyMadeProposalBatch(null);
             RefreshStates();
             LastReport.Lines.Add("첫 번째 개척 기지가 가동되었습니다.");
             Log("캠페인을 시작했습니다.");
@@ -542,6 +541,33 @@ namespace ProjectW.MilestonePrototype
             return copy;
         }
 
+        private static CrewMember CloneCrewDefinition(CrewMember source)
+        {
+            return new CrewMember
+            {
+                Name = source.Name,
+                PortraitLabel = source.PortraitLabel,
+                PortraitAddress = source.PortraitAddress,
+                Personality = source.Personality,
+                Memo = source.Memo,
+                Perks = source.Perks == null ? new string[0] : (string[])source.Perks.Clone(),
+                Specialty = source.Specialty,
+                Skill = source.Skill,
+                Competencies = Copy(source.Competencies),
+                Fatigue = source.Fatigue,
+                Dissatisfaction = source.Dissatisfaction,
+                Experience = source.Experience,
+                InjuryDays = source.InjuryDays,
+                RegenerationCount = source.RegenerationCount,
+                Trust = source.Trust,
+                Pride = source.Pride,
+                Authority = source.Authority,
+                Mental = source.Mental,
+                DailyOutput = source.DailyOutput,
+                RestScheduled = source.RestScheduled
+            };
+        }
+
         private void AddStakeholderState(StakeholderRequestState state)
         {
             var next = new StakeholderRequestState[StakeholderRequests.Length + 1];
@@ -600,22 +626,7 @@ namespace ProjectW.MilestonePrototype
             if (crewIndex < 0 || crewIndex >= Crew.Count) return "담당자 없음";
             CrewMember member = Crew[crewIndex];
             if (!member.Available) return member.InjuryDays > 0 ? "부상 중" : "휴식 예정";
-            if (member.Specialty != task.RequiredRole) return "필요 역할 불일치";
-            if (task.RequiredCompetencies != null)
-                for (int i = 0; i < task.RequiredCompetencies.Length; i++)
-                {
-                    int competency = task.RequiredCompetencies[i];
-                    int minimum = task.MinimumCompetencies != null && i < task.MinimumCompetencies.Length
-                        ? task.MinimumCompetencies[i] : 0;
-                    int actual = member.Competencies != null && competency >= 0 &&
-                                 competency < member.Competencies.Length
-                        ? member.Competencies[competency] : 0;
-                    if (actual < minimum) return $"역량 {competency} 필요 {minimum} / 현재 {actual}";
-                }
-            WorkTask occupied = Tasks.FirstOrDefault(candidate => candidate != task &&
-                candidate.AssignedCharacter == crewIndex && !candidate.IsParallelAssignment &&
-                IsOngoingAssignment(candidate));
-            return occupied == null ? string.Empty : $"{occupied.Name} 담당 중";
+            return string.Empty;
         }
 
         public bool AssignStakeholderTask(string taskId, int crewIndex)
@@ -626,6 +637,11 @@ namespace ProjectW.MilestonePrototype
             if (state == null || !state.PlanningStarted || state.FitScore >= 0) return false;
             if (crewIndex < 0) return AssignPrimary(task, -1);
             if (!string.IsNullOrEmpty(StakeholderAssignmentBlockReason(taskId, crewIndex))) return false;
+            if (task.AssignedCharacter == crewIndex) return true;
+            bool hasPrimary = Tasks.Any(candidate => candidate != task &&
+                candidate.AssignedCharacter == crewIndex && !candidate.IsParallelAssignment &&
+                IsOngoingAssignment(candidate));
+            if (hasPrimary) return AssignParallel(taskId, crewIndex);
             return AssignPrimary(task, crewIndex);
         }
 
@@ -739,17 +755,13 @@ namespace ProjectW.MilestonePrototype
         public bool AssignParallel(string taskId, int crewIndex)
         {
             WorkTask task = Tasks.FirstOrDefault(candidate => candidate.Id == taskId);
-            if (task != null && !string.IsNullOrEmpty(task.StakeholderRequestId)) return false;
             if (task == null || task.State != TaskState.Available && task.State != TaskState.Active) return false;
             if (crewIndex < 0 || crewIndex >= Crew.Count || !Crew[crewIndex].Available) return false;
-            if (task.RemainingWork > balance.ParallelMaximumRemainingDays + .001f) return false;
             if (!Tasks.Any(candidate => IsOngoingAssignment(candidate) &&
                                        candidate.AssignedCharacter == crewIndex && !candidate.IsParallelAssignment))
                 return false;
-            if (Tasks.Any(candidate => candidate != task && candidate.AssignedCharacter == crewIndex &&
-                                       candidate.IsParallelAssignment && IsOngoingAssignment(candidate)))
-                return false;
             if (task.AssignedCharacter == crewIndex && !task.IsParallelAssignment) return false;
+            if (task.AssignedCharacter == crewIndex && task.IsParallelAssignment) return true;
             if (task.AssignedCharacter >= 0) Detach(task, true);
 
             task.AssignedCharacter = crewIndex;
@@ -834,6 +846,7 @@ namespace ProjectW.MilestonePrototype
             if (!inheritPerks)
                 member.Perks = (string[])crewPerks[crewIndex].Clone();
             member.Fatigue = 0;
+            member.Dissatisfaction = 0;
             member.InjuryDays = 0;
             member.RestScheduled = false;
             member.Experience = 0;
@@ -1538,6 +1551,8 @@ namespace ProjectW.MilestonePrototype
                     int fatigueRecovery = ScalePerkValue(balance.WeekendFatigueRecovery,
                         PerkMultiplier(member, PerkEffect.WeekendRecovery));
                     member.Fatigue = Math.Max(0, member.Fatigue - fatigueRecovery);
+                    member.Dissatisfaction = Math.Max(0,
+                        member.Dissatisfaction - balance.WeekendDissatisfactionRecovery);
                     member.Mental = Math.Min(100, member.Mental + balance.WeekendMentalRecovery);
                     if (member.InjuryDays > 0 && random.Next(100) < balance.WeekendInjuryRecoveryChance)
                         member.InjuryDays = 0;
@@ -1549,6 +1564,8 @@ namespace ProjectW.MilestonePrototype
                 int restRecovery = ScalePerkValue(balance.RestRecovery,
                     PerkMultiplier(member, PerkEffect.RestRecovery));
                 member.Fatigue = Math.Max(0, member.Fatigue - restRecovery);
+                member.Dissatisfaction = Math.Max(0,
+                    member.Dissatisfaction - balance.RestDissatisfactionRecovery);
                 member.RestScheduled = false;
                 report.Lines.Add($"{member.Name}: 휴식으로 피로 {restRecovery} 회복");
             }
@@ -1568,8 +1585,6 @@ namespace ProjectW.MilestonePrototype
             ResolveDueStakeholderClarifications(report);
             DeliverWeeklyFieldReport();
             DeliverMedicalResults();
-            DeliverProposalResults(report);
-            RefreshReadyMadeProposals(report);
             RefreshStates();
             ApplyDeadlineResults(report);
             ApplyMidpointReview(report);
@@ -1757,8 +1772,9 @@ namespace ProjectW.MilestonePrototype
                     : 0f,
                 PrimaryFatigue = primaryFatigue,
                 ParallelFatigue = primaryFatigue + balance.ParallelFatigue,
-                CanRunInParallel = task.RemainingWork <= balance.ParallelMaximumRemainingDays + .001f,
-                CompetencyMultiplier = hasWorker ? CompetencyOutputMultiplier(Crew[crewIndex], task) : 1f
+                CanRunInParallel = hasWorker,
+                CompetencyMultiplier = hasWorker
+                    ? AssignmentEfficiencyMultiplier(Crew[crewIndex], task) : 1f
             };
         }
 
@@ -2070,14 +2086,73 @@ namespace ProjectW.MilestonePrototype
                 highChance * balance.HighOutputMultiplier / 100f;
             float dailyOutput = Crew[crewIndex].DailyOutput > 0f ? Crew[crewIndex].DailyOutput : 1f;
             float output = dailyOutput * balance.PrimaryProgressDays *
-                           CompetencyOutputMultiplier(Crew[crewIndex], task) * expectedMultiplier;
+                           AssignmentEfficiencyMultiplier(Crew[crewIndex], task) * expectedMultiplier;
             return output > .001f ? output : .001f;
+        }
+
+        public float AssignmentEfficiencyMultiplier(string taskId, int crewIndex)
+        {
+            WorkTask task = Tasks.FirstOrDefault(candidate => candidate.Id == taskId);
+            return task == null || crewIndex < 0 || crewIndex >= Crew.Count
+                ? 0f
+                : AssignmentEfficiencyMultiplier(Crew[crewIndex], task);
+        }
+
+        public int AssignmentDissatisfactionGain(string taskId, int crewIndex, bool parallel)
+        {
+            WorkTask task = Tasks.FirstOrDefault(candidate => candidate.Id == taskId);
+            return task == null || crewIndex < 0 || crewIndex >= Crew.Count
+                ? 0
+                : AssignmentDissatisfactionGain(Crew[crewIndex], task, parallel);
+        }
+
+        private float AssignmentEfficiencyMultiplier(CrewMember member, WorkTask task)
+        {
+            float specialty = member.Specialty == task.RequiredRole ? 1f : .8f;
+            float dissatisfaction = 1f - Math.Min(100, Math.Max(0, member.Dissatisfaction)) / 100f *
+                balance.MaximumDissatisfactionEfficiencyPenalty;
+            return CompetencyOutputMultiplier(member, task) * specialty * dissatisfaction;
+        }
+
+        private int AssignmentDissatisfactionGain(CrewMember member, WorkTask task, bool parallel)
+        {
+            int gain = member.Specialty == task.RequiredRole
+                ? 0 : balance.SpecialtyMismatchDissatisfaction;
+            if (task.RequiredCompetencies != null && member.Competencies != null)
+                for (int index = 0; index < task.RequiredCompetencies.Length; index++)
+                {
+                    int competency = task.RequiredCompetencies[index];
+                    int required = task.MinimumCompetencies != null &&
+                                   index < task.MinimumCompetencies.Length
+                        ? task.MinimumCompetencies[index] : 4;
+                    int actual = competency >= 0 && competency < member.Competencies.Length
+                        ? member.Competencies[competency] : CrewMember.MinimumCompetency;
+                    gain += Math.Max(0, required - actual) * balance.CompetencyGapDissatisfaction;
+                }
+            if (parallel) gain += balance.ParallelDissatisfaction;
+            return gain;
         }
 
         public static float CompetencyOutputMultiplier(CrewMember member, WorkTask task)
         {
             if (member?.Competencies == null || task?.RequiredCompetencies == null ||
                 task.RequiredCompetencies.Length == 0) return 1f;
+            if (task.MinimumCompetencies != null &&
+                task.MinimumCompetencies.Length == task.RequiredCompetencies.Length)
+            {
+                float ratioTotal = 0f;
+                for (int index = 0; index < task.RequiredCompetencies.Length; index++)
+                {
+                    int competency = task.RequiredCompetencies[index];
+                    int score = competency >= 0 && competency < member.Competencies.Length
+                        ? member.Competencies[competency] : CrewMember.MinimumCompetency;
+                    int required = Math.Max(CrewMember.MinimumCompetency,
+                        task.MinimumCompetencies[index]);
+                    ratioTotal += score / (float)required;
+                }
+                return Math.Max(.4f, Math.Min(1.4f,
+                    ratioTotal / task.RequiredCompetencies.Length));
+            }
             int total = 0;
             bool allBelowStandard = true;
             foreach (int competency in task.RequiredCompetencies)
@@ -2398,9 +2473,9 @@ namespace ProjectW.MilestonePrototype
             CompetencyAutoAssignment = CompetencyAutoAssignment,
             HasAutoAssignmentPreference = true,
             Crunch = false,
-            ReadyMadeProposals = ReadyMadeProposals.ToArray(),
-            NextProposalBatchDay = nextProposalBatchDay,
-            NextReadyProposalId = nextReadyProposalId,
+            ReadyMadeProposals = new ReadyMadeProposal[0],
+            NextProposalBatchDay = 0,
+            NextReadyProposalId = 0,
             PendingMedicalResults = PendingMedicalResults,
             ActiveCriticalEventId = ActiveCriticalEventId,
             ActiveCriticalNodeId = ActiveCriticalNodeId,
@@ -2424,6 +2499,8 @@ namespace ProjectW.MilestonePrototype
             var restoredCrew = new CrewMember[restoredCrewCount];
             for (int i = 0; i < restoredCrewCount; i++) restoredCrew[i] = snapshot.Crew[i];
             Crew.AddRange(restoredCrew);
+            for (int i = restoredCrewCount; i < baseCrew.Length && i < TeamSize; i++)
+                Crew.Add(CloneCrewDefinition(baseCrew[i]));
             StaffingPlan = NormalizeStaffingPlan(snapshot.StaffingPlan);
             Mail.Clear(); Mail.AddRange(snapshot.Mail);
             MergeMissingStakeholderRequestMail();
@@ -2447,10 +2524,8 @@ namespace ProjectW.MilestonePrototype
                 ? snapshot.CompetencyAutoAssignment
                 : true;
             ReadyMadeProposals.Clear();
-            if (snapshot.ReadyMadeProposals != null)
-                ReadyMadeProposals.AddRange(snapshot.ReadyMadeProposals);
-            nextProposalBatchDay = snapshot.NextProposalBatchDay;
-            nextReadyProposalId = snapshot.NextReadyProposalId;
+            nextProposalBatchDay = 0;
+            nextReadyProposalId = 0;
             PendingMedicalResults = snapshot.PendingMedicalResults ?? new MedicalResult[0];
             ActiveCriticalEventId = snapshot.ActiveCriticalEventId;
             ActiveCriticalNodeId = snapshot.ActiveCriticalNodeId;
@@ -2469,7 +2544,6 @@ namespace ProjectW.MilestonePrototype
             if (snapshot.Log != null) SystemLog.AddRange(snapshot.Log);
             MigrateLegacyGeneratedSideMissions();
             NormalizeLoadedData();
-            if (nextProposalBatchDay <= 0) GenerateReadyMadeProposalBatch(null);
             RefreshStates();
             if (HasActiveCriticalEvent && ActiveCriticalNodeArrivalDay <= 0)
                 ActiveCriticalNodeArrivalDay = Day;
@@ -2518,7 +2592,7 @@ namespace ProjectW.MilestonePrototype
             baseOutput *= task.IsParallelAssignment
                 ? balance.ParallelProgressDays
                 : balance.PrimaryProgressDays;
-            baseOutput *= CompetencyOutputMultiplier(member, task);
+            baseOutput *= AssignmentEfficiencyMultiplier(member, task);
             int lowOutputChance;
             int highOutputChance;
             OutputChances(member.Fatigue, out lowOutputChance, out highOutputChance);
@@ -2547,15 +2621,20 @@ namespace ProjectW.MilestonePrototype
             if (workdayMultiplier < 1f) fatigue /= 2;
             fatigue = ScalePerkValue(fatigue,
                 PerkMultiplier(member, PerkEffect.Fatigue));
+            int dissatisfaction = AssignmentDissatisfactionGain(member, task,
+                task.IsParallelAssignment);
 
             task.Progress = Math.Min(task.EffectiveRequiredWork, task.Progress + progress);
             task.LastOutput = progress;
             task.LastOutcome = outcome;
             member.Fatigue = Math.Min(100, member.Fatigue + fatigue);
+            member.Dissatisfaction = Math.Min(100,
+                member.Dissatisfaction + dissatisfaction);
             member.Experience++;
             task.LastWorker = task.AssignedCharacter;
             string outcomeName = OutcomeName(outcome);
-            report.Lines.Add($"{member.Name}: {task.Name} {outcomeName} +{progress:0.#}일 (피로 +{fatigue})");
+            report.Lines.Add($"{member.Name}: {task.Name} {outcomeName} +{progress:0.#}일 " +
+                             $"(피로 +{fatigue} / 불만 +{dissatisfaction})");
             AddRecord(task, member.Name, RecordKind.Output, $"{outcomeName} · +{progress:0.#}일 진행");
 
             int accidentChance = member.Fatigue >= 80

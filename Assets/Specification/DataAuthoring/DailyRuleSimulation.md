@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Version: 1.2
+- Version: 1.3
 - Status: Authoring specification
 - Action: Update
 - SSOT Change: Yes
@@ -70,7 +70,7 @@ A scenario may issue these actions before `AdvanceDay`:
 - read or resolve mail;
 - approve or ignore one item in a Monday `주간현장 현황공유` mail;
 - choose a critical-event option;
-- open a Stakeholder Request, select Task interpretations, fill eligible worker slots, confirm its
+- open a Stakeholder Request, select Task interpretations, fill available worker slots, confirm its
   plan, or request an authored clarification call/meeting;
 - enable or disable competency automatic assignment; set Work priority, `긴급!`, and `총력!` flags.
 
@@ -112,17 +112,14 @@ For current day `D`, a conforming simulation performs the following sequence.
 16. On Monday, collect due ordinary schedule-changing mini incidents into one
     `주간현장 현황공유` mail. Do not apply their schedule deltas before item approval.
 17. Deliver due medical results.
-18. Deliver due PM proposal review results, assigning accepted Work deadlines relative to this day.
-19. Remove expired ready-made proposal candidates and generate a three-to-four-item batch when its
-    randomized 14–21-day cadence is due; send one arrival notification mail for a new batch.
-20. Refresh Work and Task states.
-21. Apply soft- and hard-deadline results against the new current day.
-22. Issue the midpoint review when due.
-23. Refresh states again.
-24. Generate random side missions when eligible.
-25. Deliver scheduled critical-event mail.
-26. Trigger an eligible critical event.
-27. Persist the report and derived state.
+18. Refresh Work and Task states.
+19. Apply soft- and hard-deadline results against the new current day.
+20. Issue the midpoint review when due.
+21. Refresh states again.
+22. Generate structured inbound boss requests when eligible.
+23. Deliver scheduled critical-event mail.
+24. Trigger an eligible critical event.
+25. Persist the report and derived state.
 
 The order is observable. In particular, daily output and payroll occur before the day increments,
 while deadline checks and newly generated side missions occur after it increments.
@@ -133,9 +130,8 @@ while deadline checks and newly generated side missions occur after it increment
 - Saturday and Sunday produce no Task output except for workers assigned to a `총력!` Work.
 - On Friday, regular checkups are free and multiply Task output by `0.5`, except for workers assigned
   to a `총력!` Work; those workers skip the checkup and produce normal output.
-- A worker can hold at most one active primary Task and one eligible parallel Task.
-- A parallel Task is eligible only when its effective remaining work is no greater than
-  `Balance.ParallelMaximumRemainingDays`.
+- A worker can hold at most one active primary Task and any number of explicitly forced parallel Tasks.
+- Parallel Tasks always add their configured fatigue and dissatisfaction costs.
 - Completed assignments remain historical ownership but consume no current capacity.
 - The planning horizon is at least 30 days beyond the current day.
 
@@ -145,13 +141,17 @@ For an unpaused assigned Task, calculate:
 
 ```text
 roleProgress = ParallelProgressDays when parallel, otherwise PrimaryProgressDays
-competencyMultiplier = competency rule below
+competencyMultiplier = required-grade rule below
+specialtyMultiplier = 1.0 when matched, otherwise 0.8
+dissatisfactionMultiplier = linear configured penalty from the worker's dissatisfaction
 conditionMultiplier = Failure, Success, or GreatSuccess multiplier
 workdayMultiplier = 0.5 on regular Friday checkup, otherwise 1.0
 
 dailyProgress = Crew.DailyOutput
               * roleProgress
               * competencyMultiplier
+              * specialtyMultiplier
+              * dissatisfactionMultiplier
               * conditionMultiplier
               * workdayMultiplier
 ```
@@ -171,13 +171,15 @@ EffectiveRequiredWork * Balance.PrerequisiteProgressLimit
 Automatic assignment may not exploit this early-progress allowance. It requires every Work and Task
 predecessor to be complete.
 
-## Competency Multiplier
+## Competency Grades and Multiplier
 
-- A Task requires one to three unique competency indices from `0` through `5`.
-- Average only the crew scores named by the Task.
-- If every required score is below `4`, the multiplier is exactly `0.5`.
-- Otherwise the multiplier is `average / 4`.
-- With valid crew values, the natural range is `0.5` through `1.75`.
+- Every one of the twelve workers owns all six competency values.
+- Runtime values `2 / 3 / 4 / 5 / 6 / 7` display as `F / D / C / B / A / S`.
+- A Task requires one to three unique competency indices from `0` through `5` and may provide one
+  required grade for each index.
+- Average `worker value / required value` and clamp the result to `0.4..1.4`. A shortfall lowers
+  efficiency but does not reject assignment.
+- Legacy Tasks without explicit required grades use value `4` (C) as their baseline.
 
 The six competency indices are:
 
@@ -214,9 +216,15 @@ fatigueGain = MatchingFatigue when crew specialty matches Task.RequiredRole
             = MismatchedFatigue otherwise
 fatigueGain += ParallelFatigue when parallel
 fatigueGain += SoftDeadlineFatigue when parent Work missed its soft deadline
+
+dissatisfactionGain = SpecialtyMismatchDissatisfaction when specialty mismatches
+                    + each missing grade step * CompetencyGapDissatisfaction
+                    + ParallelDissatisfaction when parallel
 ```
 
 - Clamp fatigue to `0..100`.
+- Clamp dissatisfaction to `0..100`. It is independent from fatigue; configured rest and weekend
+  recovery reduce it separately.
 - Add one Experience for every processed Task. A primary and parallel Task can each add one on the
   same day.
 - Base accident chance is `MediumFatigueAccidentChance` at fatigue 55–79 and

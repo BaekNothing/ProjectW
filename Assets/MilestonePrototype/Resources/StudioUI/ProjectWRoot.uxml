@@ -41,7 +41,6 @@
                     <ui:Button name="nav-schedule" text="일정" class="nav-button is-selected" />
                     <ui:Button name="nav-crew" text="승무원" class="nav-button" />
                     <ui:Button name="nav-mail" text="메일" class="nav-button" />
-                    <ui:Button name="nav-proposals" text="제안서" class="nav-button" />
                     <ui:Button name="nav-codex" text="코덱스" class="nav-button" />
                     <ui:VisualElement class="sidebar-spacer" />
                     <ui:Button name="nav-settings" text="설정" class="nav-button" />

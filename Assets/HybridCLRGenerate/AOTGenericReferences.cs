@@ -60,6 +60,8 @@ public class AOTGenericReferences : UnityEngine.MonoBehaviour
 	// System.Collections.Generic.ObjectComparer<int>
 	// System.Collections.Generic.ObjectComparer<object>
 	// System.Collections.Generic.ObjectEqualityComparer<object>
+	// System.Collections.Generic.Stack.Enumerator<object>
+	// System.Collections.Generic.Stack<object>
 	// System.Collections.ObjectModel.ReadOnlyCollection<UnityEngine.UIElements.RuleMatcher>
 	// System.Collections.ObjectModel.ReadOnlyCollection<UnityEngine.UIElements.StyleSelectorPart>
 	// System.Collections.ObjectModel.ReadOnlyCollection<object>
@@ -70,6 +72,7 @@ public class AOTGenericReferences : UnityEngine.MonoBehaviour
 	// System.Func<object,byte>
 	// System.Func<object,int>
 	// System.Func<object,object>
+	// System.Func<object>
 	// System.Linq.Buffer<object>
 	// System.Linq.Enumerable.<DefaultIfEmptyIterator>d__95<int>
 	// System.Linq.Enumerable.<TakeIterator>d__25<object>
@@ -95,6 +98,12 @@ public class AOTGenericReferences : UnityEngine.MonoBehaviour
 	// System.Predicate<UnityEngine.UIElements.RuleMatcher>
 	// System.Predicate<UnityEngine.UIElements.StyleSelectorPart>
 	// System.Predicate<object>
+	// UnityEngine.UIElements.EventBase.<>c<object>
+	// UnityEngine.UIElements.EventBase<object>
+	// UnityEngine.UIElements.EventCallback<object>
+	// UnityEngine.UIElements.EventCallbackFunctor<object>
+	// UnityEngine.UIElements.ObjectPool.<>c<object>
+	// UnityEngine.UIElements.ObjectPool<object>
 	// UnityEngine.UIElements.StyleEnum<int>
 	// UnityEngine.UIElements.UQuery.PredicateWrapper<object>
 	// UnityEngine.UIElements.UQueryBuilder.<>c<object>
@@ -118,6 +127,7 @@ public class AOTGenericReferences : UnityEngine.MonoBehaviour
 		// System.Linq.IOrderedEnumerable<object> System.Linq.Enumerable.OrderBy<object,byte>(System.Collections.Generic.IEnumerable<object>,System.Func<object,byte>)
 		// System.Linq.IOrderedEnumerable<object> System.Linq.Enumerable.OrderBy<object,int>(System.Collections.Generic.IEnumerable<object>,System.Func<object,int>)
 		// System.Linq.IOrderedEnumerable<object> System.Linq.Enumerable.OrderBy<object,object>(System.Collections.Generic.IEnumerable<object>,System.Func<object,object>)
+		// System.Linq.IOrderedEnumerable<object> System.Linq.Enumerable.OrderByDescending<object,int>(System.Collections.Generic.IEnumerable<object>,System.Func<object,int>)
 		// System.Collections.Generic.IEnumerable<int> System.Linq.Enumerable.Select<object,int>(System.Collections.Generic.IEnumerable<object>,System.Func<object,int>)
 		// System.Collections.Generic.IEnumerable<object> System.Linq.Enumerable.Take<object>(System.Collections.Generic.IEnumerable<object>,int)
 		// System.Collections.Generic.IEnumerable<object> System.Linq.Enumerable.TakeIterator<object>(System.Collections.Generic.IEnumerable<object>,int)
@@ -131,6 +141,9 @@ public class AOTGenericReferences : UnityEngine.MonoBehaviour
 		// object UnityEngine.GameObject.AddComponent<object>()
 		// object UnityEngine.JsonUtility.FromJson<object>(string)
 		// object UnityEngine.Resources.Load<object>(string)
+		// System.Void UnityEngine.UIElements.CallbackEventHandler.AddEventCategories<object>(UnityEngine.UIElements.TrickleDown)
+		// System.Void UnityEngine.UIElements.CallbackEventHandler.RegisterCallback<object>(UnityEngine.UIElements.EventCallback<object>,UnityEngine.UIElements.TrickleDown)
+		// System.Void UnityEngine.UIElements.EventCallbackRegistry.RegisterCallback<object>(UnityEngine.UIElements.EventCallback<object>,UnityEngine.UIElements.TrickleDown,UnityEngine.UIElements.InvokePolicy)
 		// UnityEngine.UIElements.UQueryBuilder<object> UnityEngine.UIElements.UQueryBuilder<object>.AddRelationship<object>(UnityEngine.UIElements.StyleSelectorRelationship)
 		// System.Void UnityEngine.UIElements.UQueryBuilder<object>.AddType<object>()
 		// UnityEngine.UIElements.UQueryBuilder<object> UnityEngine.UIElements.UQueryBuilder<object>.OfType<object>(string,string)

@@ -68,6 +68,7 @@ namespace ProjectW.MilestonePrototype
     public sealed class CrewMember
     {
         public const int CompetencyCount = 6;
+        public const int MinimumCompetency = 2;
         public const int MaximumCompetency = 7;
 
         public string Name;
@@ -80,6 +81,7 @@ namespace ProjectW.MilestonePrototype
         public int Skill;
         public int[] Competencies;
         public int Fatigue;
+        public int Dissatisfaction;
         public int Experience;
         public int InjuryDays;
         public int RegenerationCount;
@@ -100,6 +102,16 @@ namespace ProjectW.MilestonePrototype
 
         public bool Available => InjuryDays <= 0 && !RestScheduled;
         public string Condition => InjuryDays > 0 ? $"부상 {InjuryDays}일" : Fatigue >= 80 ? "소진" : Fatigue >= 55 ? "과로" : Fatigue >= 30 ? "피로" : "정상";
+
+        public static string CompetencyGrade(int value)
+        {
+            if (value >= 7) return "S";
+            if (value == 6) return "A";
+            if (value == 5) return "B";
+            if (value == 4) return "C";
+            if (value == 3) return "D";
+            return "F";
+        }
     }
 
     public sealed class DayReport
@@ -155,6 +167,12 @@ namespace ProjectW.MilestonePrototype
         public int MatchingFatigue = 4;
         public int MismatchedFatigue = 7;
         public int ParallelFatigue = 5;
+        public int SpecialtyMismatchDissatisfaction = 3;
+        public int CompetencyGapDissatisfaction = 2;
+        public int ParallelDissatisfaction = 5;
+        public int RestDissatisfactionRecovery = 4;
+        public int WeekendDissatisfactionRecovery = 6;
+        public float MaximumDissatisfactionEfficiencyPenalty = .4f;
         public int SoftDeadlineFatigue = 4;
         public int RestRecovery = 9;
         public int WeekendFatigueRecovery = 9;

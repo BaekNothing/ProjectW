@@ -45,17 +45,56 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void StakeholderAssignmentRequiresRoleCompetencyAndFreePrimarySlot()
+        public void StakeholderAssignmentAllowsMismatchAndMarksForcedParallelWork()
         {
             var game = new MilestoneSimulation(TaskSystemDataLoader.Load(), 1);
             game.OpenStakeholderRequest("mail-stakeholder-landing");
             game.StartStakeholderPlanning("landing-brief");
             WorkTask analysis = game.Tasks.Find(task => task.Id == "stakeholder-landing-brief-analysis");
+            WorkTask operations = game.Tasks.Find(task => task.Id == "stakeholder-landing-brief-operations");
 
-            Assert.That(game.AssignStakeholderTask(analysis.Id, 0), Is.False,
-                "The Tech specialist must not fill an Analysis slot.");
-            Assert.That(game.AssignStakeholderTask(analysis.Id, 1), Is.True);
-            Assert.That(analysis.AssignedCharacter, Is.EqualTo(1));
+            Assert.That(game.AssignStakeholderTask(analysis.Id, 0), Is.True,
+                "A mismatched worker remains assignable at an efficiency and dissatisfaction cost.");
+            Assert.That(game.AssignmentDissatisfactionGain(analysis.Id, 0, false), Is.GreaterThan(0));
+            Assert.That(game.AssignStakeholderTask(operations.Id, 0), Is.True);
+            Assert.That(operations.IsParallelAssignment, Is.True);
+            Assert.That(game.AssignmentDissatisfactionGain(operations.Id, 0, true),
+                Is.GreaterThanOrEqualTo(game.AssignmentDissatisfactionGain(operations.Id, 0, false) + 5));
+        }
+
+        [TestCase(2, "F")]
+        [TestCase(3, "D")]
+        [TestCase(4, "C")]
+        [TestCase(5, "B")]
+        [TestCase(6, "A")]
+        [TestCase(7, "S")]
+        public void CompetencyGradesUseFdcBasOrder(int value, string expected)
+        {
+            Assert.That(CrewMember.CompetencyGrade(value), Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void MismatchedWorkAccumulatesDissatisfactionAndLowersEfficiency()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            DisableAccidents(data);
+            data.Balance.FreshLowOutputChance = 0;
+            data.Balance.FreshHighOutputChance = 0;
+            TaskSystemData otherData = TaskSystemDataLoader.Load();
+            DisableAccidents(otherData);
+            otherData.Balance.FreshLowOutputChance = 0;
+            otherData.Balance.FreshHighOutputChance = 0;
+            var matched = new MilestoneSimulation(data, 5);
+            var mismatched = new MilestoneSimulation(otherData, 5);
+
+            Assert.That(matched.Assign("survey", 1), Is.True);
+            Assert.That(mismatched.Assign("survey", 0), Is.True);
+            matched.AdvanceDay();
+            mismatched.AdvanceDay();
+
+            Assert.That(mismatched.Crew[0].Dissatisfaction, Is.GreaterThan(0));
+            Assert.That(mismatched.Tasks.Find(task => task.Id == "survey").LastOutput,
+                Is.LessThan(matched.Tasks.Find(task => task.Id == "survey").LastOutput));
         }
 
         [Test]
@@ -843,26 +882,21 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void RestoreTrimsLegacyRosterAndClearsRemovedWorkerAssignments()
+        public void RestoreExpandsLegacyFourPersonRosterToTwelve()
         {
             var original = new MilestoneSimulation(1);
             CampaignSnapshot snapshot = original.CreateSnapshot();
-            var legacyCrew = new CrewMember[6];
-            for (int i = 0; i < snapshot.Crew.Length; i++) legacyCrew[i] = snapshot.Crew[i];
-            legacyCrew[4] = new CrewMember { Name = "legacy-4" };
-            legacyCrew[5] = new CrewMember { Name = "legacy-5" };
+            var legacyCrew = new CrewMember[4];
+            for (int i = 0; i < legacyCrew.Length; i++) legacyCrew[i] = snapshot.Crew[i];
+            legacyCrew[0].Dissatisfaction = 37;
             snapshot.Crew = legacyCrew;
-            snapshot.Tasks[0].AssignedCharacter = 5;
-            snapshot.Tasks[0].ScheduledDay = 3;
-            snapshot.Tasks[0].ScheduledWorker = 4;
 
             var restored = new MilestoneSimulation(2);
             Assert.That(restored.Restore(snapshot), Is.True);
 
             Assert.That(restored.Crew, Has.Count.EqualTo(MilestoneSimulation.TeamSize));
-            Assert.That(restored.Tasks[0].AssignedCharacter, Is.EqualTo(-1));
-            Assert.That(restored.Tasks[0].ScheduledWorker, Is.EqualTo(-1));
-            Assert.That(restored.Tasks[0].ScheduledDay, Is.Zero);
+            Assert.That(restored.Crew[0].Dissatisfaction, Is.EqualTo(37));
+            Assert.That(restored.Crew[4].Name, Is.EqualTo("박설비관"));
         }
 
         [Test]
@@ -1250,112 +1284,16 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void ProposalCanAskForARevisionOrBeDeclinedWithoutPenalty()
+        public void ProposalSystemDoesNotGenerateCandidatesOrMail()
         {
-            TaskSystemData data = TaskSystemDataLoader.Load();
-            data.Balance.RandomWorkLimit = 0;
-            var game = new MilestoneSimulation(data, 4);
-            int resources = game.Resources;
-            string targetId = game.ProposalTargets[0].Id;
-            string[] actionIds = { game.ProposalActions[0].Id, game.ProposalActions[1].Id };
-            Assert.That(game.SubmitProposal(targetId, actionIds, ProposalPitch.Stability), Is.True);
-            MailEvent offer = game.Mail.Find(mail => mail.IsProposal && !mail.Resolved &&
-                !string.IsNullOrEmpty(mail.TargetWorkId));
-            offer.ProposalStage = ProposalStage.Question;
-            offer.Subject = "제안 보완 요청";
-            game.AdvanceDay();
-            WorkGroup work = game.Groups.Find(group => group.Id == offer.TargetWorkId);
+            var game = new MilestoneSimulation(TaskSystemDataLoader.Load(), 24);
 
-            Assert.That(offer.ProposalStage, Is.EqualTo(ProposalStage.Question));
-            Assert.That(work.AwaitingAcceptance, Is.True);
-            Assert.That(game.RespondToProposal(offer.Id, ProposalPitch.Decline), Is.True);
-            Assert.That(offer.ProposalStage, Is.EqualTo(ProposalStage.Declined));
-            Assert.That(work.State, Is.EqualTo(WorkState.Failed));
-            Assert.That(game.IsWorkVisible(work), Is.False);
-            Assert.That(game.Resources, Is.EqualTo(resources));
-        }
-
-        [Test]
-        public void ComposedProposalCalculatesBudgetAndActivatesFromNextDayMail()
-        {
-            TaskSystemData data = TaskSystemDataLoader.Load();
-            data.Balance.RandomWorkLimit = 0;
-            var game = new MilestoneSimulation(data, 9);
-            string targetId = game.ProposalTargets[0].Id;
-            string[] actionIds =
-            {
-                game.ProposalActions[0].Id,
-                game.ProposalActions[1].Id,
-                game.ProposalActions[2].Id
-            };
-            ProposalEstimate estimate = game.EstimateProposal(targetId, actionIds);
-            int resources = game.Resources;
-
-            Assert.That(estimate.TaskCount, Is.EqualTo(3));
-            Assert.That(estimate.TotalWork, Is.GreaterThan(0f));
-            Assert.That(estimate.RewardCredits, Is.GreaterThan(estimate.CostCredits));
-            Assert.That(game.SubmitProposal(targetId, actionIds, ProposalPitch.Growth), Is.True);
-            MailEvent result = game.Mail.Find(mail => mail.IsProposal && !mail.Resolved &&
-                !string.IsNullOrEmpty(mail.TargetWorkId));
-            result.ProposalStage = ProposalStage.Accepted;
-            WorkGroup work = game.Groups.Find(group => group.Id == result.TargetWorkId);
-            Assert.That(game.IsWorkVisible(work), Is.False);
-            Assert.That(work.SoftDeadline, Is.Zero);
-            Assert.That(work.HardDeadline, Is.Zero);
-
-            game.AdvanceDay();
-
-            Assert.That(result.ArrivalDay, Is.EqualTo(game.Day));
-            Assert.That(result.Resolved, Is.True);
-            Assert.That(result.Read, Is.False);
-            Assert.That(game.Resources, Is.EqualTo(resources - estimate.CostCredits));
-            Assert.That(game.IsWorkVisible(work), Is.True);
-            Assert.That(game.Tasks.FindAll(task => task.GroupId == work.Id), Has.Count.EqualTo(3));
-            Assert.That(work.RewardCredits, Is.EqualTo(estimate.RewardCredits));
-            Assert.That(work.SoftDeadline, Is.EqualTo(game.Day + estimate.SoftDurationDays));
-            Assert.That(work.HardDeadline, Is.EqualTo(game.Day + estimate.HardDurationDays));
-        }
-
-        [Test]
-        public void ReadyMadeProposalBatchHasExpiryAndTwoToThreeWeekCadence()
-        {
-            TaskSystemData data = TaskSystemDataLoader.Load();
-            data.Balance.RandomWorkLimit = 0;
-            var game = new MilestoneSimulation(data, 23);
-            int firstBatchDay = game.Day;
-            int nextBatchDay = game.NextProposalBatchDay;
-            int expiryDay = game.ReadyMadeProposals[0].ExpiresDay;
-
-            Assert.That(game.ReadyMadeProposals, Has.Count.InRange(3, 4));
-            Assert.That(nextBatchDay - firstBatchDay, Is.InRange(14, 21));
-            Assert.That(game.ReadyMadeProposals.TrueForAll(item => item.ExpiresDay == expiryDay), Is.True);
-            MailEvent notice = game.Mail.Find(mail => mail.Subject.Contains("새 제안 후보"));
-            Assert.That(notice, Is.Not.Null);
-            Assert.That(notice.IsProposal, Is.True);
-            Assert.That(game.ResolveMail(notice.Id), Is.False);
-            game.MarkMailRead(notice.Id);
-            Assert.That(notice.Read, Is.True);
-            Assert.That(notice.Resolved, Is.True);
-
-            while (game.Day <= expiryDay) game.AdvanceDay();
             Assert.That(game.ReadyMadeProposals, Is.Empty);
-            while (game.Day < nextBatchDay) game.AdvanceDay();
-            Assert.That(game.ReadyMadeProposals, Has.Count.InRange(3, 4));
-        }
-
-        [Test]
-        public void SelectingOneReadyMadeProposalClosesTheRestOfItsBatch()
-        {
-            TaskSystemData data = TaskSystemDataLoader.Load();
-            data.Balance.RandomWorkLimit = 0;
-            var game = new MilestoneSimulation(data, 24);
-            ReadyMadeProposal selected = game.ReadyMadeProposals[0];
-            int batchId = selected.BatchId;
-
-            Assert.That(game.SubmitReadyMadeProposal(selected.Id), Is.True);
-
-            Assert.That(game.ReadyMadeProposals.Exists(item => item.BatchId == batchId), Is.False);
-            Assert.That(game.Groups.Exists(group => group.Id.StartsWith("proposal-work-")), Is.True);
+            Assert.That(game.NextProposalBatchDay, Is.Zero);
+            Assert.That(game.Mail.Exists(mail => mail.IsProposal), Is.False);
+            for (int day = 0; day < 30; day++) game.AdvanceDay();
+            Assert.That(game.ReadyMadeProposals, Is.Empty);
+            Assert.That(game.Mail.Exists(mail => mail.IsProposal), Is.False);
         }
 
         [Test]
@@ -1788,9 +1726,11 @@ namespace ProjectW.MilestonePrototype.Tests
 
             Assert.That(game.Crew[0].Experience, Is.EqualTo(2));
             Assert.That(game.CurrentBaseSalary(game.Crew[0]), Is.EqualTo(2));
-            Assert.That(game.TotalPayroll(), Is.EqualTo(5));
-            Assert.That(game.Resources, Is.EqualTo(95));
-            Assert.That(game.LastReport.Lines, Has.Some.Contains("기본급 합계 -5자원"));
+            int expectedPayroll = MilestoneSimulation.TeamSize + 1;
+            Assert.That(game.TotalPayroll(), Is.EqualTo(expectedPayroll));
+            Assert.That(game.Resources, Is.EqualTo(100 - expectedPayroll));
+            Assert.That(game.LastReport.Lines,
+                Has.Some.Contains($"기본급 합계 -{expectedPayroll}자원"));
         }
 
         [Test]
@@ -1915,7 +1855,7 @@ namespace ProjectW.MilestonePrototype.Tests
         [Test]
         public void BaseVersionMatchesCurrentAotBaseline()
         {
-            Assert.That(PatchBootstrapper.BaseVersion, Is.EqualTo(12));
+            Assert.That(PatchBootstrapper.BaseVersion, Is.EqualTo(13));
         }
 
         [Test]
@@ -2322,7 +2262,7 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(preview.AdditionalContextDays, Is.EqualTo(1f));
             Assert.That(preview.PrimaryFatigue, Is.EqualTo(4));
             Assert.That(preview.ParallelFatigue, Is.EqualTo(9));
-            Assert.That(preview.CanRunInParallel, Is.False);
+            Assert.That(preview.CanRunInParallel, Is.True);
         }
 
         [Test]
@@ -2650,7 +2590,6 @@ namespace ProjectW.MilestonePrototype.Tests
 
             Assert.That(game.Day, Is.EqualTo(31));
             Assert.That(game.Tasks.Exists(task => task.Progress > 0f || task.State == TaskState.Complete), Is.True);
-            Assert.That(game.SystemLog, Has.Some.Contains("조직 자동 배정"));
         }
 
         private static void CompleteSurvey(MilestoneSimulation game)

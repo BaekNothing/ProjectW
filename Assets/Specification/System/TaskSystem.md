@@ -2,14 +2,15 @@
 
 ## Document Control
 
-- Version: 6.1
+- Version: 7.0
 - Status: Approved for implementation
 - Action: Update
 - SSOT Change: Yes
-- Rationale: Separate request intake from planning, make information gathering and execution consume
-  campaign days, and let the player advance directly to the next meaningful scheduled event.
-  Continue to focus the core prototype on interpreting ambiguous stakeholder request mail,
-  decomposing each accepted request into weighted Tasks, assigning only eligible workers, and
+- Rationale: Retire the player Proposal system, expand the field team to twelve workers, grade all
+  six competencies from F through S, and add dissatisfaction as a workload/fit pressure distinct
+  from physical fatigue. Add press-and-hold assignment previews, desktop progress reset, and fix
+  Gantt today navigation. Continue to focus the core prototype on interpreting ambiguous stakeholder request mail,
+  decomposing each accepted request into weighted Tasks, previewing worker fit, and
   earning a stakeholder-fit score from the delivered result. Clarification calls and meetings trade
   schedule slack for better request understanding. Existing operations systems remain supporting
   status dashboards rather than the primary player decision loop.
@@ -84,7 +85,7 @@ The primary player loop is:
 1. Receive an ambiguous Stakeholder Request by mail.
 2. Inspect only the brief, revealed constraints, and deadline in the request view.
 3. Either spend days clarifying the request or select `계획하기` with the current interpretation.
-4. In the separate planning board, confirm the weighted Task plan and assign one eligible worker to every required Task
+4. In the separate planning board, confirm the weighted Task plan and assign one available worker to every required Task
    slot. The initial prototype uses the authored `60 / 30 / 10` plan rather than free-form weights.
 5. Advance days while assigned workers execute their Tasks.
 6. When all required Tasks finish, deliver the combined result and receive a stakeholder-fit score.
@@ -117,11 +118,10 @@ second competing core loop.
   and intent tags describing the interpretation embodied by its deliverable.
 - A required Task slot must be filled before the request plan can start. Reassignment after work has
   started follows the existing interruption and handover rules.
-- A worker is eligible only when they are not injured or scheduled for rest, can hold the requested
-  primary assignment, satisfy the Task's authored role eligibility, and have every required
-  competency at or above that Task's authored minimum.
-- Ineligible workers remain visible in the assignment picker with an explicit reason, but cannot be
-  confirmed into the slot.
+- A worker is assignable when present and not blocked by injury or scheduled rest. Role or competency
+  mismatch never prevents assignment; it lowers output and adds dissatisfaction while work is performed.
+- Every worker remains visible in the assignment picker. Pressing briefly assigns them; pressing and
+  holding previews required grades, expected efficiency, dissatisfaction, and parallel-work pressure.
 - Stakeholder-request Tasks are never filled by organization automatic assignment, learned
   intervention rules, urgent preemption, or implicit fallback. Their staffing is the player's core
   decision and requires explicit confirmation.
@@ -211,7 +211,7 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
   taskbar. It is disabled only after resources reach zero.
 - Beside it, `다음 이벤트까지` is an optional checkbox-style control. When clear, `다음날로`
   advances exactly one day. When selected, the action advances one day at a time until the nearest
-  known completion, clarification response, mail, reveal, proposal, review, or deadline day.
+  known completion, clarification response, mail, reveal, review, or deadline day.
 - Event skipping must stop early when an unpredicted completion, failure, newly arrived mail,
   blocking critical choice, or immediate boss decision occurs. It never bypasses a required player
   decision, and its button previews both the destination day and the event category.
@@ -261,13 +261,13 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
 - Every Task requires one to three of the six colony competencies: base engineering, science
   exploration, resource operations, environmental adaptation, life support, and command/diplomacy.
   Requirements are stored as competency indices in external gameplay data and shown on Task detail.
-- Competency `4` is the standard threshold. For a worker and Task, average the worker's scores only
-  across that Task's required competencies. The competency output multiplier is
-  `required competency average / 4`, within the natural score range of `0.5` to `1.75`.
-- If every required score is below `4`, override that calculation to `0.5`. Otherwise scores above
-  `4` offset below-standard required scores through the average. Thus an excellent `7` may cover
-  another required competency's shortfall, and an average of `4` produces the standard `1.0` work
-  per day before condition and other existing modifiers.
+- Competency values map to grades as `2=F`, `3=D`, `4=C`, `5=B`, `6=A`, and `7=S`.
+- When a Task supplies per-stat required grades, average `worker grade value / required grade value`
+  across its required competencies and clamp the multiplier to `0.4..1.4`. A shortfall therefore
+  reduces output but never blocks assignment. Legacy Tasks without explicit required grades retain
+  the C-grade (`4`) baseline calculation.
+- Specialty mismatch multiplies output by `0.8`. Dissatisfaction then applies a separate linear
+  output penalty up to the externally configured maximum at dissatisfaction `100`.
 - Daily output probability is derived from the worker's fatigue at the start of execution.
   The three outcomes are `Failure`, `Success`, and `GreatSuccess`. At fatigue 0 their chances are
   5% / 60% / 35%. At fatigue 50 they are
@@ -275,7 +275,8 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
   between those anchor points. Their output multipliers are data-driven and default to
   0.5 / 1.0 / 1.5 for failure / success / great success.
 - Final daily progress is `worker daily output × primary or parallel output × competency multiplier
-  × condition outcome multiplier`, then the existing prerequisite progress cap is applied.
+  × specialty fit × dissatisfaction efficiency × condition outcome multiplier`, then the existing
+  prerequisite progress cap is applied.
 - Fatigue 100 does not make a worker unavailable, remove an assignment, or stop ongoing work.
   The worker continues at the low output multiplier. Only explicit interruption causes such as
   injury or scheduled rest stop work.
@@ -287,8 +288,8 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
   during execution keeps the worker attached to that Task while recording the injury and progress loss.
 - Only explicit player reassignment/unassignment, completion, hard-deadline failure, or another
   separately specified permanent removal may detach a worker from a Task.
-- A worker may additionally hold at most one parallel Task when that Task has no more than one day of effective work remaining.
-- Parallel work costs additional fatigue defined by gameplay balance data.
+- A worker may hold one primary Task and multiple explicitly forced parallel Tasks.
+- Every parallel Task costs additional fatigue and dissatisfaction defined by gameplay balance data.
 - Parallel assignment does not interrupt the worker's primary Task.
 - Rest, injury, or reassignment removes assignments according to the interruption rules.
 - An assigned, progressable Task records its start day when the next daily cycle first produces
@@ -569,7 +570,14 @@ Version 0.1 retains deterministic progress and the prototype accident outcome wh
 
 ## Field Team and Trust
 
-- The prototype operates one field team with exactly four crew members.
+- The prototype operates one field team with exactly twelve crew members.
+- Every worker owns all six competency stats. Values `2..7` are presented as
+  `F / D / C / B / A / S`; numeric storage remains deterministic runtime data.
+- Every worker owns one specialty as their long-term strength. A different specialty remains
+  assignable but reduces efficiency and adds dissatisfaction each worked day.
+- Dissatisfaction is a separate `0..100` gauge from fatigue. Grade shortfall, specialty mismatch,
+  and every forced parallel Task add dissatisfaction. Rest and weekends recover it through separate
+  balance values, and high dissatisfaction reduces output without being treated as bodily fatigue.
 - Each crew member owns a `Trust` value from 0 to 100 representing how that person regards the
   player-character responsible for the team.
 - Trust and a readable interpretation must appear in the crew list, crew detail, and messenger.
@@ -578,8 +586,8 @@ Version 0.1 retains deterministic progress and the prototype accident outcome wh
   messenger replies express the same underlying situation differently according to personality.
 - Trust changes and command acceptance effects remain extension points until their outcome rules are
   specified. This version exposes and preserves the relationship value without changing it implicitly.
-- When an older campaign save contains more than four crew members, only the first four remain on
-  the active field team. Assignments and reservations owned by removed positions are cleared safely.
+- Restoring an older campaign with fewer than twelve crew members appends the missing current
+  roster definitions without changing the saved state of existing workers.
 
 ## External Data
 
@@ -596,7 +604,7 @@ External data includes:
 - Work definitions and predecessor IDs
 - Task definitions, durations, roles, one-to-three competency requirements, difficulty, and prerequisite IDs
 - worker definitions and initial stats
-- the four-person field-team roster and each member's initial trust toward the responsible officer
+- the twelve-person field-team roster and each member's initial trust toward the responsible officer
 - each crew member's personality and initial voice
 - assignment, interruption, parallel-work, fatigue, outcome, and perk balance values
 - random Task adjective, target, and action pools with their role, risk, and difficulty metadata
@@ -613,6 +621,8 @@ External data includes:
   check for and install an update, inspect update status/version, and return to the title.
 - Reset actions require a second confirmation action before deleting data. Campaign reset does not
   delete desktop accessibility settings; desktop reset does not delete campaign progress.
+- The desktop Settings page also exposes `진행상황 리셋`. After confirmation it deletes only the
+  campaign snapshot, immediately creates a fresh campaign, and keeps theme, patch, and data settings.
 - The operations desktop Options application exposes the same update action and diagnostics.
 - An update request downloads, validates, and installs the newest immutable development patch. The
   currently loaded HotUpdate assembly continues running; the newly installed patch is activated on
@@ -748,50 +758,22 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 - Reveal-day and mail-acceptance gates also block manual, learned, scheduled, and competency
   automatic assignment.
 - The final operation is invisible and unassignable through day 59, then becomes visible on day 60.
-- The dedicated Proposal desktop application normally presents three to four ready-made proposals.
-  The PM selects one candidate to submit; direct composition of a target and two to four ordered
-  execution Tasks remains available one navigation level deeper.
-- Proposal review results arrive the next morning by mail. Mail is result-only; follow-up answers and
-  `안 맡음 의견` are submitted from the Proposal application.
+- The Proposal desktop application and every ready-made/custom proposal flow are absent.
 - Generated side-mission hard-deadline failure deducts resources without setting campaign loss.
 - Task completion retains the completing assignee while leaving that worker free for new work.
 - Separately, the boss may initiate an inbound Work request. It opens an immediate decision popup
   and enters the Gantt only when accepted. Inbound requests are chance-driven and are never
   guaranteed by empty inventory.
 
-## PM Proposals and Boss Requests
+## Boss Requests
 
-- Generated side missions are optional Works with the same Work/Task deadline, assignment,
-  competency, progress, reward, and penalty rules as authored missions.
-- A first ready-made proposal batch is available at campaign start. Thereafter, three to four
-  randomly composed candidates arrive every 14–21 days and generate a notification mail.
-- Every candidate in a ready-made batch expires seven days after arrival. Submitting one candidate
-  closes the remaining candidates from that batch; expired candidates cannot be submitted.
-- Ready-made candidates expose their target, ordered execution Tasks, workload, investment cost,
-  completion reward, risk, and approval-relative schedule before submission.
-- Full custom proposal composition remains available behind the Proposal application's
-  `직접 제안서 작성` navigation rather than occupying its default screen.
-- A submitted PM proposal stays outside the Gantt while review or a boss-question response is
-  pending. The proposal's selected Tasks form a prerequisite chain in the submitted order.
-- Candidate and review states have no calendar deadline. The Work and Task soft/hard deadlines are
-  assigned only when final boss approval is delivered, using the approved day's calendar plus the
-  proposal's displayed schedule duration.
-- Proposal investment and reward are calculated from selected Task difficulty and total workload.
-  Investment is charged only when approval is delivered and the Work enters the Gantt. If the
-  required resources no longer exist at that moment, the approval is cancelled by result mail.
-- A framing that misses the boss's current preference produces a question mail. Any revised framing
-  can be submitted in the Proposal application; its final approval arrives by mail the next day.
-- The player may close a questioned proposal with an `안 맡음 의견` without reward or deadline penalty.
-- Generated offers use materially larger credit rewards than the previous incident baseline. Their
-  reward and resource penalties remain externally balanced in `task-system.json`.
+- The player-authored and ready-made Proposal system is retired. No Proposal application, proposal
+  candidates, review queue, result mail, investment, or proposal save state is generated.
+- Generated side missions remain optional Works created only through structured inbound boss
+  requests and use the same Work/Task deadline, assignment, competency, progress, reward, and
+  penalty rules as authored missions.
 - A generated side mission is never required for campaign victory. Missing its hard deadline fails
   only that Work, applies its configured resource penalty, and cannot directly produce game over.
-- Until the day-60 final-operation reveal, incident handling and accepted generated side missions
-  are the primary additional work stream around the authored foundation Work.
-- At most three player proposals may wait for approval, preventing an unbounded hidden queue.
-- Remaining side missions are available or active Tasks whose `TaskKind` is `SideMission`
-  and whose parent Work is neither complete nor failed. Urgent/incident missions are not side
-  missions and never satisfy this inventory check.
 - A Task checks for a structured inbound incident exactly once when work first begins at 0%, once
   when final progress first reaches or crosses 50%, and once when it reaches 100%. There is no daily
   background incident roll. Each check starts from the externally configured base probability,
@@ -813,16 +795,13 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
   migration must not make that Work visible in the Gantt before the player accepts it.
 - A generated request's adjective or risk—including `긴급한`—never bypasses the acceptance gate.
   Only the player's explicit popup approval makes that inbound Work visible.
-- Player-submitted proposals count as explicitly authorized at submission and enter only after the
-  result is approved and its investment can be paid. Declined or budget-cancelled proposals remain
-  hidden. Empty placeholder Works are never rendered in the Gantt.
 - Every generated side-mission Work contains two to four required child Tasks. The Work is the
   mission/table-of-contents row, while its Tasks are separately assignable structured work items.
 - Generated child Tasks use the existing adjective/target/action word pool independently and form a
   prerequisite chain inside the Work. Completing one child unlocks the next; completing all children
   completes the mission Work.
-- A PM proposal sends one review-result mail per submission or revision. An inbound boss request
-  creates one popup decision regardless of child Task count and retains the resolved record in mail.
+- An inbound boss request creates one popup decision regardless of child Task count and retains the
+  resolved record in mail.
 - Urgent/incident generation remains a separate concept. It must not use the side-mission batch,
   side-mission mail, or `TaskKind.SideMission` merely to represent a small random action.
 - Authored non-urgent Works should provide roughly 10–15 working days of chained required workload,
@@ -833,9 +812,7 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 - On campaign restore, an incomplete legacy generated side-mission Work with only one child Task is
   migrated to the hierarchical form by appending structured dependent Tasks and extending its
   deadlines. Completed and failed historical Works are not rewritten.
-- Empty side-mission inventory does not force a boss request. The PM may wait for the next ready-made
-  batch or open the one-level-deeper custom composer while resources and the pending-proposal limit
-  allow it.
+- Empty side-mission inventory does not force a boss request.
 
 ## Mail and Messenger Ordering
 
@@ -881,8 +858,9 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
   visible.
 - The body presents the three weighted Task rows in `60 / 30 / 10` order. Each row shows its
   interpretation, workload, role, competency minimums, current assignee, and eligible-worker picker.
-- Ineligible workers stay visible with a concise blocking reason. The confirm-plan action is enabled
-  only when every required Task has one eligible worker.
+- Unavailable workers stay visible with a concise blocking reason. Mismatched workers remain
+  assignable with their efficiency and dissatisfaction forecast. The confirm-plan action is enabled
+  when every required Task has one assigned worker.
 - After confirmation, the same board becomes a live delivery view showing progress, schedule risk,
   ownership, clarification history, and the eventual score breakdown.
 - The broader operations desktop and Gantt are read-oriented status surfaces for this loop. They may
@@ -907,6 +885,8 @@ The Task application must present schedule information as a time-based Gantt vie
 - The left Work/Task column stays horizontally fixed while only the timeline pans.
 - A single `오늘로` control places the current-day column after three visible past-day columns,
   clamped at the beginning and end of the horizontal range.
+- `오늘로` rebuilds the existing schedule page through normal navigation; it must never append a
+  second Gantt tree below the current one.
 - Work predecessors and Task prerequisites are shown as arrowed dependency connectors.
 - Dependency connectors use the same priority schedule and visible Work ordering as their bars and
   rows, so each arrow remains attached when priorities, assignments, or forecasts move a Task.
@@ -950,6 +930,16 @@ The selected Task detail must expose:
 - primary assignment, parallel assignment, and unassignment controls when valid
 
 Costs must be shown before the player confirms a reassignment. The UI must not require the player to infer handover cost from a result log after the action.
+
+### Worker Assignment Preview
+
+- A short press on a worker button performs the assignment.
+- Holding the same button for at least `0.45` seconds opens a compact, non-committing preview and
+  suppresses the release click.
+- The preview shows the worker's required competency grades, Task required grades, specialty match,
+  expected efficiency, current dissatisfaction, expected dissatisfaction per workday, active Task
+  count, and whether this would be a forced parallel assignment.
+- Releasing the pointer closes the preview. Viewing it never mutates assignment or campaign state.
 
 ## Scroll and Touch Interaction
 
@@ -1048,16 +1038,18 @@ Base APK v6 uses the project's active Input System package rather than the disab
 - Base APK v6 preserves the required `Unity.InputSystem` types and embeds the same behavior for
   offline fallback.
 
-### Current Base APK v12 Activation
+### Current Base APK v13 Activation
 
 - The currently supported installed baseline is base APK v12. Base APK v11 added the unified remote
   Addressables path, and v12 adds the StudioUI UI Toolkit runtime after removing the prototype IMGUI
   desktop and sample scenes.
-- Current development patches declare `minBaseVersion = 12`. Earlier base compatibility notes in
+- Current development patches declare `minBaseVersion = 13`. Earlier base compatibility notes in
   this document are historical constraints, not supported alternatives for the active dev channel.
 - The exact approved AOT and Contracts surface remains authoritative in
   `Assets/Specification/Operation/HotUpdateAotSafety.md`; this section does not authorize additional
   Unity, package, platform, native, reflection, serialization, delegate, or generic dependencies.
+- Base APK v13 adds only the reviewed UI Toolkit pointer-down/up callback surface used by worker
+  press-and-hold previews. It must be installed once before consuming v13 patches.
 - Saturday and Sunday columns use a distinct background treatment and weekday labels so the
   non-working weekend cadence remains identifiable across the full planning horizon.
 - An unassigned Task row shows its next automatic-assignment candidate when one can currently be

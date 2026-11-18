@@ -37,14 +37,15 @@ native plugins, Android settings, Unity, or HybridCLR change.
 
 ### Current base APK
 
-- Base version: `12`
+- Base version: `13`
 - Artifact: `APK/ProjectW-HybridCLR.apk`
-- Size: `52,859,744` bytes
-- SHA-256: `5b4bc2dbf40899010787d8ea5cd5a2977bb49f8635bc970b8fe1d506fceb3b4c`
+- Size: `52,906,992` bytes
+- SHA-256: `bc04e9024fc8e18f61988f4af24b726bcebd7acfcb508339c1fc45ac5b7f6569`
 - Required for: the StudioUI UI Toolkit title and operations workspace, plus the unified remote
-  Addressables catalog/content pipeline and all fixed Bootstrap operations
+  Addressables catalog/content pipeline, all fixed Bootstrap operations, and the worker-assignment
+  long-press preview's UI Toolkit pointer callback surface
 
-Older base APKs reject manifests whose `minBaseVersion` is `12`. Install base APK v12 once before
+Older base APKs reject manifests whose `minBaseVersion` is `13`. Install base APK v13 once before
 consuming StudioUI patches.
 
 ## Routine code patch workflow

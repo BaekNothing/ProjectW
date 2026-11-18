@@ -23,6 +23,7 @@
     <type fullname="UnityEngine.PlayerPrefs" preserve="all" />
     <type fullname="UnityEngine.Resources" preserve="all" />
     <type fullname="UnityEngine.TextAsset" preserve="all" />
+    <type fullname="UnityEngine.Time" preserve="all" />
     <type fullname="UnityEngine.Transform" preserve="all" />
   </assembly>
   <assembly fullname="UnityEngine.JSONSerializeModule">
@@ -30,11 +31,16 @@
   </assembly>
   <assembly fullname="UnityEngine.UIElementsModule">
     <type fullname="UnityEngine.UIElements.Button" preserve="all" />
+    <type fullname="UnityEngine.UIElements.CallbackEventHandler" preserve="all" />
     <type fullname="UnityEngine.UIElements.DisplayStyle" preserve="all" />
+    <type fullname="UnityEngine.UIElements.EventCallback`1" preserve="all" />
     <type fullname="UnityEngine.UIElements.IStyle" preserve="all" />
     <type fullname="UnityEngine.UIElements.Label" preserve="all" />
     <type fullname="UnityEngine.UIElements.Length" preserve="all" />
     <type fullname="UnityEngine.UIElements.PanelSettings" preserve="all" />
+    <type fullname="UnityEngine.UIElements.PointerDownEvent" preserve="all" />
+    <type fullname="UnityEngine.UIElements.PointerUpEvent" preserve="all" />
+    <type fullname="UnityEngine.UIElements.Position" preserve="all" />
     <type fullname="UnityEngine.UIElements.ScrollView" preserve="all" />
     <type fullname="UnityEngine.UIElements.ScrollViewMode" preserve="all" />
     <type fullname="UnityEngine.UIElements.StyleEnum`1" preserve="all" />
@@ -42,6 +48,7 @@
     <type fullname="UnityEngine.UIElements.StyleLength" preserve="all" />
     <type fullname="UnityEngine.UIElements.TextElement" preserve="all" />
     <type fullname="UnityEngine.UIElements.ThemeStyleSheet" preserve="all" />
+    <type fullname="UnityEngine.UIElements.TrickleDown" preserve="all" />
     <type fullname="UnityEngine.UIElements.UIDocument" preserve="all" />
     <type fullname="UnityEngine.UIElements.UQueryBuilder`1" preserve="all" />
     <type fullname="UnityEngine.UIElements.UQueryExtensions" preserve="all" />

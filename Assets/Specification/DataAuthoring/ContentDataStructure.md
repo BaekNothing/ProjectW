@@ -251,7 +251,7 @@ compatibility itself.
 
 ### `Crew`
 
-Exactly four approved rows are currently required. The designer owns name, portrait label,
+Exactly twelve approved rows are currently required. The designer owns name, portrait label,
 `PortraitAddress`, memo, personality, perks, specialty, and character identity. Portrait addresses
 are stable lowercase Addressables keys and the text portrait label remains the loading-failure
 fallback. The address points to the stable complete-image fallback; registered modular-part
@@ -362,9 +362,9 @@ The current loader requires:
 - positive campaign and midpoint-review days;
 - non-negative starting resources;
 - non-null Balance, Works, Tasks, Crew, RandomTaskWords, and non-empty Codex and word-pool arrays;
-- exactly four crew members;
+- exactly twelve crew members;
 - a non-empty portrait Addressables address for every crew member;
-- six `0..7` competency values for every crew member;
+- six `2..7` competency values for every crew member, displayed as `F / D / C / B / A / S`;
 - one to three unique competency indices per Task, target, and action;
 - valid campaign and Balance ranges explicitly checked by `TaskSystemDataLoader`;
 - target/action role compatibility;
@@ -372,7 +372,7 @@ The current loader requires:
 - a valid first node, non-empty choices, positive total outcome weight, and valid next-node references
   for each critical event.
 
-The production data snapshot as of 2026-09-03 contains 1 Work, 1 Task, 4 crew members, 7
+The production data snapshot as of 2026-11-19 contains 1 Work, 1 Task, 12 crew members, 7
 authored mail entries, 7 critical-event chains, 32 Codex entries, and random word pools containing
 10 adjectives, 16 targets, and 16 actions. These counts describe the current artifact and are not
 schema limits.

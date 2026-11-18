@@ -315,3 +315,23 @@ types, custom mesh rendering, or unrelated resource types without another exact-
 Patches using the StudioUI runtime must declare `minBaseVersion = 12`. Editor compilation is not
 device proof; the new title, navigation, theme switch, Gantt scrolling, next-day action, and modal
 decision paths require an on-device smoke test before compatibility is claimed.
+
+## Base APK v13 AOT Baseline
+
+Base APK v13 adds the exact UI Toolkit pointer callback surface required for press-and-hold worker
+assignment previews.
+
+It must bundle:
+
+- `BaseVersion = 13`;
+- the latest embedded `ProjectW.HotUpdate.dll.bytes`, `task-system.json`, UXML, and USS resources;
+- regenerated Android AOT metadata;
+- a fixed-layer reference to `VisualElement.RegisterCallback<PointerDownEvent>` and
+  `VisualElement.RegisterCallback<PointerUpEvent>` using the one-argument callback overload;
+- stable preservation for `PointerDownEvent`, `PointerUpEvent`, their `EventCallback<T>` delegate
+  shapes, and the complete v12 UI Toolkit surface.
+
+This authorization is limited to detecting pointer press and release for the shipped worker preview.
+It does not authorize unrelated UI Toolkit event types, pointer capture, event synthesis, custom
+rendering, or editor-only UI APIs. Patches using press-and-hold previews must declare
+`minBaseVersion = 13`, and device compatibility still requires an on-device smoke test.

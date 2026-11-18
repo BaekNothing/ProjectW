@@ -69,7 +69,7 @@
 .badge-error { background-color: var(--error-soft); color: var(--error); }
 .badge-neutral { background-color: var(--surface-pressed); color: var(--text-secondary); }
 
-.button-row { flex-direction: row; margin-top: 14px; }
+.button-row { flex-direction: row; flex-wrap: wrap; margin-top: 14px; }
 .button-row > .ds-button { margin-right: 8px; }
 .progress-group { margin-top: 12px; }
 .progress-header { flex-direction: row; justify-content: space-between; margin-bottom: 5px; }
