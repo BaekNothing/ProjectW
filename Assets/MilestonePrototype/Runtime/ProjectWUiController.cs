@@ -29,6 +29,7 @@ namespace ProjectW.MilestonePrototype
         private Label dayLabel;
         private Label resourceLabel;
         private Button nextDayButton;
+        private Button skipEventButton;
         private Button notificationButton;
         private VisualElement notificationPanel;
         private VisualElement notificationToastHost;
@@ -40,7 +41,9 @@ namespace ProjectW.MilestonePrototype
         private IPatchDiagnostics diagnostics;
         private string patchVersion;
         private string activePage = "schedule";
+        private string activeStakeholderRequestId;
         private bool darkTheme;
+        private bool skipToNextEvent;
 
         public void Initialize(string version, IPatchDiagnostics patchDiagnostics)
         {
@@ -98,12 +101,19 @@ namespace ProjectW.MilestonePrototype
             dayLabel = Require<Label>("day-label");
             resourceLabel = Require<Label>("resource-label");
             nextDayButton = Require<Button>("next-day-button");
+            skipEventButton = ActionButton("□ 다음 이벤트까지", "secondary");
+            nextDayButton.parent.Add(skipEventButton);
 
             Button startButton = Require<Button>("start-button");
             startButton.clicked += EnterDesktop;
             Require<Button>("title-options-button").clicked += ShowTitleOptions;
             Require<Button>("theme-button").clicked += ToggleTheme;
             nextDayButton.clicked += AdvanceDay;
+            skipEventButton.clicked += () =>
+            {
+                skipToNextEvent = !skipToNextEvent;
+                RefreshChrome();
+            };
 
             foreach (Button button in root.Query<Button>(className: "nav-button").ToList())
             {
@@ -273,7 +283,15 @@ namespace ProjectW.MilestonePrototype
             dayLabel.text = $"DAY {game.Day:00} · {MilestoneSimulation.WeekdayName(game.CurrentWeekday)}요일";
             resourceLabel.text = $"RESOURCES  {game.Resources:N0}";
             nextDayButton.SetEnabled(game.CanAdvanceDay);
-            nextDayButton.text = game.CanAdvanceDay ? "다음날로  →" : "결정 필요";
+            nextDayButton.text = !game.CanAdvanceDay
+                ? "결정 필요"
+                : skipToNextEvent
+                    ? $"D{game.NextEventDay:00}까지  →"
+                    : "다음날로  →";
+            skipEventButton.text = skipToNextEvent
+                ? $"☑ 다음 이벤트까지 · {game.NextEventSummary} D{game.NextEventDay:00}"
+                : "□ 다음 이벤트까지";
+            skipEventButton.EnableInClassList("is-selected", skipToNextEvent);
         }
 
         private void BuildOverview()
@@ -481,7 +499,25 @@ namespace ProjectW.MilestonePrototype
         private void BuildMail()
         {
             SetPageHeader("REQUEST DESK", "스테이크홀더 요청과 메일");
-            var list = Section("수신함", "모호한 요청을 열어 작업 해석과 담당자를 결정합니다.");
+            if (!string.IsNullOrEmpty(activeStakeholderRequestId))
+            {
+                StakeholderRequestState active = game.StakeholderState(activeStakeholderRequestId);
+                if (active != null)
+                {
+                    Button back = ActionButton("← 수신함으로", "secondary");
+                    back.clicked += () =>
+                    {
+                        activeStakeholderRequestId = null;
+                        Navigate("mail");
+                    };
+                    pageContent.Add(back);
+                    BuildStakeholderRequestBoard(active);
+                    return;
+                }
+                activeStakeholderRequestId = null;
+            }
+
+            var list = Section("수신함", "메일에서는 요청·제약사항·기한을 확인합니다. 실행 설계는 계획하기에서 시작합니다.");
             foreach (MailEvent mail in game.Mail.Where(item => item.ArrivalDay <= game.Day)
                          .OrderBy(item => item.Read).ThenByDescending(item => item.ArrivalDay))
             {
@@ -495,12 +531,14 @@ namespace ProjectW.MilestonePrototype
                     !mail.Id.StartsWith("stakeholder-result-"))
                 {
                     Button open = ActionButton(
-                        game.StakeholderState(mail.StakeholderRequestId) == null ? "요청 열기" : "요청 보드 보기",
+                        game.StakeholderState(mail.StakeholderRequestId) == null ? "요청 확인" : "요청 계속 보기",
                         "primary");
                     string mailId = mail.Id;
+                    string requestId = mail.StakeholderRequestId;
                     open.clicked += () =>
                     {
                         game.OpenStakeholderRequest(mailId);
+                        activeStakeholderRequestId = requestId;
                         SaveAndRefresh("mail");
                     };
                     copy.Add(open);
@@ -510,8 +548,6 @@ namespace ProjectW.MilestonePrototype
             }
             if (game.Mail.Count == 0) list.Add(Empty("도착한 메일이 없습니다."));
             pageContent.Add(list);
-            foreach (StakeholderRequestState request in game.StakeholderRequests)
-                BuildStakeholderRequestBoard(request);
         }
 
         private void BuildStakeholderRequestBoard(StakeholderRequestState request)
@@ -522,8 +558,10 @@ namespace ProjectW.MilestonePrototype
 
             string status = request.FitScore >= 0
                 ? $"납품 완료 · {request.FitScore}점"
-                : request.PlanConfirmed ? "실행 중" : "계획 중";
+                : request.PlanConfirmed ? "실행 중"
+                : request.PlanningStarted ? "계획 중" : "요청 검토";
             var board = Section(definition.Stakeholder, $"{definition.PlannedWeeks}주 요청 · {status}");
+            board.Add(Text("요청", "caption"));
             board.Add(Text(definition.Brief, "body"));
             var metrics = Box("metric-grid");
             metrics.Add(Metric("명확도", $"{request.Clarity}%", "CLARITY"));
@@ -565,6 +603,20 @@ namespace ProjectW.MilestonePrototype
                     clarification.Add(action);
                 }
                 board.Add(clarification);
+            }
+
+            if (!request.PlanningStarted && request.FitScore < 0)
+            {
+                Button plan = ActionButton("계획하기", "primary");
+                plan.clicked += () =>
+                {
+                    game.StartStakeholderPlanning(request.Id);
+                    SaveAndRefresh("mail");
+                };
+                board.Add(plan);
+                board.Add(Text("계획하기를 시작하면 산출물 해석, 담당자, 실행 일정을 별도로 정합니다.", "caption"));
+                pageContent.Add(board);
+                return;
             }
 
             foreach (WorkTask task in game.Tasks.Where(item => item.StakeholderRequestId == request.Id)
@@ -735,7 +787,8 @@ namespace ProjectW.MilestonePrototype
         private void AdvanceDay()
         {
             if (!game.CanAdvanceDay) { ShowIncidentModalIfNeeded(); return; }
-            game.AdvanceDay();
+            if (skipToNextEvent) game.AdvanceToNextEvent();
+            else game.AdvanceDay();
             SaveAndRefresh(activePage);
         }
 

@@ -26,10 +26,30 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void StakeholderRequestStaysSeparateUntilPlanningStarts()
+        {
+            var game = new MilestoneSimulation(TaskSystemDataLoader.Load(), 1);
+
+            Assert.That(game.OpenStakeholderRequest("mail-stakeholder-landing"), Is.True);
+            StakeholderRequestState request = game.StakeholderState("landing-brief");
+            WorkGroup work = game.Groups.Find(group => group.Id == request.WorkId);
+
+            Assert.That(request.PlanningStarted, Is.False);
+            Assert.That(game.IsWorkVisible(work), Is.False);
+            Assert.That(game.AssignStakeholderTask(
+                "stakeholder-landing-brief-analysis", 1), Is.False);
+
+            Assert.That(game.StartStakeholderPlanning(request.Id), Is.True);
+            Assert.That(request.PlanningStarted, Is.True);
+            Assert.That(game.IsWorkVisible(work), Is.True);
+        }
+
+        [Test]
         public void StakeholderAssignmentRequiresRoleCompetencyAndFreePrimarySlot()
         {
             var game = new MilestoneSimulation(TaskSystemDataLoader.Load(), 1);
             game.OpenStakeholderRequest("mail-stakeholder-landing");
+            game.StartStakeholderPlanning("landing-brief");
             WorkTask analysis = game.Tasks.Find(task => task.Id == "stakeholder-landing-brief-analysis");
 
             Assert.That(game.AssignStakeholderTask(analysis.Id, 0), Is.False,
@@ -58,12 +78,30 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
+        public void NextEventAdvanceStopsWhenClarificationArrives()
+        {
+            var game = new MilestoneSimulation(TaskSystemDataLoader.Load(), 1);
+            game.OpenStakeholderRequest("mail-stakeholder-landing");
+            StakeholderRequestState request = game.StakeholderState("landing-brief");
+
+            Assert.That(game.RequestStakeholderClarification(request.Id, "call"), Is.True);
+            Assert.That(game.NextEventDay, Is.EqualTo(3));
+            Assert.That(game.NextEventSummary, Is.EqualTo("추가 정보"));
+
+            Assert.That(game.AdvanceToNextEvent(), Is.EqualTo(2));
+            Assert.That(game.Day, Is.EqualTo(3));
+            Assert.That(request.PendingClarificationId, Is.Empty);
+            Assert.That(request.Clarity, Is.EqualTo(45));
+        }
+
+        [Test]
         public void CompletedStakeholderPlanScoresWeightedIntentFitOnce()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
             DisableAccidents(data);
             var game = new MilestoneSimulation(data, 1);
             game.OpenStakeholderRequest("mail-stakeholder-landing");
+            game.StartStakeholderPlanning("landing-brief");
             Assert.That(game.ChooseStakeholderInterpretation(
                 "stakeholder-landing-brief-analysis", "field-evidence"), Is.True);
             Assert.That(game.ChooseStakeholderInterpretation(
@@ -96,6 +134,7 @@ namespace ProjectW.MilestonePrototype.Tests
             TaskSystemData data = TaskSystemDataLoader.Load();
             var game = new MilestoneSimulation(data, 1);
             game.OpenStakeholderRequest("mail-stakeholder-landing");
+            game.StartStakeholderPlanning("landing-brief");
             game.ChooseStakeholderInterpretation(
                 "stakeholder-landing-brief-analysis", "field-evidence");
             game.AssignStakeholderTask("stakeholder-landing-brief-analysis", 1);

@@ -108,6 +108,8 @@ namespace ProjectW.MilestonePrototype
 
         public bool IsWorkVisible(WorkGroup group) => group != null &&
             !group.AwaitingAcceptance && (group.RevealDay <= 0 || Day >= group.RevealDay) &&
+            (string.IsNullOrEmpty(group.StakeholderRequestId) ||
+             StakeholderState(group.StakeholderRequestId)?.PlanningStarted == true) &&
             Tasks.Any(task => task.GroupId == group.Id);
 
         public MailEvent PendingIncidentOffer => Mail.FirstOrDefault(mail =>
@@ -117,6 +119,114 @@ namespace ProjectW.MilestonePrototype
         public bool HasPendingIncidentDecision => PendingIncidentOffer != null;
         public bool CanAdvanceDay => !IsLost && !MustResolveCriticalChoice &&
                                      !HasPendingIncidentDecision;
+
+        public int NextEventDay
+        {
+            get
+            {
+                int next = 0;
+                foreach (StakeholderRequestState request in StakeholderRequests)
+                {
+                    if (request == null) continue;
+                    next = EarlierFutureDay(next, request.PendingClarificationDay, Day);
+                }
+                foreach (MailEvent mail in Mail)
+                {
+                    if (mail == null) continue;
+                    next = EarlierFutureDay(next, mail.ArrivalDay, Day);
+                }
+                foreach (WorkTask task in Tasks)
+                {
+                    if (task == null) continue;
+                    next = EarlierFutureDay(next, task.ScheduledDay, Day);
+                }
+                foreach (WorkGroup group in Groups)
+                {
+                    if (group == null) continue;
+                    bool requestDeadline = !string.IsNullOrEmpty(group.StakeholderRequestId);
+                    if ((!IsWorkVisible(group) && !requestDeadline) || group.State == WorkState.Complete ||
+                        group.State == WorkState.Failed) continue;
+                    next = EarlierFutureDay(next, group.SoftDeadline, Day);
+                    next = EarlierFutureDay(next, group.HardDeadline, Day);
+                }
+                foreach (WorkTask task in Tasks)
+                {
+                    if (task == null || task.AssignedCharacter < 0 ||
+                        task.State == TaskState.Complete || task.State == TaskState.Failed) continue;
+                    TaskScheduleEstimate estimate = EstimateSchedule(task.Id, task.AssignedCharacter);
+                    if (estimate == null) continue;
+                    next = EarlierFutureDay(next, estimate.CompletionDay + 1, Day);
+                }
+                next = EarlierFutureDay(next, nextProposalBatchDay, Day);
+                if (!MidpointReviewIssued)
+                    next = EarlierFutureDay(next, MidpointReviewDay, Day);
+                foreach (WorkGroup group in Groups)
+                {
+                    if (group == null) continue;
+                    next = EarlierFutureDay(next, group.RevealDay, Day);
+                }
+                return next > 0 ? next : Day + 1;
+            }
+        }
+
+        public string NextEventSummary
+        {
+            get
+            {
+                int eventDay = NextEventDay;
+                foreach (StakeholderRequestState request in StakeholderRequests)
+                    if (request != null && request.PendingClarificationDay == eventDay) return "추가 정보";
+                foreach (WorkTask task in Tasks)
+                {
+                    if (task == null || task.AssignedCharacter < 0) continue;
+                    TaskScheduleEstimate estimate = EstimateSchedule(task.Id, task.AssignedCharacter);
+                    if (estimate != null && estimate.CompletionDay + 1 == eventDay)
+                        return "작업 완료 예상";
+                }
+                foreach (WorkGroup group in Groups)
+                    if (group != null && (IsWorkVisible(group) ||
+                        !string.IsNullOrEmpty(group.StakeholderRequestId)) &&
+                        (group.SoftDeadline == eventDay ||
+                        group.HardDeadline == eventDay)) return "마감";
+                foreach (MailEvent mail in Mail)
+                    if (mail != null && mail.ArrivalDay == eventDay) return "메일";
+                if (nextProposalBatchDay == eventDay) return "제안서";
+                if (!MidpointReviewIssued && MidpointReviewDay == eventDay) return "중간평가";
+                foreach (WorkGroup group in Groups)
+                    if (group != null && group.RevealDay == eventDay) return "작업 공개";
+                return "예정 이벤트";
+            }
+        }
+
+        public int AdvanceToNextEvent()
+        {
+            if (!CanAdvanceDay) return 0;
+            int targetDay = NextEventDay;
+            int advanced = 0;
+            int completed = Tasks.Count(task => task != null && task.State == TaskState.Complete);
+            int failed = Tasks.Count(task => task != null && task.State == TaskState.Failed);
+            int arrivedMail = Mail.Count(mail => mail != null && mail.ArrivalDay <= Day);
+            int pendingClarifications = StakeholderRequests.Count(request =>
+                request != null && !string.IsNullOrEmpty(request.PendingClarificationId));
+            while (CanAdvanceDay && Day < targetDay)
+            {
+                AdvanceDay();
+                advanced++;
+                if (Tasks.Count(task => task != null && task.State == TaskState.Complete) > completed ||
+                    Tasks.Count(task => task != null && task.State == TaskState.Failed) > failed ||
+                    Mail.Count(mail => mail != null && mail.ArrivalDay <= Day) > arrivedMail ||
+                    StakeholderRequests.Count(request =>
+                        request != null && !string.IsNullOrEmpty(request.PendingClarificationId)) < pendingClarifications)
+                    break;
+            }
+            return advanced;
+        }
+
+        private static int EarlierFutureDay(int current, int candidate, int today)
+        {
+            if (candidate <= today) return current;
+            return current <= 0 || candidate < current ? candidate : current;
+        }
 
         public bool AcceptIncidentWork(string mailId) => ResolveMail(mailId);
 
@@ -452,13 +562,23 @@ namespace ProjectW.MilestonePrototype
             return null;
         }
 
+        public bool StartStakeholderPlanning(string requestId)
+        {
+            StakeholderRequestState state = StakeholderState(requestId);
+            if (state == null || state.FitScore >= 0) return false;
+            state.PlanningStarted = true;
+            Log($"요청 계획 시작: {StakeholderDefinition(requestId)?.Stakeholder}");
+            return true;
+        }
+
         public bool ChooseStakeholderInterpretation(string taskId, string interpretationId)
         {
             WorkTask task = Tasks.FirstOrDefault(candidate => candidate.Id == taskId);
             StakeholderRequestState state = task == null
                 ? null : StakeholderState(task.StakeholderRequestId);
             StakeholderTaskDefinition definition = StakeholderTaskDefinition(task);
-            if (task == null || state == null || state.PlanConfirmed || definition?.Interpretations == null)
+            if (task == null || state == null || !state.PlanningStarted || state.PlanConfirmed ||
+                definition?.Interpretations == null)
                 return false;
             foreach (StakeholderInterpretationDefinition interpretation in definition.Interpretations)
             {
@@ -475,6 +595,8 @@ namespace ProjectW.MilestonePrototype
         {
             WorkTask task = Tasks.FirstOrDefault(candidate => candidate.Id == taskId);
             if (task == null || string.IsNullOrEmpty(task.StakeholderRequestId)) return "요청 작업이 아님";
+            StakeholderRequestState state = StakeholderState(task.StakeholderRequestId);
+            if (state == null || !state.PlanningStarted) return "계획 시작 전";
             if (crewIndex < 0 || crewIndex >= Crew.Count) return "담당자 없음";
             CrewMember member = Crew[crewIndex];
             if (!member.Available) return member.InjuryDays > 0 ? "부상 중" : "휴식 예정";
@@ -501,7 +623,7 @@ namespace ProjectW.MilestonePrototype
             WorkTask task = Tasks.FirstOrDefault(candidate => candidate.Id == taskId);
             if (task == null || string.IsNullOrEmpty(task.StakeholderRequestId)) return false;
             StakeholderRequestState state = StakeholderState(task.StakeholderRequestId);
-            if (state == null || state.FitScore >= 0) return false;
+            if (state == null || !state.PlanningStarted || state.FitScore >= 0) return false;
             if (crewIndex < 0) return AssignPrimary(task, -1);
             if (!string.IsNullOrEmpty(StakeholderAssignmentBlockReason(taskId, crewIndex))) return false;
             return AssignPrimary(task, crewIndex);
@@ -510,7 +632,8 @@ namespace ProjectW.MilestonePrototype
         public bool ConfirmStakeholderPlan(string requestId)
         {
             StakeholderRequestState state = StakeholderState(requestId);
-            if (state == null || state.PlanConfirmed || !CanConfirmStakeholderPlan(requestId)) return false;
+            if (state == null || !state.PlanningStarted || state.PlanConfirmed ||
+                !CanConfirmStakeholderPlan(requestId)) return false;
             state.PlanConfirmed = true;
             Log($"요청 작업 계획 확정: {StakeholderDefinition(requestId)?.Stakeholder}");
             return true;
@@ -519,7 +642,7 @@ namespace ProjectW.MilestonePrototype
         public bool CanConfirmStakeholderPlan(string requestId)
         {
             StakeholderRequestState state = StakeholderState(requestId);
-            if (state == null || state.PlanConfirmed ||
+            if (state == null || !state.PlanningStarted || state.PlanConfirmed ||
                 !string.IsNullOrEmpty(state.PendingClarificationId)) return false;
             int taskCount = 0;
             foreach (WorkTask task in Tasks)
@@ -2334,6 +2457,14 @@ namespace ProjectW.MilestonePrototype
             ActiveCriticalNodeArrivalDay = snapshot.ActiveCriticalNodeArrivalDay;
             TaskSuccessChanceModifier = snapshot.TaskSuccessChanceModifier;
             StakeholderRequests = snapshot.StakeholderRequests ?? new StakeholderRequestState[0];
+            foreach (StakeholderRequestState request in StakeholderRequests)
+            {
+                if (request == null) continue;
+                if (request.PlanningStarted || request.PlanConfirmed) request.PlanningStarted = true;
+                else request.PlanningStarted = Tasks.Any(task =>
+                    task != null && task.StakeholderRequestId == request.Id &&
+                    (task.AssignedCharacter >= 0 || !string.IsNullOrEmpty(task.SelectedInterpretationId)));
+            }
             SystemLog.Clear();
             if (snapshot.Log != null) SystemLog.AddRange(snapshot.Log);
             MigrateLegacyGeneratedSideMissions();

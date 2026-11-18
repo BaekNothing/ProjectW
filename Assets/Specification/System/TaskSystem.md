@@ -2,11 +2,13 @@
 
 ## Document Control
 
-- Version: 6.0
+- Version: 6.1
 - Status: Approved for implementation
 - Action: Update
 - SSOT Change: Yes
-- Rationale: Refocus the core prototype on interpreting ambiguous stakeholder request mail,
+- Rationale: Separate request intake from planning, make information gathering and execution consume
+  campaign days, and let the player advance directly to the next meaningful scheduled event.
+  Continue to focus the core prototype on interpreting ambiguous stakeholder request mail,
   decomposing each accepted request into weighted Tasks, assigning only eligible workers, and
   earning a stakeholder-fit score from the delivered result. Clarification calls and meetings trade
   schedule slack for better request understanding. Existing operations systems remain supporting
@@ -60,8 +62,9 @@ intervention rather than the default daily interaction.
 
 ### Stakeholder Request
 
-A Stakeholder Request is an ambiguous inbound objective delivered through mail. Accepting it creates
-one Work and opens its planning board; it does not assign or start any Task by itself.
+A Stakeholder Request is an ambiguous inbound objective delivered through mail. Opening it shows a
+request-only view containing the request, constraints, and deadline. `계획하기` explicitly enters the
+separate planning board and makes its Work visible; neither action assigns or starts a Task by itself.
 
 - A request owns a stakeholder, a brief, a hidden intent profile, an initial clarity value, and a
   delivery deadline measured in campaign days.
@@ -79,10 +82,9 @@ one Work and opens its planning board; it does not assign or start any Task by i
 The primary player loop is:
 
 1. Receive an ambiguous Stakeholder Request by mail.
-2. Inspect the brief, current clarity, remaining schedule, eligible workers, and organizational
-   status presented by the dashboard.
-3. Either clarify the request or proceed with the current interpretation.
-4. Confirm the request's weighted Task plan and assign one eligible worker to every required Task
+2. Inspect only the brief, revealed constraints, and deadline in the request view.
+3. Either spend days clarifying the request or select `계획하기` with the current interpretation.
+4. In the separate planning board, confirm the weighted Task plan and assign one eligible worker to every required Task
    slot. The initial prototype uses the authored `60 / 30 / 10` plan rather than free-form weights.
 5. Advance days while assigned workers execute their Tasks.
 6. When all required Tasks finish, deliver the combined result and receive a stakeholder-fit score.
@@ -207,6 +209,12 @@ Completion immediately refreshes dependent states. A newly unlocked Task can be 
   cannot be assigned, reserved, or automatically assigned before that day.
 - The operations desktop exposes an always-visible `다음날로` button at the bottom-right above the
   taskbar. It is disabled only after resources reach zero.
+- Beside it, `다음 이벤트까지` is an optional checkbox-style control. When clear, `다음날로`
+  advances exactly one day. When selected, the action advances one day at a time until the nearest
+  known completion, clarification response, mail, reveal, proposal, review, or deadline day.
+- Event skipping must stop early when an unpredicted completion, failure, newly arrived mail,
+  blocking critical choice, or immediate boss decision occurs. It never bypasses a required player
+  decision, and its button previews both the destination day and the event category.
 - A worker can hold at most one primary Task for that day.
 - The player normally manages the organization plan and Work priorities, then advances the day.
   Available Tasks are staffed without requiring a Task-detail visit.
@@ -691,8 +699,10 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 
 ## Acceptance Criteria
 
-- An arrived Stakeholder Request mail opens a request plan and creates no assignment until the
-  player confirms its Task slots.
+- An arrived Stakeholder Request mail first opens a request-only view. Task interpretations and
+  worker slots appear only after the player selects `계획하기`, and no assignment starts before that.
+- `다음날로` advances one day by default; the optional next-event mode previews its destination and
+  stops on scheduled or newly encountered meaningful events.
 - The prototype request plan contains three required Tasks whose contribution weights are
   `60 / 30 / 10` and total `100`.
 - Only workers satisfying availability, capacity, role eligibility, and every Task competency
@@ -857,10 +867,13 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 
 ### Request Planning Board
 
-- The request planning board is the primary interaction surface opened from Stakeholder Request
-  mail.
-- Its header shows stakeholder, original brief, clarity, remaining days, planned duration in weeks,
-  and soft/hard delivery dates.
+- Stakeholder Request mail first opens a request-intake surface, not the planning board. It shows the
+  stakeholder, original brief, revealed constraints, clarity, remaining days, planned duration in
+  weeks, and soft/hard delivery dates without Task breakdowns or worker slots.
+- The intake surface exposes clarification calls and meetings plus one primary `계획하기` action.
+  Clarification consumes its authored lead days while the original deadline continues to approach.
+- Selecting `계획하기` opens the separate request planning board and makes the Work visible in
+  planning surfaces. Returning to the inbox does not cancel either phase.
 - It shows the currently revealed guidance separately from unrevealed intent so low clarity remains
   legible as uncertainty rather than missing UI.
 - It exposes `통화 요청` and `회의 요청` with their scheduled response day and clarity gain before

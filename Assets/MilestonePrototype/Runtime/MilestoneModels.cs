@@ -437,6 +437,7 @@ namespace ProjectW.MilestonePrototype
         public string MailId;
         public string WorkId;
         public int Clarity;
+        public bool PlanningStarted;
         public bool PlanConfirmed;
         public string PendingClarificationId;
         public int PendingClarificationDay;
