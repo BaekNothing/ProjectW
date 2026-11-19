@@ -2,13 +2,13 @@
 
 ## Document Control
 
-- Version: 1.2
+- Version: 1.3
 - Status: Authoring specification
 - Action: Update
 - SSOT Change: Yes
-- Rationale: Add the authored Stakeholder Request contract used by the mail-driven core prototype,
-  including clarity guidance, clarification timing, weighted Task slots, interpretation choices,
-  hidden intent tags, and stakeholder-fit scoring inputs.
+- Rationale: Define Stakeholder Task definitions and their interpretations as a shared work-block
+  pool placed into initially empty weighted runtime slots, while preserving each slot's hidden
+  authored target for fit scoring and clarity-gated guidance.
 - Runtime schema: `ProjectW.MilestonePrototype.TaskSystemData`, schema version 1
 - Runtime artifact: `Assets/MilestonePrototype/Resources/task-system.json`
 - Authoring template: `Docs/DataAuthoring/ProjectW-CoreAuthoringTemplate.md`
@@ -148,11 +148,17 @@ One approved request row owns the ambiguous inbound brief and its delivery/scori
 | `Clarifications` | linked rows | CORE | Stable ID, display name, lead days, and clarity gain |
 
 Each request has exactly three linked Stakeholder Task rows for the prototype. Their contribution
-weights must be `60`, `30`, and `10`, total `100`, and remain designer-owned. Each Task row contains
-role, one-to-three competency indices, matching minimum values, workload, hidden target intent tags,
-and two or more player-facing interpretation rows. An interpretation owns a stable ID, display name,
-description, and emitted intent tags. Hidden target tags are scoring inputs and must not be exposed
-before their guidance threshold is reached.
+weights must be `60`, `30`, and `10`, total `100`, and remain designer-owned. At runtime those rows
+first create empty weighted slots; their own target intent tags remain the hidden scoring targets.
+
+Each Task row also authors the role, one-to-three competency indices, matching minimum values, and
+workload shared by its interpretation children. All interpretation children across the three rows
+are flattened into one player-facing work-block pool. An interpretation owns a stable ID, display
+name, description, and emitted intent tags. The player may place any exact block into any weighted
+slot, but may not reuse that same Task/interpretation pair within the request. Placement supplies the
+runtime Task's role, competencies, workload, display text, and emitted tags; it does not replace the
+slot's hidden target. Hidden targets and slot guidance must not be exposed before their clarity
+threshold is reached.
 
 Clarification lead time and clarity gain are authored values. The compiler and runtime must reject
 non-positive timing/gain, invalid clarity ranges, missing guidance, missing intent tags, mismatched

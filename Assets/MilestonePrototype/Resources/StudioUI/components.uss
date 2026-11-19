@@ -71,6 +71,27 @@
 
 .button-row { flex-direction: row; flex-wrap: wrap; margin-top: 14px; }
 .button-row > .ds-button { margin-right: 8px; }
+.task-slot-card, .task-block-row {
+    background-color: var(--surface-panel);
+    border-width: 1px;
+    border-color: var(--border-subtle);
+    border-radius: 12px;
+    padding: 14px;
+    margin-top: 10px;
+}
+.task-slot-card { border-left-width: 4px; border-left-color: var(--accent); }
+.task-block-row { background-color: var(--surface-pressed); }
+.assignment-row {
+    flex-direction: row;
+    align-items: stretch;
+    margin-top: 6px;
+}
+.assignment-selector { width: 34%; margin-right: 8px; }
+.assignment-summary {
+    flex-grow: 1;
+    white-space: normal;
+    -unity-text-align: middle-left;
+}
 .progress-group { margin-top: 12px; }
 .progress-header { flex-direction: row; justify-content: space-between; margin-bottom: 5px; }
 .progress-track { height: 7px; border-radius: 4px; background-color: var(--surface-pressed); overflow: hidden; }

@@ -17,7 +17,6 @@ namespace ProjectW.MilestonePrototype
         private const int NotificationHistoryLimit = 50;
         private const int VisibleBannerLimit = 3;
         private const float NotificationBannerSeconds = 6f;
-        private const float WorkerPreviewHoldSeconds = .45f;
 
         private UIDocument document;
         private PanelSettings panelSettings;
@@ -46,12 +45,7 @@ namespace ProjectW.MilestonePrototype
         private string activeStakeholderRequestId;
         private bool darkTheme;
         private bool skipToNextEvent;
-        private string heldWorkerTaskId;
-        private int heldWorkerCrewIndex = -1;
-        private float heldWorkerStartedAt;
-        private bool heldWorkerPreviewVisible;
-        private string suppressedWorkerTaskId;
-        private int suppressedWorkerCrewIndex = -1;
+        private bool workerDetailPopupVisible;
 
         public void Initialize(string version, IPatchDiagnostics patchDiagnostics)
         {
@@ -117,8 +111,7 @@ namespace ProjectW.MilestonePrototype
             Require<Button>("title-options-button").clicked += ShowTitleOptions;
             Require<Button>("theme-button").clicked += ToggleTheme;
             nextDayButton.clicked += AdvanceDay;
-            root.RegisterCallback<PointerDownEvent>(DismissWorkerPreviewOnPointerDown);
-            root.RegisterCallback<PointerUpEvent>(DismissWorkerPreviewOnPointerUp);
+            root.RegisterCallback<PointerDownEvent>(DismissWorkerDetailOnPointerDown);
             skipEventButton.clicked += () =>
             {
                 skipToNextEvent = !skipToNextEvent;
@@ -269,6 +262,8 @@ namespace ProjectW.MilestonePrototype
 
         private void Navigate(string page)
         {
+            workerDetailPopupVisible = false;
+            modalHost.Clear();
             activePage = page;
             foreach (Button button in root.Query<Button>(className: "nav-button").ToList())
                 button.EnableInClassList("is-selected", button.name == "nav-" + page);
@@ -630,6 +625,9 @@ namespace ProjectW.MilestonePrototype
                 return;
             }
 
+            if (!request.PlanConfirmed && request.FitScore < 0)
+                board.Add(BuildAvailableTaskBlocks(request, definition));
+
             foreach (WorkTask task in game.Tasks.Where(item => item.StakeholderRequestId == request.Id)
                          .OrderByDescending(item => item.ContributionWeight))
                 board.Add(BuildStakeholderTaskCard(request, task));
@@ -644,68 +642,213 @@ namespace ProjectW.MilestonePrototype
                     SaveAndRefresh("mail");
                 };
                 board.Add(confirm);
-                board.Add(Text("모든 Task의 해석과 적격 담당자를 선택해야 확정할 수 있습니다.", "caption"));
+                board.Add(Text("모든 슬롯에 작업 블록과 담당자를 선택해야 확정할 수 있습니다.", "caption"));
             }
             pageContent.Add(board);
         }
 
         private VisualElement BuildStakeholderTaskCard(StakeholderRequestState request, WorkTask task)
         {
-            StakeholderTaskDefinition definition = game.StakeholderTaskDefinition(task);
-            var card = Box("summary-row");
-            card.Add(Badge($"{task.ContributionWeight}%", task.ContributionWeight >= 60 ? "accent" : "neutral"));
-            card.Add(Text(task.Name, "summary-title"));
-            card.Add(Text($"{task.RequiredRole} · {task.RequiredWork:0.#}일 · 진행 {task.Completion * 100f:0}%", "muted"));
+            StakeholderTaskDefinition selectedDefinition = game.StakeholderTaskDefinition(task);
+            StakeholderInterpretationDefinition selectedBlock = game.StakeholderTaskBlock(task);
+            StakeholderTaskDefinition target = game.StakeholderTargetTaskDefinition(task);
+            bool insightRevealed = request.Clarity >= (task.ContributionWeight >= 60 ? 40 : 70);
+            var card = Box("task-slot-card");
+            card.Add(Badge(insightRevealed ? $"중요도 {task.ContributionWeight}%" : "중요도 미확인",
+                insightRevealed && task.ContributionWeight >= 60 ? "accent" : "neutral"));
+            card.Add(Text(StakeholderSlotLabel(task), "summary-title"));
+            card.Add(Text(insightRevealed && target != null
+                    ? $"요청 힌트 · {target.Name}"
+                    : "필요한 작업과 우선순위가 아직 명확하지 않습니다.",
+                insightRevealed ? "body" : "muted"));
 
-            if (definition != null)
+            Button blockPicker = ActionButton(selectedBlock == null
+                ? "작업 블록 선택  ▼"
+                : selectedBlock.Name + "  ▼", selectedBlock == null ? "secondary" : "primary");
+            blockPicker.SetEnabled(!request.PlanConfirmed && request.FitScore < 0);
+            blockPicker.clicked += () => ShowTaskBlockPicker(request, task);
+            card.Add(blockPicker);
+
+            if (selectedDefinition != null && selectedBlock != null)
+                card.Add(Text($"{selectedBlock.Description} · {RoleLabel(selectedDefinition.RequiredRole)} · " +
+                              $"{selectedDefinition.RequiredWork:0.#}일",
+                    "muted"));
+            else
+                card.Add(Text("이 슬롯은 아직 비어 있습니다.", "caption"));
+
+            card.Add(Text("담당자", "caption"));
+            var assignment = Box("assignment-row");
+            string crewName = task.AssignedCharacter >= 0 && task.AssignedCharacter < game.Crew.Count
+                ? game.Crew[task.AssignedCharacter].Name : "담당자 선택";
+            Button workerPicker = ActionButton(crewName + "  ▼",
+                task.AssignedCharacter >= 0 ? "primary" : "secondary");
+            workerPicker.AddToClassList("assignment-selector");
+            workerPicker.SetEnabled(request.FitScore < 0 && selectedBlock != null);
+            workerPicker.clicked += () => ShowWorkerPicker(task);
+            assignment.Add(workerPicker);
+            if (task.AssignedCharacter >= 0 && task.AssignedCharacter < game.Crew.Count)
             {
-                card.Add(Text("산출물 해석", "caption"));
-                var interpretations = Box("button-row");
-                foreach (StakeholderInterpretationDefinition interpretation in definition.Interpretations)
+                int crewIndex = task.AssignedCharacter;
+                Button info = ActionButton(WorkerAssignmentSummary(task, crewIndex), "secondary");
+                info.AddToClassList("assignment-summary");
+                info.clicked += () => ShowWorkerDetailPopup(task.Id, crewIndex);
+                assignment.Add(info);
+            }
+            else
+            {
+                Label emptyInfo = Text(selectedBlock == null
+                    ? "작업 블록을 먼저 선택하세요."
+                    : "담당자를 고르면 예상 효율이 표시됩니다.", "muted");
+                emptyInfo.AddToClassList("assignment-summary");
+                assignment.Add(emptyInfo);
+            }
+            card.Add(assignment);
+            if (request.FitScore >= 0)
+                card.Add(Text($"부합도 {game.StakeholderTaskFit(task.Id)}점 × {task.ContributionWeight}%", "body"));
+            return card;
+        }
+
+        private VisualElement BuildAvailableTaskBlocks(
+            StakeholderRequestState request, StakeholderRequestDefinition definition)
+        {
+            var pool = Section("사용 가능한 작업 블록",
+                "아래 블록 중 원하는 것을 각 빈 슬롯에 배치합니다. 한 블록은 한 번만 사용할 수 있습니다.");
+            foreach (StakeholderTaskDefinition taskBlock in definition.Tasks)
+                foreach (StakeholderInterpretationDefinition interpretation in taskBlock.Interpretations)
                 {
-                    StakeholderInterpretationDefinition selected = interpretation;
-                    Button choice = ActionButton(interpretation.Name,
-                        task.SelectedInterpretationId == interpretation.Id ? "primary" : "secondary");
-                    choice.SetEnabled(!request.PlanConfirmed);
+                    bool used = game.IsStakeholderTaskBlockInUse(
+                        request.Id, taskBlock.Id, interpretation.Id, null);
+                    var row = Box("task-block-row");
+                    row.Add(Badge(used ? "배치됨" : "사용 가능", used ? "success" : "neutral"));
+                    row.Add(Text(interpretation.Name, "summary-title"));
+                    row.Add(Text(interpretation.Description, "muted"));
+                    row.Add(Text($"{RoleLabel(taskBlock.RequiredRole)} · {taskBlock.RequiredWork:0.#}일", "caption"));
+                    pool.Add(row);
+                }
+            return pool;
+        }
+
+        private void ShowTaskBlockPicker(StakeholderRequestState request, WorkTask task)
+        {
+            StakeholderRequestDefinition definition = game.StakeholderDefinition(request.Id);
+            if (definition == null || request.PlanConfirmed) return;
+            modalHost.Clear();
+            var overlay = Box("modal-overlay");
+            var dialog = Section(StakeholderSlotLabel(task) + " · 작업 블록 선택",
+                "선택한 블록의 작업량과 요구 역량이 이 슬롯에 적용됩니다.");
+            var scroll = new ScrollView(ScrollViewMode.Vertical);
+            scroll.style.maxHeight = 520f;
+            if (!string.IsNullOrEmpty(task.SelectedTaskBlockId))
+            {
+                Button clear = ActionButton("슬롯 비우기", "danger");
+                clear.clicked += () =>
+                {
+                    game.SelectStakeholderTaskBlock(task.Id, string.Empty, string.Empty);
+                    SaveAndRefresh("mail");
+                };
+                scroll.Add(clear);
+            }
+            foreach (StakeholderTaskDefinition taskBlock in definition.Tasks)
+                foreach (StakeholderInterpretationDefinition interpretation in taskBlock.Interpretations)
+                {
+                    StakeholderTaskDefinition selectedDefinition = taskBlock;
+                    StakeholderInterpretationDefinition selectedInterpretation = interpretation;
+                    bool current = task.SelectedTaskBlockId == taskBlock.Id &&
+                                   task.SelectedInterpretationId == interpretation.Id;
+                    bool used = game.IsStakeholderTaskBlockInUse(
+                        request.Id, taskBlock.Id, interpretation.Id, task.Id);
+                    Button choice = ActionButton(
+                        $"{interpretation.Name} · {RoleLabel(taskBlock.RequiredRole)} · {taskBlock.RequiredWork:0.#}일",
+                        current ? "primary" : "secondary");
+                    choice.SetEnabled(!used);
                     choice.clicked += () =>
                     {
-                        game.ChooseStakeholderInterpretation(task.Id, selected.Id);
+                        game.SelectStakeholderTaskBlock(task.Id,
+                            selectedDefinition.Id, selectedInterpretation.Id);
                         SaveAndRefresh("mail");
                     };
-                    interpretations.Add(choice);
+                    scroll.Add(choice);
+                    scroll.Add(Text(interpretation.Description, "caption"));
                 }
-                card.Add(interpretations);
-            }
+            dialog.Add(scroll);
+            Button close = ActionButton("닫기", "secondary");
+            close.clicked += () => modalHost.Clear();
+            dialog.Add(close);
+            overlay.Add(dialog);
+            modalHost.Add(overlay);
+        }
 
-            card.Add(Text("담당자 슬롯", "caption"));
-            var workers = Box("button-row");
+        private void ShowWorkerPicker(WorkTask task)
+        {
+            if (task == null || string.IsNullOrEmpty(task.SelectedTaskBlockId)) return;
+            modalHost.Clear();
+            var overlay = Box("modal-overlay");
+            var dialog = Section(task.Name + " · 담당자 선택",
+                "스탯이나 전문 영역이 맞지 않아도 배정할 수 있지만 효율과 불만에 영향을 줍니다.");
+            var scroll = new ScrollView(ScrollViewMode.Vertical);
+            scroll.style.maxHeight = 520f;
+            if (task.AssignedCharacter >= 0)
+            {
+                Button clear = ActionButton("미배정", "danger");
+                clear.clicked += () =>
+                {
+                    game.AssignStakeholderTask(task.Id, -1);
+                    SaveAndRefresh("mail");
+                };
+                scroll.Add(clear);
+            }
             for (int crewIndex = 0; crewIndex < game.Crew.Count; crewIndex++)
             {
                 int selectedCrew = crewIndex;
                 CrewMember crew = game.Crew[crewIndex];
                 string blocked = game.StakeholderAssignmentBlockReason(task.Id, crewIndex);
-                bool assigned = task.AssignedCharacter == crewIndex;
-                Button worker = ActionButton(assigned ? crew.Name + " · 배정됨" : crew.Name,
-                    assigned ? "primary" : "secondary");
-                worker.SetEnabled(request.FitScore < 0 && (assigned || string.IsNullOrEmpty(blocked)));
-                worker.RegisterCallback<PointerDownEvent>(_ =>
-                    BeginWorkerPreview(task.Id, selectedCrew));
-                worker.RegisterCallback<PointerUpEvent>(_ => EndWorkerPreview());
-                worker.clicked += () =>
+                Button choice = ActionButton(
+                    $"{crew.Name} · {RoleLabel(crew.Specialty)} · {WorkerAssignmentSummary(task, crewIndex)}",
+                    task.AssignedCharacter == crewIndex ? "primary" : "secondary");
+                choice.SetEnabled(string.IsNullOrEmpty(blocked));
+                choice.clicked += () =>
                 {
-                    if (ConsumeSuppressedWorkerClick(task.Id, selectedCrew)) return;
                     game.AssignStakeholderTask(task.Id, selectedCrew);
                     SaveAndRefresh("mail");
                 };
-                workers.Add(worker);
-                if (!assigned && !string.IsNullOrEmpty(blocked))
-                    workers.Add(Text(crew.Name + ": " + blocked, "caption"));
+                scroll.Add(choice);
+                if (!string.IsNullOrEmpty(blocked)) scroll.Add(Text(blocked, "caption"));
             }
-            card.Add(workers);
-            if (request.FitScore >= 0)
-                card.Add(Text($"부합도 {game.StakeholderTaskFit(task.Id)}점 × {task.ContributionWeight}%", "body"));
-            return card;
+            dialog.Add(scroll);
+            Button close = ActionButton("닫기", "secondary");
+            close.clicked += () => modalHost.Clear();
+            dialog.Add(close);
+            overlay.Add(dialog);
+            modalHost.Add(overlay);
         }
+
+        private string WorkerAssignmentSummary(WorkTask task, int crewIndex)
+        {
+            CrewMember crew = game.Crew[crewIndex];
+            string grade = "요구 스탯 없음";
+            if (task.RequiredCompetencies != null && task.RequiredCompetencies.Length > 0)
+            {
+                int competency = task.RequiredCompetencies[0];
+                int actual = competency >= 0 && competency < crew.Competencies.Length
+                    ? crew.Competencies[competency] : CrewMember.MinimumCompetency;
+                grade = CompetencyName(competency) + " " + CrewMember.CompetencyGrade(actual) + "급";
+            }
+            bool parallel = game.Tasks.Any(item => item != task &&
+                item.AssignedCharacter == crewIndex && !item.IsParallelAssignment &&
+                item.State != TaskState.Complete && item.State != TaskState.Failed);
+            float efficiency = game.AssignmentEfficiencyMultiplier(task.Id, crewIndex);
+            int dissatisfaction = game.AssignmentDissatisfactionGain(task.Id, crewIndex, parallel);
+            return $"{grade} · {(crew.Specialty == task.RequiredRole ? "전문 일치" : "전문 불일치")} · " +
+                   $"효율 {efficiency * 100f:0}% · 불만 +{dissatisfaction}";
+        }
+
+        private static string StakeholderSlotLabel(WorkTask task) => task.ContributionWeight >= 60
+            ? "작업 슬롯 1"
+            : task.ContributionWeight >= 30 ? "작업 슬롯 2" : "작업 슬롯 3";
+
+        private static string RoleLabel(WorkRole role) => role == WorkRole.Tech
+            ? "기술"
+            : role == WorkRole.Analysis ? "분석" : role == WorkRole.Management ? "관리" : "적응";
 
         private void BuildCodex()
         {
@@ -872,85 +1015,50 @@ namespace ProjectW.MilestonePrototype
 
         private void Update()
         {
-            if (!string.IsNullOrEmpty(heldWorkerTaskId) && !heldWorkerPreviewVisible &&
-                Time.unscaledTime - heldWorkerStartedAt >= WorkerPreviewHoldSeconds)
-                ShowWorkerPreview();
-            if (heldWorkerPreviewVisible && IsWorkerPreviewDismissInputPressed())
-                EndWorkerPreview();
+            if (workerDetailPopupVisible && IsWorkerDetailDismissInputPressed())
+                DismissWorkerDetailPopup();
             if (notifications != null && Time.unscaledTime >= nextNotificationExpiry)
                 RefreshNotificationUi(Time.unscaledTime);
         }
 
-        private void DismissWorkerPreviewOnPointerDown(PointerDownEvent pointerEvent)
+        private void DismissWorkerDetailOnPointerDown(PointerDownEvent pointerEvent)
         {
-            if (heldWorkerPreviewVisible)
-                EndWorkerPreview();
+            if (workerDetailPopupVisible)
+                DismissWorkerDetailPopup();
         }
 
-        private void DismissWorkerPreviewOnPointerUp(PointerUpEvent pointerEvent)
-        {
-            if (!string.IsNullOrEmpty(heldWorkerTaskId))
-                EndWorkerPreview();
-        }
-
-        private static bool IsWorkerPreviewDismissInputPressed()
+        private static bool IsWorkerDetailDismissInputPressed()
         {
             Keyboard keyboard = Keyboard.current;
             return keyboard != null &&
                    (keyboard.escapeKey.isPressed || keyboard.anyKey.isPressed);
         }
 
-        private void BeginWorkerPreview(string taskId, int crewIndex)
+        private void DismissWorkerDetailPopup()
         {
-            heldWorkerTaskId = taskId;
-            heldWorkerCrewIndex = crewIndex;
-            heldWorkerStartedAt = Time.unscaledTime;
-            heldWorkerPreviewVisible = false;
-            suppressedWorkerTaskId = null;
-            suppressedWorkerCrewIndex = -1;
+            workerDetailPopupVisible = false;
+            modalHost.Clear();
         }
 
-        private void EndWorkerPreview()
+        private void ShowWorkerDetailPopup(string taskId, int crewIndex)
         {
-            if (heldWorkerPreviewVisible)
-            {
-                suppressedWorkerTaskId = heldWorkerTaskId;
-                suppressedWorkerCrewIndex = heldWorkerCrewIndex;
-                modalHost.Clear();
-            }
-            heldWorkerTaskId = null;
-            heldWorkerCrewIndex = -1;
-            heldWorkerPreviewVisible = false;
-        }
-
-        private bool ConsumeSuppressedWorkerClick(string taskId, int crewIndex)
-        {
-            bool suppressed = suppressedWorkerTaskId == taskId &&
-                              suppressedWorkerCrewIndex == crewIndex;
-            suppressedWorkerTaskId = null;
-            suppressedWorkerCrewIndex = -1;
-            return suppressed;
-        }
-
-        private void ShowWorkerPreview()
-        {
-            WorkTask task = game.Tasks.FirstOrDefault(item => item.Id == heldWorkerTaskId);
-            if (task == null || heldWorkerCrewIndex < 0 || heldWorkerCrewIndex >= game.Crew.Count)
+            WorkTask task = game.Tasks.FirstOrDefault(item => item.Id == taskId);
+            if (task == null || crewIndex < 0 || crewIndex >= game.Crew.Count)
                 return;
-            heldWorkerPreviewVisible = true;
-            CrewMember crew = game.Crew[heldWorkerCrewIndex];
+            workerDetailPopupVisible = true;
+            CrewMember crew = game.Crew[crewIndex];
             bool parallel = game.Tasks.Any(item => item != task &&
-                item.AssignedCharacter == heldWorkerCrewIndex && !item.IsParallelAssignment &&
+                item.AssignedCharacter == crewIndex && !item.IsParallelAssignment &&
                 item.State != TaskState.Complete && item.State != TaskState.Failed);
-            float efficiency = game.AssignmentEfficiencyMultiplier(task.Id, heldWorkerCrewIndex);
+            float efficiency = game.AssignmentEfficiencyMultiplier(task.Id, crewIndex);
             int dissatisfaction = game.AssignmentDissatisfactionGain(
-                task.Id, heldWorkerCrewIndex, parallel);
-            int activeTasks = game.Tasks.Count(item => item.AssignedCharacter == heldWorkerCrewIndex &&
+                task.Id, crewIndex, parallel);
+            int activeTasks = game.Tasks.Count(item => item.AssignedCharacter == crewIndex &&
                 item.State != TaskState.Complete && item.State != TaskState.Failed);
 
             modalHost.Clear();
             var overlay = Box("modal-overlay");
-            var dialog = Section(crew.Name + " · 배정 미리보기",
+            var dialog = Section(crew.Name + " · 담당자 상세",
                 $"{task.Name} · 전문 영역 {(crew.Specialty == task.RequiredRole ? "일치" : "불일치")}");
             if (task.RequiredCompetencies != null)
                 for (int index = 0; index < task.RequiredCompetencies.Length; index++)
@@ -969,6 +1077,9 @@ namespace ProjectW.MilestonePrototype
             dialog.Add(Text($"예상 불만  +{dissatisfaction}/일 · 현재 {crew.Dissatisfaction}",
                 dissatisfaction > 0 ? "muted" : "body"));
             dialog.Add(Text($"현재 작업 {activeTasks}개 · {(parallel ? "강제 병행 배정" : "주 작업 배정")}", "caption"));
+            Button close = ActionButton("닫기", "secondary");
+            close.clicked += DismissWorkerDetailPopup;
+            dialog.Add(close);
             overlay.Add(dialog);
             modalHost.Add(overlay);
         }

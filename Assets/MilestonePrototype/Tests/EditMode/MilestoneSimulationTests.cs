@@ -21,6 +21,8 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(tasks.Count, Is.EqualTo(3));
             Assert.That(tasks.ConvertAll(task => task.ContributionWeight),
                 Is.EquivalentTo(new[] { 60, 30, 10 }));
+            Assert.That(tasks, Has.All.Matches<WorkTask>(task =>
+                string.IsNullOrEmpty(task.SelectedTaskBlockId) && task.RequiredWork == 0f));
             game.AdvanceDay();
             Assert.That(tasks, Has.All.Matches<WorkTask>(task => task.AssignedCharacter < 0));
         }
@@ -53,6 +55,9 @@ namespace ProjectW.MilestonePrototype.Tests
             WorkTask analysis = game.Tasks.Find(task => task.Id == "stakeholder-landing-brief-analysis");
             WorkTask operations = game.Tasks.Find(task => task.Id == "stakeholder-landing-brief-operations");
 
+            Assert.That(game.ChooseStakeholderInterpretation(analysis.Id, "field-evidence"), Is.True);
+            Assert.That(game.ChooseStakeholderInterpretation(operations.Id, "continuity-budget"), Is.True);
+
             Assert.That(game.AssignStakeholderTask(analysis.Id, 0), Is.True,
                 "A mismatched worker remains assignable at an efficiency and dissatisfaction cost.");
             Assert.That(game.AssignmentDissatisfactionGain(analysis.Id, 0, false), Is.GreaterThan(0));
@@ -60,6 +65,31 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(operations.IsParallelAssignment, Is.True);
             Assert.That(game.AssignmentDissatisfactionGain(operations.Id, 0, true),
                 Is.GreaterThanOrEqualTo(game.AssignmentDissatisfactionGain(operations.Id, 0, false) + 5));
+        }
+
+        [Test]
+        public void PlayerPlacesUniqueTaskBlocksIntoEmptyWeightedSlots()
+        {
+            var game = new MilestoneSimulation(TaskSystemDataLoader.Load(), 1);
+            game.OpenStakeholderRequest("mail-stakeholder-landing");
+            game.StartStakeholderPlanning("landing-brief");
+            WorkTask first = game.Tasks.Find(task =>
+                task.Id == "stakeholder-landing-brief-analysis");
+            WorkTask second = game.Tasks.Find(task =>
+                task.Id == "stakeholder-landing-brief-operations");
+
+            Assert.That(game.SelectStakeholderTaskBlock(
+                first.Id, "operations", "continuity-budget"), Is.True);
+            Assert.That(first.SelectedTaskBlockId, Is.EqualTo("operations"));
+            Assert.That(first.SelectedInterpretationId, Is.EqualTo("continuity-budget"));
+            Assert.That(first.Name, Is.EqualTo("연속 운영·예산 균형"));
+            Assert.That(first.RequiredRole, Is.EqualTo(WorkRole.Management));
+            Assert.That(first.RequiredWork, Is.EqualTo(6f));
+            Assert.That(game.StakeholderTargetTaskDefinition(first).Id, Is.EqualTo("analysis"),
+                "The slot's hidden target remains separate from the block placed into it.");
+            Assert.That(game.SelectStakeholderTaskBlock(
+                second.Id, "operations", "continuity-budget"), Is.False,
+                "One task block cannot occupy two slots.");
         }
 
         [TestCase(2, "F")]
@@ -190,6 +220,7 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(state, Is.Not.Null);
             Assert.That(state.PendingClarificationId, Is.EqualTo("meeting"));
             Assert.That(task.SelectedInterpretationId, Is.EqualTo("field-evidence"));
+            Assert.That(task.SelectedTaskBlockId, Is.EqualTo("analysis"));
             Assert.That(task.AssignedCharacter, Is.EqualTo(1));
             Assert.That(restored.Mail.Exists(mail => mail.Id == "mail-stakeholder-landing"), Is.True,
                 "A patch must add the request entry mail to an older campaign snapshot.");

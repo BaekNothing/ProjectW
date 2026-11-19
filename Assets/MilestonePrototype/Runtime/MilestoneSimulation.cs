@@ -500,16 +500,17 @@ namespace ProjectW.MilestonePrototype
                 Priority = priority,
                 StakeholderRequestId = definition.Id
             });
-            foreach (StakeholderTaskDefinition task in definition.Tasks)
+            for (int taskIndex = 0; taskIndex < definition.Tasks.Length; taskIndex++)
+            {
+                StakeholderTaskDefinition task = definition.Tasks[taskIndex];
                 Tasks.Add(new WorkTask
                 {
                     Id = workId + "-" + task.Id,
-                    Name = task.Name,
+                    Name = $"작업 슬롯 {taskIndex + 1}",
                     Kind = TaskKind.SideMission,
-                    RequiredRole = task.RequiredRole,
-                    RequiredCompetencies = Copy(task.RequiredCompetencies),
-                    MinimumCompetencies = Copy(task.MinimumCompetencies),
-                    RequiredWork = task.RequiredWork,
+                    RequiredCompetencies = new int[0],
+                    MinimumCompetencies = new int[0],
+                    RequiredWork = 0f,
                     Deadline = mail.ArrivalDay + definition.HardDeadlineDays,
                     Required = true,
                     GroupId = workId,
@@ -521,6 +522,7 @@ namespace ProjectW.MilestonePrototype
                     StakeholderRequestId = definition.Id,
                     ContributionWeight = task.ContributionWeight
                 });
+            }
             AddStakeholderState(new StakeholderRequestState
             {
                 Id = definition.Id,
@@ -576,7 +578,7 @@ namespace ProjectW.MilestonePrototype
             StakeholderRequests = next;
         }
 
-        public StakeholderTaskDefinition StakeholderTaskDefinition(WorkTask task)
+        public StakeholderTaskDefinition StakeholderTargetTaskDefinition(WorkTask task)
         {
             if (task == null || string.IsNullOrEmpty(task.StakeholderRequestId)) return null;
             StakeholderRequestDefinition request = StakeholderDefinition(task.StakeholderRequestId);
@@ -585,6 +587,26 @@ namespace ProjectW.MilestonePrototype
             string taskId = task.Id.StartsWith(prefix) ? task.Id.Substring(prefix.Length) : task.Id;
             foreach (StakeholderTaskDefinition definition in request.Tasks)
                 if (definition.Id == taskId) return definition;
+            return null;
+        }
+
+        public StakeholderTaskDefinition StakeholderTaskDefinition(WorkTask task)
+        {
+            if (task == null || string.IsNullOrEmpty(task.SelectedTaskBlockId)) return null;
+            StakeholderRequestDefinition request = StakeholderDefinition(task.StakeholderRequestId);
+            if (request?.Tasks == null) return null;
+            foreach (StakeholderTaskDefinition definition in request.Tasks)
+                if (definition.Id == task.SelectedTaskBlockId) return definition;
+            return null;
+        }
+
+        public StakeholderInterpretationDefinition StakeholderTaskBlock(WorkTask task)
+        {
+            StakeholderTaskDefinition definition = StakeholderTaskDefinition(task);
+            if (definition?.Interpretations == null || string.IsNullOrEmpty(task.SelectedInterpretationId))
+                return null;
+            foreach (StakeholderInterpretationDefinition interpretation in definition.Interpretations)
+                if (interpretation.Id == task.SelectedInterpretationId) return interpretation;
             return null;
         }
 
@@ -600,21 +622,90 @@ namespace ProjectW.MilestonePrototype
         public bool ChooseStakeholderInterpretation(string taskId, string interpretationId)
         {
             WorkTask task = Tasks.FirstOrDefault(candidate => candidate.Id == taskId);
+            StakeholderTaskDefinition target = StakeholderTargetTaskDefinition(task);
+            return target != null && SelectStakeholderTaskBlock(taskId, target.Id, interpretationId);
+        }
+
+        public bool SelectStakeholderTaskBlock(
+            string taskId, string taskBlockId, string interpretationId)
+        {
+            WorkTask task = Tasks.FirstOrDefault(candidate => candidate.Id == taskId);
             StakeholderRequestState state = task == null
                 ? null : StakeholderState(task.StakeholderRequestId);
-            StakeholderTaskDefinition definition = StakeholderTaskDefinition(task);
-            if (task == null || state == null || !state.PlanningStarted || state.PlanConfirmed ||
-                definition?.Interpretations == null)
-                return false;
-            foreach (StakeholderInterpretationDefinition interpretation in definition.Interpretations)
+            StakeholderRequestDefinition request = task == null
+                ? null : StakeholderDefinition(task.StakeholderRequestId);
+            if (task == null || state == null || request?.Tasks == null ||
+                !state.PlanningStarted || state.PlanConfirmed) return false;
+            if (string.IsNullOrEmpty(taskBlockId) || string.IsNullOrEmpty(interpretationId))
+                return ClearStakeholderTaskBlock(task);
+            foreach (WorkTask other in Tasks)
+                if (other != task && other.StakeholderRequestId == task.StakeholderRequestId &&
+                    other.SelectedTaskBlockId == taskBlockId &&
+                    other.SelectedInterpretationId == interpretationId)
+                    return false;
+            foreach (StakeholderTaskDefinition definition in request.Tasks)
             {
-                if (interpretation.Id != interpretationId) continue;
-                task.SelectedInterpretationId = interpretation.Id;
-                task.SelectedIntentTags = interpretation.IntentTags == null
-                    ? new string[0] : (string[])interpretation.IntentTags.Clone();
-                return true;
+                if (definition.Id != taskBlockId || definition.Interpretations == null) continue;
+                foreach (StakeholderInterpretationDefinition interpretation in definition.Interpretations)
+                {
+                    if (interpretation.Id != interpretationId) continue;
+                    ApplyStakeholderTaskBlock(task, definition, interpretation);
+                    RefreshStates();
+                    return true;
+                }
             }
             return false;
+        }
+
+        public bool IsStakeholderTaskBlockInUse(
+            string requestId, string taskBlockId, string interpretationId, string exceptTaskId)
+        {
+            foreach (WorkTask task in Tasks)
+                if (task.Id != exceptTaskId && task.StakeholderRequestId == requestId &&
+                    task.SelectedTaskBlockId == taskBlockId &&
+                    task.SelectedInterpretationId == interpretationId)
+                    return true;
+            return false;
+        }
+
+        private bool ClearStakeholderTaskBlock(WorkTask task)
+        {
+            if (task.AssignedCharacter >= 0) Detach(task, false);
+            task.Name = StakeholderSlotName(task);
+            task.RequiredRole = default;
+            task.RequiredCompetencies = new int[0];
+            task.MinimumCompetencies = new int[0];
+            task.RequiredWork = 0f;
+            task.SelectedTaskBlockId = string.Empty;
+            task.SelectedInterpretationId = string.Empty;
+            task.SelectedIntentTags = new string[0];
+            RefreshStates();
+            return true;
+        }
+
+        private static void ApplyStakeholderTaskBlock(
+            WorkTask task, StakeholderTaskDefinition definition,
+            StakeholderInterpretationDefinition interpretation)
+        {
+            task.Name = interpretation.Name;
+            task.RequiredRole = definition.RequiredRole;
+            task.RequiredCompetencies = Copy(definition.RequiredCompetencies);
+            task.MinimumCompetencies = Copy(definition.MinimumCompetencies);
+            task.RequiredWork = definition.RequiredWork;
+            task.SelectedTaskBlockId = definition.Id;
+            task.SelectedInterpretationId = interpretation.Id;
+            task.SelectedIntentTags = interpretation.IntentTags == null
+                ? new string[0] : (string[])interpretation.IntentTags.Clone();
+        }
+
+        private string StakeholderSlotName(WorkTask task)
+        {
+            StakeholderRequestDefinition request = StakeholderDefinition(task.StakeholderRequestId);
+            if (request?.Tasks == null) return "빈 작업 슬롯";
+            for (int index = 0; index < request.Tasks.Length; index++)
+                if (task.Id == "stakeholder-" + request.Id + "-" + request.Tasks[index].Id)
+                    return $"작업 슬롯 {index + 1}";
+            return "빈 작업 슬롯";
         }
 
         public string StakeholderAssignmentBlockReason(string taskId, int crewIndex)
@@ -623,6 +714,7 @@ namespace ProjectW.MilestonePrototype
             if (task == null || string.IsNullOrEmpty(task.StakeholderRequestId)) return "요청 작업이 아님";
             StakeholderRequestState state = StakeholderState(task.StakeholderRequestId);
             if (state == null || !state.PlanningStarted) return "계획 시작 전";
+            if (string.IsNullOrEmpty(task.SelectedTaskBlockId)) return "작업 블록을 먼저 선택";
             if (crewIndex < 0 || crewIndex >= Crew.Count) return "담당자 없음";
             CrewMember member = Crew[crewIndex];
             if (!member.Available) return member.InjuryDays > 0 ? "부상 중" : "휴식 예정";
@@ -665,7 +757,8 @@ namespace ProjectW.MilestonePrototype
             {
                 if (task.StakeholderRequestId != requestId) continue;
                 taskCount++;
-                if (task.AssignedCharacter < 0 || string.IsNullOrEmpty(task.SelectedInterpretationId) ||
+                if (task.AssignedCharacter < 0 || string.IsNullOrEmpty(task.SelectedTaskBlockId) ||
+                    string.IsNullOrEmpty(task.SelectedInterpretationId) ||
                     !string.IsNullOrEmpty(StakeholderAssignmentBlockReason(task.Id,
                         task.AssignedCharacter))) return false;
             }
@@ -2403,7 +2496,7 @@ namespace ProjectW.MilestonePrototype
             {
                 if (task.StakeholderRequestId != requestId) continue;
                 if (task.State != TaskState.Complete) return;
-                StakeholderTaskDefinition taskDefinition = StakeholderTaskDefinition(task);
+                StakeholderTaskDefinition taskDefinition = StakeholderTargetTaskDefinition(task);
                 if (taskDefinition == null) return;
                 taskCount++;
                 int fit = IntentFit(task.SelectedIntentTags, taskDefinition.TargetIntentTags);
@@ -2449,7 +2542,7 @@ namespace ProjectW.MilestonePrototype
         public int StakeholderTaskFit(string taskId)
         {
             WorkTask task = Tasks.FirstOrDefault(candidate => candidate.Id == taskId);
-            StakeholderTaskDefinition definition = StakeholderTaskDefinition(task);
+            StakeholderTaskDefinition definition = StakeholderTargetTaskDefinition(task);
             return task == null || definition == null
                 ? 0 : IntentFit(task.SelectedIntentTags, definition.TargetIntentTags);
         }
@@ -3463,6 +3556,7 @@ namespace ProjectW.MilestonePrototype
                 }
                 BackfillGeneratedWordIds(task);
                 BackfillRequiredCompetencies(task);
+                NormalizeStakeholderTaskBlock(task);
                 task.Records = task.Records ?? new List<TaskRecord>();
                 WorkGroup group = ParentWork(task);
                 if (group != null) task.Deadline = group.HardDeadline;
@@ -3496,6 +3590,35 @@ namespace ProjectW.MilestonePrototype
                     : int.TryParse(group.Id.Substring(14), out int proposalValue) ? proposalValue : 0)
                 .DefaultIfEmpty(0).Max();
             nextRandomWorkId = highestRandomWorkId;
+        }
+
+        private void NormalizeStakeholderTaskBlock(WorkTask task)
+        {
+            if (task == null || string.IsNullOrEmpty(task.StakeholderRequestId)) return;
+            StakeholderTaskDefinition target = StakeholderTargetTaskDefinition(task);
+            if (target == null) return;
+            if (string.IsNullOrEmpty(task.SelectedTaskBlockId) &&
+                !string.IsNullOrEmpty(task.SelectedInterpretationId))
+                task.SelectedTaskBlockId = target.Id;
+            StakeholderTaskDefinition selected = StakeholderTaskDefinition(task);
+            if (selected?.Interpretations != null)
+                foreach (StakeholderInterpretationDefinition interpretation in selected.Interpretations)
+                    if (interpretation.Id == task.SelectedInterpretationId)
+                    {
+                        ApplyStakeholderTaskBlock(task, selected, interpretation);
+                        return;
+                    }
+            if (task.Progress <= 0f && task.State != TaskState.Complete)
+            {
+                task.Name = StakeholderSlotName(task);
+                task.RequiredWork = 0f;
+                task.RequiredCompetencies = new int[0];
+                task.MinimumCompetencies = new int[0];
+                task.SelectedTaskBlockId = string.Empty;
+                task.SelectedInterpretationId = string.Empty;
+                task.SelectedIntentTags = new string[0];
+                if (task.AssignedCharacter >= 0) Detach(task, false);
+            }
         }
 
         private void NormalizeWorkPriorities()

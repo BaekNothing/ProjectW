@@ -55,6 +55,7 @@ namespace ProjectW.MilestonePrototype
         public string StakeholderRequestId;
         public int ContributionWeight;
         public int[] MinimumCompetencies;
+        public string SelectedTaskBlockId;
         public string SelectedInterpretationId;
         public string[] SelectedIntentTags;
         public List<TaskRecord> Records = new List<TaskRecord>();

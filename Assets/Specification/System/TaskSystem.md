@@ -2,18 +2,15 @@
 
 ## Document Control
 
-- Version: 7.1
+- Version: 7.2
 - Status: Approved for implementation
 - Action: Update
 - SSOT Change: Yes
-- Rationale: Retire the player Proposal system, expand the field team to twelve workers, grade all
-  six competencies from F through S, and add dissatisfaction as a workload/fit pressure distinct
-  from physical fatigue. Add press-and-hold assignment previews, desktop progress reset, and fix
-  Gantt today navigation. Continue to focus the core prototype on interpreting ambiguous stakeholder request mail,
-  decomposing each accepted request into weighted Tasks, previewing worker fit, and
-  earning a stakeholder-fit score from the delivered result. Clarification calls and meetings trade
-  schedule slack for better request understanding. Existing operations systems remain supporting
-  status dashboards rather than the primary player decision loop.
+- Rationale: Make request planning a deliberate composition step: the `60 / 30 / 10` Task slots
+  begin empty, the player places authored work blocks into them, then chooses each worker from a
+  dropdown. Higher clarity reveals the needed work and its relative importance. Worker summaries
+  and dismissible detail popups expose fit, efficiency, and dissatisfaction before assignment.
+  Clarification calls and meetings continue to trade schedule slack for better request understanding.
 - Idea references: `IDEA.md` items 1, 2, 4, and 8
 
 ## Scope
@@ -69,9 +66,11 @@ separate planning board and makes its Work visible; neither action assigns or st
 
 - A request owns a stakeholder, a brief, a hidden intent profile, an initial clarity value, and a
   delivery deadline measured in campaign days.
-- The player converts the request into weighted Tasks and fills each Task's worker slot.
-- The prototype default is three required Tasks with contribution weights `60 / 30 / 10`. Authored
-  requests may name those Tasks differently, but their contribution weights must total `100`.
+- The player fills three initially empty weighted slots by choosing from the request's authored work
+  block pool, then chooses a worker for every filled slot.
+- The prototype default is three required slots with contribution weights `60 / 30 / 10`. Their
+  hidden target definitions determine scoring, while the chosen work block determines the runtime
+  Task's name, role, competencies, workload, and emitted intent tags.
 - A request's planned duration is expressed as `N` weeks for presentation and converted to campaign
   days for simulation. Clarification consumes days inside that same delivery window; it never moves
   the deadline automatically.
@@ -85,8 +84,8 @@ The primary player loop is:
 1. Receive an ambiguous Stakeholder Request by mail.
 2. Inspect only the brief, revealed constraints, and deadline in the request view.
 3. Either spend days clarifying the request or select `계획하기` with the current interpretation.
-4. In the separate planning board, confirm the weighted Task plan and assign one available worker to every required Task
-   slot. The initial prototype uses the authored `60 / 30 / 10` plan rather than free-form weights.
+4. In the separate planning board, place one available work block into each empty `60 / 30 / 10`
+   slot and choose one available worker for every filled slot.
 5. Advance days while assigned workers execute their Tasks.
 6. When all required Tasks finish, deliver the combined result and receive a stakeholder-fit score.
 
@@ -112,16 +111,24 @@ second competing core loop.
 - Clarification is optional. Proceeding with low clarity is valid and may preserve schedule slack,
   but leaves more of the hidden intent unrevealed.
 
-### Task Plan and Eligible Assignment Slots
+### Task Plan, Work Blocks, and Assignment Slots
 
-- Every request Task owns a contribution weight, required role, one to three required competencies,
-  and intent tags describing the interpretation embodied by its deliverable.
-- A required Task slot must be filled before the request plan can start. Reassignment after work has
-  started follows the existing interruption and handover rules.
+- Every request begins with three empty runtime Task slots whose contribution weights are
+  `60 / 30 / 10`. Empty slots have no workload, role, competencies, assignee, or execution progress.
+- Authored Task definitions and their interpretation rows form one flat pool of available work
+  blocks. Placing a block applies its name, role, one-to-three competencies, workload, and intent
+  tags to the chosen slot. One exact block may occupy at most one slot in the same request.
+- Each weighted slot keeps its authored hidden target definition for fit scoring. A work block may
+  be placed into any slot; the player is not selecting only among variants pre-bound to that slot.
+- A required Task slot must contain a work block and an assigned worker before the request plan can
+  start. Reassignment after work has started follows the existing interruption and handover rules.
+- Clarity gates planning guidance. At `40` clarity the primary `60` slot reveals its needed work and
+  importance; at `70` clarity the `30` and `10` slots reveal theirs. Below those thresholds the
+  slots remain usable but explicitly show that the need and priority are uncertain.
 - A worker is assignable when present and not blocked by injury or scheduled rest. Role or competency
   mismatch never prevents assignment; it lowers output and adds dissatisfaction while work is performed.
-- Every worker remains visible in the assignment picker. Pressing briefly assigns them; pressing and
-  holding previews required grades, expected efficiency, dissatisfaction, and parallel-work pressure.
+- Every worker remains visible in a dropdown-style assignment picker. The selected worker's compact
+  summary appears to its right; selecting that summary opens the detailed fit preview.
 - Stakeholder-request Tasks are never filled by organization automatic assignment, learned
   intervention rules, urgent preemption, or implicit fallback. Their staffing is the player's core
   decision and requires explicit confirmation.
@@ -715,8 +722,9 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
   stops on scheduled or newly encountered meaningful events.
 - The prototype request plan contains three required Tasks whose contribution weights are
   `60 / 30 / 10` and total `100`.
-- Only workers satisfying availability, capacity, role eligibility, and every Task competency
-  minimum can be confirmed into a stakeholder Task slot.
+- Every request slot begins empty. The plan can be confirmed only after three unique work blocks
+  and three available workers are selected; role or competency mismatch remains valid and forecasts
+  reduced efficiency plus added dissatisfaction.
 - Requesting a call or meeting schedules one future interaction, increases clarity on its due day,
   reveals authored intent guidance, and never extends the delivery deadline.
 - A request cannot be delivered while a clarification is pending or while a required Task is
@@ -856,11 +864,15 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 - It exposes `통화 요청` and `회의 요청` with their scheduled response day and clarity gain before
   confirmation. While one is pending, both actions are disabled and the pending interaction is
   visible.
-- The body presents the three weighted Task rows in `60 / 30 / 10` order. Each row shows its
-  interpretation, workload, role, competency minimums, current assignee, and eligible-worker picker.
+- The body presents an available work-block pool and three initially empty weighted slots in
+  `60 / 30 / 10` order. The player chooses which unique block occupies each slot. A placed block
+  shows its description, workload, role, and competency requirements.
+- Clarity reveals the primary slot hint and importance at `40`, then the secondary and support slot
+  hints at `70`; unrevealed slots remain selectable and state their uncertainty explicitly.
 - Unavailable workers stay visible with a concise blocking reason. Mismatched workers remain
-  assignable with their efficiency and dissatisfaction forecast. The confirm-plan action is enabled
-  when every required Task has one assigned worker.
+  assignable with their efficiency and dissatisfaction forecast. Worker selection uses a dropdown;
+  the selected worker's compact summary appears on the right and opens a detailed popup. The
+  confirm-plan action is enabled only when every slot has both a unique block and an assigned worker.
 - After confirmation, the same board becomes a live delivery view showing progress, schedule risk,
   ownership, clarification history, and the eventual score breakdown.
 - The broader operations desktop and Gantt are read-oriented status surfaces for this loop. They may
@@ -931,17 +943,18 @@ The selected Task detail must expose:
 
 Costs must be shown before the player confirms a reassignment. The UI must not require the player to infer handover cost from a result log after the action.
 
-### Worker Assignment Preview
+### Worker Assignment Summary and Detail
 
-- A short press on a worker button performs the assignment.
-- Holding the same button for at least `0.45` seconds opens a compact, non-committing preview and
-  suppresses the release click.
-- The preview shows the worker's required competency grades, Task required grades, specialty match,
-  expected efficiency, current dissatisfaction, expected dissatisfaction per workday, active Task
-  count, and whether this would be a forced parallel assignment.
-- Releasing the pointer anywhere closes the preview. Any additional pointer/touch press, any
-  keyboard input, Android Back, or Escape also closes it immediately. Viewing it never mutates
-  assignment or campaign state.
+- A dropdown-style picker lists all twelve workers. Selecting a row performs the assignment;
+  unavailable workers remain visible but disabled with a concise reason.
+- The selected worker's right-hand summary shows the leading required competency grade, specialty
+  match, expected efficiency, and expected dissatisfaction per workday.
+- Selecting the summary opens a non-committing detail popup with required and actual grades,
+  specialty match, efficiency, current and expected dissatisfaction, active Task count, and forced
+  parallel-work state.
+- The detail popup remains visible after the opening tap. The next pointer/touch input, any keyboard
+  input, Android Back, Escape, or its close button dismisses it. Viewing it never mutates assignment
+  or campaign state.
 
 ## Scroll and Touch Interaction
 
