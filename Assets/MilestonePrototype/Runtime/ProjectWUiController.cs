@@ -341,7 +341,6 @@ namespace ProjectW.MilestonePrototype
                 case "settings": BuildSettings(); break;
                 default: BuildSchedule(); break;
             }
-            QueueEntrance(pageContent, "motion-page-enter");
             RefreshChrome();
             ShowIncidentModalIfNeeded();
         }
@@ -1374,7 +1373,6 @@ namespace ProjectW.MilestonePrototype
         private void ReleaseEntranceClasses()
         {
             motionReleaseAt = float.MaxValue;
-            pageContent?.RemoveFromClassList("motion-page-enter");
             modalHost?.RemoveFromClassList("motion-modal-enter");
             notificationToastHost?.RemoveFromClassList("motion-toast-enter");
             notificationPanel?.RemoveFromClassList("motion-panel-enter");
