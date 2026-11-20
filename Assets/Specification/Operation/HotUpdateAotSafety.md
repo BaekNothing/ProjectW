@@ -354,3 +354,23 @@ This authorization is limited to dismissing the shipped worker preview on any ke
 Escape and the Android Back mapping. It does not authorize text entry, synthetic input, arbitrary
 Input System devices or controls, or unrelated keyboard members. Patches using this dismissal path
 must declare `minBaseVersion = 14`, and device compatibility still requires an on-device smoke test.
+
+## Base APK v15 AOT Baseline
+
+Base APK v15 updates the embedded StudioUI resources with the reviewed interaction, motion,
+feedback, focus, and reduced-motion rules. The HotUpdate controller continues to use only the
+UI Toolkit and time surface already preserved by the v12-v14 baselines.
+
+It must bundle:
+
+- `BaseVersion = 15`;
+- the latest embedded `ProjectW.HotUpdate.dll.bytes`, `task-system.json`, UXML, and USS resources;
+- the updated focus-visible, pressed, page, modal, notification, and reduced-motion styles;
+- regenerated Android AOT metadata and the complete v14 preservation surface.
+
+The approved controller changes use existing `VisualElement` class-list operations, inline display
+styles, `PlayerPrefs` theme/preference persistence, and `Time.unscaledTime`. No new Unity, package,
+Contracts, reflection, serialization, delegate, or closed-generic AOT surface is introduced. The
+base rebuild is required because UXML and USS remain APK-embedded resources. Device compatibility
+still requires an on-device smoke test of navigation, modal interruption, notification panel
+retargeting, theme switching, and reduced motion.

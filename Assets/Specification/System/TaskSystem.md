@@ -631,8 +631,8 @@ External data includes:
 
 - After Bootstrap has selected and loaded a valid HotUpdate assembly, the player first sees a
   dedicated title screen instead of the operations desktop.
-- The title screen presents `PROJECT W`, `PRESS TO START`, and an adjacent `OPTIONS` action.
-- `PRESS TO START` enters the operations desktop and restores a valid campaign save when one exists.
+- The title screen presents `PROJECT W`, `운영 시작`, and an adjacent `시작 옵션` action.
+- `운영 시작` enters the operations desktop and restores a valid campaign save when one exists.
 - Title Options provides the basic startup operations: reset campaign data, reset desktop layout,
   check for and install an update, inspect update status/version, and return to the title.
 - Reset actions require a second confirmation action before deleting data. Campaign reset does not
@@ -647,6 +647,16 @@ External data includes:
 - The fixed Bootstrap scene remains the only Unity scene dependency. Title, desktop, and data editor
   are HotUpdate-owned screen states created through `IGameEntry`, so fixed scenes never reference
   HotUpdate implementation types directly.
+- Interactive controls expose distinct hover, focus, pressed, selected, and disabled states. Focus
+  uses a visible ring in both light and dark themes rather than relying on color fill alone.
+- Repeated input feedback uses the shared `70 / 110 / 150 / 240 ms` press, fade, small, and standard
+  motion durations. Page, modal, notification-panel, and toast motion explains state or spatial
+  change and never delays the underlying navigation or simulation action.
+- Settings and Title Options expose a persisted `모션 줄이기` preference. Reduced motion removes
+  non-essential movement and scaling while preserving focus, pressed, selection, completion, and
+  error feedback.
+- The command bar states what the next-day action will do, including why advancement is blocked or
+  which event day will be reached. Clearing notification history requires explicit confirmation.
 
 ## Gameplay Data Editor and Reload
 
@@ -1083,20 +1093,21 @@ Base APK v6 uses the project's active Input System package rather than the disab
 - Base APK v6 preserves the required `Unity.InputSystem` types and embeds the same behavior for
   offline fallback.
 
-### Current Base APK v14 Activation
+### Current Base APK v15 Activation
 
-- The currently supported installed baseline is base APK v14. Base APK v11 added the unified remote
-  Addressables path, v12 added the StudioUI UI Toolkit runtime, v13 added pointer callbacks, and v14
-  adds the exact keyboard controls used to dismiss assignment previews.
-- Current development patches declare `minBaseVersion = 14`. Earlier base compatibility notes in
+- The currently supported installed baseline is base APK v15. Base APK v11 added the unified remote
+  Addressables path, v12 added the StudioUI UI Toolkit runtime, v13 added pointer callbacks, v14
+  added keyboard dismissal, and v15 embeds the reviewed interaction, motion, focus, feedback, and
+  reduced-motion resources.
+- Current development patches declare `minBaseVersion = 15`. Earlier base compatibility notes in
   this document are historical constraints, not supported alternatives for the active dev channel.
 - The exact approved AOT and Contracts surface remains authoritative in
   `Assets/Specification/Operation/HotUpdateAotSafety.md`; this section does not authorize additional
   Unity, package, platform, native, reflection, serialization, delegate, or generic dependencies.
-- Base APK v14 retains the reviewed UI Toolkit pointer-down/up callback surface and adds only the
-  Input System `Keyboard.current`, `Keyboard.escapeKey`, `Keyboard.anyKey`, and existing
-  `ButtonControl.isPressed` surface used to dismiss worker previews. It must be installed once
-  before consuming v14 patches.
+- Base APK v15 retains the reviewed v14 UI Toolkit and Input System surface. Its new behavior uses
+  existing class-list, inline display, PlayerPrefs, and `Time.unscaledTime` operations; it adds no
+  new AOT-facing member. It must be installed once before consuming v15 patches because StudioUI
+  UXML and USS resources remain APK-embedded.
 - Saturday and Sunday columns use a distinct background treatment and weekday labels so the
   non-working weekend cadence remains identifiable across the full planning horizon.
 - An unassigned Task row shows its next automatic-assignment candidate when one can currently be

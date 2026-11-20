@@ -12,8 +12,8 @@
                 <ui:Label text="COLONY OPERATIONS" class="eyebrow title-eyebrow" />
                 <ui:Label text="PROJECT W" class="display-title" />
                 <ui:Label text="사람과 일정, 제한된 자원을 조율해&#10;식민지 운영을 이어가세요." class="title-description" />
-                <ui:Button name="start-button" text="PRESS TO START" class="ds-button button-primary title-start" />
-                <ui:Button name="title-options-button" text="OPTIONS" class="text-button" />
+                <ui:Button name="start-button" text="운영 시작" tooltip="현재 캠페인으로 들어갑니다" class="ds-button button-primary title-start" />
+                <ui:Button name="title-options-button" text="시작 옵션" tooltip="화면 설정과 캠페인 초기화" class="text-button" />
             </ui:VisualElement>
             <ui:Label text="STUDIOUI · UNITY UI TOOLKIT" class="title-footer" />
         </ui:VisualElement>
@@ -30,7 +30,7 @@
                 <ui:VisualElement class="topbar-status">
                     <ui:Label name="day-label" text="DAY 01" class="status-pill" />
                     <ui:Label name="resource-label" text="RESOURCES 0" class="status-pill status-accent" />
-                    <ui:Button name="theme-button" text="◐" tooltip="테마 전환" class="icon-button" />
+                    <ui:Button name="theme-button" text="◐" tooltip="라이트·다크 테마 전환" class="icon-button" />
                 </ui:VisualElement>
             </ui:VisualElement>
 
@@ -61,7 +61,10 @@
                         <ui:VisualElement name="page-content" class="page-content" />
                     </ui:ScrollView>
                     <ui:VisualElement class="command-bar">
-                        <ui:Label text="오늘의 결정을 마치면 하루를 진행합니다." class="muted" />
+                        <ui:VisualElement class="command-copy">
+                            <ui:Label text="하루 진행" class="command-title" />
+                            <ui:Label name="command-hint" text="오늘의 결정을 마치면 하루를 진행합니다." class="muted" />
+                        </ui:VisualElement>
                         <ui:Button name="next-day-button" text="다음날로  →" class="ds-button button-primary next-day-button" />
                     </ui:VisualElement>
                 </ui:VisualElement>

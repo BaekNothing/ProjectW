@@ -42,7 +42,9 @@
 .sidebar { width: 224px; min-width: 200px; padding: 18px 14px; background-color: var(--surface-panel); border-right-width: 1px; border-right-color: var(--border-subtle); }
 .sidebar-label { margin: 8px 10px 12px 10px; font-size: 10px; letter-spacing: 1.6px; color: var(--text-secondary); -unity-font-style: bold; }
 .nav-button { height: 44px; margin-bottom: 4px; padding-left: 14px; border-width: 0; border-radius: 10px; -unity-text-align: middle-left; background-color: rgba(0, 0, 0, 0); color: var(--text-secondary); font-size: 14px; }
+.nav-button { transition-property: background-color, color, scale; transition-duration: 110ms, 110ms, 70ms; transition-timing-function: ease-out; }
 .nav-button:hover { background-color: var(--surface-raised); color: var(--text-primary); }
+.nav-button:active { scale: 0.98 0.98; }
 .nav-button.is-selected { background-color: var(--accent-soft); color: var(--accent); -unity-font-style: bold; }
 .sidebar-spacer { flex-grow: 1; }
 .sidebar-note { margin-top: 14px; padding: 14px; border-radius: 12px; background-color: var(--surface-raised); }
@@ -52,9 +54,15 @@
 .page-header { height: 92px; min-height: 92px; padding-left: 30px; padding-right: 30px; flex-direction: row; align-items: center; justify-content: space-between; }
 .page-title { margin-top: 5px; font-size: 27px; -unity-font-style: bold; color: var(--text-primary); }
 .page-scroll { flex-grow: 1; padding-left: 30px; padding-right: 30px; }
-.page-content { padding-bottom: 28px; }
+.page-content { padding-bottom: 28px; transition-property: opacity, translate; transition-duration: 150ms, 240ms; transition-timing-function: ease-out; }
 .command-bar { min-height: 74px; padding-left: 30px; padding-right: 30px; flex-direction: row; align-items: center; justify-content: space-between; background-color: var(--surface-panel); border-top-width: 1px; border-top-color: var(--border-subtle); }
+.command-copy { flex-grow: 1; margin-right: 20px; }
+.command-title { margin-bottom: 3px; font-size: 12px; -unity-font-style: bold; color: var(--text-primary); }
 .next-day-button { min-width: 166px; }
+
+.notification-toast-host { transition-property: opacity, translate; transition-duration: 240ms; transition-timing-function: ease-out; }
+.notification-toast-host > .section-card { border-left-width: 4px; border-left-color: var(--accent); }
+.notification-panel { transition-property: opacity, translate; transition-duration: 150ms; transition-timing-function: ease-out; }
 
 .metric-grid, .card-grid { flex-direction: row; flex-wrap: wrap; margin: -6px; margin-bottom: 18px; }
 .metric-card { min-width: 190px; flex-grow: 1; margin: 6px; }

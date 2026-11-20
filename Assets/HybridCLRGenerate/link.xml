@@ -45,7 +45,6 @@
     <type fullname="UnityEngine.UIElements.Length" preserve="all" />
     <type fullname="UnityEngine.UIElements.PanelSettings" preserve="all" />
     <type fullname="UnityEngine.UIElements.PointerDownEvent" preserve="all" />
-    <type fullname="UnityEngine.UIElements.PointerUpEvent" preserve="all" />
     <type fullname="UnityEngine.UIElements.Position" preserve="all" />
     <type fullname="UnityEngine.UIElements.ScrollView" preserve="all" />
     <type fullname="UnityEngine.UIElements.ScrollViewMode" preserve="all" />

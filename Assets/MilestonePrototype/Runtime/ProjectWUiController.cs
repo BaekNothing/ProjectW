@@ -12,6 +12,7 @@ namespace ProjectW.MilestonePrototype
     {
         private const string CampaignSaveKey = "projectw.campaign.v1";
         private const string UiThemeKey = "projectw.ui.theme.v1";
+        private const string ReduceMotionKey = "projectw.ui.reduce-motion.v1";
         private const int TimelineDays = 21;
         private const float DayWidth = 64f;
         private const int NotificationHistoryLimit = 50;
@@ -21,6 +22,7 @@ namespace ProjectW.MilestonePrototype
         private UIDocument document;
         private PanelSettings panelSettings;
         private VisualElement root;
+        private VisualElement appRoot;
         private VisualElement titleScreen;
         private VisualElement desktopScreen;
         private VisualElement pageContent;
@@ -29,6 +31,7 @@ namespace ProjectW.MilestonePrototype
         private Label pageTitle;
         private Label dayLabel;
         private Label resourceLabel;
+        private Label commandHint;
         private Button nextDayButton;
         private Button skipEventButton;
         private Button planNavigationButton;
@@ -40,11 +43,15 @@ namespace ProjectW.MilestonePrototype
         private readonly List<string> knownMailIds = new List<string>();
         private string lastKnownSystemLog;
         private float nextNotificationExpiry = float.MaxValue;
+        private float motionReleaseAt = float.MaxValue;
+        private float notificationPanelHideAt = float.MaxValue;
         private IPatchDiagnostics diagnostics;
         private string patchVersion;
         private string activePage = "schedule";
         private string activeStakeholderRequestId;
         private bool darkTheme;
+        private bool reduceMotion;
+        private bool notificationPanelClosing;
         private bool skipToNextEvent;
         private bool workerDetailPopupVisible;
 
@@ -59,6 +66,7 @@ namespace ProjectW.MilestonePrototype
             ResetNotificationTracking();
 
             darkTheme = PlayerPrefs.GetInt(UiThemeKey, 0) == 1;
+            reduceMotion = PlayerPrefs.GetInt(ReduceMotionKey, 0) == 1;
             BuildDocument();
             BindShell();
             BuildNotificationUi();
@@ -86,11 +94,12 @@ namespace ProjectW.MilestonePrototype
             documentHost.SetActive(true);
             root = document.rootVisualElement;
             root.style.flexGrow = 1f;
-            VisualElement appRoot = root.Q<VisualElement>("app-root");
+            appRoot = root.Q<VisualElement>("app-root");
             if (appRoot == null) throw new InvalidOperationException("UI element 'app-root' is required.");
             appRoot.style.flexGrow = 1f;
             if (appRoot.parent != null) appRoot.parent.style.flexGrow = 1f;
             ApplyTheme();
+            ApplyMotionPreference();
         }
 
         private void BindShell()
@@ -103,6 +112,7 @@ namespace ProjectW.MilestonePrototype
             pageTitle = Require<Label>("page-title");
             dayLabel = Require<Label>("day-label");
             resourceLabel = Require<Label>("resource-label");
+            commandHint = Require<Label>("command-hint");
             nextDayButton = Require<Button>("next-day-button");
             skipEventButton = ActionButton("□ 다음 이벤트까지", "secondary");
             nextDayButton.parent.Add(skipEventButton);
@@ -171,6 +181,7 @@ namespace ProjectW.MilestonePrototype
             desktopScreen.Add(notificationToastHost);
 
             notificationPanel = Box("section-card");
+            notificationPanel.AddToClassList("notification-panel");
             notificationPanel.style.position = Position.Absolute;
             notificationPanel.style.right = 18f;
             notificationPanel.style.top = 64f;
@@ -183,9 +194,27 @@ namespace ProjectW.MilestonePrototype
 
         private void ToggleNotificationHistory()
         {
-            bool show = notificationPanel.style.display == DisplayStyle.None;
-            notificationPanel.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
-            if (show) RebuildNotificationHistory();
+            bool show = notificationPanel.style.display == DisplayStyle.None || notificationPanelClosing;
+            if (show)
+            {
+                notificationPanelClosing = false;
+                notificationPanelHideAt = float.MaxValue;
+                notificationPanel.RemoveFromClassList("motion-panel-exit");
+                notificationPanel.style.display = DisplayStyle.Flex;
+                RebuildNotificationHistory();
+                QueueEntrance(notificationPanel, "motion-panel-enter");
+                return;
+            }
+
+            if (reduceMotion)
+            {
+                notificationPanel.style.display = DisplayStyle.None;
+                return;
+            }
+
+            notificationPanelClosing = true;
+            notificationPanel.AddToClassList("motion-panel-exit");
+            notificationPanelHideAt = Time.unscaledTime + 0.11f;
         }
 
         private void RebuildNotificationHistory()
@@ -197,8 +226,7 @@ namespace ProjectW.MilestonePrototype
             clear.SetEnabled(notifications.Count > 0);
             clear.clicked += () =>
             {
-                notifications.Clear();
-                RefreshNotificationUi(Time.unscaledTime);
+                ShowNotificationClearConfirmation();
             };
             header.Add(clear);
             notificationPanel.Add(header);
@@ -251,6 +279,7 @@ namespace ProjectW.MilestonePrototype
                 : game.SystemLog[game.SystemLog.Count - 1];
 
             RefreshNotificationUi(now);
+            QueueEntrance(notificationToastHost, "motion-toast-enter");
         }
 
         private void RefreshNotificationUi(float now)
@@ -312,6 +341,7 @@ namespace ProjectW.MilestonePrototype
                 case "settings": BuildSettings(); break;
                 default: BuildSchedule(); break;
             }
+            QueueEntrance(pageContent, "motion-page-enter");
             RefreshChrome();
             ShowIncidentModalIfNeeded();
         }
@@ -326,6 +356,11 @@ namespace ProjectW.MilestonePrototype
                 : skipToNextEvent
                     ? $"D{game.NextEventDay:00}까지  →"
                     : "다음날로  →";
+            commandHint.text = !game.CanAdvanceDay
+                ? "미결정 돌발 임무를 처리하면 하루를 진행할 수 있습니다."
+                : skipToNextEvent
+                    ? $"{game.NextEventSummary}이 있는 D{game.NextEventDay:00}까지 진행합니다."
+                    : "오늘의 결정을 저장하고 다음 날로 진행합니다.";
             skipEventButton.text = skipToNextEvent
                 ? $"☑ 다음 이벤트까지 · {game.NextEventSummary} D{game.NextEventDay:00}"
                 : "□ 다음 이벤트까지";
@@ -917,8 +952,7 @@ namespace ProjectW.MilestonePrototype
             Button close = ActionButton("닫기", "secondary");
             close.clicked += () => modalHost.Clear();
             dialog.Add(close);
-            overlay.Add(dialog);
-            modalHost.Add(overlay);
+            ShowModal(overlay, dialog);
         }
 
         private void ShowWorkerPicker(WorkTask task)
@@ -964,8 +998,7 @@ namespace ProjectW.MilestonePrototype
             Button close = ActionButton("닫기", "secondary");
             close.clicked += () => modalHost.Clear();
             dialog.Add(close);
-            overlay.Add(dialog);
-            modalHost.Add(overlay);
+            ShowModal(overlay, dialog);
         }
 
         private string WorkerAssignmentSummary(WorkTask task, int crewIndex)
@@ -1022,6 +1055,12 @@ namespace ProjectW.MilestonePrototype
             Button theme = ActionButton(darkTheme ? "라이트 테마 사용" : "다크 테마 사용", "secondary");
             theme.clicked += ToggleTheme;
             appearance.Add(theme);
+            Button motion = ActionButton(reduceMotion ? "기본 모션 사용" : "모션 줄이기", "secondary");
+            motion.clicked += ToggleReducedMotion;
+            appearance.Add(motion);
+            appearance.Add(Text(reduceMotion
+                ? "현재 상태 변화는 이동·확대 없이 즉시 표시됩니다."
+                : "입력 반응은 70ms, 화면 전환은 최대 240ms의 짧은 모션을 사용합니다.", "caption"));
             pageContent.Add(appearance);
 
             var progress = Section("진행 상황", "화면과 패치 설정은 유지하고 현재 캠페인만 처음부터 다시 시작합니다.");
@@ -1048,15 +1087,35 @@ namespace ProjectW.MilestonePrototype
             var dialog = Section("시작 옵션", "캠페인 데이터와 화면 환경을 관리합니다.");
             Button theme = ActionButton(darkTheme ? "라이트 테마" : "다크 테마", "secondary");
             theme.clicked += ToggleTheme;
+            Button motion = ActionButton(reduceMotion ? "기본 모션" : "모션 줄이기", "secondary");
+            motion.clicked += ToggleReducedMotion;
             Button reset = ActionButton("캠페인 초기화", "danger");
             reset.clicked += ShowResetConfirmation;
             Button close = ActionButton("닫기", "primary");
             close.clicked += () => modalHost.Clear();
             dialog.Add(theme);
+            dialog.Add(motion);
             dialog.Add(reset);
             dialog.Add(close);
-            overlay.Add(dialog);
-            modalHost.Add(overlay);
+            ShowModal(overlay, dialog);
+        }
+
+        private void ShowNotificationClearConfirmation()
+        {
+            var overlay = Box("modal-overlay");
+            var dialog = Section("알림 이력을 지울까요?", "현재 표시된 알림 이력이 모두 삭제됩니다.");
+            Button confirm = ActionButton("알림 이력 삭제", "danger");
+            confirm.clicked += () =>
+            {
+                notifications.Clear();
+                modalHost.Clear();
+                RefreshNotificationUi(Time.unscaledTime);
+            };
+            Button cancel = ActionButton("취소", "secondary");
+            cancel.clicked += () => modalHost.Clear();
+            dialog.Add(confirm);
+            dialog.Add(cancel);
+            ShowModal(overlay, dialog);
         }
 
         private void ShowResetConfirmation()
@@ -1079,8 +1138,7 @@ namespace ProjectW.MilestonePrototype
             cancel.clicked += () => modalHost.Clear();
             dialog.Add(confirm);
             dialog.Add(cancel);
-            overlay.Add(dialog);
-            modalHost.Add(overlay);
+            ShowModal(overlay, dialog);
         }
 
         private void ShowProgressResetConfirmation()
@@ -1104,8 +1162,7 @@ namespace ProjectW.MilestonePrototype
             cancel.clicked += () => modalHost.Clear();
             dialog.Add(confirm);
             dialog.Add(cancel);
-            overlay.Add(dialog);
-            modalHost.Add(overlay);
+            ShowModal(overlay, dialog);
         }
 
         private void AdvanceDay()
@@ -1135,8 +1192,7 @@ namespace ProjectW.MilestonePrototype
             decline.clicked += () => { game.DeclineIncidentWork(offer.Id); modalHost.Clear(); SaveAndRefresh(activePage); };
             dialog.Add(accept);
             dialog.Add(decline);
-            overlay.Add(dialog);
-            modalHost.Add(overlay);
+            ShowModal(overlay, dialog);
         }
 
         private void ToggleTheme()
@@ -1151,9 +1207,34 @@ namespace ProjectW.MilestonePrototype
 
         private void ApplyTheme()
         {
-            if (root == null) return;
-            root.EnableInClassList("theme-dark", darkTheme);
-            root.EnableInClassList("theme-light", !darkTheme);
+            if (appRoot == null) return;
+            appRoot.EnableInClassList("theme-dark", darkTheme);
+            appRoot.EnableInClassList("theme-light", !darkTheme);
+        }
+
+        private void ToggleReducedMotion()
+        {
+            reduceMotion = !reduceMotion;
+            PlayerPrefs.SetInt(ReduceMotionKey, reduceMotion ? 1 : 0);
+            PlayerPrefs.Save();
+            ApplyMotionPreference();
+            if (titleScreen.style.display == DisplayStyle.Flex) ShowTitleOptions();
+            else Navigate(activePage);
+        }
+
+        private void ApplyMotionPreference()
+        {
+            if (appRoot == null) return;
+            appRoot.EnableInClassList("reduce-motion", reduceMotion);
+            if (!reduceMotion) return;
+            ReleaseEntranceClasses();
+            if (notificationPanelClosing)
+            {
+                notificationPanelClosing = false;
+                notificationPanelHideAt = float.MaxValue;
+                notificationPanel.style.display = DisplayStyle.None;
+                notificationPanel.RemoveFromClassList("motion-panel-exit");
+            }
         }
 
         private void SaveAndRefresh(string page)
@@ -1165,10 +1246,20 @@ namespace ProjectW.MilestonePrototype
 
         private void Update()
         {
+            float now = Time.unscaledTime;
             if (workerDetailPopupVisible && IsWorkerDetailDismissInputPressed())
                 DismissWorkerDetailPopup();
-            if (notifications != null && Time.unscaledTime >= nextNotificationExpiry)
-                RefreshNotificationUi(Time.unscaledTime);
+            if (motionReleaseAt != float.MaxValue && now >= motionReleaseAt)
+                ReleaseEntranceClasses();
+            if (notificationPanelClosing && now >= notificationPanelHideAt)
+            {
+                notificationPanelClosing = false;
+                notificationPanelHideAt = float.MaxValue;
+                notificationPanel.RemoveFromClassList("motion-panel-exit");
+                notificationPanel.style.display = DisplayStyle.None;
+            }
+            if (notifications != null && now >= nextNotificationExpiry)
+                RefreshNotificationUi(now);
         }
 
         private void DismissWorkerDetailOnPointerDown(PointerDownEvent pointerEvent)
@@ -1232,8 +1323,7 @@ namespace ProjectW.MilestonePrototype
             Button close = ActionButton("닫기", "secondary");
             close.clicked += DismissWorkerDetailPopup;
             dialog.Add(close);
-            overlay.Add(dialog);
-            modalHost.Add(overlay);
+            ShowModal(overlay, dialog);
         }
 
         private static string CrewStatsText(CrewMember crew)
@@ -1263,6 +1353,31 @@ namespace ProjectW.MilestonePrototype
         {
             pageEyebrow.text = eyebrow;
             pageTitle.text = title;
+        }
+
+        private void ShowModal(VisualElement overlay, VisualElement dialog)
+        {
+            modalHost.Clear();
+            overlay.Add(dialog);
+            modalHost.Add(overlay);
+            QueueEntrance(modalHost, "motion-modal-enter");
+        }
+
+        private void QueueEntrance(VisualElement element, string className)
+        {
+            if (reduceMotion || element == null) return;
+            element.RemoveFromClassList(className);
+            element.AddToClassList(className);
+            motionReleaseAt = Time.unscaledTime + 0.01f;
+        }
+
+        private void ReleaseEntranceClasses()
+        {
+            motionReleaseAt = float.MaxValue;
+            pageContent?.RemoveFromClassList("motion-page-enter");
+            modalHost?.RemoveFromClassList("motion-modal-enter");
+            notificationToastHost?.RemoveFromClassList("motion-toast-enter");
+            notificationPanel?.RemoveFromClassList("motion-panel-enter");
         }
 
         private static VisualElement Box(string className)

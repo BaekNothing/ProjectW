@@ -15,6 +15,7 @@
     --error: rgb(205, 52, 62);
     --error-soft: rgb(255, 230, 232);
     --timeline-grid: rgb(228, 232, 239);
+    --focus-ring: rgb(18, 113, 255);
     color: var(--text-primary);
 }
 
@@ -35,6 +36,7 @@
     --error: rgb(255, 105, 117);
     --error-soft: rgb(83, 38, 43);
     --timeline-grid: rgb(57, 64, 78);
+    --focus-ring: rgb(130, 188, 255);
 }
 
 .eyebrow {
