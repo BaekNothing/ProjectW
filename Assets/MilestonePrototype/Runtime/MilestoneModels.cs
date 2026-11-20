@@ -407,6 +407,8 @@ namespace ProjectW.MilestonePrototype
         public int InitialClarity;
         public int PlanAcceptanceScore = 70;
         public int MaxPlanRejections = 3;
+        public int PlanReviewMinDays = 1;
+        public int PlanReviewMaxDays = 3;
         public float LateScoreMultiplier = .8f;
         public StakeholderClarificationDefinition[] Clarifications;
         public StakeholderGuidanceDefinition[] Guidance;
@@ -464,6 +466,7 @@ namespace ProjectW.MilestonePrototype
         public bool PlanFailed;
         public int PlanSubmissionCount;
         public int PlanRejectionCount;
+        public int PendingPlanReviewDay;
         public int LastPlanProjectedCompletionDay;
         public int LastPlanProjectedFit = -1;
         public string LastPlanReviewMessage;

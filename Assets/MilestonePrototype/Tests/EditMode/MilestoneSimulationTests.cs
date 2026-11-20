@@ -100,6 +100,19 @@ namespace ProjectW.MilestonePrototype.Tests
 
             Assert.That(game.SubmitStakeholderPlan(request.Id), Is.True);
 
+            Assert.That(request.PlanConfirmed, Is.False);
+            Assert.That(request.PendingPlanReviewDay, Is.InRange(game.Day + 1, game.Day + 3));
+            Assert.That(game.NextEventDay, Is.EqualTo(request.PendingPlanReviewDay));
+            Assert.That(game.NextEventSummary, Is.EqualTo("계획 검토"));
+            Assert.That(game.IsWorkVisible(work), Is.False);
+            Assert.That(tasks, Has.All.Matches<WorkTask>(task =>
+                task.PlannedCharacter >= 0 && task.AssignedCharacter < 0));
+            Assert.That(game.AssignStakeholderTask(tasks[0].Id, 3), Is.False);
+            Assert.That(game.RequestStakeholderClarification(request.Id, "call"), Is.False);
+            Assert.That(game.SubmitStakeholderPlan(request.Id), Is.False);
+
+            AdvanceUntilStakeholderPlanReviewed(game, request);
+
             Assert.That(request.PlanConfirmed, Is.True);
             Assert.That(game.IsWorkVisible(work), Is.True);
             Assert.That(tasks, Has.All.Matches<WorkTask>(task =>
@@ -126,6 +139,10 @@ namespace ProjectW.MilestonePrototype.Tests
                 Is.GreaterThan(work.SoftDeadline));
             Assert.That(game.SubmitStakeholderPlan(request.Id), Is.True);
 
+            Assert.That(request.PlanRejectionCount, Is.EqualTo(0));
+            Assert.That(request.PendingPlanReviewDay, Is.GreaterThan(game.Day));
+            AdvanceUntilStakeholderPlanReviewed(game, request);
+
             Assert.That(request.PlanConfirmed, Is.False);
             Assert.That(request.PlanRejectionCount, Is.EqualTo(1));
             Assert.That(request.LastPlanReviewMessage, Does.Contain("소프트 마감"));
@@ -144,8 +161,11 @@ namespace ProjectW.MilestonePrototype.Tests
 
             Assert.That(game.StakeholderPlanProjectedFit(request.Id), Is.LessThan(70));
             Assert.That(game.SubmitStakeholderPlan(request.Id), Is.True);
+            AdvanceUntilStakeholderPlanReviewed(game, request);
             Assert.That(game.SubmitStakeholderPlan(request.Id), Is.True);
+            AdvanceUntilStakeholderPlanReviewed(game, request);
             Assert.That(game.SubmitStakeholderPlan(request.Id), Is.True);
+            AdvanceUntilStakeholderPlanReviewed(game, request);
 
             Assert.That(request.PlanRejectionCount, Is.EqualTo(3));
             Assert.That(request.PlanFailed, Is.True);
@@ -268,6 +288,7 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(game.AssignStakeholderTask("stakeholder-landing-brief-operations", 2), Is.True);
             Assert.That(game.AssignStakeholderTask("stakeholder-landing-brief-handoff", 0), Is.True);
             Assert.That(game.ConfirmStakeholderPlan("landing-brief"), Is.True);
+            AdvanceUntilStakeholderPlanReviewed(game, game.StakeholderState("landing-brief"));
             game.Crew[0].DailyOutput = 100f;
             game.Crew[1].DailyOutput = 100f;
             game.Crew[2].DailyOutput = 100f;
@@ -312,6 +333,27 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(task.AssignedCharacter, Is.EqualTo(-1));
             Assert.That(restored.Mail.Exists(mail => mail.Id == "mail-stakeholder-landing"), Is.True,
                 "A patch must add the request entry mail to an older campaign snapshot.");
+        }
+
+        [Test]
+        public void PendingStakeholderPlanReviewSurvivesCampaignRestore()
+        {
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            var game = new MilestoneSimulation(data, 1);
+            game.OpenStakeholderRequest("mail-stakeholder-landing");
+            game.StartStakeholderPlanning("landing-brief");
+            FillStakeholderPlan(game, true);
+            Assert.That(game.SubmitStakeholderPlan("landing-brief"), Is.True);
+            int reviewDay = game.StakeholderState("landing-brief").PendingPlanReviewDay;
+
+            var restored = new MilestoneSimulation(data, 2);
+            Assert.That(restored.Restore(game.CreateSnapshot()), Is.True);
+            StakeholderRequestState request = restored.StakeholderState("landing-brief");
+
+            Assert.That(request.PendingPlanReviewDay, Is.EqualTo(reviewDay));
+            Assert.That(restored.NextEventDay, Is.EqualTo(reviewDay));
+            AdvanceUntilStakeholderPlanReviewed(restored, request);
+            Assert.That(request.PlanConfirmed, Is.True);
         }
 
         [TestCase(1, 1, 10, 1, 4)]
@@ -2764,6 +2806,16 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(game.AssignStakeholderTask(analysis, 1), Is.True);
             Assert.That(game.AssignStakeholderTask(operations, 2), Is.True);
             Assert.That(game.AssignStakeholderTask(handoff, 0), Is.True);
+        }
+
+        private static void AdvanceUntilStakeholderPlanReviewed(
+            MilestoneSimulation game, StakeholderRequestState request)
+        {
+            int reviewDay = request.PendingPlanReviewDay;
+            Assert.That(reviewDay, Is.GreaterThan(game.Day));
+            while (request.PendingPlanReviewDay > 0)
+                game.AdvanceDay();
+            Assert.That(game.Day, Is.EqualTo(reviewDay));
         }
 
         private static void UsePlanningTestFixture(TaskSystemData data)

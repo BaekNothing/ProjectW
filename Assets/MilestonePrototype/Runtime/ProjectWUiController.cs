@@ -634,6 +634,7 @@ namespace ProjectW.MilestonePrototype
                 ? $"납품 완료 · {request.FitScore}점"
                 : request.PlanFailed ? "요청 실패"
                 : request.PlanConfirmed ? "실행 중"
+                : request.PendingPlanReviewDay > 0 ? $"계획 검토 중 · D{request.PendingPlanReviewDay:00} 답변"
                 : request.PlanningStarted ? "계획 중" : "요청 검토";
             var board = Section(definition.Stakeholder, $"{definition.PlannedWeeks}주 요청 · {status}");
             board.Add(Text("요청", "caption"));
@@ -663,13 +664,16 @@ namespace ProjectW.MilestonePrototype
                 var clarification = Box("button-row");
                 if (!string.IsNullOrEmpty(request.PendingClarificationId))
                     clarification.Add(Badge($"D{request.PendingClarificationDay:00} 교감 예정", "accent"));
+                if (request.PendingPlanReviewDay > 0)
+                    clarification.Add(Badge($"D{request.PendingPlanReviewDay:00} 계획 검토 중", "accent"));
                 foreach (StakeholderClarificationDefinition option in definition.Clarifications)
                 {
                     StakeholderClarificationDefinition selected = option;
                     Button action = ActionButton(
                         $"{option.Name} 요청 · {option.LeadDays}일 / 명확도 +{option.ClarityGain}",
                         "secondary");
-                    action.SetEnabled(string.IsNullOrEmpty(request.PendingClarificationId));
+                    action.SetEnabled(string.IsNullOrEmpty(request.PendingClarificationId) &&
+                                      request.PendingPlanReviewDay <= 0);
                     action.clicked += () =>
                     {
                         game.RequestStakeholderClarification(request.Id, selected.Id);
@@ -733,7 +737,8 @@ namespace ProjectW.MilestonePrototype
                 count++;
                 var row = Box("mail-row");
                 row.Add(Badge(request.FitScore >= 0 ? "완료" : request.PlanFailed ? "실패" :
-                        request.PlanConfirmed ? "승인·실행" : request.PlanRejectionCount > 0 ? "수정 요청" : "계획 중",
+                        request.PlanConfirmed ? "승인·실행" : request.PendingPlanReviewDay > 0 ? "검토 대기" :
+                        request.PlanRejectionCount > 0 ? "수정 요청" : "계획 중",
                     request.FitScore >= 0 ? "success" : request.PlanFailed ? "error" :
                     request.PlanConfirmed ? "accent" : "neutral"));
                 var copy = Box("mail-copy");
@@ -765,6 +770,7 @@ namespace ProjectW.MilestonePrototype
                 ? $"납품 완료 · {request.FitScore}점"
                 : request.PlanFailed ? "요청 실패"
                 : request.PlanConfirmed ? "승인·실행 중"
+                : request.PendingPlanReviewDay > 0 ? $"검토 대기 · D{request.PendingPlanReviewDay:00} 답변"
                 : request.PlanRejectionCount > 0 ? "반려 후 수정 중" : "작성 중";
             var board = Section(definition.Stakeholder + " 계획", status);
             var metrics = Box("metric-grid");
@@ -791,8 +797,11 @@ namespace ProjectW.MilestonePrototype
             if (request.PlanSubmissionCount > 0)
             {
                 var review = Box("summary-row");
-                review.Add(Badge(request.PlanConfirmed ? "승인" : request.PlanFailed ? "실패" : "반려",
-                    request.PlanConfirmed ? "success" : request.PlanFailed ? "error" : "warning"));
+                bool pendingReview = request.PendingPlanReviewDay > 0;
+                review.Add(Badge(request.PlanConfirmed ? "승인" : request.PlanFailed ? "실패" :
+                        pendingReview ? "검토 중" : "반려",
+                    request.PlanConfirmed ? "success" : request.PlanFailed ? "error" :
+                    pendingReview ? "accent" : "warning"));
                 review.Add(Text($"검토 {request.PlanSubmissionCount}회 · 반려 " +
                                 $"{request.PlanRejectionCount}/{definition.MaxPlanRejections}", "summary-title"));
                 review.Add(Text(request.LastPlanReviewMessage, "muted"));
@@ -808,7 +817,9 @@ namespace ProjectW.MilestonePrototype
 
             if (!request.PlanConfirmed && !request.PlanFailed && request.FitScore < 0)
             {
-                Button submit = ActionButton("계획서 보내기", "primary");
+                Button submit = ActionButton(request.PendingPlanReviewDay > 0
+                    ? $"검토 대기 · D{request.PendingPlanReviewDay:00}"
+                    : "계획서 보내기", "primary");
                 submit.SetEnabled(game.CanSubmitStakeholderPlan(request.Id));
                 submit.clicked += () =>
                 {
@@ -816,8 +827,10 @@ namespace ProjectW.MilestonePrototype
                     SaveAndRefresh("plan");
                 };
                 board.Add(submit);
-                board.Add(Text($"모든 슬롯과 담당자를 채우고 추가 정보 대기가 없어야 보낼 수 있습니다. " +
-                               $"예상 완료가 소프트 마감 D{work.SoftDeadline:00} 이내이고 내용 이견이 없어야 승인됩니다.",
+                board.Add(Text(request.PendingPlanReviewDay > 0
+                        ? "검토 결과가 도착할 때까지 계획과 담당자를 변경하거나 다시 제출할 수 없습니다."
+                        : $"모든 슬롯과 담당자를 채우고 추가 정보 대기가 없어야 보낼 수 있습니다. " +
+                          $"답변에는 1일 이상이 걸리며, 예상 완료가 소프트 마감 D{work.SoftDeadline:00} 이내이고 내용 이견이 없어야 승인됩니다.",
                     "caption"));
             }
             pageContent.Add(board);
@@ -841,7 +854,8 @@ namespace ProjectW.MilestonePrototype
             Button blockPicker = ActionButton(selectedBlock == null
                 ? "작업 블록 선택  ▼"
                 : selectedBlock.Name + "  ▼", selectedBlock == null ? "secondary" : "primary");
-            blockPicker.SetEnabled(!request.PlanConfirmed && !request.PlanFailed && request.FitScore < 0);
+            blockPicker.SetEnabled(!request.PlanConfirmed && !request.PlanFailed &&
+                                   request.PendingPlanReviewDay <= 0 && request.FitScore < 0);
             blockPicker.clicked += () => ShowTaskBlockPicker(request, task);
             card.Add(blockPicker);
 
@@ -860,7 +874,8 @@ namespace ProjectW.MilestonePrototype
             Button workerPicker = ActionButton(crewName + "  ▼",
                 assignedWorker >= 0 ? "primary" : "secondary");
             workerPicker.AddToClassList("assignment-selector");
-            workerPicker.SetEnabled(request.FitScore < 0 && !request.PlanFailed && selectedBlock != null);
+            workerPicker.SetEnabled(request.FitScore < 0 && !request.PlanFailed &&
+                                    request.PendingPlanReviewDay <= 0 && selectedBlock != null);
             workerPicker.clicked += () => ShowWorkerPicker(task);
             assignment.Add(workerPicker);
             if (assignedWorker >= 0 && assignedWorker < game.Crew.Count)
@@ -908,7 +923,8 @@ namespace ProjectW.MilestonePrototype
         private void ShowTaskBlockPicker(StakeholderRequestState request, WorkTask task)
         {
             StakeholderRequestDefinition definition = game.StakeholderDefinition(request.Id);
-            if (definition == null || request.PlanConfirmed || request.PlanFailed) return;
+            if (definition == null || request.PlanConfirmed || request.PlanFailed ||
+                request.PendingPlanReviewDay > 0) return;
             modalHost.Clear();
             var overlay = Box("modal-overlay");
             var dialog = Section(StakeholderSlotLabel(task) + " · 작업 블록 선택",
@@ -958,7 +974,7 @@ namespace ProjectW.MilestonePrototype
         {
             if (task == null || string.IsNullOrEmpty(task.SelectedTaskBlockId)) return;
             StakeholderRequestState request = game.StakeholderState(task.StakeholderRequestId);
-            if (request == null || request.PlanFailed) return;
+            if (request == null || request.PlanFailed || request.PendingPlanReviewDay > 0) return;
             int assignedWorker = StakeholderWorkerIndex(request, task);
             modalHost.Clear();
             var overlay = Box("modal-overlay");

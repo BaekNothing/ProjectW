@@ -2,14 +2,13 @@
 
 ## Document Control
 
-- Version: 7.4
+- Version: 7.5
 - Status: Approved for implementation
 - Action: Update
 - SSOT Change: Yes
-- Rationale: Add a stakeholder review gate between plan authoring and execution. A submitted plan
-  enters the work queue only when its projected completion is within the soft deadline and its
-  hidden intent fit clears the authored acceptance threshold. Rejected plans remain editable, while
-  reaching the authored rejection limit fails the request.
+- Rationale: Make stakeholder plan review consume an authored, partially random delay of at least
+  one day. Submitted plans are locked while awaiting the scheduled response, and the review date is
+  treated as a meaningful next-event stop before acceptance or rejection is resolved.
 - Idea references: `IDEA.md` items 1, 2, 4, and 8
 
 ## Scope
@@ -86,11 +85,13 @@ The primary player loop is:
 3. Either spend days clarifying the request or select `계획하기` with the current interpretation.
 4. In the separate planning board, place one available work block into each empty `60 / 30 / 10`
    slot and choose one available worker for every filled slot.
-5. Send the plan. The stakeholder accepts it only when its projected completion is on or before the
-   soft deadline and its hidden intent fit clears the authored acceptance threshold.
-6. Revise a rejected plan, or fail the request when its authored rejection limit is reached.
-7. After acceptance, register its Tasks and workers in the execution queue and advance days.
-8. When all required Tasks finish, deliver the combined result and receive a stakeholder-fit score.
+5. Send the plan and wait at least one day for its randomly scheduled review response. The plan and
+   provisional staffing are locked during review, and the delay is included in its completion forecast.
+6. On the review day, the stakeholder accepts it only when its projected completion is on or before
+   the soft deadline and its hidden intent fit clears the authored acceptance threshold.
+7. Revise a rejected plan, or fail the request when its authored rejection limit is reached.
+8. After acceptance, register its Tasks and workers in the execution queue and advance days.
+9. When all required Tasks finish, deliver the combined result and receive a stakeholder-fit score.
 
 The player's essential adjustment is how an ambiguous request is interpreted and staffed. Fatigue,
 health, schedules, competencies, deadlines, mail, Gantt projections, and other existing systems
@@ -138,8 +139,11 @@ second competing core loop.
   intervention rules, urgent preemption, or implicit fallback. Their staffing is the player's core
   decision and requires explicit confirmation.
 - Once every required slot is valid and no clarification is pending, the player sends the plan.
-  Rejection produces a response mail and preserves the editable plan. Acceptance marks the request
-  as dispute-free, registers the Tasks in the queue, and allows execution through the existing daily
+  Review takes a randomly selected number of days inside the authored inclusive minimum/maximum
+  range, whose minimum must be at least `1`. The submitted plan cannot be edited, clarified, or
+  resubmitted while review is pending. Rejection produces a response mail and restores editing.
+  Acceptance marks the request as dispute-free, registers the Tasks in the queue, and allows
+  execution through the existing daily
   progress, fatigue, condition, interruption, and completion rules. Reaching the authored maximum
   rejection count fails the request and never registers it in the queue.
 
@@ -613,7 +617,8 @@ External data includes:
 - initial planning baseline and starting resources
 - midpoint review day
 - Stakeholder Request definitions: stakeholder, brief, hidden intent profile, initial clarity,
-  planned weeks, deadlines, plan-acceptance threshold, rejection limit, clarification options,
+  planned weeks, deadlines, plan-acceptance threshold, rejection limit, review-delay range,
+  clarification options,
   revealed guidance thresholds, and result text
 - request Task definitions: `60 / 30 / 10` contribution weights, interpretation/intent tags,
   role eligibility, competency minimums, workload, and late-score multiplier
@@ -751,6 +756,9 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 - Each rejected submission creates a stakeholder response and leaves the plan editable. Acceptance
   converts provisional staffing into live assignments; reaching the authored rejection limit fails
   the request without queue registration.
+- Every submission schedules its result after an authored random delay of at least one day. The
+  pending review day appears in Plan and Mail, locks plan edits, contributes to the completion
+  forecast, and is included in the `다음 이벤트까지` event search as `계획 검토`.
 - Requesting a call or meeting schedules one future interaction, increases clarity on its due day,
   reveals authored intent guidance, and never extends the delivery deadline.
 - A request cannot be delivered while a clarification is pending or while a required Task is
@@ -859,6 +867,8 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 - Sending a plan produces a stakeholder review response in Mail. A rejection explains schedule
   overrun and/or content disagreement without exposing hidden intent values; acceptance states that
   no disagreement remains and that execution was registered.
+- The response is not immediate. It arrives on the scheduled review day after at least one campaign
+  day has advanced, with the exact delay selected from the request's authored range.
 - A clarification request and its eventual stakeholder response are shown as one request-thread
   history. The scheduled response day remains visible until it resolves.
 - Delivery creates a result mail containing the final stakeholder-fit score and weighted Task
@@ -915,6 +925,8 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 - The board shows the projected completion day and latest review result. Rejected plans remain
   editable; accepted plans become a live delivery view showing progress, schedule risk, ownership,
   clarification history, and the eventual score breakdown.
+- While review is pending, the board shows its response day, disables block/staffing changes and
+  clarification requests, and exposes the same date to next-event advance.
 - The broader operations desktop and Gantt are read-oriented status surfaces for this loop. They may
   open the request board but must not require duplicate assignment work.
 

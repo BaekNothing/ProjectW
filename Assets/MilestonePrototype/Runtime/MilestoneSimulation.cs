@@ -130,6 +130,7 @@ namespace ProjectW.MilestonePrototype
                 {
                     if (request == null) continue;
                     next = EarlierFutureDay(next, request.PendingClarificationDay, Day);
+                    next = EarlierFutureDay(next, request.PendingPlanReviewDay, Day);
                 }
                 foreach (MailEvent mail in Mail)
                 {
@@ -175,7 +176,10 @@ namespace ProjectW.MilestonePrototype
             {
                 int eventDay = NextEventDay;
                 foreach (StakeholderRequestState request in StakeholderRequests)
+                {
                     if (request != null && request.PendingClarificationDay == eventDay) return "추가 정보";
+                    if (request != null && request.PendingPlanReviewDay == eventDay) return "계획 검토";
+                }
                 foreach (WorkTask task in Tasks)
                 {
                     if (task == null || task.AssignedCharacter < 0) continue;
@@ -635,7 +639,8 @@ namespace ProjectW.MilestonePrototype
             StakeholderRequestDefinition request = task == null
                 ? null : StakeholderDefinition(task.StakeholderRequestId);
             if (task == null || state == null || request?.Tasks == null ||
-                !state.PlanningStarted || state.PlanConfirmed || state.PlanFailed) return false;
+                !state.PlanningStarted || state.PlanConfirmed || state.PlanFailed ||
+                state.PendingPlanReviewDay > 0) return false;
             if (string.IsNullOrEmpty(taskBlockId) || string.IsNullOrEmpty(interpretationId))
                 return ClearStakeholderTaskBlock(task);
             foreach (WorkTask other in Tasks)
@@ -728,7 +733,8 @@ namespace ProjectW.MilestonePrototype
             WorkTask task = Tasks.FirstOrDefault(candidate => candidate.Id == taskId);
             if (task == null || string.IsNullOrEmpty(task.StakeholderRequestId)) return false;
             StakeholderRequestState state = StakeholderState(task.StakeholderRequestId);
-            if (state == null || !state.PlanningStarted || state.FitScore >= 0 || state.PlanFailed)
+            if (state == null || !state.PlanningStarted || state.FitScore >= 0 || state.PlanFailed ||
+                state.PendingPlanReviewDay > 0)
                 return false;
             if (!state.PlanConfirmed)
             {
@@ -767,35 +773,16 @@ namespace ProjectW.MilestonePrototype
                 !CanSubmitStakeholderPlan(requestId)) return false;
 
             state.PlanSubmissionCount++;
-            state.LastPlanProjectedCompletionDay = StakeholderPlanProjectedCompletionDay(requestId);
+            int reviewDays = random.Next(definition.PlanReviewMinDays,
+                definition.PlanReviewMaxDays + 1);
+            state.PendingPlanReviewDay = Day + reviewDays;
+            state.LastPlanProjectedCompletionDay = StakeholderPlanProjectedCompletionDay(
+                requestId, state.PendingPlanReviewDay);
             state.LastPlanProjectedFit = StakeholderPlanProjectedFit(requestId);
-            bool scheduleAccepted = state.LastPlanProjectedCompletionDay > 0 &&
-                                    state.LastPlanProjectedCompletionDay <= group.SoftDeadline;
-            bool intentAccepted = state.LastPlanProjectedFit >= definition.PlanAcceptanceScore;
-            if (scheduleAccepted && intentAccepted)
-            {
-                state.PlanConfirmed = true;
-                state.LastPlanReviewMessage = "일정과 요청 내용에 이견 없음 · 실행 승인";
-                ActivateStakeholderPlan(requestId);
-                AddStakeholderPlanReviewMail(state, definition, true);
-                Log($"요청 계획 승인 및 작업 큐 등록: {definition.Stakeholder}");
-                RefreshStates();
-                return true;
-            }
-
-            state.PlanRejectionCount++;
-            string reason = !scheduleAccepted && !intentAccepted
-                ? $"예상 완료 D{state.LastPlanProjectedCompletionDay:00}가 소프트 마감 D{group.SoftDeadline:00}을 넘고 요청 내용에도 이견이 있습니다."
-                : !scheduleAccepted
-                    ? $"예상 완료 D{state.LastPlanProjectedCompletionDay:00}가 소프트 마감 D{group.SoftDeadline:00}을 넘습니다."
-                    : "요청에서 중시한 내용과 계획 사이에 이견이 있습니다.";
-            state.LastPlanReviewMessage = reason;
-            if (state.PlanRejectionCount >= definition.MaxPlanRejections)
-                FailStakeholderPlan(state, group);
-            AddStakeholderPlanReviewMail(state, definition, false);
-            Log($"요청 계획 반려 {state.PlanRejectionCount}/{definition.MaxPlanRejections}: " +
-                definition.Stakeholder);
-            RefreshStates();
+            state.LastPlanReviewMessage =
+                $"계획 검토 중 · D{state.PendingPlanReviewDay:00} 답변 예정 ({reviewDays}일 소요)";
+            Log($"요청 계획 제출: {definition.Stakeholder} · " +
+                $"D{state.PendingPlanReviewDay:00} 검토 예정");
             return true;
         }
 
@@ -808,6 +795,7 @@ namespace ProjectW.MilestonePrototype
         {
             StakeholderRequestState state = StakeholderState(requestId);
             if (state == null || !state.PlanningStarted || state.PlanConfirmed || state.PlanFailed ||
+                state.PendingPlanReviewDay > 0 ||
                 !string.IsNullOrEmpty(state.PendingClarificationId)) return false;
             WorkGroup group = Groups.FirstOrDefault(candidate => candidate.Id == state.WorkId);
             if (group == null || group.State == WorkState.Failed || Day > group.HardDeadline)
@@ -845,6 +833,14 @@ namespace ProjectW.MilestonePrototype
 
         public int StakeholderPlanProjectedCompletionDay(string requestId)
         {
+            StakeholderRequestState state = StakeholderState(requestId);
+            int startDay = state != null && state.PendingPlanReviewDay > Day
+                ? state.PendingPlanReviewDay : Day;
+            return StakeholderPlanProjectedCompletionDay(requestId, startDay);
+        }
+
+        private int StakeholderPlanProjectedCompletionDay(string requestId, int startDay)
+        {
             int completionDay = 0;
             int taskCount = 0;
             foreach (WorkTask task in Tasks)
@@ -855,7 +851,7 @@ namespace ProjectW.MilestonePrototype
                 if (worker < 0 || worker >= Crew.Count) return 0;
                 float output = ExpectedDailyOutput(task, worker);
                 int duration = CeilPositive(task.RemainingWork / output);
-                completionDay = Math.Max(completionDay, Day + Math.Max(0, duration - 1));
+                completionDay = Math.Max(completionDay, startDay + Math.Max(0, duration - 1));
                 taskCount++;
             }
             return taskCount == 3 ? completionDay : 0;
@@ -882,6 +878,7 @@ namespace ProjectW.MilestonePrototype
         private void FailStakeholderPlan(StakeholderRequestState state, WorkGroup group)
         {
             state.PlanFailed = true;
+            state.PendingPlanReviewDay = 0;
             state.LastPlanReviewMessage += " 세 번째 반려로 요청이 실패했습니다.";
             group.State = WorkState.Failed;
             foreach (WorkTask task in Tasks.Where(candidate =>
@@ -924,6 +921,7 @@ namespace ProjectW.MilestonePrototype
             StakeholderRequestState state = StakeholderState(requestId);
             StakeholderRequestDefinition definition = StakeholderDefinition(requestId);
             if (state == null || state.PlanConfirmed || state.PlanFailed ||
+                state.PendingPlanReviewDay > 0 ||
                 definition?.Clarifications == null ||
                 state.FitScore >= 0 ||
                 !string.IsNullOrEmpty(state.PendingClarificationId)) return false;
@@ -957,6 +955,45 @@ namespace ProjectW.MilestonePrototype
                 state.PendingClarificationDay = 0;
                 report.Lines.Add($"요청 명확화: {definition.Stakeholder} {selected.Name} · 명확도 {state.Clarity}");
                 TryScoreStakeholderRequest(state.Id, report);
+            }
+        }
+
+        private void ResolveDueStakeholderPlanReviews(DayReport report)
+        {
+            foreach (StakeholderRequestState state in StakeholderRequests)
+            {
+                if (state == null || state.PendingPlanReviewDay <= 0 ||
+                    state.PendingPlanReviewDay > Day) continue;
+                StakeholderRequestDefinition definition = StakeholderDefinition(state.Id);
+                WorkGroup group = Groups.FirstOrDefault(candidate => candidate.Id == state.WorkId);
+                state.PendingPlanReviewDay = 0;
+                if (definition == null || group == null || state.PlanConfirmed || state.PlanFailed)
+                    continue;
+
+                bool scheduleAccepted = state.LastPlanProjectedCompletionDay > 0 &&
+                                        state.LastPlanProjectedCompletionDay <= group.SoftDeadline;
+                bool intentAccepted = state.LastPlanProjectedFit >= definition.PlanAcceptanceScore;
+                if (scheduleAccepted && intentAccepted)
+                {
+                    state.PlanConfirmed = true;
+                    state.LastPlanReviewMessage = "일정과 요청 내용에 이견 없음 · 실행 승인";
+                    ActivateStakeholderPlan(state.Id);
+                    AddStakeholderPlanReviewMail(state, definition, true);
+                    report.Lines.Add($"요청 계획 승인: {definition.Stakeholder} · 작업 큐 등록");
+                    continue;
+                }
+
+                state.PlanRejectionCount++;
+                state.LastPlanReviewMessage = !scheduleAccepted && !intentAccepted
+                    ? $"예상 완료 D{state.LastPlanProjectedCompletionDay:00}가 소프트 마감 D{group.SoftDeadline:00}을 넘고 요청 내용에도 이견이 있습니다."
+                    : !scheduleAccepted
+                        ? $"예상 완료 D{state.LastPlanProjectedCompletionDay:00}가 소프트 마감 D{group.SoftDeadline:00}을 넘습니다."
+                        : "요청에서 중시한 내용과 계획 사이에 이견이 있습니다.";
+                if (state.PlanRejectionCount >= definition.MaxPlanRejections)
+                    FailStakeholderPlan(state, group);
+                AddStakeholderPlanReviewMail(state, definition, false);
+                report.Lines.Add($"요청 계획 반려 {state.PlanRejectionCount}/" +
+                                 $"{definition.MaxPlanRejections}: {definition.Stakeholder}");
             }
         }
 
@@ -1831,6 +1868,7 @@ namespace ProjectW.MilestonePrototype
             ApplyPayroll(report);
             Day++;
             ResolveDueStakeholderClarifications(report);
+            ResolveDueStakeholderPlanReviews(report);
             DeliverWeeklyFieldReport();
             DeliverMedicalResults();
             RefreshStates();
@@ -3135,6 +3173,7 @@ namespace ProjectW.MilestonePrototype
                     if (request != null && !request.PlanConfirmed)
                     {
                         request.PlanFailed = true;
+                        request.PendingPlanReviewDay = 0;
                         request.LastPlanReviewMessage = "하드 마감 전에 승인 가능한 계획을 만들지 못했습니다.";
                     }
                 }
