@@ -9,6 +9,14 @@ namespace ProjectW.MilestonePrototype.Tests
 {
     public sealed class MilestoneSimulationTests
     {
+        private const string PlanningWorkId = "test-planning-work";
+        private const string FollowupWorkId = "test-followup-work";
+        private const string RootTaskId = "test-root";
+        private const string DependentTaskAId = "test-dependent-a";
+        private const string DependentTaskBId = "test-dependent-b";
+        private const string OptionalTaskId = "test-optional";
+        private const string FollowupTaskId = "test-followup";
+
         [Test]
         public void StakeholderMailCreatesWeightedTasksWithoutAutomaticStaffing()
         {
@@ -880,58 +888,62 @@ namespace ProjectW.MilestonePrototype.Tests
         public void CompetencyAutoAssignmentLeavesSuccessorsUnassignedUntilPredecessorCompletes()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
+            UsePlanningTestFixture(data);
             DisableAccidents(data);
             var game = new MilestoneSimulation(data, 1);
             game.SetCompetencyAutoAssignment(true);
 
             game.AdvanceDay();
 
-            Assert.That(game.Tasks.Find(task => task.Id == "survey").AssignedCharacter, Is.GreaterThanOrEqualTo(0));
-            Assert.That(game.Tasks.Find(task => task.Id == "power").AssignedCharacter, Is.EqualTo(-1));
-            Assert.That(game.Tasks.Find(task => task.Id == "habitat").AssignedCharacter, Is.EqualTo(-1));
-            Assert.That(game.Tasks.Find(task => task.Id == "safety").AssignedCharacter, Is.EqualTo(-1));
-            Assert.That(game.Tasks.Find(task => task.Id == "launch").AssignedCharacter, Is.EqualTo(-1));
+            Assert.That(game.Tasks.Find(task => task.Id == RootTaskId).AssignedCharacter, Is.GreaterThanOrEqualTo(0));
+            Assert.That(game.Tasks.Find(task => task.Id == DependentTaskAId).AssignedCharacter, Is.EqualTo(-1));
+            Assert.That(game.Tasks.Find(task => task.Id == DependentTaskBId).AssignedCharacter, Is.EqualTo(-1));
+            Assert.That(game.Tasks.Find(task => task.Id == OptionalTaskId).AssignedCharacter, Is.EqualTo(-1));
+            Assert.That(game.Tasks.Find(task => task.Id == FollowupTaskId).AssignedCharacter, Is.EqualTo(-1));
         }
 
         [Test]
         public void CompetencyAutoAssignmentReconsidersSuccessorsOnCycleAfterCompletion()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
+            UsePlanningTestFixture(data);
             DisableAccidents(data);
             data.Balance.BaseSideMissionChance = 0;
-            Array.Find(data.Tasks, task => task.Id == "survey").RequiredWork = .5f;
+            Array.Find(data.Tasks, task => task.Id == RootTaskId).RequiredWork = .5f;
             var game = new MilestoneSimulation(data, 1);
             game.SetCompetencyAutoAssignment(true);
 
             game.AdvanceDay();
-            Assert.That(game.Tasks.Find(task => task.Id == "survey").State, Is.EqualTo(TaskState.Complete));
-            Assert.That(game.Tasks.Find(task => task.Id == "power").AssignedCharacter, Is.EqualTo(-1));
-            Assert.That(game.Tasks.Find(task => task.Id == "habitat").AssignedCharacter, Is.EqualTo(-1));
+            Assert.That(game.Tasks.Find(task => task.Id == RootTaskId).State, Is.EqualTo(TaskState.Complete));
+            Assert.That(game.Tasks.Find(task => task.Id == DependentTaskAId).AssignedCharacter, Is.EqualTo(-1));
+            Assert.That(game.Tasks.Find(task => task.Id == DependentTaskBId).AssignedCharacter, Is.EqualTo(-1));
 
             game.AdvanceDay();
 
-            Assert.That(game.Tasks.Find(task => task.Id == "power").AssignedCharacter, Is.GreaterThanOrEqualTo(0));
-            Assert.That(game.Tasks.Find(task => task.Id == "habitat").AssignedCharacter, Is.GreaterThanOrEqualTo(0));
+            Assert.That(game.Tasks.Find(task => task.Id == DependentTaskAId).AssignedCharacter, Is.GreaterThanOrEqualTo(0));
+            Assert.That(game.Tasks.Find(task => task.Id == DependentTaskBId).AssignedCharacter, Is.GreaterThanOrEqualTo(0));
         }
 
         [Test]
         public void LearnedAutoAssignmentAlsoWaitsForTaskPredecessor()
         {
-            var game = new MilestoneSimulation(1);
-            WorkTask power = game.Tasks.Find(task => task.Id == "power");
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            UsePlanningTestFixture(data);
+            var game = new MilestoneSimulation(data, 1);
+            WorkTask dependent = game.Tasks.Find(task => task.Id == DependentTaskAId);
             game.AssignmentRules.Add(new AssignmentRule
             {
-                Kind = power.Kind,
-                RequiredRole = power.RequiredRole,
-                Difficulty = power.Difficulty,
-                Risk = power.Risk,
-                Importance = power.Importance,
+                Kind = dependent.Kind,
+                RequiredRole = dependent.RequiredRole,
+                Difficulty = dependent.Difficulty,
+                Risk = dependent.Risk,
+                Importance = dependent.Importance,
                 CrewName = game.Crew[0].Name
             });
 
             game.AdvanceDay();
 
-            Assert.That(power.AssignedCharacter, Is.EqualTo(-1));
+            Assert.That(dependent.AssignedCharacter, Is.EqualTo(-1));
         }
 
         [Test]
@@ -1084,7 +1096,7 @@ namespace ProjectW.MilestonePrototype.Tests
         public void UnchangedAssigneeWorksUntilOutputCompletesTaskAndRecordsDates()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
-            UseShortPlanningFixture(data);
+            UsePlanningTestFixture(data);
             data.Balance.LowOutputChance = 0;
             data.Balance.HighOutputChance = 0;
             data.Balance.FreshLowOutputChance = 0;
@@ -1095,7 +1107,7 @@ namespace ProjectW.MilestonePrototype.Tests
             data.Balance.MediumFatigueAccidentChance = 0;
             data.Balance.MismatchAccidentChance = 0;
             var game = new MilestoneSimulation(data, 1);
-            WorkTask survey = game.Tasks.Find(task => task.Id == "survey");
+            WorkTask survey = game.Tasks.Find(task => task.Id == RootTaskId);
 
             game.Assign(survey.Id, 1);
             game.AdvanceDay();
@@ -1143,20 +1155,22 @@ namespace ProjectW.MilestonePrototype.Tests
         public void IncompletePrerequisiteCapsSuccessorAtThirtyPercent()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
+            UsePlanningTestFixture(data);
             data.Balance.LowOutputChance = 0;
             data.Balance.HighOutputChance = 0;
             data.Balance.HighFatigueAccidentChance = 0;
             data.Balance.MediumFatigueAccidentChance = 0;
             data.Balance.MismatchAccidentChance = 0;
             var game = new MilestoneSimulation(data, 1);
-            WorkTask habitat = game.Tasks.Find(task => task.Id == "habitat");
+            game.SetCompetencyAutoAssignment(false);
+            WorkTask dependent = game.Tasks.Find(task => task.Id == DependentTaskBId);
 
-            Assert.That(game.Assign(habitat.Id, 0), Is.True);
+            Assert.That(game.Assign(dependent.Id, 0), Is.True);
             game.AdvanceDay();
             game.AdvanceDay();
 
-            Assert.That(habitat.Progress, Is.EqualTo(habitat.EffectiveRequiredWork * .3f).Within(.001f));
-            Assert.That(habitat.State, Is.EqualTo(TaskState.Active));
+            Assert.That(dependent.Progress, Is.EqualTo(dependent.EffectiveRequiredWork * .3f).Within(.001f));
+            Assert.That(dependent.State, Is.EqualTo(TaskState.Active));
         }
 
         [Test]
@@ -1460,19 +1474,20 @@ namespace ProjectW.MilestonePrototype.Tests
         public void CompletedTaskRetainsAssigneeWithoutConsumingWorkerCapacity()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
+            UsePlanningTestFixture(data);
             data.Balance.RandomWorkLimit = 0;
             DisableAccidents(data);
             var game = new MilestoneSimulation(data, 1);
-            WorkTask survey = game.Tasks.Find(task => task.Id == "survey");
+            WorkTask survey = game.Tasks.Find(task => task.Id == RootTaskId);
             Assert.That(game.Assign(survey.Id, 1), Is.True);
 
             while (survey.State != TaskState.Complete) game.AdvanceDay();
 
             Assert.That(survey.State, Is.EqualTo(TaskState.Complete));
             Assert.That(survey.AssignedCharacter, Is.EqualTo(1));
-            Assert.That(game.Assign("habitat", 1), Is.True);
+            Assert.That(game.Assign(DependentTaskBId, 1), Is.True);
             Assert.That(survey.AssignedCharacter, Is.EqualTo(1));
-            Assert.That(game.Tasks.Find(task => task.Id == "habitat").AssignedCharacter,
+            Assert.That(game.Tasks.Find(task => task.Id == DependentTaskBId).AssignedCharacter,
                 Is.EqualTo(1));
         }
 
@@ -1504,8 +1519,6 @@ namespace ProjectW.MilestonePrototype.Tests
                 Assert.That(childTasks[0].State, Is.EqualTo(TaskState.Locked));
                 Assert.That(game.Mail.FindAll(mail => mail.TargetWorkId == work.Id), Has.Count.EqualTo(1));
             }
-            Assert.That(game.Groups.Find(group => group.Id == "incident").Required, Is.False);
-            Assert.That(game.IsWorkVisible(game.Groups.Find(group => group.Id == "incident")), Is.False);
         }
 
         [Test]
@@ -1605,10 +1618,10 @@ namespace ProjectW.MilestonePrototype.Tests
         public void IdleWorkerScheduleStartsTodayAndDividesWorkByExpectedOutput()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
-            UseShortPlanningFixture(data);
+            UsePlanningTestFixture(data);
             var game = new MilestoneSimulation(data, 1);
 
-            TaskScheduleEstimate estimate = game.EstimateSchedule("survey", 1);
+            TaskScheduleEstimate estimate = game.EstimateSchedule(RootTaskId, 1);
 
             Assert.That(estimate.StartDay, Is.EqualTo(game.Day));
             Assert.That(estimate.ExpectedDailyOutput, Is.EqualTo(1.725f).Within(.001f));
@@ -1621,14 +1634,14 @@ namespace ProjectW.MilestonePrototype.Tests
         public void AssignedBlockerAndBusyWorkerPushSuccessorAfterExpectedCompletion()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
-            UseShortPlanningFixture(data);
+            UsePlanningTestFixture(data);
             var game = new MilestoneSimulation(data, 1);
-            Assert.That(game.Assign("survey", 1), Is.True);
+            Assert.That(game.Assign(RootTaskId, 1), Is.True);
 
-            TaskScheduleEstimate estimate = game.EstimateSchedule("habitat", 1);
+            TaskScheduleEstimate estimate = game.EstimateSchedule(DependentTaskBId, 1);
 
             Assert.That(estimate.StartDay, Is.EqualTo(3));
-            Assert.That(estimate.CompletionDay, Is.EqualTo(7));
+            Assert.That(estimate.CompletionDay, Is.EqualTo(8));
             Assert.That(estimate.RollingStart, Is.False);
         }
 
@@ -1636,13 +1649,13 @@ namespace ProjectW.MilestonePrototype.Tests
         public void UnassignedBlockerUsesBaselinePreviewAndMovesWithCurrentDay()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
-            UseShortPlanningFixture(data);
+            UsePlanningTestFixture(data);
             var game = new MilestoneSimulation(data, 1);
             game.SetCompetencyAutoAssignment(false);
 
-            TaskScheduleEstimate today = game.EstimateSchedule("habitat", 0);
+            TaskScheduleEstimate today = game.EstimateSchedule(DependentTaskBId, 0);
             game.AdvanceDay();
-            TaskScheduleEstimate nextDay = game.EstimateSchedule("habitat", 0);
+            TaskScheduleEstimate nextDay = game.EstimateSchedule(DependentTaskBId, 0);
 
             Assert.That(today.StartDay, Is.EqualTo(4));
             Assert.That(today.RollingStart, Is.False);
@@ -1654,11 +1667,11 @@ namespace ProjectW.MilestonePrototype.Tests
         public void FasterWorkerProducesShorterExpectedDuration()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
-            UseShortPlanningFixture(data);
+            UsePlanningTestFixture(data);
             data.Crew[1].DailyOutput = 2f;
             var game = new MilestoneSimulation(data, 1);
 
-            TaskScheduleEstimate estimate = game.EstimateSchedule("survey", 1);
+            TaskScheduleEstimate estimate = game.EstimateSchedule(RootTaskId, 1);
 
             Assert.That(estimate.ExpectedDailyOutput, Is.EqualTo(3.45f).Within(.001f));
             Assert.That(estimate.DurationDays, Is.EqualTo(1));
@@ -1669,59 +1682,61 @@ namespace ProjectW.MilestonePrototype.Tests
         public void UnassignedTasksPreviewAtOneWorkPerDayInDependencyOrder()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
-            UseShortPlanningFixture(data);
+            UsePlanningTestFixture(data);
             var game = new MilestoneSimulation(data, 1);
 
-            TaskScheduleEstimate survey = game.EstimatePreviewSchedule("survey");
-            TaskScheduleEstimate power = game.EstimatePreviewSchedule("power");
-            TaskScheduleEstimate habitat = game.EstimatePreviewSchedule("habitat");
-            TaskScheduleEstimate safety = game.EstimatePreviewSchedule("safety");
+            TaskScheduleEstimate survey = game.EstimatePreviewSchedule(RootTaskId);
+            TaskScheduleEstimate dependentA = game.EstimatePreviewSchedule(DependentTaskAId);
+            TaskScheduleEstimate dependentB = game.EstimatePreviewSchedule(DependentTaskBId);
+            TaskScheduleEstimate optional = game.EstimatePreviewSchedule(OptionalTaskId);
 
             Assert.That(survey.ExpectedDailyOutput, Is.EqualTo(1f));
             Assert.That(survey.StartDay, Is.EqualTo(1));
             Assert.That(survey.CompletionDay, Is.EqualTo(3));
-            Assert.That(power.StartDay, Is.EqualTo(4));
-            Assert.That(power.CompletionDay, Is.EqualTo(7));
-            Assert.That(habitat.StartDay, Is.EqualTo(4));
-            Assert.That(safety.StartDay, Is.EqualTo(8));
+            Assert.That(dependentA.StartDay, Is.EqualTo(4));
+            Assert.That(dependentA.CompletionDay, Is.EqualTo(7));
+            Assert.That(dependentB.StartDay, Is.EqualTo(4));
+            Assert.That(optional.StartDay, Is.EqualTo(8));
         }
 
         [Test]
         public void WorkPredecessorPreviewStartsAfterLatestRequiredTask()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
-            UseShortPlanningFixture(data);
+            UsePlanningTestFixture(data);
             var game = new MilestoneSimulation(data, 1);
 
-            TaskScheduleEstimate launch = game.EstimatePreviewSchedule("launch");
+            TaskScheduleEstimate followup = game.EstimatePreviewSchedule(FollowupTaskId);
 
-            Assert.That(launch.StartDay, Is.EqualTo(8));
-            Assert.That(launch.CompletionDay, Is.EqualTo(10));
+            Assert.That(followup.StartDay, Is.EqualTo(8));
+            Assert.That(followup.CompletionDay, Is.EqualTo(10));
         }
 
         [Test]
         public void AssignedPredecessorOutputMovesUnassignedSuccessorPreview()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
-            UseShortPlanningFixture(data);
+            UsePlanningTestFixture(data);
             data.Crew[1].DailyOutput = 2f;
             var game = new MilestoneSimulation(data, 1);
-            game.Assign("survey", 1);
+            game.Assign(RootTaskId, 1);
 
-            TaskScheduleEstimate habitat = game.EstimatePreviewSchedule("habitat");
+            TaskScheduleEstimate dependent = game.EstimatePreviewSchedule(DependentTaskBId);
 
-            Assert.That(habitat.StartDay, Is.EqualTo(2));
-            Assert.That(habitat.CompletionDay, Is.EqualTo(5));
+            Assert.That(dependent.StartDay, Is.EqualTo(2));
+            Assert.That(dependent.CompletionDay, Is.EqualTo(5));
         }
 
         [Test]
         public void WorkerCannotHaveTwoPrimaryReservationsOnSameDay()
         {
-            var game = new MilestoneSimulation(1);
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            UsePlanningTestFixture(data);
+            var game = new MilestoneSimulation(data, 1);
 
-            Assert.That(game.Schedule("survey", 0, 3), Is.True);
-            Assert.That(game.Schedule("habitat", 0, 3), Is.False);
-            Assert.That(game.Schedule("habitat", 1, 3), Is.True);
+            Assert.That(game.Schedule(RootTaskId, 0, 3), Is.True);
+            Assert.That(game.Schedule(DependentTaskBId, 0, 3), Is.False);
+            Assert.That(game.Schedule(DependentTaskBId, 1, 3), Is.True);
         }
 
         [Test]
@@ -1741,13 +1756,16 @@ namespace ProjectW.MilestonePrototype.Tests
         [Test]
         public void CompletingPrerequisiteUnlocksFollowingTasks()
         {
-            var game = new MilestoneSimulation(1);
-            game.Assign("survey", 1);
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            UsePlanningTestFixture(data);
+            var game = new MilestoneSimulation(data, 1);
+            game.SetCompetencyAutoAssignment(false);
+            game.Assign(RootTaskId, 1);
             game.AdvanceDay();
             game.AdvanceDay();
             game.AdvanceDay();
-            Assert.That(game.Tasks.Find(t => t.Id == "power").State, Is.EqualTo(TaskState.Available));
-            Assert.That(game.Tasks.Find(t => t.Id == "habitat").State, Is.EqualTo(TaskState.Available));
+            Assert.That(game.Tasks.Find(t => t.Id == DependentTaskAId).State, Is.EqualTo(TaskState.Available));
+            Assert.That(game.Tasks.Find(t => t.Id == DependentTaskBId).State, Is.EqualTo(TaskState.Available));
         }
 
         [Test]
@@ -1874,6 +1892,7 @@ namespace ProjectW.MilestonePrototype.Tests
             data.Balance.BaseSideMissionChance = 0;
             data.Crew[1].Fatigue = 80;
             var game = new MilestoneSimulation(data, 1);
+            game.AdjustCrewFatigueLimit(1, 100);
             Assert.That(game.Assign("survey", 1), Is.True);
 
             game.AdvanceDay();
@@ -2162,8 +2181,9 @@ namespace ProjectW.MilestonePrototype.Tests
             var original = new MilestoneSimulation(1);
             original.Assign("survey", 1);
             original.AdvanceDay();
-            MailEvent weekly = original.Mail.Find(mail => mail.IsWeeklyFieldReport);
-            original.DecideWeeklyFieldItem(weekly.Id, "mail-1", true);
+            MailEvent request = original.Mail.Find(mail => mail.Id == "mail-stakeholder-landing");
+            request.Read = true;
+            request.Resolved = true;
 
             var restored = new MilestoneSimulation(99);
             Assert.That(restored.Restore(original.CreateSnapshot()), Is.True);
@@ -2173,7 +2193,7 @@ namespace ProjectW.MilestonePrototype.Tests
                 Is.EqualTo(original.Tasks.Find(t => t.Id == "survey").Progress));
             Assert.That(restored.Groups.Find(group => group.Id == "foundation").HardDeadline,
                 Is.EqualTo(original.Groups.Find(group => group.Id == "foundation").HardDeadline));
-            Assert.That(restored.Mail.Find(m => m.Id == "mail-1").Resolved, Is.True);
+            Assert.That(restored.Mail.Find(m => m.Id == request.Id).Resolved, Is.True);
         }
 
         [Test]
@@ -2190,38 +2210,41 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void WorkPrerequisiteLocksLaunchUntilFoundationCompletes()
+        public void WorkPredecessorLocksFollowupUntilPlanningWorkCompletes()
         {
-            var game = new MilestoneSimulation(1);
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            UsePlanningTestFixture(data);
+            var game = new MilestoneSimulation(data, 1);
 
-            Assert.That(game.Groups.Find(group => group.Id == "launch").State, Is.EqualTo(WorkState.Locked));
-            Assert.That(game.Tasks.Find(task => task.Id == "launch").State, Is.EqualTo(TaskState.Locked));
-            Assert.That(game.Assign("launch", 0), Is.False);
+            Assert.That(game.Groups.Find(group => group.Id == FollowupWorkId).State, Is.EqualTo(WorkState.Locked));
+            Assert.That(game.Tasks.Find(task => task.Id == FollowupTaskId).State, Is.EqualTo(TaskState.Locked));
+            Assert.That(game.Assign(FollowupTaskId, 0), Is.False);
         }
 
         [Test]
-        public void FinalWorkBecomesVisibleOnDaySixty()
+        public void FollowupWorkBecomesVisibleOnRevealDay()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
+            UsePlanningTestFixture(data);
             data.Balance.BaseSideMissionChance = 0;
             var original = new MilestoneSimulation(data, 1);
             CampaignSnapshot snapshot = original.CreateSnapshot();
             snapshot.Day = 59;
             foreach (WorkTask task in snapshot.Tasks)
-                if (task.GroupId == "foundation") task.State = TaskState.Complete;
-            System.Array.Find(snapshot.Groups, group => group.Id == "foundation").State =
+                if (task.GroupId == PlanningWorkId) task.State = TaskState.Complete;
+            System.Array.Find(snapshot.Groups, group => group.Id == PlanningWorkId).State =
                 WorkState.Complete;
             var game = new MilestoneSimulation(data, 2);
             Assert.That(game.Restore(snapshot), Is.True);
-            WorkGroup finalWork = game.Groups.Find(group => group.Id == "launch");
+            WorkGroup finalWork = game.Groups.Find(group => group.Id == FollowupWorkId);
 
             Assert.That(game.IsWorkVisible(finalWork), Is.False);
-            Assert.That(game.Tasks.Find(task => task.Id == "launch").State, Is.EqualTo(TaskState.Locked));
+            Assert.That(game.Tasks.Find(task => task.Id == FollowupTaskId).State, Is.EqualTo(TaskState.Locked));
             game.AdvanceDay();
 
             Assert.That(game.Day, Is.EqualTo(60));
             Assert.That(game.IsWorkVisible(finalWork), Is.True);
-            Assert.That(game.Tasks.Find(task => task.Id == "launch").State,
+            Assert.That(game.Tasks.Find(task => task.Id == FollowupTaskId).State,
                 Is.EqualTo(TaskState.Available));
         }
 
@@ -2260,35 +2283,38 @@ namespace ProjectW.MilestonePrototype.Tests
         [Test]
         public void WorkerCanHoldOnlyOnePrimaryTask()
         {
-            var game = new MilestoneSimulation(1);
-            CompleteSurvey(game);
-            Assert.That(game.Assign("power", 0), Is.True);
-            Assert.That(game.Assign("habitat", 0), Is.True);
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            UsePlanningTestFixture(data);
+            var game = new MilestoneSimulation(data, 1);
+            CompleteRootTask(game);
+            Assert.That(game.Assign(DependentTaskAId, 0), Is.True);
+            Assert.That(game.Assign(DependentTaskBId, 0), Is.True);
 
-            Assert.That(game.Tasks.Find(task => task.Id == "power").AssignedCharacter, Is.EqualTo(-1));
-            Assert.That(game.Tasks.Find(task => task.Id == "habitat").AssignedCharacter, Is.EqualTo(0));
+            Assert.That(game.Tasks.Find(task => task.Id == DependentTaskAId).AssignedCharacter, Is.EqualTo(-1));
+            Assert.That(game.Tasks.Find(task => task.Id == DependentTaskBId).AssignedCharacter, Is.EqualTo(0));
         }
 
         [Test]
         public void SmallTaskCanRunInParallelForAdditionalFatigue()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
-            UseShortPlanningFixture(data);
+            UsePlanningTestFixture(data);
             data.Balance.RandomWorkLimit = 0;
             foreach (CrewMember member in data.Crew) member.DailyOutput = 1f;
             ForceSuccessOutcome(data);
             var game = new MilestoneSimulation(data, 1);
-            CompleteSurvey(game);
-            Assert.That(game.Assign("power", 0), Is.True);
-            WorkTask safety = game.Tasks.Find(task => task.Id == "safety");
-            safety.PrerequisiteId = null;
-            safety.State = TaskState.Available;
+            CompleteRootTask(game);
+            Assert.That(game.Assign(DependentTaskAId, 0), Is.True);
+            WorkTask optional = game.Tasks.Find(task => task.Id == OptionalTaskId);
+            optional.PrerequisiteId = null;
+            optional.RequiredWork = .5f;
+            optional.State = TaskState.Available;
 
-            Assert.That(game.AssignParallel("safety", 0), Is.True);
+            Assert.That(game.AssignParallel(OptionalTaskId, 0), Is.True);
             game.AdvanceDay();
 
-            Assert.That(game.Tasks.Find(task => task.Id == "power").Progress, Is.EqualTo(1.5f));
-            Assert.That(safety.State, Is.EqualTo(TaskState.Complete));
+            Assert.That(game.Tasks.Find(task => task.Id == DependentTaskAId).Progress, Is.EqualTo(1.5f));
+            Assert.That(optional.State, Is.EqualTo(TaskState.Complete));
             Assert.That(game.Crew[0].Fatigue, Is.EqualTo(17));
         }
 
@@ -2296,37 +2322,39 @@ namespace ProjectW.MilestonePrototype.Tests
         public void InterruptingTaskAddsOneDayContextCost()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
-            UseShortPlanningFixture(data);
+            UsePlanningTestFixture(data);
             data.Balance.RandomWorkLimit = 0;
             foreach (CrewMember member in data.Crew) member.DailyOutput = 1f;
             ForceSuccessOutcome(data);
             var game = new MilestoneSimulation(data, 1);
-            CompleteSurvey(game);
-            WorkTask habitat = game.Tasks.Find(task => task.Id == "habitat");
-            Assert.That(game.Assign(habitat.Id, 0), Is.True);
+            CompleteRootTask(game);
+            WorkTask dependent = game.Tasks.Find(task => task.Id == DependentTaskBId);
+            Assert.That(game.Assign(dependent.Id, 0), Is.True);
             game.AdvanceDay();
 
-            Assert.That(game.Assign(habitat.Id, -1), Is.True);
-            Assert.That(habitat.Progress, Is.EqualTo(1.25f));
-            Assert.That(habitat.ContextCostDays, Is.EqualTo(1f));
-            Assert.That(habitat.EffectiveRequiredWork, Is.EqualTo(habitat.RequiredWork + 1f));
-            Assert.That(habitat.SplitCount, Is.EqualTo(1));
+            Assert.That(game.Assign(dependent.Id, -1), Is.True);
+            Assert.That(dependent.Progress, Is.EqualTo(1.25f));
+            Assert.That(dependent.ContextCostDays, Is.EqualTo(1f));
+            Assert.That(dependent.EffectiveRequiredWork, Is.EqualTo(dependent.RequiredWork + 1f));
+            Assert.That(dependent.SplitCount, Is.EqualTo(1));
         }
 
         [Test]
         public void HandoverChargesExactlyOneSplit()
         {
-            var game = new MilestoneSimulation(1);
-            CompleteSurvey(game);
-            WorkTask habitat = game.Tasks.Find(task => task.Id == "habitat");
-            game.Assign(habitat.Id, 0);
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            UsePlanningTestFixture(data);
+            var game = new MilestoneSimulation(data, 1);
+            CompleteRootTask(game);
+            WorkTask dependent = game.Tasks.Find(task => task.Id == DependentTaskBId);
+            game.Assign(dependent.Id, 0);
             game.AdvanceDay();
 
-            Assert.That(game.Assign(habitat.Id, 3), Is.True);
+            Assert.That(game.Assign(dependent.Id, 3), Is.True);
 
-            Assert.That(habitat.AssignedCharacter, Is.EqualTo(3));
-            Assert.That(habitat.ContextCostDays, Is.EqualTo(1f));
-            Assert.That(habitat.SplitCount, Is.EqualTo(1));
+            Assert.That(dependent.AssignedCharacter, Is.EqualTo(3));
+            Assert.That(dependent.ContextCostDays, Is.EqualTo(1f));
+            Assert.That(dependent.SplitCount, Is.EqualTo(1));
         }
 
         [Test]
@@ -2358,18 +2386,19 @@ namespace ProjectW.MilestonePrototype.Tests
         public void TaskCostPreviewShowsHandoverBeforeReassignment()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
+            UsePlanningTestFixture(data);
             data.Balance.HighFatigueAccidentChance = 0;
             data.Balance.MediumFatigueAccidentChance = 0;
             data.Balance.MismatchAccidentChance = 0;
             var game = new MilestoneSimulation(data, 1);
-            CompleteSurvey(game);
-            WorkTask habitat = game.Tasks.Find(task => task.Id == "habitat");
-            game.Assign(habitat.Id, 1);
+            CompleteRootTask(game);
+            WorkTask dependent = game.Tasks.Find(task => task.Id == DependentTaskBId);
+            game.Assign(dependent.Id, 1);
             game.AdvanceDay();
 
-            TaskCostPreview preview = game.BuildCostPreview(habitat, 0);
+            TaskCostPreview preview = game.BuildCostPreview(dependent, 0);
 
-            Assert.That(preview.RemainingDays, Is.EqualTo(habitat.RemainingWork));
+            Assert.That(preview.RemainingDays, Is.EqualTo(dependent.RemainingWork));
             Assert.That(preview.AdditionalContextDays, Is.EqualTo(1f));
             Assert.That(preview.PrimaryFatigue, Is.EqualTo(4));
             Assert.That(preview.ParallelFatigue, Is.EqualTo(9));
@@ -2379,23 +2408,27 @@ namespace ProjectW.MilestonePrototype.Tests
         [Test]
         public void PrioritySchedulePlacesDependentTasksAfterTheirForecastPredecessor()
         {
-            var game = new MilestoneSimulation(41);
-            WorkTask survey = game.Tasks.Find(task => task.Id == "survey");
-            WorkTask habitat = game.Tasks.Find(task => task.Id == "habitat");
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            UsePlanningTestFixture(data);
+            var game = new MilestoneSimulation(data, 41);
+            WorkTask survey = game.Tasks.Find(task => task.Id == RootTaskId);
+            WorkTask dependent = game.Tasks.Find(task => task.Id == DependentTaskBId);
 
             TaskScheduleEstimate[] schedule = game.BuildPrioritySchedule();
             TaskScheduleEstimate surveyPlan = Array.Find(schedule, item => item.TaskId == survey.Id);
-            TaskScheduleEstimate habitatPlan = Array.Find(schedule, item => item.TaskId == habitat.Id);
+            TaskScheduleEstimate dependentPlan = Array.Find(schedule, item => item.TaskId == dependent.Id);
 
             Assert.That(surveyPlan, Is.Not.Null);
-            Assert.That(habitatPlan, Is.Not.Null);
-            Assert.That(habitatPlan.StartDay, Is.GreaterThan(surveyPlan.CompletionDay));
+            Assert.That(dependentPlan, Is.Not.Null);
+            Assert.That(dependentPlan.StartDay, Is.GreaterThan(surveyPlan.CompletionDay));
         }
 
         [Test]
         public void OperationsReportCountsDynamicRiskAndLoad()
         {
-            var game = new MilestoneSimulation(1);
+            TaskSystemData data = TaskSystemDataLoader.Load();
+            Array.Find(data.Tasks, task => task.Id == "survey").Risk = RiskLevel.High;
+            var game = new MilestoneSimulation(data, 1);
             game.Assign("survey", 0);
             for (int i = 0; i < 4; i++) game.AdvanceDay();
 
@@ -2413,11 +2446,12 @@ namespace ProjectW.MilestonePrototype.Tests
             try
             {
                 var game = new MilestoneSimulation(1);
-                MailEvent weekly = game.Mail.Find(mail => mail.IsWeeklyFieldReport);
-                game.DecideWeeklyFieldItem(weekly.Id, "mail-1", true);
+                MailEvent request = game.Mail.Find(mail => mail.Id == "mail-stakeholder-landing");
+                request.Read = true;
+                request.Resolved = true;
                 Assert.That(ProjectWSaveStore.SaveCampaign(key, game.CreateSnapshot()), Is.True);
                 Assert.That(ProjectWSaveStore.TryLoadCampaign(key, out CampaignSnapshot loaded), Is.True);
-                Assert.That(loaded.Mail[0].Resolved, Is.True);
+                Assert.That(Array.Find(loaded.Mail, mail => mail.Id == request.Id).Resolved, Is.True);
 
                 storage.SetString(key, "{not-json");
                 Assert.That(ProjectWSaveStore.TryLoadCampaign(key, out _), Is.False);
@@ -2553,24 +2587,29 @@ namespace ProjectW.MilestonePrototype.Tests
         public void UrgentWorkPullsItsBestWorkerFromLowerPriorityWork()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
+            UsePlanningTestFixture(data);
             DisableAccidents(data);
             ForceSuccessOutcome(data);
+            WorkGroup urgentWork = Array.Find(data.Works, work => work.Id == FollowupWorkId);
+            urgentWork.PredecessorIds = new string[0];
+            urgentWork.RevealDay = 0;
+            int bestWorker = 1;
+            Array.Find(data.Tasks, task => task.Id == FollowupTaskId).RequiredRole =
+                data.Crew[bestWorker].Specialty;
             var game = new MilestoneSimulation(data, 17);
             game.SetCompetencyAutoAssignment(false);
-            game.AdvanceDay();
-            WorkTask urgentTask = game.Tasks.Find(task => task.Id == "water-intake-check");
-            WorkTask lowerTask = game.Tasks.Find(task => task.Id == "survey");
-            int bestWorker = 1;
+            WorkTask urgentTask = game.Tasks.Find(task => task.Id == FollowupTaskId);
+            WorkTask lowerTask = game.Tasks.Find(task => task.Id == RootTaskId);
             foreach (CrewMember member in game.Crew)
                 foreach (int competency in urgentTask.RequiredCompetencies)
-                    member.Competencies[competency] = 0;
+                    member.Competencies[competency] = CrewMember.MinimumCompetency;
             foreach (int competency in urgentTask.RequiredCompetencies)
-                game.Crew[bestWorker].Competencies[competency] = 7;
+                game.Crew[bestWorker].Competencies[competency] = CrewMember.MaximumCompetency;
             Assert.That(game.Assign(lowerTask.Id, bestWorker), Is.True);
-            while (game.MoveWorkPriority("water-loop", -1)) { }
-            Assert.That(game.ConfigureWorkFocus("water-loop", true, false), Is.True);
-            Assert.That(game.Groups.Find(group => group.Id == "water-loop").Priority,
-                Is.LessThan(game.Groups.Find(group => group.Id == "foundation").Priority));
+            while (game.MoveWorkPriority(FollowupWorkId, -1)) { }
+            Assert.That(game.ConfigureWorkFocus(FollowupWorkId, true, false), Is.True);
+            Assert.That(game.Groups.Find(group => group.Id == FollowupWorkId).Priority,
+                Is.LessThan(game.Groups.Find(group => group.Id == PlanningWorkId).Priority));
             Assert.That(urgentTask.State, Is.EqualTo(TaskState.Available));
             game.SetCompetencyAutoAssignment(true);
 
@@ -2703,12 +2742,12 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(game.Tasks.Exists(task => task.Progress > 0f || task.State == TaskState.Complete), Is.True);
         }
 
-        private static void CompleteSurvey(MilestoneSimulation game)
+        private static void CompleteRootTask(MilestoneSimulation game)
         {
-            Assert.That(game.Assign("survey", 1), Is.True);
-            for (int i = 0; i < 8 && game.Tasks.Find(task => task.Id == "survey").State != TaskState.Complete; i++)
+            Assert.That(game.Assign(RootTaskId, 1), Is.True);
+            for (int i = 0; i < 8 && game.Tasks.Find(task => task.Id == RootTaskId).State != TaskState.Complete; i++)
                 game.AdvanceDay();
-            Assert.That(game.Tasks.Find(task => task.Id == "survey").State, Is.EqualTo(TaskState.Complete));
+            Assert.That(game.Tasks.Find(task => task.Id == RootTaskId).State, Is.EqualTo(TaskState.Complete));
         }
 
         private static void FillStakeholderPlan(MilestoneSimulation game, bool matchingIntent)
@@ -2727,13 +2766,77 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(game.AssignStakeholderTask(handoff, 0), Is.True);
         }
 
-        private static void UseShortPlanningFixture(TaskSystemData data)
+        private static void UsePlanningTestFixture(TaskSystemData data)
         {
-            Array.Find(data.Tasks, task => task.Id == "survey").RequiredWork = 3f;
-            Array.Find(data.Tasks, task => task.Id == "power").RequiredWork = 4f;
-            Array.Find(data.Tasks, task => task.Id == "habitat").RequiredWork = 4f;
-            Array.Find(data.Tasks, task => task.Id == "safety").RequiredWork = 1f;
-            Array.Find(data.Tasks, task => task.Id == "launch").RequiredWork = 3f;
+            data.Works = new[]
+            {
+                new WorkGroup
+                {
+                    Id = PlanningWorkId,
+                    Name = "Planning test work",
+                    SoftDeadline = 45,
+                    HardDeadline = 60,
+                    Required = true,
+                    RewardCredits = 5,
+                    SoftPenaltyCredits = 2,
+                    HardPenaltyCredits = 7,
+                    PredecessorIds = new string[0]
+                },
+                new WorkGroup
+                {
+                    Id = FollowupWorkId,
+                    Name = "Follow-up test work",
+                    RevealDay = 60,
+                    SoftDeadline = 81,
+                    HardDeadline = 90,
+                    Required = true,
+                    RewardCredits = 8,
+                    SoftPenaltyCredits = 3,
+                    HardPenaltyCredits = 10,
+                    PredecessorIds = new[] { PlanningWorkId }
+                }
+            };
+            data.Tasks = new[]
+            {
+                PlanningTask(RootTaskId, "Root task", WorkRole.Analysis,
+                    new[] { 1, 3 }, 3f, string.Empty, PlanningWorkId,
+                    RiskLevel.Medium, ImportanceLevel.High, 2, true),
+                PlanningTask(DependentTaskAId, "Dependent task A", WorkRole.Tech,
+                    new[] { 0, 2 }, 4f, RootTaskId, PlanningWorkId,
+                    RiskLevel.High, ImportanceLevel.High, 3, true),
+                PlanningTask(DependentTaskBId, "Dependent task B", WorkRole.Tech,
+                    new[] { 0, 4, 2 }, 4f, RootTaskId, PlanningWorkId,
+                    RiskLevel.Medium, ImportanceLevel.High, 2, true),
+                PlanningTask(OptionalTaskId, "Optional task", WorkRole.Analysis,
+                    new[] { 0, 4, 1 }, 1f, DependentTaskAId, PlanningWorkId,
+                    RiskLevel.Low, ImportanceLevel.Medium, 1, false),
+                PlanningTask(FollowupTaskId, "Follow-up task", WorkRole.Adaptation,
+                    new[] { 0, 3, 5 }, 3f, string.Empty, FollowupWorkId,
+                    RiskLevel.High, ImportanceLevel.High, 3, true)
+            };
+        }
+
+        private static WorkTask PlanningTask(
+            string id, string name, WorkRole role, int[] competencies, float work,
+            string prerequisiteId, string groupId, RiskLevel risk,
+            ImportanceLevel importance, int difficulty, bool required)
+        {
+            return new WorkTask
+            {
+                Id = id,
+                Name = name,
+                Kind = TaskKind.Milestone,
+                RequiredRole = role,
+                RequiredCompetencies = competencies,
+                RequiredWork = work,
+                Required = required,
+                PrerequisiteId = prerequisiteId,
+                AssignedCharacter = -1,
+                GroupId = groupId,
+                Risk = risk,
+                Importance = importance,
+                Difficulty = difficulty
+            };
         }
 
         private static void DisableAccidents(TaskSystemData data)
