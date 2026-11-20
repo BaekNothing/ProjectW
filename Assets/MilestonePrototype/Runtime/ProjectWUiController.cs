@@ -31,6 +31,7 @@ namespace ProjectW.MilestonePrototype
         private Label resourceLabel;
         private Button nextDayButton;
         private Button skipEventButton;
+        private Button planNavigationButton;
         private Button notificationButton;
         private VisualElement notificationPanel;
         private VisualElement notificationToastHost;
@@ -112,6 +113,7 @@ namespace ProjectW.MilestonePrototype
             Require<Button>("theme-button").clicked += ToggleTheme;
             nextDayButton.clicked += AdvanceDay;
             root.RegisterCallback<PointerDownEvent>(DismissWorkerDetailOnPointerDown);
+            AddPlanNavigation();
             skipEventButton.clicked += () =>
             {
                 skipToNextEvent = !skipToNextEvent;
@@ -120,9 +122,39 @@ namespace ProjectW.MilestonePrototype
 
             foreach (Button button in root.Query<Button>(className: "nav-button").ToList())
             {
+                if (button == planNavigationButton) continue;
                 string destination = button.name.Replace("nav-", string.Empty);
                 button.clicked += () => Navigate(destination);
             }
+            planNavigationButton.clicked += () => Navigate("plan");
+        }
+
+        private void AddPlanNavigation()
+        {
+            Button overview = Require<Button>("nav-overview");
+            Button schedule = Require<Button>("nav-schedule");
+            Button crew = Require<Button>("nav-crew");
+            Button mail = Require<Button>("nav-mail");
+            Button codex = Require<Button>("nav-codex");
+            Button settings = Require<Button>("nav-settings");
+            VisualElement sidebar = mail.parent;
+            Label label = sidebar.Q<Label>(className: "sidebar-label");
+            VisualElement spacer = sidebar.Q<VisualElement>(className: "sidebar-spacer");
+            VisualElement note = sidebar.Q<VisualElement>(className: "sidebar-note");
+            planNavigationButton = new Button { text = "계획" };
+            planNavigationButton.AddToClassList("nav-button");
+
+            sidebar.Clear();
+            if (label != null) sidebar.Add(label);
+            sidebar.Add(overview);
+            sidebar.Add(schedule);
+            sidebar.Add(crew);
+            sidebar.Add(mail);
+            sidebar.Add(planNavigationButton);
+            sidebar.Add(codex);
+            if (spacer != null) sidebar.Add(spacer);
+            sidebar.Add(settings);
+            if (note != null) sidebar.Add(note);
         }
 
         private void BuildNotificationUi()
@@ -266,7 +298,8 @@ namespace ProjectW.MilestonePrototype
             modalHost.Clear();
             activePage = page;
             foreach (Button button in root.Query<Button>(className: "nav-button").ToList())
-                button.EnableInClassList("is-selected", button.name == "nav-" + page);
+                button.EnableInClassList("is-selected",
+                    button == planNavigationButton ? page == "plan" : button.name == "nav-" + page);
 
             pageContent.Clear();
             switch (page)
@@ -274,6 +307,7 @@ namespace ProjectW.MilestonePrototype
                 case "overview": BuildOverview(); break;
                 case "crew": BuildCrew(); break;
                 case "mail": BuildMail(); break;
+                case "plan": BuildPlan(); break;
                 case "codex": BuildCodex(); break;
                 case "settings": BuildSettings(); break;
                 default: BuildSchedule(); break;
@@ -504,7 +538,7 @@ namespace ProjectW.MilestonePrototype
 
         private void BuildMail()
         {
-            SetPageHeader("REQUEST DESK", "스테이크홀더 요청과 메일");
+            SetPageHeader("REQUEST DESK", "메일");
             if (!string.IsNullOrEmpty(activeStakeholderRequestId))
             {
                 StakeholderRequestState active = game.StakeholderState(activeStakeholderRequestId);
@@ -517,7 +551,7 @@ namespace ProjectW.MilestonePrototype
                         Navigate("mail");
                     };
                     pageContent.Add(back);
-                    BuildStakeholderRequestBoard(active);
+                    BuildStakeholderMailView(active);
                     return;
                 }
                 activeStakeholderRequestId = null;
@@ -556,7 +590,7 @@ namespace ProjectW.MilestonePrototype
             pageContent.Add(list);
         }
 
-        private void BuildStakeholderRequestBoard(StakeholderRequestState request)
+        private void BuildStakeholderMailView(StakeholderRequestState request)
         {
             StakeholderRequestDefinition definition = game.StakeholderDefinition(request.Id);
             WorkGroup work = game.Groups.FirstOrDefault(group => group.Id == request.WorkId);
@@ -611,19 +645,108 @@ namespace ProjectW.MilestonePrototype
                 board.Add(clarification);
             }
 
-            if (!request.PlanningStarted && request.FitScore < 0)
+            Button plan = ActionButton(request.PlanningStarted || request.FitScore >= 0
+                ? "계획으로  →"
+                : "계획하기  →", "primary");
+            plan.clicked += () =>
             {
-                Button plan = ActionButton("계획하기", "primary");
-                plan.clicked += () =>
-                {
+                if (!request.PlanningStarted && request.FitScore < 0)
                     game.StartStakeholderPlanning(request.Id);
-                    SaveAndRefresh("mail");
-                };
-                board.Add(plan);
-                board.Add(Text("계획하기를 시작하면 산출물 해석, 담당자, 실행 일정을 별도로 정합니다.", "caption"));
-                pageContent.Add(board);
-                return;
+                activeStakeholderRequestId = request.Id;
+                SaveAndRefresh("plan");
+            };
+            board.Add(plan);
+            board.Add(Text("작업 블록과 담당자는 별도의 계획 탭에서 정합니다.", "caption"));
+            pageContent.Add(board);
+        }
+
+        private void BuildPlan()
+        {
+            SetPageHeader("DELIVERY PLAN", "작업 계획");
+            if (!string.IsNullOrEmpty(activeStakeholderRequestId))
+            {
+                StakeholderRequestState active = game.StakeholderState(activeStakeholderRequestId);
+                if (ProjectWUiProjection.IsStakeholderPlanVisible(active))
+                {
+                    var toolbar = Box("page-toolbar");
+                    Button back = ActionButton("← 계획 목록", "secondary");
+                    back.clicked += () =>
+                    {
+                        activeStakeholderRequestId = null;
+                        Navigate("plan");
+                    };
+                    toolbar.Add(back);
+                    Button mail = ActionButton("메일로  →", "secondary");
+                    mail.clicked += () => Navigate("mail");
+                    toolbar.Add(mail);
+                    pageContent.Add(toolbar);
+                    BuildStakeholderPlanBoard(active);
+                    return;
+                }
+                activeStakeholderRequestId = null;
             }
+
+            var list = Section("요청별 계획", "메일에서 계획하기를 시작한 요청을 관리합니다.");
+            int count = 0;
+            foreach (StakeholderRequestState request in game.StakeholderRequests
+                         .Where(ProjectWUiProjection.IsStakeholderPlanVisible)
+                         .OrderByDescending(item => item.FitScore < 0).ThenBy(item => item.Id))
+            {
+                StakeholderRequestDefinition definition = game.StakeholderDefinition(request.Id);
+                WorkGroup work = game.Groups.FirstOrDefault(group => group.Id == request.WorkId);
+                if (definition == null || work == null) continue;
+                count++;
+                var row = Box("mail-row");
+                row.Add(Badge(request.FitScore >= 0 ? "완료" : request.PlanConfirmed ? "실행 중" : "계획 중",
+                    request.FitScore >= 0 ? "success" : request.PlanConfirmed ? "accent" : "neutral"));
+                var copy = Box("mail-copy");
+                copy.Add(Text(definition.Stakeholder, "summary-title"));
+                copy.Add(Text($"명확도 {request.Clarity}% · 마감 D{work.HardDeadline:00}", "muted"));
+                Button open = ActionButton("계획 열기", "primary");
+                string requestId = request.Id;
+                open.clicked += () =>
+                {
+                    activeStakeholderRequestId = requestId;
+                    Navigate("plan");
+                };
+                copy.Add(open);
+                row.Add(copy);
+                list.Add(row);
+            }
+            if (count == 0)
+                list.Add(Empty("진행 중인 요청 계획이 없습니다. 메일에서 요청을 열고 계획하기를 선택하세요."));
+            pageContent.Add(list);
+        }
+
+        private void BuildStakeholderPlanBoard(StakeholderRequestState request)
+        {
+            StakeholderRequestDefinition definition = game.StakeholderDefinition(request.Id);
+            WorkGroup work = game.Groups.FirstOrDefault(group => group.Id == request.WorkId);
+            if (definition == null || work == null) return;
+
+            string status = request.FitScore >= 0
+                ? $"납품 완료 · {request.FitScore}점"
+                : request.PlanConfirmed ? "실행 중" : "계획 중";
+            var board = Section(definition.Stakeholder + " 계획", status);
+            var metrics = Box("metric-grid");
+            metrics.Add(Metric("명확도", $"{request.Clarity}%", "CLARITY"));
+            metrics.Add(Metric("남은 일정", $"{Math.Max(0, work.HardDeadline - game.Day + 1)}일", "DEADLINE"));
+            metrics.Add(Metric("소프트 마감", $"D{work.SoftDeadline:00}", "TARGET"));
+            metrics.Add(Metric("누적 점수", game.CampaignFitScore.ToString(), "SCORE"));
+            board.Add(metrics);
+
+            var guidance = Box("summary-row");
+            guidance.Add(Text("계획에 반영할 확인 정보", "summary-title"));
+            int revealed = 0;
+            foreach (StakeholderGuidanceDefinition item in definition.Guidance)
+            {
+                if (item.MinimumClarity > request.Clarity) continue;
+                guidance.Add(Text("• " + item.Text, "muted"));
+                revealed++;
+            }
+            if (revealed < definition.Guidance.Length)
+                guidance.Add(Text($"추가 정보 {definition.Guidance.Length - revealed}건 미확인", "caption"));
+            board.Add(guidance);
 
             if (!request.PlanConfirmed && request.FitScore < 0)
                 board.Add(BuildAvailableTaskBlocks(request, definition));
@@ -639,7 +762,7 @@ namespace ProjectW.MilestonePrototype
                 confirm.clicked += () =>
                 {
                     game.ConfirmStakeholderPlan(request.Id);
-                    SaveAndRefresh("mail");
+                    SaveAndRefresh("plan");
                 };
                 board.Add(confirm);
                 board.Add(Text("모든 슬롯에 작업 블록과 담당자를 선택해야 확정할 수 있습니다.", "caption"));
@@ -744,7 +867,7 @@ namespace ProjectW.MilestonePrototype
                 clear.clicked += () =>
                 {
                     game.SelectStakeholderTaskBlock(task.Id, string.Empty, string.Empty);
-                    SaveAndRefresh("mail");
+                    SaveAndRefresh("plan");
                 };
                 scroll.Add(clear);
             }
@@ -765,7 +888,7 @@ namespace ProjectW.MilestonePrototype
                     {
                         game.SelectStakeholderTaskBlock(task.Id,
                             selectedDefinition.Id, selectedInterpretation.Id);
-                        SaveAndRefresh("mail");
+                        SaveAndRefresh("plan");
                     };
                     scroll.Add(choice);
                     scroll.Add(Text(interpretation.Description, "caption"));
@@ -793,7 +916,7 @@ namespace ProjectW.MilestonePrototype
                 clear.clicked += () =>
                 {
                     game.AssignStakeholderTask(task.Id, -1);
-                    SaveAndRefresh("mail");
+                    SaveAndRefresh("plan");
                 };
                 scroll.Add(clear);
             }
@@ -809,7 +932,7 @@ namespace ProjectW.MilestonePrototype
                 choice.clicked += () =>
                 {
                     game.AssignStakeholderTask(task.Id, selectedCrew);
-                    SaveAndRefresh("mail");
+                    SaveAndRefresh("plan");
                 };
                 scroll.Add(choice);
                 if (!string.IsNullOrEmpty(blocked)) scroll.Add(Text(blocked, "caption"));

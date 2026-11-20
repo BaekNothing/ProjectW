@@ -4,6 +4,17 @@ namespace ProjectW.MilestonePrototype.Tests
 {
     public sealed class ProjectWUiProjectionTests
     {
+        [Test]
+        public void StakeholderPlanAppearsOnlyAfterPlanningStarts()
+        {
+            var request = new StakeholderRequestState();
+
+            Assert.That(ProjectWUiProjection.IsStakeholderPlanVisible(request), Is.False);
+            request.PlanningStarted = true;
+            Assert.That(ProjectWUiProjection.IsStakeholderPlanVisible(request), Is.True);
+            Assert.That(ProjectWUiProjection.IsStakeholderPlanVisible(null), Is.False);
+        }
+
         [TestCase(1, 90, 1)]
         [TestCase(4, 90, 1)]
         [TestCase(20, 90, 17)]

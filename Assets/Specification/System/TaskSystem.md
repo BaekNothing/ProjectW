@@ -2,15 +2,14 @@
 
 ## Document Control
 
-- Version: 7.2
+- Version: 7.3
 - Status: Approved for implementation
 - Action: Update
 - SSOT Change: Yes
-- Rationale: Make request planning a deliberate composition step: the `60 / 30 / 10` Task slots
-  begin empty, the player places authored work blocks into them, then chooses each worker from a
-  dropdown. Higher clarity reveals the needed work and its relative importance. Worker summaries
-  and dismissible detail popups expose fit, efficiency, and dissatisfaction before assignment.
-  Clarification calls and meetings continue to trade schedule slack for better request understanding.
+- Rationale: Separate stakeholder correspondence from execution planning into dedicated Mail and
+  Plan tabs. Cross-navigation keeps the same request focused: `계획으로` opens its plan and `메일로`
+  returns to its request thread. Mail owns the brief, constraints, deadline, and clarification;
+  Plan owns work-block composition, staffing, confirmation, progress, and delivery results.
 - Idea references: `IDEA.md` items 1, 2, 4, and 8
 
 ## Scope
@@ -718,6 +717,8 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 
 - An arrived Stakeholder Request mail first opens a request-only view. Task interpretations and
   worker slots appear only after the player selects `계획하기`, and no assignment starts before that.
+- Mail and Plan are separate top-level tabs. `계획으로` and `메일로` preserve the selected request
+  identity while switching tabs, so neither action drops the player into an unrelated list.
 - `다음날로` advances one day by default; the optional next-event mode previews its destination and
   stops on scheduled or newly encountered meaningful events.
 - The prototype request plan contains three required Tasks whose contribution weights are
@@ -824,9 +825,12 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 
 ## Mail and Messenger Ordering
 
-- Stakeholder Request mail is the entry point for the core prototype. Its primary action opens the
-  request planning board with the brief, clarity, remaining days, weighted Tasks, and assignment
-  slots. Reading mail alone never accepts, staffs, or starts the request.
+- Stakeholder Request mail is the entry point for the core prototype. It contains the original
+  brief, revealed constraints, deadline, and clarification actions but never displays work-block or
+  worker slots. Reading mail alone never accepts, staffs, or starts the request.
+- `계획하기` starts planning and opens the dedicated Plan tab with that request focused. Once
+  planning exists, the mail thread uses `계획으로`; the focused Plan view uses `메일로` to return to
+  that exact request. Directly opening Plan shows a list of requests whose planning has started.
 - A clarification request and its eventual stakeholder response are shown as one request-thread
   history. The scheduled response day remains visible until it resolves.
 - Delivery creates a result mail containing the final stakeholder-fit score and weighted Task
@@ -857,8 +861,13 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
   weeks, and soft/hard delivery dates without Task breakdowns or worker slots.
 - The intake surface exposes clarification calls and meetings plus one primary `계획하기` action.
   Clarification consumes its authored lead days while the original deadline continues to approach.
-- Selecting `계획하기` opens the separate request planning board and makes the Work visible in
-  planning surfaces. Returning to the inbox does not cancel either phase.
+- Selecting `계획하기` opens the separate top-level Plan tab, focuses the same request, and makes
+  the Work visible in planning surfaces. Returning to Mail does not cancel either phase.
+- Mail retains the original request, constraints, deadlines, and clarification controls. Plan
+  retains the derived planning guidance, work-block pool, weighted slots, staffing, confirmation,
+  execution state, and score breakdown. These responsibilities are not combined in either tab.
+- The focused views provide paired `계획으로` and `메일로` actions. Each switches tabs without
+  changing the active request ID, selected blocks, assignees, clarity, or simulation state.
 - It shows the currently revealed guidance separately from unrevealed intent so low clarity remains
   legible as uncertainty rather than missing UI.
 - It exposes `통화 요청` and `회의 요청` with their scheduled response day and clarity gain before

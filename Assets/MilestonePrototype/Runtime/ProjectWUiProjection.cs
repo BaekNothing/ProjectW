@@ -18,6 +18,9 @@ namespace ProjectW.MilestonePrototype
 
     public static class ProjectWUiProjection
     {
+        public static bool IsStakeholderPlanVisible(StakeholderRequestState request) =>
+            request != null && request.PlanningStarted;
+
         public static int TimelineStartDay(int today, int planningHorizon, int pastDays = 3) =>
             Math.Max(1, Math.Min(Math.Max(1, planningHorizon), today) - Math.Max(0, pastDays));
 
