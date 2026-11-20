@@ -110,7 +110,7 @@ namespace ProjectW.MilestonePrototype
         public bool IsWorkVisible(WorkGroup group) => group != null &&
             !group.AwaitingAcceptance && (group.RevealDay <= 0 || Day >= group.RevealDay) &&
             (string.IsNullOrEmpty(group.StakeholderRequestId) ||
-             StakeholderState(group.StakeholderRequestId)?.PlanningStarted == true) &&
+             StakeholderState(group.StakeholderRequestId)?.PlanConfirmed == true) &&
             Tasks.Any(task => task.GroupId == group.Id);
 
         public MailEvent PendingIncidentOffer => Mail.FirstOrDefault(mail =>
@@ -613,7 +613,7 @@ namespace ProjectW.MilestonePrototype
         public bool StartStakeholderPlanning(string requestId)
         {
             StakeholderRequestState state = StakeholderState(requestId);
-            if (state == null || state.FitScore >= 0) return false;
+            if (state == null || state.FitScore >= 0 || state.PlanFailed) return false;
             state.PlanningStarted = true;
             Log($"요청 계획 시작: {StakeholderDefinition(requestId)?.Stakeholder}");
             return true;
@@ -635,7 +635,7 @@ namespace ProjectW.MilestonePrototype
             StakeholderRequestDefinition request = task == null
                 ? null : StakeholderDefinition(task.StakeholderRequestId);
             if (task == null || state == null || request?.Tasks == null ||
-                !state.PlanningStarted || state.PlanConfirmed) return false;
+                !state.PlanningStarted || state.PlanConfirmed || state.PlanFailed) return false;
             if (string.IsNullOrEmpty(taskBlockId) || string.IsNullOrEmpty(interpretationId))
                 return ClearStakeholderTaskBlock(task);
             foreach (WorkTask other in Tasks)
@@ -671,6 +671,7 @@ namespace ProjectW.MilestonePrototype
         private bool ClearStakeholderTaskBlock(WorkTask task)
         {
             if (task.AssignedCharacter >= 0) Detach(task, false);
+            task.PlannedCharacter = -1;
             task.Name = StakeholderSlotName(task);
             task.RequiredRole = default;
             task.RequiredCompetencies = new int[0];
@@ -714,6 +715,7 @@ namespace ProjectW.MilestonePrototype
             if (task == null || string.IsNullOrEmpty(task.StakeholderRequestId)) return "요청 작업이 아님";
             StakeholderRequestState state = StakeholderState(task.StakeholderRequestId);
             if (state == null || !state.PlanningStarted) return "계획 시작 전";
+            if (state.PlanFailed) return "요청 실패";
             if (string.IsNullOrEmpty(task.SelectedTaskBlockId)) return "작업 블록을 먼저 선택";
             if (crewIndex < 0 || crewIndex >= Crew.Count) return "담당자 없음";
             CrewMember member = Crew[crewIndex];
@@ -726,7 +728,20 @@ namespace ProjectW.MilestonePrototype
             WorkTask task = Tasks.FirstOrDefault(candidate => candidate.Id == taskId);
             if (task == null || string.IsNullOrEmpty(task.StakeholderRequestId)) return false;
             StakeholderRequestState state = StakeholderState(task.StakeholderRequestId);
-            if (state == null || !state.PlanningStarted || state.FitScore >= 0) return false;
+            if (state == null || !state.PlanningStarted || state.FitScore >= 0 || state.PlanFailed)
+                return false;
+            if (!state.PlanConfirmed)
+            {
+                if (crewIndex < 0)
+                {
+                    task.PlannedCharacter = -1;
+                    return true;
+                }
+                if (!string.IsNullOrEmpty(StakeholderAssignmentBlockReason(taskId, crewIndex)))
+                    return false;
+                task.PlannedCharacter = crewIndex;
+                return true;
+            }
             if (crewIndex < 0) return AssignPrimary(task, -1);
             if (!string.IsNullOrEmpty(StakeholderAssignmentBlockReason(taskId, crewIndex))) return false;
             if (task.AssignedCharacter == crewIndex) return true;
@@ -739,37 +754,177 @@ namespace ProjectW.MilestonePrototype
 
         public bool ConfirmStakeholderPlan(string requestId)
         {
+            return SubmitStakeholderPlan(requestId);
+        }
+
+        public bool SubmitStakeholderPlan(string requestId)
+        {
             StakeholderRequestState state = StakeholderState(requestId);
-            if (state == null || !state.PlanningStarted || state.PlanConfirmed ||
-                !CanConfirmStakeholderPlan(requestId)) return false;
-            state.PlanConfirmed = true;
-            Log($"요청 작업 계획 확정: {StakeholderDefinition(requestId)?.Stakeholder}");
+            StakeholderRequestDefinition definition = StakeholderDefinition(requestId);
+            WorkGroup group = state == null
+                ? null : Groups.FirstOrDefault(candidate => candidate.Id == state.WorkId);
+            if (state == null || definition == null || group == null ||
+                !CanSubmitStakeholderPlan(requestId)) return false;
+
+            state.PlanSubmissionCount++;
+            state.LastPlanProjectedCompletionDay = StakeholderPlanProjectedCompletionDay(requestId);
+            state.LastPlanProjectedFit = StakeholderPlanProjectedFit(requestId);
+            bool scheduleAccepted = state.LastPlanProjectedCompletionDay > 0 &&
+                                    state.LastPlanProjectedCompletionDay <= group.SoftDeadline;
+            bool intentAccepted = state.LastPlanProjectedFit >= definition.PlanAcceptanceScore;
+            if (scheduleAccepted && intentAccepted)
+            {
+                state.PlanConfirmed = true;
+                state.LastPlanReviewMessage = "일정과 요청 내용에 이견 없음 · 실행 승인";
+                ActivateStakeholderPlan(requestId);
+                AddStakeholderPlanReviewMail(state, definition, true);
+                Log($"요청 계획 승인 및 작업 큐 등록: {definition.Stakeholder}");
+                RefreshStates();
+                return true;
+            }
+
+            state.PlanRejectionCount++;
+            string reason = !scheduleAccepted && !intentAccepted
+                ? $"예상 완료 D{state.LastPlanProjectedCompletionDay:00}가 소프트 마감 D{group.SoftDeadline:00}을 넘고 요청 내용에도 이견이 있습니다."
+                : !scheduleAccepted
+                    ? $"예상 완료 D{state.LastPlanProjectedCompletionDay:00}가 소프트 마감 D{group.SoftDeadline:00}을 넘습니다."
+                    : "요청에서 중시한 내용과 계획 사이에 이견이 있습니다.";
+            state.LastPlanReviewMessage = reason;
+            if (state.PlanRejectionCount >= definition.MaxPlanRejections)
+                FailStakeholderPlan(state, group);
+            AddStakeholderPlanReviewMail(state, definition, false);
+            Log($"요청 계획 반려 {state.PlanRejectionCount}/{definition.MaxPlanRejections}: " +
+                definition.Stakeholder);
+            RefreshStates();
             return true;
         }
 
         public bool CanConfirmStakeholderPlan(string requestId)
         {
+            return CanSubmitStakeholderPlan(requestId);
+        }
+
+        public bool CanSubmitStakeholderPlan(string requestId)
+        {
             StakeholderRequestState state = StakeholderState(requestId);
-            if (state == null || !state.PlanningStarted || state.PlanConfirmed ||
+            if (state == null || !state.PlanningStarted || state.PlanConfirmed || state.PlanFailed ||
                 !string.IsNullOrEmpty(state.PendingClarificationId)) return false;
+            WorkGroup group = Groups.FirstOrDefault(candidate => candidate.Id == state.WorkId);
+            if (group == null || group.State == WorkState.Failed || Day > group.HardDeadline)
+                return false;
             int taskCount = 0;
             foreach (WorkTask task in Tasks)
             {
                 if (task.StakeholderRequestId != requestId) continue;
                 taskCount++;
-                if (task.AssignedCharacter < 0 || string.IsNullOrEmpty(task.SelectedTaskBlockId) ||
+                if (task.PlannedCharacter < 0 || string.IsNullOrEmpty(task.SelectedTaskBlockId) ||
                     string.IsNullOrEmpty(task.SelectedInterpretationId) ||
                     !string.IsNullOrEmpty(StakeholderAssignmentBlockReason(task.Id,
-                        task.AssignedCharacter))) return false;
+                        task.PlannedCharacter))) return false;
             }
             return taskCount == 3;
+        }
+
+        public int StakeholderPlanProjectedFit(string requestId)
+        {
+            int taskCount = 0;
+            float weightedFit = 0f;
+            foreach (WorkTask task in Tasks)
+            {
+                if (task.StakeholderRequestId != requestId) continue;
+                StakeholderTaskDefinition target = StakeholderTargetTaskDefinition(task);
+                if (target == null || string.IsNullOrEmpty(task.SelectedInterpretationId)) return 0;
+                taskCount++;
+                weightedFit += IntentFit(task.SelectedIntentTags, target.TargetIntentTags) *
+                               task.ContributionWeight / 100f;
+            }
+            return taskCount == 3
+                ? Math.Max(0, Math.Min(100, (int)(weightedFit + .5f)))
+                : 0;
+        }
+
+        public int StakeholderPlanProjectedCompletionDay(string requestId)
+        {
+            int completionDay = 0;
+            int taskCount = 0;
+            foreach (WorkTask task in Tasks)
+            {
+                if (task.StakeholderRequestId != requestId) continue;
+                int worker = task.PlannedCharacter >= 0
+                    ? task.PlannedCharacter : task.AssignedCharacter;
+                if (worker < 0 || worker >= Crew.Count) return 0;
+                float output = ExpectedDailyOutput(task, worker);
+                int duration = CeilPositive(task.RemainingWork / output);
+                completionDay = Math.Max(completionDay, Day + Math.Max(0, duration - 1));
+                taskCount++;
+            }
+            return taskCount == 3 ? completionDay : 0;
+        }
+
+        private void ActivateStakeholderPlan(string requestId)
+        {
+            foreach (WorkTask task in Tasks.Where(candidate =>
+                         candidate.StakeholderRequestId == requestId))
+            {
+                int worker = task.PlannedCharacter;
+                task.PlannedCharacter = -1;
+                bool hasPrimary = Tasks.Any(candidate => candidate != task &&
+                    candidate.AssignedCharacter == worker && !candidate.IsParallelAssignment &&
+                    IsOngoingAssignment(candidate));
+                task.AssignedCharacter = worker;
+                task.IsParallelAssignment = hasPrimary;
+                task.State = TaskState.Available;
+                AddAssignmentRecord(task, worker,
+                    hasPrimary ? "승인 후 병행 작업 등록" : "승인 후 작업 큐 등록");
+            }
+        }
+
+        private void FailStakeholderPlan(StakeholderRequestState state, WorkGroup group)
+        {
+            state.PlanFailed = true;
+            state.LastPlanReviewMessage += " 세 번째 반려로 요청이 실패했습니다.";
+            group.State = WorkState.Failed;
+            foreach (WorkTask task in Tasks.Where(candidate =>
+                         candidate.StakeholderRequestId == state.Id))
+            {
+                task.PlannedCharacter = -1;
+                task.AssignedCharacter = -1;
+                task.IsParallelAssignment = false;
+                task.State = TaskState.Failed;
+            }
+            MailEvent source = Mail.FirstOrDefault(item => item.Id == state.MailId);
+            if (source != null) source.Resolved = true;
+        }
+
+        private void AddStakeholderPlanReviewMail(
+            StakeholderRequestState state, StakeholderRequestDefinition definition, bool accepted)
+        {
+            Mail.Add(new MailEvent
+            {
+                Id = $"stakeholder-plan-review-{state.Id}-{state.PlanSubmissionCount}",
+                ArrivalDay = Day,
+                From = definition.Stakeholder,
+                Subject = state.PlanFailed
+                    ? "계획 검토 종료: 요청 실패"
+                    : accepted ? "계획 승인: 작업 진행 요청" : "계획 반려: 수정 요청",
+                Body = state.LastPlanReviewMessage,
+                Instruction = state.PlanFailed
+                    ? "반려 한도를 초과해 요청이 종료되었습니다."
+                    : accepted ? "이견이 없어 작업 큐에 등록되었습니다."
+                        : $"계획을 수정해 다시 보내세요. 남은 제출 기회 " +
+                          $"{Math.Max(0, definition.MaxPlanRejections - state.PlanRejectionCount)}회",
+                Resolved = true,
+                Read = false,
+                StakeholderRequestId = state.Id
+            });
         }
 
         public bool RequestStakeholderClarification(string requestId, string clarificationId)
         {
             StakeholderRequestState state = StakeholderState(requestId);
             StakeholderRequestDefinition definition = StakeholderDefinition(requestId);
-            if (state == null || state.PlanConfirmed || definition?.Clarifications == null ||
+            if (state == null || state.PlanConfirmed || state.PlanFailed ||
+                definition?.Clarifications == null ||
                 state.FitScore >= 0 ||
                 !string.IsNullOrEmpty(state.PendingClarificationId)) return false;
             WorkGroup group = Groups.FirstOrDefault(candidate => candidate.Id == state.WorkId);
@@ -2632,6 +2787,18 @@ namespace ProjectW.MilestonePrototype
                 else request.PlanningStarted = Tasks.Any(task =>
                     task != null && task.StakeholderRequestId == request.Id &&
                     (task.AssignedCharacter >= 0 || !string.IsNullOrEmpty(task.SelectedInterpretationId)));
+                foreach (WorkTask task in Tasks)
+                {
+                    if (task == null || task.StakeholderRequestId != request.Id) continue;
+                    if (!request.PlanConfirmed && !request.PlanFailed &&
+                        task.PlannedCharacter < 0 && task.AssignedCharacter >= 0)
+                    {
+                        task.PlannedCharacter = task.AssignedCharacter;
+                        task.AssignedCharacter = -1;
+                        task.IsParallelAssignment = false;
+                    }
+                    if (request.PlanConfirmed) task.PlannedCharacter = -1;
+                }
             }
             SystemLog.Clear();
             if (snapshot.Log != null) SystemLog.AddRange(snapshot.Log);
@@ -2962,6 +3129,15 @@ namespace ProjectW.MilestonePrototype
                 }
                 if (Day <= group.HardDeadline) continue;
                 group.State = WorkState.Failed;
+                if (!string.IsNullOrEmpty(group.StakeholderRequestId))
+                {
+                    StakeholderRequestState request = StakeholderState(group.StakeholderRequestId);
+                    if (request != null && !request.PlanConfirmed)
+                    {
+                        request.PlanFailed = true;
+                        request.LastPlanReviewMessage = "하드 마감 전에 승인 가능한 계획을 만들지 못했습니다.";
+                    }
+                }
                 if (!group.HardPenaltyApplied)
                 {
                     group.HardPenaltyApplied = true;
@@ -2971,6 +3147,7 @@ namespace ProjectW.MilestonePrototype
                              candidate.GroupId == group.Id && candidate.State != TaskState.Complete))
                 {
                     task.State = TaskState.Failed;
+                    task.PlannedCharacter = -1;
                     task.AssignedCharacter = -1;
                     task.IsParallelAssignment = false;
                     task.ScheduledDay = 0;
@@ -3003,6 +3180,15 @@ namespace ProjectW.MilestonePrototype
                 {
                     group.State = WorkState.Locked;
                     continue;
+                }
+                if (!string.IsNullOrEmpty(group.StakeholderRequestId))
+                {
+                    StakeholderRequestState stakeholder = StakeholderState(group.StakeholderRequestId);
+                    if (stakeholder == null || !stakeholder.PlanConfirmed)
+                    {
+                        group.State = WorkState.Locked;
+                        continue;
+                    }
                 }
                 bool predecessorsComplete = group.PredecessorIds == null ||
                     group.PredecessorIds.All(id => Groups.Any(candidate =>
@@ -3520,12 +3706,14 @@ namespace ProjectW.MilestonePrototype
             foreach (WorkTask task in Tasks)
             {
                 task.AssignedCharacter = task.AssignedCharacter < -1 ? -1 : task.AssignedCharacter;
+                task.PlannedCharacter = task.PlannedCharacter < -1 ? -1 : task.PlannedCharacter;
                 task.ScheduledWorker = task.ScheduledWorker < -1 ? -1 : task.ScheduledWorker;
                 if (task.AssignedCharacter >= Crew.Count)
                 {
                     task.AssignedCharacter = -1;
                     task.IsParallelAssignment = false;
                 }
+                if (task.PlannedCharacter >= Crew.Count) task.PlannedCharacter = -1;
                 if (task.ScheduledWorker >= Crew.Count)
                 {
                     task.ScheduledDay = 0;

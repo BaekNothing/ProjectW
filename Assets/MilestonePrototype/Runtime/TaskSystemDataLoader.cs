@@ -152,6 +152,8 @@ namespace ProjectW.MilestonePrototype
                         request.SoftDeadlineDays <= 0 ||
                         request.HardDeadlineDays < request.SoftDeadlineDays ||
                         request.InitialClarity < 0 || request.InitialClarity > 100 ||
+                        request.PlanAcceptanceScore < 1 || request.PlanAcceptanceScore > 100 ||
+                        request.MaxPlanRejections < 1 || request.MaxPlanRejections > 10 ||
                         request.LateScoreMultiplier < 0f || request.LateScoreMultiplier > 1f ||
                         request.Clarifications == null || request.Clarifications.Length == 0 ||
                         request.Guidance == null || request.Guidance.Length == 0 ||

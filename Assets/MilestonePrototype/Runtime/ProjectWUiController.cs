@@ -598,6 +598,7 @@ namespace ProjectW.MilestonePrototype
 
             string status = request.FitScore >= 0
                 ? $"납품 완료 · {request.FitScore}점"
+                : request.PlanFailed ? "요청 실패"
                 : request.PlanConfirmed ? "실행 중"
                 : request.PlanningStarted ? "계획 중" : "요청 검토";
             var board = Section(definition.Stakeholder, $"{definition.PlannedWeeks}주 요청 · {status}");
@@ -623,7 +624,7 @@ namespace ProjectW.MilestonePrototype
                 guidance.Add(Text($"추가 정보 {definition.Guidance.Length - revealed}건 미확인", "caption"));
             board.Add(guidance);
 
-            if (!request.PlanConfirmed && request.FitScore < 0)
+            if (!request.PlanConfirmed && !request.PlanFailed && request.FitScore < 0)
             {
                 var clarification = Box("button-row");
                 if (!string.IsNullOrEmpty(request.PendingClarificationId))
@@ -697,8 +698,10 @@ namespace ProjectW.MilestonePrototype
                 if (definition == null || work == null) continue;
                 count++;
                 var row = Box("mail-row");
-                row.Add(Badge(request.FitScore >= 0 ? "완료" : request.PlanConfirmed ? "실행 중" : "계획 중",
-                    request.FitScore >= 0 ? "success" : request.PlanConfirmed ? "accent" : "neutral"));
+                row.Add(Badge(request.FitScore >= 0 ? "완료" : request.PlanFailed ? "실패" :
+                        request.PlanConfirmed ? "승인·실행" : request.PlanRejectionCount > 0 ? "수정 요청" : "계획 중",
+                    request.FitScore >= 0 ? "success" : request.PlanFailed ? "error" :
+                    request.PlanConfirmed ? "accent" : "neutral"));
                 var copy = Box("mail-copy");
                 copy.Add(Text(definition.Stakeholder, "summary-title"));
                 copy.Add(Text($"명확도 {request.Clarity}% · 마감 D{work.HardDeadline:00}", "muted"));
@@ -726,13 +729,16 @@ namespace ProjectW.MilestonePrototype
 
             string status = request.FitScore >= 0
                 ? $"납품 완료 · {request.FitScore}점"
-                : request.PlanConfirmed ? "실행 중" : "계획 중";
+                : request.PlanFailed ? "요청 실패"
+                : request.PlanConfirmed ? "승인·실행 중"
+                : request.PlanRejectionCount > 0 ? "반려 후 수정 중" : "작성 중";
             var board = Section(definition.Stakeholder + " 계획", status);
             var metrics = Box("metric-grid");
             metrics.Add(Metric("명확도", $"{request.Clarity}%", "CLARITY"));
             metrics.Add(Metric("남은 일정", $"{Math.Max(0, work.HardDeadline - game.Day + 1)}일", "DEADLINE"));
             metrics.Add(Metric("소프트 마감", $"D{work.SoftDeadline:00}", "TARGET"));
-            metrics.Add(Metric("누적 점수", game.CampaignFitScore.ToString(), "SCORE"));
+            int projectedCompletion = game.StakeholderPlanProjectedCompletionDay(request.Id);
+            metrics.Add(Metric("예상 완료", projectedCompletion > 0 ? $"D{projectedCompletion:00}" : "미정", "FORECAST"));
             board.Add(metrics);
 
             var guidance = Box("summary-row");
@@ -748,24 +754,37 @@ namespace ProjectW.MilestonePrototype
                 guidance.Add(Text($"추가 정보 {definition.Guidance.Length - revealed}건 미확인", "caption"));
             board.Add(guidance);
 
-            if (!request.PlanConfirmed && request.FitScore < 0)
+            if (request.PlanSubmissionCount > 0)
+            {
+                var review = Box("summary-row");
+                review.Add(Badge(request.PlanConfirmed ? "승인" : request.PlanFailed ? "실패" : "반려",
+                    request.PlanConfirmed ? "success" : request.PlanFailed ? "error" : "warning"));
+                review.Add(Text($"검토 {request.PlanSubmissionCount}회 · 반려 " +
+                                $"{request.PlanRejectionCount}/{definition.MaxPlanRejections}", "summary-title"));
+                review.Add(Text(request.LastPlanReviewMessage, "muted"));
+                board.Add(review);
+            }
+
+            if (!request.PlanConfirmed && !request.PlanFailed && request.FitScore < 0)
                 board.Add(BuildAvailableTaskBlocks(request, definition));
 
             foreach (WorkTask task in game.Tasks.Where(item => item.StakeholderRequestId == request.Id)
                          .OrderByDescending(item => item.ContributionWeight))
                 board.Add(BuildStakeholderTaskCard(request, task));
 
-            if (!request.PlanConfirmed && request.FitScore < 0)
+            if (!request.PlanConfirmed && !request.PlanFailed && request.FitScore < 0)
             {
-                Button confirm = ActionButton("작업 계획 확정", "primary");
-                confirm.SetEnabled(game.CanConfirmStakeholderPlan(request.Id));
-                confirm.clicked += () =>
+                Button submit = ActionButton("계획서 보내기", "primary");
+                submit.SetEnabled(game.CanSubmitStakeholderPlan(request.Id));
+                submit.clicked += () =>
                 {
-                    game.ConfirmStakeholderPlan(request.Id);
+                    game.SubmitStakeholderPlan(request.Id);
                     SaveAndRefresh("plan");
                 };
-                board.Add(confirm);
-                board.Add(Text("모든 슬롯에 작업 블록과 담당자를 선택해야 확정할 수 있습니다.", "caption"));
+                board.Add(submit);
+                board.Add(Text($"모든 슬롯과 담당자를 채우고 추가 정보 대기가 없어야 보낼 수 있습니다. " +
+                               $"예상 완료가 소프트 마감 D{work.SoftDeadline:00} 이내이고 내용 이견이 없어야 승인됩니다.",
+                    "caption"));
             }
             pageContent.Add(board);
         }
@@ -788,7 +807,7 @@ namespace ProjectW.MilestonePrototype
             Button blockPicker = ActionButton(selectedBlock == null
                 ? "작업 블록 선택  ▼"
                 : selectedBlock.Name + "  ▼", selectedBlock == null ? "secondary" : "primary");
-            blockPicker.SetEnabled(!request.PlanConfirmed && request.FitScore < 0);
+            blockPicker.SetEnabled(!request.PlanConfirmed && !request.PlanFailed && request.FitScore < 0);
             blockPicker.clicked += () => ShowTaskBlockPicker(request, task);
             card.Add(blockPicker);
 
@@ -801,17 +820,18 @@ namespace ProjectW.MilestonePrototype
 
             card.Add(Text("담당자", "caption"));
             var assignment = Box("assignment-row");
-            string crewName = task.AssignedCharacter >= 0 && task.AssignedCharacter < game.Crew.Count
-                ? game.Crew[task.AssignedCharacter].Name : "담당자 선택";
+            int assignedWorker = StakeholderWorkerIndex(request, task);
+            string crewName = assignedWorker >= 0 && assignedWorker < game.Crew.Count
+                ? game.Crew[assignedWorker].Name : "담당자 선택";
             Button workerPicker = ActionButton(crewName + "  ▼",
-                task.AssignedCharacter >= 0 ? "primary" : "secondary");
+                assignedWorker >= 0 ? "primary" : "secondary");
             workerPicker.AddToClassList("assignment-selector");
-            workerPicker.SetEnabled(request.FitScore < 0 && selectedBlock != null);
+            workerPicker.SetEnabled(request.FitScore < 0 && !request.PlanFailed && selectedBlock != null);
             workerPicker.clicked += () => ShowWorkerPicker(task);
             assignment.Add(workerPicker);
-            if (task.AssignedCharacter >= 0 && task.AssignedCharacter < game.Crew.Count)
+            if (assignedWorker >= 0 && assignedWorker < game.Crew.Count)
             {
-                int crewIndex = task.AssignedCharacter;
+                int crewIndex = assignedWorker;
                 Button info = ActionButton(WorkerAssignmentSummary(task, crewIndex), "secondary");
                 info.AddToClassList("assignment-summary");
                 info.clicked += () => ShowWorkerDetailPopup(task.Id, crewIndex);
@@ -854,7 +874,7 @@ namespace ProjectW.MilestonePrototype
         private void ShowTaskBlockPicker(StakeholderRequestState request, WorkTask task)
         {
             StakeholderRequestDefinition definition = game.StakeholderDefinition(request.Id);
-            if (definition == null || request.PlanConfirmed) return;
+            if (definition == null || request.PlanConfirmed || request.PlanFailed) return;
             modalHost.Clear();
             var overlay = Box("modal-overlay");
             var dialog = Section(StakeholderSlotLabel(task) + " · 작업 블록 선택",
@@ -904,13 +924,16 @@ namespace ProjectW.MilestonePrototype
         private void ShowWorkerPicker(WorkTask task)
         {
             if (task == null || string.IsNullOrEmpty(task.SelectedTaskBlockId)) return;
+            StakeholderRequestState request = game.StakeholderState(task.StakeholderRequestId);
+            if (request == null || request.PlanFailed) return;
+            int assignedWorker = StakeholderWorkerIndex(request, task);
             modalHost.Clear();
             var overlay = Box("modal-overlay");
             var dialog = Section(task.Name + " · 담당자 선택",
                 "스탯이나 전문 영역이 맞지 않아도 배정할 수 있지만 효율과 불만에 영향을 줍니다.");
             var scroll = new ScrollView(ScrollViewMode.Vertical);
             scroll.style.maxHeight = 520f;
-            if (task.AssignedCharacter >= 0)
+            if (assignedWorker >= 0)
             {
                 Button clear = ActionButton("미배정", "danger");
                 clear.clicked += () =>
@@ -927,7 +950,7 @@ namespace ProjectW.MilestonePrototype
                 string blocked = game.StakeholderAssignmentBlockReason(task.Id, crewIndex);
                 Button choice = ActionButton(
                     $"{crew.Name} · {RoleLabel(crew.Specialty)} · {WorkerAssignmentSummary(task, crewIndex)}",
-                    task.AssignedCharacter == crewIndex ? "primary" : "secondary");
+                    assignedWorker == crewIndex ? "primary" : "secondary");
                 choice.SetEnabled(string.IsNullOrEmpty(blocked));
                 choice.clicked += () =>
                 {
@@ -957,7 +980,8 @@ namespace ProjectW.MilestonePrototype
                 grade = CompetencyName(competency) + " " + CrewMember.CompetencyGrade(actual) + "급";
             }
             bool parallel = game.Tasks.Any(item => item != task &&
-                item.AssignedCharacter == crewIndex && !item.IsParallelAssignment &&
+                ((item.AssignedCharacter == crewIndex && !item.IsParallelAssignment) ||
+                 item.PlannedCharacter == crewIndex) &&
                 item.State != TaskState.Complete && item.State != TaskState.Failed);
             float efficiency = game.AssignmentEfficiencyMultiplier(task.Id, crewIndex);
             int dissatisfaction = game.AssignmentDissatisfactionGain(task.Id, crewIndex, parallel);
@@ -968,6 +992,9 @@ namespace ProjectW.MilestonePrototype
         private static string StakeholderSlotLabel(WorkTask task) => task.ContributionWeight >= 60
             ? "작업 슬롯 1"
             : task.ContributionWeight >= 30 ? "작업 슬롯 2" : "작업 슬롯 3";
+
+        private static int StakeholderWorkerIndex(StakeholderRequestState request, WorkTask task) =>
+            request != null && request.PlanConfirmed ? task.AssignedCharacter : task.PlannedCharacter;
 
         private static string RoleLabel(WorkRole role) => role == WorkRole.Tech
             ? "기술"
@@ -1171,12 +1198,14 @@ namespace ProjectW.MilestonePrototype
             workerDetailPopupVisible = true;
             CrewMember crew = game.Crew[crewIndex];
             bool parallel = game.Tasks.Any(item => item != task &&
-                item.AssignedCharacter == crewIndex && !item.IsParallelAssignment &&
+                ((item.AssignedCharacter == crewIndex && !item.IsParallelAssignment) ||
+                 item.PlannedCharacter == crewIndex) &&
                 item.State != TaskState.Complete && item.State != TaskState.Failed);
             float efficiency = game.AssignmentEfficiencyMultiplier(task.Id, crewIndex);
             int dissatisfaction = game.AssignmentDissatisfactionGain(
                 task.Id, crewIndex, parallel);
-            int activeTasks = game.Tasks.Count(item => item.AssignedCharacter == crewIndex &&
+            int activeTasks = game.Tasks.Count(item =>
+                (item.AssignedCharacter == crewIndex || item.PlannedCharacter == crewIndex) &&
                 item.State != TaskState.Complete && item.State != TaskState.Failed);
 
             modalHost.Clear();
@@ -1199,7 +1228,7 @@ namespace ProjectW.MilestonePrototype
             dialog.Add(Text($"예상 효율  {efficiency * 100f:0}%", "summary-title"));
             dialog.Add(Text($"예상 불만  +{dissatisfaction}/일 · 현재 {crew.Dissatisfaction}",
                 dissatisfaction > 0 ? "muted" : "body"));
-            dialog.Add(Text($"현재 작업 {activeTasks}개 · {(parallel ? "강제 병행 배정" : "주 작업 배정")}", "caption"));
+            dialog.Add(Text($"현재·계획 작업 {activeTasks}개 · {(parallel ? "강제 병행 예상" : "주 작업 배정")}", "caption"));
             Button close = ActionButton("닫기", "secondary");
             close.clicked += DismissWorkerDetailPopup;
             dialog.Add(close);

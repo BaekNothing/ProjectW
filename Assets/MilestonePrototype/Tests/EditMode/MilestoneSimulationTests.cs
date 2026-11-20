@@ -43,7 +43,8 @@ namespace ProjectW.MilestonePrototype.Tests
 
             Assert.That(game.StartStakeholderPlanning(request.Id), Is.True);
             Assert.That(request.PlanningStarted, Is.True);
-            Assert.That(game.IsWorkVisible(work), Is.True);
+            Assert.That(game.IsWorkVisible(work), Is.False,
+                "Planning alone must not register the request in the work queue.");
         }
 
         [Test]
@@ -62,9 +63,87 @@ namespace ProjectW.MilestonePrototype.Tests
                 "A mismatched worker remains assignable at an efficiency and dissatisfaction cost.");
             Assert.That(game.AssignmentDissatisfactionGain(analysis.Id, 0, false), Is.GreaterThan(0));
             Assert.That(game.AssignStakeholderTask(operations.Id, 0), Is.True);
-            Assert.That(operations.IsParallelAssignment, Is.True);
+            Assert.That(analysis.PlannedCharacter, Is.EqualTo(0));
+            Assert.That(operations.PlannedCharacter, Is.EqualTo(0));
+            Assert.That(operations.AssignedCharacter, Is.EqualTo(-1),
+                "A planned worker must not consume the live queue before approval.");
             Assert.That(game.AssignmentDissatisfactionGain(operations.Id, 0, true),
                 Is.GreaterThanOrEqualTo(game.AssignmentDissatisfactionGain(operations.Id, 0, false) + 5));
+        }
+
+        [Test]
+        public void AcceptedStakeholderPlanEntersQueueOnlyAfterReview()
+        {
+            var game = new MilestoneSimulation(TaskSystemDataLoader.Load(), 1);
+            game.OpenStakeholderRequest("mail-stakeholder-landing");
+            game.StartStakeholderPlanning("landing-brief");
+            FillStakeholderPlan(game, true);
+            StakeholderRequestState request = game.StakeholderState("landing-brief");
+            WorkGroup work = game.Groups.Find(group => group.Id == request.WorkId);
+            List<WorkTask> tasks = game.Tasks.FindAll(task =>
+                task.StakeholderRequestId == request.Id);
+
+            Assert.That(game.StakeholderPlanProjectedFit(request.Id), Is.EqualTo(100));
+            Assert.That(game.StakeholderPlanProjectedCompletionDay(request.Id),
+                Is.LessThanOrEqualTo(work.SoftDeadline));
+            Assert.That(tasks, Has.All.Matches<WorkTask>(task =>
+                task.PlannedCharacter >= 0 && task.AssignedCharacter < 0));
+            Assert.That(game.IsWorkVisible(work), Is.False);
+
+            Assert.That(game.SubmitStakeholderPlan(request.Id), Is.True);
+
+            Assert.That(request.PlanConfirmed, Is.True);
+            Assert.That(game.IsWorkVisible(work), Is.True);
+            Assert.That(tasks, Has.All.Matches<WorkTask>(task =>
+                task.PlannedCharacter < 0 && task.AssignedCharacter >= 0));
+            Assert.That(game.Mail, Has.Some.Matches<MailEvent>(mail =>
+                mail.Id == "stakeholder-plan-review-landing-brief-1" &&
+                mail.Subject.StartsWith("계획 승인")));
+        }
+
+        [Test]
+        public void PlanBeyondSoftDeadlineIsRejectedEvenWhenContentMatches()
+        {
+            var game = new MilestoneSimulation(TaskSystemDataLoader.Load(), 1);
+            game.OpenStakeholderRequest("mail-stakeholder-landing");
+            game.StartStakeholderPlanning("landing-brief");
+            FillStakeholderPlan(game, true);
+            game.Crew[0].DailyOutput = .1f;
+            game.Crew[1].DailyOutput = .1f;
+            game.Crew[2].DailyOutput = .1f;
+            StakeholderRequestState request = game.StakeholderState("landing-brief");
+            WorkGroup work = game.Groups.Find(group => group.Id == request.WorkId);
+
+            Assert.That(game.StakeholderPlanProjectedCompletionDay(request.Id),
+                Is.GreaterThan(work.SoftDeadline));
+            Assert.That(game.SubmitStakeholderPlan(request.Id), Is.True);
+
+            Assert.That(request.PlanConfirmed, Is.False);
+            Assert.That(request.PlanRejectionCount, Is.EqualTo(1));
+            Assert.That(request.LastPlanReviewMessage, Does.Contain("소프트 마감"));
+            Assert.That(game.IsWorkVisible(work), Is.False);
+        }
+
+        [Test]
+        public void ThirdRejectedStakeholderPlanFailsRequest()
+        {
+            var game = new MilestoneSimulation(TaskSystemDataLoader.Load(), 1);
+            game.OpenStakeholderRequest("mail-stakeholder-landing");
+            game.StartStakeholderPlanning("landing-brief");
+            FillStakeholderPlan(game, false);
+            StakeholderRequestState request = game.StakeholderState("landing-brief");
+            WorkGroup work = game.Groups.Find(group => group.Id == request.WorkId);
+
+            Assert.That(game.StakeholderPlanProjectedFit(request.Id), Is.LessThan(70));
+            Assert.That(game.SubmitStakeholderPlan(request.Id), Is.True);
+            Assert.That(game.SubmitStakeholderPlan(request.Id), Is.True);
+            Assert.That(game.SubmitStakeholderPlan(request.Id), Is.True);
+
+            Assert.That(request.PlanRejectionCount, Is.EqualTo(3));
+            Assert.That(request.PlanFailed, Is.True);
+            Assert.That(work.State, Is.EqualTo(WorkState.Failed));
+            Assert.That(game.Tasks.FindAll(task => task.StakeholderRequestId == request.Id),
+                Has.All.Matches<WorkTask>(task => task.State == TaskState.Failed));
         }
 
         [Test]
@@ -221,7 +300,8 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(state.PendingClarificationId, Is.EqualTo("meeting"));
             Assert.That(task.SelectedInterpretationId, Is.EqualTo("field-evidence"));
             Assert.That(task.SelectedTaskBlockId, Is.EqualTo("analysis"));
-            Assert.That(task.AssignedCharacter, Is.EqualTo(1));
+            Assert.That(task.PlannedCharacter, Is.EqualTo(1));
+            Assert.That(task.AssignedCharacter, Is.EqualTo(-1));
             Assert.That(restored.Mail.Exists(mail => mail.Id == "mail-stakeholder-landing"), Is.True,
                 "A patch must add the request entry mail to an older campaign snapshot.");
         }
@@ -2629,6 +2709,22 @@ namespace ProjectW.MilestonePrototype.Tests
             for (int i = 0; i < 8 && game.Tasks.Find(task => task.Id == "survey").State != TaskState.Complete; i++)
                 game.AdvanceDay();
             Assert.That(game.Tasks.Find(task => task.Id == "survey").State, Is.EqualTo(TaskState.Complete));
+        }
+
+        private static void FillStakeholderPlan(MilestoneSimulation game, bool matchingIntent)
+        {
+            string analysis = "stakeholder-landing-brief-analysis";
+            string operations = "stakeholder-landing-brief-operations";
+            string handoff = "stakeholder-landing-brief-handoff";
+            Assert.That(game.ChooseStakeholderInterpretation(analysis,
+                matchingIntent ? "field-evidence" : "fast-outline"), Is.True);
+            Assert.That(game.ChooseStakeholderInterpretation(operations,
+                matchingIntent ? "continuity-budget" : "maximum-output"), Is.True);
+            Assert.That(game.ChooseStakeholderInterpretation(handoff,
+                matchingIntent ? "maintainable-guide" : "executive-summary"), Is.True);
+            Assert.That(game.AssignStakeholderTask(analysis, 1), Is.True);
+            Assert.That(game.AssignStakeholderTask(operations, 2), Is.True);
+            Assert.That(game.AssignStakeholderTask(handoff, 0), Is.True);
         }
 
         private static void UseShortPlanningFixture(TaskSystemData data)

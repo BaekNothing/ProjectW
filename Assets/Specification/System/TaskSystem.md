@@ -2,14 +2,14 @@
 
 ## Document Control
 
-- Version: 7.3
+- Version: 7.4
 - Status: Approved for implementation
 - Action: Update
 - SSOT Change: Yes
-- Rationale: Separate stakeholder correspondence from execution planning into dedicated Mail and
-  Plan tabs. Cross-navigation keeps the same request focused: `계획으로` opens its plan and `메일로`
-  returns to its request thread. Mail owns the brief, constraints, deadline, and clarification;
-  Plan owns work-block composition, staffing, confirmation, progress, and delivery results.
+- Rationale: Add a stakeholder review gate between plan authoring and execution. A submitted plan
+  enters the work queue only when its projected completion is within the soft deadline and its
+  hidden intent fit clears the authored acceptance threshold. Rejected plans remain editable, while
+  reaching the authored rejection limit fails the request.
 - Idea references: `IDEA.md` items 1, 2, 4, and 8
 
 ## Scope
@@ -61,7 +61,8 @@ intervention rather than the default daily interaction.
 
 A Stakeholder Request is an ambiguous inbound objective delivered through mail. Opening it shows a
 request-only view containing the request, constraints, and deadline. `계획하기` explicitly enters the
-separate planning board and makes its Work visible; neither action assigns or starts a Task by itself.
+separate planning board. Planning and provisional staffing remain outside the work queue until the
+stakeholder accepts the submitted plan.
 
 - A request owns a stakeholder, a brief, a hidden intent profile, an initial clarity value, and a
   delivery deadline measured in campaign days.
@@ -85,8 +86,11 @@ The primary player loop is:
 3. Either spend days clarifying the request or select `계획하기` with the current interpretation.
 4. In the separate planning board, place one available work block into each empty `60 / 30 / 10`
    slot and choose one available worker for every filled slot.
-5. Advance days while assigned workers execute their Tasks.
-6. When all required Tasks finish, deliver the combined result and receive a stakeholder-fit score.
+5. Send the plan. The stakeholder accepts it only when its projected completion is on or before the
+   soft deadline and its hidden intent fit clears the authored acceptance threshold.
+6. Revise a rejected plan, or fail the request when its authored rejection limit is reached.
+7. After acceptance, register its Tasks and workers in the execution queue and advance days.
+8. When all required Tasks finish, deliver the combined result and receive a stakeholder-fit score.
 
 The player's essential adjustment is how an ambiguous request is interpreted and staffed. Fatigue,
 health, schedules, competencies, deadlines, mail, Gantt projections, and other existing systems
@@ -119,8 +123,10 @@ second competing core loop.
   tags to the chosen slot. One exact block may occupy at most one slot in the same request.
 - Each weighted slot keeps its authored hidden target definition for fit scoring. A work block may
   be placed into any slot; the player is not selecting only among variants pre-bound to that slot.
-- A required Task slot must contain a work block and an assigned worker before the request plan can
-  start. Reassignment after work has started follows the existing interruption and handover rules.
+- A required Task slot must contain a work block and a provisionally selected worker before the
+  plan can be submitted. This provisional worker does not consume live assignment capacity or make
+  the Work visible in the Gantt. After acceptance, the provisional selection becomes the live
+  assignment; later reassignment follows the existing interruption and handover rules.
 - Clarity gates planning guidance. At `40` clarity the primary `60` slot reveals its needed work and
   importance; at `70` clarity the `30` and `10` slots reveal theirs. Below those thresholds the
   slots remain usable but explicitly show that the need and priority are uncertain.
@@ -131,8 +137,11 @@ second competing core loop.
 - Stakeholder-request Tasks are never filled by organization automatic assignment, learned
   intervention rules, urgent preemption, or implicit fallback. Their staffing is the player's core
   decision and requires explicit confirmation.
-- Once every required slot is valid, the player confirms the plan. Confirmed Tasks execute through
-  the existing daily progress, fatigue, condition, interruption, and completion rules.
+- Once every required slot is valid and no clarification is pending, the player sends the plan.
+  Rejection produces a response mail and preserves the editable plan. Acceptance marks the request
+  as dispute-free, registers the Tasks in the queue, and allows execution through the existing daily
+  progress, fatigue, condition, interruption, and completion rules. Reaching the authored maximum
+  rejection count fails the request and never registers it in the queue.
 
 ### Stakeholder-Fit Score
 
@@ -604,7 +613,8 @@ External data includes:
 - initial planning baseline and starting resources
 - midpoint review day
 - Stakeholder Request definitions: stakeholder, brief, hidden intent profile, initial clarity,
-  planned weeks, deadlines, clarification options, revealed guidance thresholds, and result text
+  planned weeks, deadlines, plan-acceptance threshold, rejection limit, clarification options,
+  revealed guidance thresholds, and result text
 - request Task definitions: `60 / 30 / 10` contribution weights, interpretation/intent tags,
   role eligibility, competency minimums, workload, and late-score multiplier
 - Work definitions and predecessor IDs
@@ -726,6 +736,11 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 - Every request slot begins empty. The plan can be confirmed only after three unique work blocks
   and three available workers are selected; role or competency mismatch remains valid and forecasts
   reduced efficiency plus added dissatisfaction.
+- Selected plan workers remain provisional and the request stays out of the Gantt and execution
+  queue until stakeholder review accepts both its soft-deadline forecast and hidden intent fit.
+- Each rejected submission creates a stakeholder response and leaves the plan editable. Acceptance
+  converts provisional staffing into live assignments; reaching the authored rejection limit fails
+  the request without queue registration.
 - Requesting a call or meeting schedules one future interaction, increases clarity on its due day,
   reveals authored intent guidance, and never extends the delivery deadline.
 - A request cannot be delivered while a clarification is pending or while a required Task is
@@ -831,6 +846,9 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
 - `계획하기` starts planning and opens the dedicated Plan tab with that request focused. Once
   planning exists, the mail thread uses `계획으로`; the focused Plan view uses `메일로` to return to
   that exact request. Directly opening Plan shows a list of requests whose planning has started.
+- Sending a plan produces a stakeholder review response in Mail. A rejection explains schedule
+  overrun and/or content disagreement without exposing hidden intent values; acceptance states that
+  no disagreement remains and that execution was registered.
 - A clarification request and its eventual stakeholder response are shown as one request-thread
   history. The scheduled response day remains visible until it resolves.
 - Delivery creates a result mail containing the final stakeholder-fit score and weighted Task
@@ -861,8 +879,9 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
   weeks, and soft/hard delivery dates without Task breakdowns or worker slots.
 - The intake surface exposes clarification calls and meetings plus one primary `계획하기` action.
   Clarification consumes its authored lead days while the original deadline continues to approach.
-- Selecting `계획하기` opens the separate top-level Plan tab, focuses the same request, and makes
-  the Work visible in planning surfaces. Returning to Mail does not cancel either phase.
+- Selecting `계획하기` opens the separate top-level Plan tab and focuses the same request. Returning
+  to Mail does not cancel planning, but the Work remains absent from the Gantt and execution queue
+  until the submitted plan is accepted.
 - Mail retains the original request, constraints, deadlines, and clarification controls. Plan
   retains the derived planning guidance, work-block pool, weighted slots, staffing, confirmation,
   execution state, and score breakdown. These responsibilities are not combined in either tab.
@@ -880,10 +899,12 @@ Patch builds must include this file in the patch manifest. Hot-update runtime lo
   hints at `70`; unrevealed slots remain selectable and state their uncertainty explicitly.
 - Unavailable workers stay visible with a concise blocking reason. Mismatched workers remain
   assignable with their efficiency and dissatisfaction forecast. Worker selection uses a dropdown;
-  the selected worker's compact summary appears on the right and opens a detailed popup. The
-  confirm-plan action is enabled only when every slot has both a unique block and an assigned worker.
-- After confirmation, the same board becomes a live delivery view showing progress, schedule risk,
-  ownership, clarification history, and the eventual score breakdown.
+  the selected worker's compact summary appears on the right and opens a detailed popup. The send
+  action is enabled only when every slot has both a unique block and a provisionally selected worker
+  and no clarification is pending.
+- The board shows the projected completion day and latest review result. Rejected plans remain
+  editable; accepted plans become a live delivery view showing progress, schedule risk, ownership,
+  clarification history, and the eventual score breakdown.
 - The broader operations desktop and Gantt are read-oriented status surfaces for this loop. They may
   open the request board but must not require duplicate assignment work.
 

@@ -2,13 +2,12 @@
 
 ## Document Control
 
-- Version: 1.3
+- Version: 1.4
 - Status: Authoring specification
 - Action: Update
 - SSOT Change: Yes
-- Rationale: Define Stakeholder Task definitions and their interpretations as a shared work-block
-  pool placed into initially empty weighted runtime slots, while preserving each slot's hidden
-  authored target for fit scoring and clarity-gated guidance.
+- Rationale: Define authored stakeholder plan-review thresholds so schedule and intent acceptance,
+  revision limits, and failure are data-driven rather than hard-coded request behavior.
 - Runtime schema: `ProjectW.MilestonePrototype.TaskSystemData`, schema version 1
 - Runtime artifact: `Assets/MilestonePrototype/Resources/task-system.json`
 - Authoring template: `Docs/DataAuthoring/ProjectW-CoreAuthoringTemplate.md`
@@ -143,6 +142,8 @@ One approved request row owns the ambiguous inbound brief and its delivery/scori
 | `PlannedWeeks` | positive integer | CORE | Presentation duration |
 | `SoftDeadlineDays` / `HardDeadlineDays` | positive integer | CORE | Days relative to mail arrival |
 | `InitialClarity` | `0..100` | CORE | Information visible before clarification |
+| `PlanAcceptanceScore` | `1..100` | CORE | Minimum hidden projected fit for plan acceptance |
+| `MaxPlanRejections` | `1..10` | CORE | Rejection count that fails the request |
 | `LateScoreMultiplier` | `0..1` | CORE | Soft-deadline fit multiplier |
 | `Guidance` | linked rows | CORE | `MinimumClarity` threshold and revealed text |
 | `Clarifications` | linked rows | CORE | Stable ID, display name, lead days, and clarity gain |
@@ -160,10 +161,11 @@ runtime Task's role, competencies, workload, display text, and emitted tags; it 
 slot's hidden target. Hidden targets and slot guidance must not be exposed before their clarity
 threshold is reached.
 
-Clarification lead time and clarity gain are authored values. The compiler and runtime must reject
-non-positive timing/gain, invalid clarity ranges, missing guidance, missing intent tags, mismatched
-competency/minimum array lengths, duplicate IDs, missing entry mail, or weights that do not total
-`100`.
+Clarification lead time and clarity gain are authored values. Plan acceptance additionally requires
+projected completion no later than the request's soft deadline and projected hidden fit at or above
+`PlanAcceptanceScore`. The compiler and runtime must reject non-positive timing/gain, invalid
+clarity or review ranges, missing guidance, missing intent tags, mismatched competency/minimum array
+lengths, duplicate IDs, missing entry mail, or weights that do not total `100`.
 
 ### `CoreMail`
 
@@ -364,7 +366,8 @@ The current loader requires:
 
 - `SchemaVersion = 1`;
 - valid Stakeholder Requests with matching mail, exactly three weighted Tasks totaling `100`,
-  valid competency minimums, clarification options, guidance, intent tags, and interpretations;
+  `PlanAcceptanceScore` in `1..100`, `MaxPlanRejections` in `1..10`, valid competency minimums,
+  clarification options, guidance, intent tags, and interpretations;
 - positive campaign and midpoint-review days;
 - non-negative starting resources;
 - non-null Balance, Works, Tasks, Crew, RandomTaskWords, and non-empty Codex and word-pool arrays;
