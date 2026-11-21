@@ -397,3 +397,23 @@ integer selector. Catalog rules otherwise use patch-owned models and managed log
 containing the new catalog request must declare `minBaseVersion = 16`.
 Editor tests prove managed behavior only; device compatibility requires an on-device smoke test of
 scope toggles, option toggles, detail dialogs, worker assignment, plan submission, and restore.
+
+## Base APK v17 AOT Baseline
+
+Base APK v17 completes the catalog planning presentation as a six-segment radial board. The base
+rebuild is required because the responsive orbit, segment positions, compact option rows, and
+state-border styles live in the APK-embedded StudioUI USS resource.
+
+It must bundle:
+
+- `BaseVersion = 17`;
+- the latest embedded `ProjectW.HotUpdate.dll.bytes`, six-Task `task-system.json`, UXML, and USS;
+- the two-ring radial board with a central project summary and six stable surrounding segments;
+- explicit ON/OFF, unstaffed, and option-conflict segment states;
+- regenerated Android AOT metadata and the complete v16 preservation surface.
+
+The controller continues to construct `VisualElement`, `Label`, and `Button` instances and apply
+class names through the surface preserved in v12-v16. It adds no new Unity, package, platform,
+native, Contracts, reflection, serialization, delegate, or generic AOT dependency. Patches using
+the completed radial board must declare `minBaseVersion = 17`. Device compatibility still requires
+an on-device landscape smoke test of all six segment positions and their interactive controls.

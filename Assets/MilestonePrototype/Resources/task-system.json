@@ -77,7 +77,7 @@
       "PlanReviewMinDays": 1,
       "PlanReviewMaxDays": 3,
       "LateScoreMultiplier": 0.8,
-      "MinimumSelectedTasks": 2,
+      "MinimumSelectedTasks": 3,
       "Clarifications": [
         {
           "Id": "call",
@@ -108,12 +108,55 @@
       ],
       "Tasks": [
         {
+          "Id": "member-permission",
+          "Name": "회원과 권한",
+          "Description": "환불 요청자와 승인자의 권한 범위를 정의합니다.",
+          "DefaultIncluded": true,
+          "TargetIncluded": true,
+          "ContributionWeight": 17,
+          "RequiredRole": 1,
+          "RequiredCompetencies": [1, 5],
+          "MinimumCompetencies": [5, 4],
+          "RequiredWork": 3,
+          "TargetIntentTags": ["permission"],
+          "RequiredInformation": ["환불 요청 가능 사용자", "최종 승인자", "기존 관리자 권한표"],
+          "Options": [
+            {
+              "Id": "multi-role",
+              "Name": "다중 권한",
+              "Description": "상담원·매니저·회계 담당자의 권한을 분리합니다.",
+              "AdditionalWork": 2,
+              "TargetIncluded": true,
+              "RequiredInformation": ["역할별 승인 한도"],
+              "RiskNotes": ["권한표가 없으면 과도한 권한이 부여될 수 있음"]
+            },
+            {
+              "Id": "delegated-approval",
+              "Name": "대리 승인",
+              "Description": "승인자 부재 시 지정된 대리인이 처리합니다.",
+              "AdditionalWork": 2,
+              "TargetIncluded": false,
+              "RequiredInformation": ["대리 승인 기간과 대상"],
+              "RiskNotes": ["승인 책임 소재가 불명확해질 수 있음"]
+            },
+            {
+              "Id": "two-factor",
+              "Name": "2단계 인증",
+              "Description": "고액 환불 승인 시 추가 인증을 요구합니다.",
+              "AdditionalWork": 3,
+              "TargetIncluded": false,
+              "RequiredInformation": ["인증 수단", "고액 기준"],
+              "RiskNotes": ["인증 서비스 연동과 운영 대응 필요"]
+            }
+          ]
+        },
+        {
           "Id": "order-refund",
           "Name": "상품과 주문",
           "Description": "주문 상태에서 취소·환불 가능한 범위와 흐름을 정의합니다.",
           "DefaultIncluded": true,
           "TargetIncluded": true,
-          "ContributionWeight": 34,
+          "ContributionWeight": 17,
           "RequiredRole": 1,
           "RequiredCompetencies": [1, 0],
           "MinimumCompetencies": [5, 4],
@@ -156,7 +199,7 @@
           "Description": "결제수단별 환불 요청과 결과 반영을 처리합니다.",
           "DefaultIncluded": true,
           "TargetIncluded": true,
-          "ContributionWeight": 33,
+          "ContributionWeight": 17,
           "RequiredRole": 2,
           "RequiredCompetencies": [2, 5],
           "MinimumCompetencies": [6, 5],
@@ -194,12 +237,98 @@
           ]
         },
         {
+          "Id": "notification",
+          "Name": "알림과 소통",
+          "Description": "환불 접수·승인·실패 결과를 사용자와 담당자에게 알립니다.",
+          "DefaultIncluded": false,
+          "TargetIncluded": false,
+          "ContributionWeight": 16,
+          "RequiredRole": 3,
+          "RequiredCompetencies": [3, 1],
+          "MinimumCompetencies": [4, 4],
+          "RequiredWork": 3,
+          "TargetIntentTags": ["notification"],
+          "RequiredInformation": ["기존 알림 채널", "메시지 승인 담당자"],
+          "Options": [
+            {
+              "Id": "multi-channel",
+              "Name": "다채널 발송",
+              "Description": "메일과 문자로 환불 상태를 안내합니다.",
+              "AdditionalWork": 3,
+              "TargetIncluded": false,
+              "RequiredInformation": ["문자 발송 서비스 계정"],
+              "RiskNotes": ["채널별 개인정보 동의 확인 필요"]
+            },
+            {
+              "Id": "scheduled-send",
+              "Name": "예약 발송",
+              "Description": "업무 시간에 맞춰 알림을 예약합니다.",
+              "AdditionalWork": 2,
+              "TargetIncluded": false,
+              "RequiredInformation": ["발송 금지 시간"],
+              "RiskNotes": ["상태 변경과 예약 취소 동기화 필요"]
+            },
+            {
+              "Id": "retry",
+              "Name": "실패 재처리",
+              "Description": "알림 발송 실패를 기록하고 재시도합니다.",
+              "AdditionalWork": 3,
+              "TargetIncluded": false,
+              "RequiredInformation": ["재시도 횟수와 간격"],
+              "RiskNotes": ["중복 알림 방지 필요"]
+            }
+          ]
+        },
+        {
+          "Id": "reporting",
+          "Name": "조회와 보고",
+          "Description": "환불 현황과 정산 근거를 조회·내보냅니다.",
+          "DefaultIncluded": false,
+          "TargetIncluded": true,
+          "ContributionWeight": 16,
+          "RequiredRole": 1,
+          "RequiredCompetencies": [1, 2],
+          "MinimumCompetencies": [5, 4],
+          "RequiredWork": 4,
+          "TargetIntentTags": ["report"],
+          "RequiredInformation": ["회계팀 정산 양식", "조회 보존기간"],
+          "Options": [
+            {
+              "Id": "realtime-summary",
+              "Name": "실시간 집계",
+              "Description": "상태별 환불 금액과 건수를 즉시 집계합니다.",
+              "AdditionalWork": 4,
+              "TargetIncluded": false,
+              "RequiredInformation": ["허용 집계 지연"],
+              "RiskNotes": ["대량 주문에서 조회 부하 증가"]
+            },
+            {
+              "Id": "excel-export",
+              "Name": "엑셀 출력",
+              "Description": "회계 정산 양식으로 환불 내역을 내려받습니다.",
+              "AdditionalWork": 2,
+              "TargetIncluded": true,
+              "RequiredInformation": ["필수 열과 마스킹 규칙"],
+              "RiskNotes": ["개인정보 포함 범위 확인 필요"]
+            },
+            {
+              "Id": "large-volume",
+              "Name": "대용량 대응",
+              "Description": "대규모 기간 조회를 비동기로 처리합니다.",
+              "AdditionalWork": 4,
+              "TargetIncluded": false,
+              "RequiredInformation": ["최대 조회 건수"],
+              "RiskNotes": ["별도 작업 큐와 파일 보관 정책 필요"]
+            }
+          ]
+        },
+        {
           "Id": "admin-operation",
           "Name": "관리자와 운영",
           "Description": "운영자가 환불 상태를 추적하고 잘못된 처리를 통제합니다.",
           "DefaultIncluded": false,
           "TargetIncluded": true,
-          "ContributionWeight": 33,
+          "ContributionWeight": 17,
           "RequiredRole": 1,
           "RequiredCompetencies": [1, 5],
           "MinimumCompetencies": [5, 5],

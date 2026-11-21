@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Version: 1.0
+- Version: 1.1
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
@@ -39,9 +39,9 @@ Each request authors a finite array of catalog Tasks. A catalog Task contains:
 - default scope state and hidden target scope state;
 - approximately three extension options.
 
-The initial playable request uses three catalog Tasks: `상품과 주문`, `결제와 환불`, and
-`관리자와 운영`. The broader ten-item catalog in the concept document remains a candidate pool,
-not a requirement that every request display all ten items.
+The initial playable request uses six catalog Tasks: `회원과 권한`, `상품과 주문`, `결제와 환불`,
+`알림과 소통`, `조회와 보고`, and `관리자와 운영`. The broader ten-item catalog in the concept
+document remains a candidate pool, not a requirement that every request display all ten items.
 
 ## Scope State
 
@@ -59,7 +59,9 @@ another.
 
 ## Planning Board
 
-The planning board presents a circular summary hub and rounded Task segments around it. The hub
+The planning board presents one circular summary hub inside a visible two-ring orbit, with six Task
+segments placed at stable positions around that hub. A normal catalog request must not fall back to
+a hub-above-card-grid layout. The hub
 shows selected Task and option counts, total person-days, forecast completion, customer deadline,
 and schedule slack or overrun. Every segment shows:
 

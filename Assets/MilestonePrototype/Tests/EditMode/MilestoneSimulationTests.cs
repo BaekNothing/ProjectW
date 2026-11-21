@@ -26,11 +26,12 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(game.OpenStakeholderRequest("mail-stakeholder-landing"), Is.True);
             List<WorkTask> tasks = game.Tasks.FindAll(task => task.StakeholderRequestId == "landing-brief");
 
-            Assert.That(tasks.Count, Is.EqualTo(3));
+            Assert.That(tasks.Count, Is.EqualTo(6));
             Assert.That(tasks.ConvertAll(task => task.Name),
-                Is.EquivalentTo(new[] { "상품과 주문", "결제와 환불", "관리자와 운영" }));
-            Assert.That(tasks.FindAll(task => task.ScopeIncluded).Count, Is.EqualTo(2));
-            Assert.That(game.StakeholderPlanTotalWork("landing-brief"), Is.EqualTo(9f));
+                Is.EquivalentTo(new[] { "회원과 권한", "상품과 주문", "결제와 환불",
+                    "알림과 소통", "조회와 보고", "관리자와 운영" }));
+            Assert.That(tasks.FindAll(task => task.ScopeIncluded).Count, Is.EqualTo(3));
+            Assert.That(game.StakeholderPlanTotalWork("landing-brief"), Is.EqualTo(12f));
             game.AdvanceDay();
             Assert.That(tasks, Has.All.Matches<WorkTask>(task => task.AssignedCharacter < 0));
         }
@@ -91,7 +92,7 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(game.StakeholderPlanProjectedFit(request.Id), Is.EqualTo(100));
             Assert.That(game.StakeholderPlanProjectedCompletionDay(request.Id),
                 Is.LessThanOrEqualTo(work.SoftDeadline));
-            Assert.That(tasks, Has.All.Matches<WorkTask>(task =>
+            Assert.That(tasks.FindAll(task => task.ScopeIncluded), Has.All.Matches<WorkTask>(task =>
                 task.PlannedCharacter >= 0 && task.AssignedCharacter < 0));
             Assert.That(game.IsWorkVisible(work), Is.False);
 
@@ -102,7 +103,7 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(game.NextEventDay, Is.EqualTo(request.PendingPlanReviewDay));
             Assert.That(game.NextEventSummary, Is.EqualTo("계획 검토"));
             Assert.That(game.IsWorkVisible(work), Is.False);
-            Assert.That(tasks, Has.All.Matches<WorkTask>(task =>
+            Assert.That(tasks.FindAll(task => task.ScopeIncluded), Has.All.Matches<WorkTask>(task =>
                 task.PlannedCharacter >= 0 && task.AssignedCharacter < 0));
             Assert.That(game.AssignStakeholderTask(tasks[0].Id, 3), Is.False);
             Assert.That(game.RequestStakeholderClarification(request.Id, "call"), Is.False);
@@ -112,7 +113,7 @@ namespace ProjectW.MilestonePrototype.Tests
 
             Assert.That(request.PlanConfirmed, Is.True);
             Assert.That(game.IsWorkVisible(work), Is.True);
-            Assert.That(tasks, Has.All.Matches<WorkTask>(task =>
+            Assert.That(tasks.FindAll(task => task.ScopeIncluded), Has.All.Matches<WorkTask>(task =>
                 task.PlannedCharacter < 0 && task.AssignedCharacter >= 0));
             Assert.That(game.Mail, Has.Some.Matches<MailEvent>(mail =>
                 mail.Id == "stakeholder-plan-review-landing-brief-1" &&
@@ -277,6 +278,8 @@ namespace ProjectW.MilestonePrototype.Tests
             game.Crew[0].DailyOutput = 100f;
             game.Crew[1].DailyOutput = 100f;
             game.Crew[2].DailyOutput = 100f;
+            game.Crew[3].DailyOutput = 100f;
+            game.Crew[4].DailyOutput = 100f;
 
             game.AdvanceDay();
             StakeholderRequestState result = game.StakeholderState("landing-brief");
@@ -2011,7 +2014,7 @@ namespace ProjectW.MilestonePrototype.Tests
         [Test]
         public void BaseVersionMatchesCurrentAotBaseline()
         {
-            Assert.That(PatchBootstrapper.BaseVersion, Is.EqualTo(15));
+            Assert.That(PatchBootstrapper.BaseVersion, Is.EqualTo(17));
         }
 
         [Test]
@@ -2778,21 +2781,31 @@ namespace ProjectW.MilestonePrototype.Tests
 
         private static void FillStakeholderPlan(MilestoneSimulation game, bool matchingIntent)
         {
+            string member = "stakeholder-landing-brief-member-permission";
             string order = "stakeholder-landing-brief-order-refund";
             string payment = "stakeholder-landing-brief-payment-refund";
+            string reporting = "stakeholder-landing-brief-reporting";
             string admin = "stakeholder-landing-brief-admin-operation";
             if (matchingIntent)
             {
+                Assert.That(game.SetStakeholderOption(member, "multi-role", true), Is.True);
                 Assert.That(game.SetStakeholderOption(order, "partial-cancel", true), Is.True);
                 Assert.That(game.SetStakeholderOption(payment, "partial-refund", true), Is.True);
                 Assert.That(game.SetStakeholderOption(payment, "mixed-payment", true), Is.True);
                 Assert.That(game.SetStakeholderOption(payment, "duplicate-guard", true), Is.True);
+                Assert.That(game.SetStakeholderTaskIncluded(reporting, true), Is.True);
+                Assert.That(game.SetStakeholderOption(reporting, "excel-export", true), Is.True);
                 Assert.That(game.SetStakeholderTaskIncluded(admin, true), Is.True);
                 Assert.That(game.SetStakeholderOption(admin, "audit-log", true), Is.True);
             }
+            Assert.That(game.AssignStakeholderTask(member, 1), Is.True);
             Assert.That(game.AssignStakeholderTask(order, 1), Is.True);
             Assert.That(game.AssignStakeholderTask(payment, 2), Is.True);
-            if (matchingIntent) Assert.That(game.AssignStakeholderTask(admin, 0), Is.True);
+            if (matchingIntent)
+            {
+                Assert.That(game.AssignStakeholderTask(reporting, 3), Is.True);
+                Assert.That(game.AssignStakeholderTask(admin, 4), Is.True);
+            }
         }
 
         private static void AdvanceUntilStakeholderPlanReviewed(

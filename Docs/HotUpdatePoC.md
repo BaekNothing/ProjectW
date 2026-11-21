@@ -37,18 +37,19 @@ native plugins, Android settings, Unity, or HybridCLR change.
 
 ### Current base APK
 
-- Base version: `16`
+- Base version: `17`
 - Artifact: `APK/ProjectW-HybridCLR.apk`
-- Size: `52,947,436` bytes
-- SHA-256: `83d955c844067270a635d5387fbcc8879749953099e8a2994d8f95df17bbe166`
+- Size: `52,956,148` bytes
+- SHA-256: `fa6fc3f0220ac7ee4903961bcc5e84b03bb2ffe11dc1fc2494a7b24ad858f482`
 - Required for: the StudioUI UI Toolkit title and operations workspace, the reviewed interaction
   and motion system (including focus and reduced motion), the unified remote Addressables
   catalog/content pipeline, all fixed Bootstrap operations, and the worker-assignment preview's
-  pointer and keyboard dismissal surfaces, and the SI catalog planning board with embedded
-  fallback request data and radial UI styles
+  pointer and keyboard dismissal surfaces, and the six-segment SI catalog planning board with
+  embedded fallback request data, concentric radial layout, compact options, and visible staffing
+  and risk states
 
-Older base APKs reject manifests whose `minBaseVersion` is `16`. Install base APK v16 once before
-consuming SI catalog-planning patches.
+Older base APKs reject manifests whose `minBaseVersion` is `17`. Install base APK v17 once before
+consuming the six-segment SI catalog-planning patches.
 
 ## Routine code patch workflow
 

@@ -858,8 +858,13 @@ namespace ProjectW.MilestonePrototype
             int totalOptions = definition.Tasks.Sum(item => item.Options?.Length ?? 0);
             int projectedCompletion = game.StakeholderPlanProjectedCompletionDay(request.Id);
 
+            var wheel = Box("catalog-wheel");
+            wheel.Add(Box("catalog-orbit"));
+            wheel.Add(Box("catalog-orbit-inner"));
             var summary = Box("catalog-plan-summary");
             summary.Add(Text(definition.ProjectName ?? definition.Stakeholder, "summary-title"));
+            summary.Add(Badge(status, request.PlanConfirmed ? "success" :
+                request.PendingPlanReviewDay > 0 ? "accent" : "neutral"));
             summary.Add(Text($"선택 작업 {selectedTasks}/{tasks.Count}  ·  확장 {selectedOptions}/{totalOptions}", "body"));
             summary.Add(Text($"총공수 {game.StakeholderPlanTotalWork(request.Id):0.#}인일", "metric-value"));
             summary.Add(Text(projectedCompletion > 0
@@ -870,14 +875,17 @@ namespace ProjectW.MilestonePrototype
             else if (projectedCompletion > 0)
                 summary.Add(Badge($"{work.SoftDeadline - projectedCompletion}일 여유", "success"));
             summary.Add(Text($"명확도 {request.Clarity}% · 미확인 정보가 실제 환경과 충돌하면 버그와 검수 반려로 이어집니다.", "caption"));
-            board.Add(summary);
+            wheel.Add(summary);
 
-            var grid = Box("catalog-task-grid");
-            foreach (WorkTask task in tasks)
-                grid.Add(BuildCatalogTaskCard(request, task));
-            board.Add(grid);
+            for (int taskIndex = 0; taskIndex < tasks.Count; taskIndex++)
+            {
+                VisualElement card = BuildCatalogTaskCard(request, tasks[taskIndex]);
+                card.AddToClassList("wheel-position-" + Math.Min(taskIndex, 5));
+                wheel.Add(card);
+            }
+            board.Add(wheel);
 
-            var risks = Box("summary-row");
+            var risks = Box("catalog-risk-panel");
             risks.Add(Text("현재 계획 위험", "summary-title"));
             bool hasVisibleRisk = false;
             if (selectedTasks < definition.MinimumSelectedTasks)
@@ -934,9 +942,14 @@ namespace ProjectW.MilestonePrototype
                             request.PendingPlanReviewDay <= 0 && request.FitScore < 0;
             var card = Box("catalog-task-card");
             card.AddToClassList(task.ScopeIncluded ? "is-on" : "is-off");
+            int worker = StakeholderWorkerIndex(request, task);
+            bool conflict = CatalogTaskHasConflict(task, definition);
+            if (conflict) card.AddToClassList("has-risk");
+            if (task.ScopeIncluded && worker < 0) card.AddToClassList("needs-worker");
             var heading = Box("button-row");
             Button toggle = ActionButton(task.ScopeIncluded ? "ON" : "OFF",
                 task.ScopeIncluded ? "primary" : "secondary");
+            toggle.AddToClassList("catalog-scope-toggle");
             toggle.SetEnabled(editable);
             toggle.clicked += () =>
             {
@@ -946,19 +959,23 @@ namespace ProjectW.MilestonePrototype
             heading.Add(toggle);
             Button detail = ActionButton(definition?.Name ?? task.Name, "secondary");
             detail.clicked += () => ShowCatalogTaskDetail(task, null);
+            detail.AddToClassList("catalog-task-title");
             heading.Add(detail);
             card.Add(heading);
             card.Add(Text(task.ScopeIncluded
                 ? $"기본 {definition?.RequiredWork ?? 0f:0.#}인일 · 확장 +{Math.Max(0f, task.RequiredWork - (definition?.RequiredWork ?? 0f)):0.#}인일"
                 : "공수·담당자·일정에서 제외", task.ScopeIncluded ? "body" : "muted"));
+            if (definition?.RequiredInformation != null)
+                card.Add(Text($"필요 정보 {definition.RequiredInformation.Length}건", "caption"));
 
             if (definition?.Options != null)
                 foreach (StakeholderOptionDefinition option in definition.Options)
                 {
                     bool selected = game.IsStakeholderOptionSelected(task, option.Id);
-                    var optionRow = Box("button-row");
+                    var optionRow = Box("catalog-option-row");
                     Button optionToggle = ActionButton((selected ? "☑ " : "☐ ") + option.Name,
                         selected ? "primary" : "secondary");
+                    optionToggle.AddToClassList("catalog-option-toggle");
                     optionToggle.SetEnabled(editable && task.ScopeIncluded);
                     optionToggle.clicked += () =>
                     {
@@ -966,21 +983,40 @@ namespace ProjectW.MilestonePrototype
                         SaveAndRefresh("plan");
                     };
                     optionRow.Add(optionToggle);
-                    Button optionDetail = ActionButton("상세", "secondary");
+                    Button optionDetail = ActionButton($"+{option.AdditionalWork:0.#}일 · 상세", "secondary");
+                    optionDetail.AddToClassList("catalog-option-detail");
                     optionDetail.clicked += () => ShowCatalogTaskDetail(task, option);
                     optionRow.Add(optionDetail);
                     card.Add(optionRow);
                 }
 
-            int worker = StakeholderWorkerIndex(request, task);
             Button picker = ActionButton(worker >= 0 && worker < game.Crew.Count
                 ? "담당 · " + game.Crew[worker].Name : "담당자 선택", worker >= 0 ? "primary" : "secondary");
+            picker.AddToClassList("catalog-worker-picker");
             picker.SetEnabled(editable && task.ScopeIncluded);
             picker.clicked += () => ShowWorkerPicker(task);
             card.Add(picker);
             if (worker >= 0 && worker < game.Crew.Count)
                 card.Add(Text(WorkerAssignmentSummary(task, worker), "caption"));
+            else if (task.ScopeIncluded)
+                card.Add(Text("미배정 · 제출 전 담당자가 필요합니다.", "warning-text"));
+            if (conflict)
+                card.Add(Text("선택한 확장 사양이 서로 충돌합니다.", "error-text"));
             return card;
+        }
+
+        private bool CatalogTaskHasConflict(
+            WorkTask task, StakeholderTaskDefinition definition)
+        {
+            if (task == null || definition?.Options == null) return false;
+            foreach (StakeholderOptionDefinition option in definition.Options)
+            {
+                if (!game.IsStakeholderOptionSelected(task, option.Id) ||
+                    option.ConflictingOptionIds == null) continue;
+                foreach (string conflictId in option.ConflictingOptionIds)
+                    if (game.IsStakeholderOptionSelected(task, conflictId)) return true;
+            }
+            return false;
         }
 
         private void ShowCatalogTaskDetail(WorkTask task, StakeholderOptionDefinition option)
