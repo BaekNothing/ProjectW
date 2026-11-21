@@ -861,6 +861,13 @@ namespace ProjectW.MilestonePrototype
             var wheel = Box("catalog-wheel");
             wheel.Add(Box("catalog-orbit"));
             wheel.Add(Box("catalog-orbit-inner"));
+            bool editable = !request.PlanConfirmed && !request.PlanFailed &&
+                            request.PendingPlanReviewDay <= 0 && request.FitScore < 0;
+            for (int taskIndex = 0; taskIndex < tasks.Count && taskIndex < 6; taskIndex++)
+                wheel.Add(BuildCatalogTaskSegment(request, tasks[taskIndex], taskIndex));
+            wheel.RegisterCallback<PointerDownEvent>(pointerEvent =>
+                HandleCatalogWheelPointerDown(pointerEvent, wheel, tasks, editable));
+
             var summary = Box("catalog-plan-summary");
             summary.Add(Text(definition.ProjectName ?? definition.Stakeholder, "summary-title"));
             summary.Add(Badge(status, request.PlanConfirmed ? "success" :
@@ -876,13 +883,6 @@ namespace ProjectW.MilestonePrototype
                 summary.Add(Badge($"{work.SoftDeadline - projectedCompletion}일 여유", "success"));
             summary.Add(Text($"명확도 {request.Clarity}% · 미확인 정보가 실제 환경과 충돌하면 버그와 검수 반려로 이어집니다.", "caption"));
             wheel.Add(summary);
-
-            for (int taskIndex = 0; taskIndex < tasks.Count; taskIndex++)
-            {
-                VisualElement card = BuildCatalogTaskCard(request, tasks[taskIndex]);
-                card.AddToClassList("wheel-position-" + Math.Min(taskIndex, 5));
-                wheel.Add(card);
-            }
             board.Add(wheel);
 
             var risks = Box("catalog-risk-panel");
@@ -935,74 +935,99 @@ namespace ProjectW.MilestonePrototype
             pageContent.Add(board);
         }
 
-        private VisualElement BuildCatalogTaskCard(StakeholderRequestState request, WorkTask task)
+        private VisualElement BuildCatalogTaskSegment(
+            StakeholderRequestState request, WorkTask task, int segmentIndex)
         {
             StakeholderTaskDefinition definition = game.StakeholderTargetTaskDefinition(task);
             bool editable = !request.PlanConfirmed && !request.PlanFailed &&
                             request.PendingPlanReviewDay <= 0 && request.FitScore < 0;
-            var card = Box("catalog-task-card");
-            card.AddToClassList(task.ScopeIncluded ? "is-on" : "is-off");
+            var segment = Box("catalog-segment");
+            segment.AddToClassList("segment-position-" + segmentIndex);
+            segment.AddToClassList(task.ScopeIncluded ? "is-on" : "is-off");
             int worker = StakeholderWorkerIndex(request, task);
             bool conflict = CatalogTaskHasConflict(task, definition);
-            if (conflict) card.AddToClassList("has-risk");
-            if (task.ScopeIncluded && worker < 0) card.AddToClassList("needs-worker");
-            var heading = Box("button-row");
-            Button toggle = ActionButton(task.ScopeIncluded ? "ON" : "OFF",
-                task.ScopeIncluded ? "primary" : "secondary");
-            toggle.AddToClassList("catalog-scope-toggle");
-            toggle.SetEnabled(editable);
-            toggle.clicked += () =>
+            if (conflict) segment.AddToClassList("has-risk");
+            if (task.ScopeIncluded && worker < 0) segment.AddToClassList("needs-worker");
+
+            var sprite = Box("catalog-segment-sprite");
+            sprite.AddToClassList("segment-rotation-" + segmentIndex);
+            segment.Add(sprite);
+
+            var controls = Box("catalog-segment-controls");
+            controls.AddToClassList("segment-controls-" + segmentIndex);
+            var heading = Box("catalog-segment-heading");
+            var scope = new Button { text = task.Name };
+            scope.AddToClassList("catalog-segment-title");
+            scope.SetEnabled(editable);
+            scope.clicked += () =>
             {
                 game.SetStakeholderTaskIncluded(task.Id, !task.ScopeIncluded);
                 SaveAndRefresh("plan");
             };
-            heading.Add(toggle);
-            Button detail = ActionButton(definition?.Name ?? task.Name, "secondary");
+            heading.Add(scope);
+            Button detail = ActionButton("상세", "secondary");
+            detail.AddToClassList("catalog-segment-detail");
             detail.clicked += () => ShowCatalogTaskDetail(task, null);
-            detail.AddToClassList("catalog-task-title");
             heading.Add(detail);
-            card.Add(heading);
-            card.Add(Text(task.ScopeIncluded
-                ? $"기본 {definition?.RequiredWork ?? 0f:0.#}인일 · 확장 +{Math.Max(0f, task.RequiredWork - (definition?.RequiredWork ?? 0f)):0.#}인일"
-                : "공수·담당자·일정에서 제외", task.ScopeIncluded ? "body" : "muted"));
-            if (definition?.RequiredInformation != null)
-                card.Add(Text($"필요 정보 {definition.RequiredInformation.Length}건", "caption"));
+            controls.Add(heading);
+            Label stateLabel = Text(task.ScopeIncluded
+                    ? $"포함 · 기본 {definition?.RequiredWork ?? 0f:0.#} + 확장 {Math.Max(0f, task.RequiredWork - (definition?.RequiredWork ?? 0f)):0.#}인일"
+                    : "제외 · 공수와 일정 미반영",
+                "catalog-segment-state");
+            if (!task.ScopeIncluded) stateLabel.AddToClassList("muted");
+            controls.Add(stateLabel);
 
+            var options = Box("catalog-segment-options");
             if (definition?.Options != null)
                 foreach (StakeholderOptionDefinition option in definition.Options)
                 {
                     bool selected = game.IsStakeholderOptionSelected(task, option.Id);
-                    var optionRow = Box("catalog-option-row");
-                    Button optionToggle = ActionButton((selected ? "☑ " : "☐ ") + option.Name,
+                    var optionItem = Box("catalog-segment-option");
+                    Button optionToggle = ActionButton(selected ? "☑" : "☐",
                         selected ? "primary" : "secondary");
-                    optionToggle.AddToClassList("catalog-option-toggle");
+                    optionToggle.AddToClassList("catalog-segment-check");
                     optionToggle.SetEnabled(editable && task.ScopeIncluded);
                     optionToggle.clicked += () =>
                     {
                         game.SetStakeholderOption(task.Id, option.Id, !selected);
                         SaveAndRefresh("plan");
                     };
-                    optionRow.Add(optionToggle);
-                    Button optionDetail = ActionButton($"+{option.AdditionalWork:0.#}일 · 상세", "secondary");
-                    optionDetail.AddToClassList("catalog-option-detail");
+                    optionItem.Add(optionToggle);
+                    Button optionDetail = ActionButton(option.Name, "secondary");
+                    optionDetail.AddToClassList("catalog-segment-option-name");
                     optionDetail.clicked += () => ShowCatalogTaskDetail(task, option);
-                    optionRow.Add(optionDetail);
-                    card.Add(optionRow);
+                    optionItem.Add(optionDetail);
+                    options.Add(optionItem);
                 }
+            controls.Add(options);
 
             Button picker = ActionButton(worker >= 0 && worker < game.Crew.Count
                 ? "담당 · " + game.Crew[worker].Name : "담당자 선택", worker >= 0 ? "primary" : "secondary");
-            picker.AddToClassList("catalog-worker-picker");
+            picker.AddToClassList("catalog-segment-worker");
             picker.SetEnabled(editable && task.ScopeIncluded);
             picker.clicked += () => ShowWorkerPicker(task);
-            card.Add(picker);
-            if (worker >= 0 && worker < game.Crew.Count)
-                card.Add(Text(WorkerAssignmentSummary(task, worker), "caption"));
-            else if (task.ScopeIncluded)
-                card.Add(Text("미배정 · 제출 전 담당자가 필요합니다.", "warning-text"));
-            if (conflict)
-                card.Add(Text("선택한 확장 사양이 서로 충돌합니다.", "error-text"));
-            return card;
+            controls.Add(picker);
+            segment.Add(controls);
+            return segment;
+        }
+
+        private void HandleCatalogWheelPointerDown(
+            PointerDownEvent pointerEvent, VisualElement wheel, List<WorkTask> tasks, bool editable)
+        {
+            if (!editable || pointerEvent.target is Button || tasks == null || tasks.Count == 0)
+                return;
+            if (wheel == null) return;
+            Vector2 point = wheel.WorldToLocal(pointerEvent.position);
+            float dx = point.x - 450f;
+            float dy = point.y - 450f;
+            float radiusSquared = dx * dx + dy * dy;
+            if (radiusSquared < 170f * 170f || radiusSquared > 290f * 290f) return;
+
+            int segmentIndex = ProjectWUiProjection.CatalogSegmentIndex(dx, dy);
+            if (segmentIndex >= tasks.Count) return;
+            WorkTask task = tasks[segmentIndex];
+            game.SetStakeholderTaskIncluded(task.Id, !task.ScopeIncluded);
+            SaveAndRefresh("plan");
         }
 
         private bool CatalogTaskHasConflict(

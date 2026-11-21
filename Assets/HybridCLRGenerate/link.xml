@@ -31,6 +31,8 @@
     <type fullname="UnityEngine.TextAsset" preserve="all" />
     <type fullname="UnityEngine.Time" preserve="all" />
     <type fullname="UnityEngine.Transform" preserve="all" />
+    <type fullname="UnityEngine.Vector2" preserve="all" />
+    <type fullname="UnityEngine.Vector3" preserve="all" />
   </assembly>
   <assembly fullname="UnityEngine.JSONSerializeModule">
     <type fullname="UnityEngine.JsonUtility" preserve="all" />
@@ -39,12 +41,15 @@
     <type fullname="UnityEngine.UIElements.Button" preserve="all" />
     <type fullname="UnityEngine.UIElements.CallbackEventHandler" preserve="all" />
     <type fullname="UnityEngine.UIElements.DisplayStyle" preserve="all" />
+    <type fullname="UnityEngine.UIElements.EventBase" preserve="all" />
     <type fullname="UnityEngine.UIElements.EventCallback`1" preserve="all" />
+    <type fullname="UnityEngine.UIElements.IEventHandler" preserve="all" />
     <type fullname="UnityEngine.UIElements.IStyle" preserve="all" />
     <type fullname="UnityEngine.UIElements.Label" preserve="all" />
     <type fullname="UnityEngine.UIElements.Length" preserve="all" />
     <type fullname="UnityEngine.UIElements.PanelSettings" preserve="all" />
     <type fullname="UnityEngine.UIElements.PointerDownEvent" preserve="all" />
+    <type fullname="UnityEngine.UIElements.PointerEventBase`1" preserve="all" />
     <type fullname="UnityEngine.UIElements.Position" preserve="all" />
     <type fullname="UnityEngine.UIElements.ScrollView" preserve="all" />
     <type fullname="UnityEngine.UIElements.ScrollViewMode" preserve="all" />
@@ -58,6 +63,7 @@
     <type fullname="UnityEngine.UIElements.UQueryBuilder`1" preserve="all" />
     <type fullname="UnityEngine.UIElements.UQueryExtensions" preserve="all" />
     <type fullname="UnityEngine.UIElements.VisualElement" preserve="all" />
+    <type fullname="UnityEngine.UIElements.VisualElementExtensions" preserve="all" />
     <type fullname="UnityEngine.UIElements.VisualTreeAsset" preserve="all" />
   </assembly>
   <assembly fullname="mscorlib">

@@ -1,3 +1,4 @@
+using UnityEngine;
 using UnityEngine.Scripting;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
@@ -13,6 +14,7 @@ namespace ProjectW.Bootstrap
             if (element == null) return;
             element.RegisterCallback<PointerDownEvent>(OnPointerDown);
             element.RegisterCallback<PointerUpEvent>(OnPointerUp);
+            _ = element.WorldToLocal(Vector2.zero);
             Keyboard keyboard = Keyboard.current;
             if (keyboard == null) return;
             _ = keyboard.escapeKey.isPressed;
@@ -21,6 +23,8 @@ namespace ProjectW.Bootstrap
 
         private static void OnPointerDown(PointerDownEvent pointerEvent)
         {
+            _ = pointerEvent.position;
+            _ = pointerEvent.target;
         }
 
         private static void OnPointerUp(PointerUpEvent pointerEvent)

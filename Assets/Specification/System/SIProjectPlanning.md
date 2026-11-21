@@ -2,7 +2,7 @@
 
 ## Document Control
 
-- Version: 1.1
+- Version: 1.2
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
@@ -59,9 +59,10 @@ another.
 
 ## Planning Board
 
-The planning board presents one circular summary hub inside a visible two-ring orbit, with six Task
-segments placed at stable positions around that hub. A normal catalog request must not fall back to
-a hub-above-card-grid layout. The hub
+The planning board presents one circular summary hub inside a ring divided into six equal 60-degree
+Task segments. Each segment is rendered from the same transparent annular-sector sprite and rotated
+around the hub. A normal catalog request must not fall back to a hub-above-card-grid layout or to
+rounded rectangular cards placed around a circle. The hub
 shows selected Task and option counts, total person-days, forecast completion, customer deadline,
 and schedule slack or overrun. Every segment shows:
 
@@ -69,6 +70,12 @@ and schedule slack or overrun. Every segment shows:
 - base and extension person-days;
 - extension check controls and detail actions;
 - provisional worker and compact fit summary.
+
+The segment surface itself is the scope toggle. Included, excluded, unstaffed, and conflicting
+states are conveyed by segment fill and opacity rather than a separate `ON/OFF` button. Pointer
+selection must resolve the ring radius and segment angle so transparent rectangular sprite bounds
+cannot activate an adjacent segment. Extension check controls and their detail actions sit along
+the outer edge of their segment.
 
 The detail dialog shows purpose, work, required information, and new risks. The board also lists
 blocking risks such as missing workers, insufficient scope, deadline overrun, and authored option

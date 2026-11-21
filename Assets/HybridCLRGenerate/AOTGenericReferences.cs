@@ -105,6 +105,7 @@ public class AOTGenericReferences : UnityEngine.MonoBehaviour
 	// UnityEngine.UIElements.EventCallbackFunctor<object>
 	// UnityEngine.UIElements.ObjectPool.<>c<object>
 	// UnityEngine.UIElements.ObjectPool<object>
+	// UnityEngine.UIElements.PointerEventBase<object>
 	// UnityEngine.UIElements.StyleEnum<int>
 	// UnityEngine.UIElements.UQuery.PredicateWrapper<object>
 	// UnityEngine.UIElements.UQueryBuilder.<>c<object>

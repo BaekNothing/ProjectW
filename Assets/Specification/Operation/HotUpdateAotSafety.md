@@ -417,3 +417,32 @@ class names through the surface preserved in v12-v16. It adds no new Unity, pack
 native, Contracts, reflection, serialization, delegate, or generic AOT dependency. Patches using
 the completed radial board must declare `minBaseVersion = 17`. Device compatibility still requires
 an on-device landscape smoke test of all six segment positions and their interactive controls.
+
+## Base APK v18 AOT Baseline
+
+Base APK v18 replaces the card-around-orbit approximation with the specified six-part annular
+control. The base rebuild is required because the deterministic 60-degree segment sprite and its
+USS layout are APK-embedded resources, and exact segment hit testing reads pointer coordinates in
+the fixed UI Toolkit surface.
+
+It must bundle:
+
+- `BaseVersion = 18`;
+- the latest embedded `ProjectW.HotUpdate.dll.bytes`, `task-system.json`, UXML, USS, and
+  `catalog-segment.png`;
+- six rotations of one transparent annular-sector sprite with state tinting;
+- fixed-layer calls preserving `PointerDownEvent.position`, `EventBase.target`, and
+  `VisualElement.WorldToLocal(Vector2)`;
+- regenerated Android AOT metadata and the complete v17 preservation surface.
+
+The HotUpdate controller uses the exact pointer members preserved by the v18 fixed layer, primitive
+radius comparisons, and managed six-sector classification. It does not introduce custom mesh
+rendering, reflection, serialization, platform APIs, or unreviewed generic view types. Patches
+using the segmented control must declare `minBaseVersion = 18`. Device compatibility still
+requires an on-device landscape smoke test of all six hit regions, option controls, detail actions,
+and worker selection.
+
+The regenerated AOT report adds `PointerEventBase<object>` and preserves `EventBase`,
+`IEventHandler`, `PointerEventBase<T>`, `VisualElementExtensions`, `Vector2`, and `Vector3`. These
+are the reviewed shapes reached by the fixed v18 pointer-position and world-to-local calls; they do
+not authorize unrelated event types or coordinate APIs.
