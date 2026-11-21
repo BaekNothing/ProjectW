@@ -159,9 +159,14 @@ namespace ProjectW.MilestonePrototype
                         request.LateScoreMultiplier < 0f || request.LateScoreMultiplier > 1f ||
                         request.Clarifications == null || request.Clarifications.Length == 0 ||
                         request.Guidance == null || request.Guidance.Length == 0 ||
-                        request.Tasks == null || request.Tasks.Length != 3)
+                        request.Tasks == null || request.Tasks.Length == 0 ||
+                        request.MinimumSelectedTasks < 1 ||
+                        request.MinimumSelectedTasks > request.Tasks.Length)
                         throw new InvalidOperationException(
-                            "Every stakeholder request requires valid timing, clarity, guidance, and three Tasks.");
+                            "Every stakeholder request requires valid timing, clarity, guidance, and Tasks.");
+                    bool catalogPlanning = false;
+                    foreach (StakeholderTaskDefinition task in request.Tasks)
+                        if (task != null && task.Options != null) catalogPlanning = true;
                     int totalWeight = 0;
                     foreach (StakeholderClarificationDefinition clarification in request.Clarifications)
                         if (clarification == null || string.IsNullOrWhiteSpace(clarification.Id) ||
@@ -182,7 +187,8 @@ namespace ProjectW.MilestonePrototype
                             task.RequiredCompetencies == null ||
                             task.MinimumCompetencies.Length != task.RequiredCompetencies.Length ||
                             task.TargetIntentTags == null || task.TargetIntentTags.Length == 0 ||
-                            task.Interpretations == null || task.Interpretations.Length < 2)
+                            (!catalogPlanning &&
+                             (task.Interpretations == null || task.Interpretations.Length < 2)))
                             throw new InvalidOperationException(
                                 "Every stakeholder Task requires weight, workload, competency minimums, intent, and interpretations.");
                         ValidateRequiredCompetencies(task.RequiredCompetencies, "Every stakeholder Task");
@@ -191,15 +197,32 @@ namespace ProjectW.MilestonePrototype
                                 minimum > CrewMember.MaximumCompetency)
                                 throw new InvalidOperationException(
                                     "Stakeholder Task competency minimums are out of range.");
-                        foreach (StakeholderInterpretationDefinition interpretation in task.Interpretations)
-                            if (interpretation == null || string.IsNullOrWhiteSpace(interpretation.Id) ||
-                                string.IsNullOrWhiteSpace(interpretation.Name) ||
-                                interpretation.IntentTags == null || interpretation.IntentTags.Length == 0)
+                        if (catalogPlanning)
+                        {
+                            if (string.IsNullOrWhiteSpace(task.Description) || task.Options == null ||
+                                task.Options.Length == 0)
                                 throw new InvalidOperationException(
-                                    "Every stakeholder Task interpretation requires intent tags.");
+                                    "Every catalog Task requires a description and options.");
+                            foreach (StakeholderOptionDefinition option in task.Options)
+                                if (option == null || string.IsNullOrWhiteSpace(option.Id) ||
+                                    string.IsNullOrWhiteSpace(option.Name) ||
+                                    string.IsNullOrWhiteSpace(option.Description) ||
+                                    option.AdditionalWork <= 0f)
+                                    throw new InvalidOperationException(
+                                        "Every catalog option requires content and positive work.");
+                        }
+                        else
+                        {
+                            foreach (StakeholderInterpretationDefinition interpretation in task.Interpretations)
+                                if (interpretation == null || string.IsNullOrWhiteSpace(interpretation.Id) ||
+                                    string.IsNullOrWhiteSpace(interpretation.Name) ||
+                                    interpretation.IntentTags == null || interpretation.IntentTags.Length == 0)
+                                    throw new InvalidOperationException(
+                                        "Every stakeholder Task interpretation requires intent tags.");
+                        }
                         totalWeight += task.ContributionWeight;
                     }
-                    if (totalWeight != 100)
+                    if (!catalogPlanning && totalWeight != 100)
                         throw new InvalidOperationException(
                             "Stakeholder Task contribution weights must total 100.");
                     bool mailExists = false;

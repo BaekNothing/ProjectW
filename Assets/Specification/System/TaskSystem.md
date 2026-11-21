@@ -2,13 +2,12 @@
 
 ## Document Control
 
-- Version: 7.5
+- Version: 8.0
 - Status: Approved for implementation
 - Action: Update
 - SSOT Change: Yes
-- Rationale: Make stakeholder plan review consume an authored, partially random delay of at least
-  one day. Submitted plans are locked while awaiting the scheduled response, and the review date is
-  treated as a meaningful next-event stop before acceptance or rejection is resolved.
+- Rationale: Route new stakeholder requests to the finite catalog, extension-option, effort, staffing,
+  and schedule workflow defined by `SIProjectPlanning.md`, while preserving legacy save compatibility.
 - Idea references: `IDEA.md` items 1, 2, 4, and 8
 
 ## Scope
@@ -57,6 +56,10 @@ intervention rather than the default daily interaction.
 - Optional Tasks do not block Work completion.
 
 ### Stakeholder Request
+
+New catalog-planned requests follow `Assets/Specification/System/SIProjectPlanning.md`. The weighted
+slot rules below describe the legacy request path retained for save and data compatibility; they are
+not the presentation target for new content.
 
 A Stakeholder Request is an ambiguous inbound objective delivered through mail. Opening it shows a
 request-only view containing the request, constraints, and deadline. `계획하기` explicitly enters the

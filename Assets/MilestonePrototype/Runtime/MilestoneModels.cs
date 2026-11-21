@@ -59,6 +59,8 @@ namespace ProjectW.MilestonePrototype
         public string SelectedTaskBlockId;
         public string SelectedInterpretationId;
         public string[] SelectedIntentTags;
+        public bool ScopeIncluded;
+        public string[] SelectedOptionIds;
         public List<TaskRecord> Records = new List<TaskRecord>();
 
         public float EffectiveRequiredWork => RequiredWork + ContextCostDays;
@@ -400,6 +402,7 @@ namespace ProjectW.MilestonePrototype
         public string Id;
         public string MailId;
         public string Stakeholder;
+        public string ProjectName;
         public string Brief;
         public int PlannedWeeks;
         public int SoftDeadlineDays;
@@ -413,6 +416,7 @@ namespace ProjectW.MilestonePrototype
         public StakeholderClarificationDefinition[] Clarifications;
         public StakeholderGuidanceDefinition[] Guidance;
         public StakeholderTaskDefinition[] Tasks;
+        public int MinimumSelectedTasks = 1;
     }
 
     [Serializable]
@@ -443,6 +447,24 @@ namespace ProjectW.MilestonePrototype
         public float RequiredWork;
         public string[] TargetIntentTags;
         public StakeholderInterpretationDefinition[] Interpretations;
+        public string Description;
+        public bool DefaultIncluded;
+        public bool TargetIncluded;
+        public string[] RequiredInformation;
+        public StakeholderOptionDefinition[] Options;
+    }
+
+    [Serializable]
+    public sealed class StakeholderOptionDefinition
+    {
+        public string Id;
+        public string Name;
+        public string Description;
+        public float AdditionalWork;
+        public bool TargetIncluded;
+        public string[] RequiredInformation;
+        public string[] RiskNotes;
+        public string[] ConflictingOptionIds;
     }
 
     [Serializable]

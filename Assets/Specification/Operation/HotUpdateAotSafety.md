@@ -374,3 +374,26 @@ Contracts, reflection, serialization, delegate, or closed-generic AOT surface is
 base rebuild is required because UXML and USS remain APK-embedded resources. Device compatibility
 still requires an on-device smoke test of navigation, modal interruption, notification panel
 retargeting, theme switching, and reduced motion.
+
+## Base APK v16 AOT Baseline
+
+Base APK v16 embeds the SI project-planning catalog data and the reviewed radial planning-board
+styles. The fixed rebuild is required because StudioUI USS and the fallback gameplay data remain
+APK-embedded resources. The HotUpdate controller uses only the UI Toolkit, time, LINQ, and managed
+collection surface already exercised by the v15 implementation.
+
+It must bundle:
+
+- `BaseVersion = 16`;
+- the latest embedded `ProjectW.HotUpdate.dll.bytes`, `task-system.json`, UXML, and USS resources;
+- catalog Task scope, extension-option, person-day, staffing, forecast, detail, and risk UI;
+- regenerated Android AOT metadata and the complete v15 preservation surface.
+
+The reviewed HotUpdate diff adds no new Unity, package, platform, native, Contracts, reflection,
+serialization, or delegate dependency. The v16 generated AOT report adds the exact managed generic
+surface introduced by catalog selection and aggregation: `Enumerable.Contains<object>`, its
+`IEqualityComparer<object>` overload and comparer shape, and `Enumerable.Sum<object>` with an
+integer selector. Catalog rules otherwise use patch-owned models and managed logic. Patches
+containing the new catalog request must declare `minBaseVersion = 16`.
+Editor tests prove managed behavior only; device compatibility requires an on-device smoke test of
+scope toggles, option toggles, detail dialogs, worker assignment, plan submission, and restore.

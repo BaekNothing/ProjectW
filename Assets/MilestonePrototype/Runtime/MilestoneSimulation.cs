@@ -481,6 +481,15 @@ namespace ProjectW.MilestonePrototype
             return null;
         }
 
+        public bool UsesCatalogPlanning(string requestId)
+        {
+            StakeholderRequestDefinition definition = StakeholderDefinition(requestId);
+            if (definition?.Tasks == null) return false;
+            foreach (StakeholderTaskDefinition task in definition.Tasks)
+                if (task?.Options != null) return true;
+            return false;
+        }
+
         public bool OpenStakeholderRequest(string mailId)
         {
             MailEvent mail = Mail.FirstOrDefault(item => item.Id == mailId &&
@@ -504,19 +513,21 @@ namespace ProjectW.MilestonePrototype
                 Priority = priority,
                 StakeholderRequestId = definition.Id
             });
+            bool catalogPlanning = UsesCatalogPlanning(definition.Id);
             for (int taskIndex = 0; taskIndex < definition.Tasks.Length; taskIndex++)
             {
                 StakeholderTaskDefinition task = definition.Tasks[taskIndex];
-                Tasks.Add(new WorkTask
+                var runtimeTask = new WorkTask
                 {
                     Id = workId + "-" + task.Id,
-                    Name = $"작업 슬롯 {taskIndex + 1}",
+                    Name = catalogPlanning ? task.Name : $"작업 슬롯 {taskIndex + 1}",
                     Kind = TaskKind.SideMission,
-                    RequiredCompetencies = new int[0],
-                    MinimumCompetencies = new int[0],
-                    RequiredWork = 0f,
+                    RequiredRole = catalogPlanning ? task.RequiredRole : default,
+                    RequiredCompetencies = catalogPlanning ? Copy(task.RequiredCompetencies) : new int[0],
+                    MinimumCompetencies = catalogPlanning ? Copy(task.MinimumCompetencies) : new int[0],
+                    RequiredWork = catalogPlanning && task.DefaultIncluded ? task.RequiredWork : 0f,
                     Deadline = mail.ArrivalDay + definition.HardDeadlineDays,
-                    Required = true,
+                    Required = !catalogPlanning || task.DefaultIncluded,
                     GroupId = workId,
                     Risk = RiskLevel.Medium,
                     Importance = ImportanceLevel.High,
@@ -524,8 +535,14 @@ namespace ProjectW.MilestonePrototype
                     AssignedCharacter = -1,
                     ScheduledWorker = -1,
                     StakeholderRequestId = definition.Id,
-                    ContributionWeight = task.ContributionWeight
-                });
+                    ContributionWeight = task.ContributionWeight,
+                    ScopeIncluded = catalogPlanning && task.DefaultIncluded,
+                    SelectedTaskBlockId = catalogPlanning && task.DefaultIncluded ? task.Id : string.Empty,
+                    SelectedInterpretationId = catalogPlanning && task.DefaultIncluded ? "base" : string.Empty,
+                    SelectedIntentTags = new string[0],
+                    SelectedOptionIds = new string[0]
+                };
+                Tasks.Add(runtimeTask);
             }
             AddStakeholderState(new StakeholderRequestState
             {
@@ -621,6 +638,63 @@ namespace ProjectW.MilestonePrototype
             state.PlanningStarted = true;
             Log($"요청 계획 시작: {StakeholderDefinition(requestId)?.Stakeholder}");
             return true;
+        }
+
+        public bool SetStakeholderTaskIncluded(string taskId, bool included)
+        {
+            WorkTask task = Tasks.FirstOrDefault(candidate => candidate.Id == taskId);
+            StakeholderRequestState state = task == null ? null : StakeholderState(task.StakeholderRequestId);
+            StakeholderTaskDefinition definition = StakeholderTargetTaskDefinition(task);
+            if (task == null || state == null || definition == null ||
+                !UsesCatalogPlanning(task.StakeholderRequestId) || !state.PlanningStarted ||
+                state.PlanConfirmed || state.PlanFailed || state.PendingPlanReviewDay > 0) return false;
+            if (task.ScopeIncluded == included) return true;
+            if (task.AssignedCharacter >= 0) Detach(task, false);
+            task.ScopeIncluded = included;
+            task.Required = included;
+            task.PlannedCharacter = -1;
+            task.AssignedCharacter = -1;
+            task.SelectedOptionIds = new string[0];
+            task.SelectedTaskBlockId = included ? definition.Id : string.Empty;
+            task.SelectedInterpretationId = included ? "base" : string.Empty;
+            task.RequiredWork = included ? definition.RequiredWork : 0f;
+            task.State = TaskState.Available;
+            RefreshStates();
+            return true;
+        }
+
+        public bool SetStakeholderOption(string taskId, string optionId, bool selected)
+        {
+            WorkTask task = Tasks.FirstOrDefault(candidate => candidate.Id == taskId);
+            StakeholderRequestState state = task == null ? null : StakeholderState(task.StakeholderRequestId);
+            StakeholderTaskDefinition definition = StakeholderTargetTaskDefinition(task);
+            if (task == null || state == null || definition?.Options == null || !task.ScopeIncluded ||
+                !state.PlanningStarted || state.PlanConfirmed || state.PlanFailed ||
+                state.PendingPlanReviewDay > 0) return false;
+            StakeholderOptionDefinition option = definition.Options.FirstOrDefault(item => item.Id == optionId);
+            if (option == null) return false;
+            var ids = new List<string>(task.SelectedOptionIds ?? new string[0]);
+            bool contains = ids.Contains(optionId);
+            if (selected && !contains) ids.Add(optionId);
+            if (!selected && contains) ids.Remove(optionId);
+            task.SelectedOptionIds = ids.ToArray();
+            task.RequiredWork = definition.RequiredWork;
+            foreach (StakeholderOptionDefinition candidate in definition.Options)
+                if (ids.Contains(candidate.Id)) task.RequiredWork += candidate.AdditionalWork;
+            RefreshStates();
+            return true;
+        }
+
+        public bool IsStakeholderOptionSelected(WorkTask task, string optionId) =>
+            task?.SelectedOptionIds != null && task.SelectedOptionIds.Contains(optionId);
+
+        public float StakeholderPlanTotalWork(string requestId)
+        {
+            float total = 0f;
+            foreach (WorkTask task in Tasks)
+                if (task.StakeholderRequestId == requestId &&
+                    (!UsesCatalogPlanning(requestId) || task.ScopeIncluded)) total += task.RequiredWork;
+            return total;
         }
 
         public bool ChooseStakeholderInterpretation(string taskId, string interpretationId)
@@ -800,21 +874,27 @@ namespace ProjectW.MilestonePrototype
             WorkGroup group = Groups.FirstOrDefault(candidate => candidate.Id == state.WorkId);
             if (group == null || group.State == WorkState.Failed || Day > group.HardDeadline)
                 return false;
+            bool catalogPlanning = UsesCatalogPlanning(requestId);
             int taskCount = 0;
             foreach (WorkTask task in Tasks)
             {
                 if (task.StakeholderRequestId != requestId) continue;
+                if (catalogPlanning && !task.ScopeIncluded) continue;
                 taskCount++;
                 if (task.PlannedCharacter < 0 || string.IsNullOrEmpty(task.SelectedTaskBlockId) ||
                     string.IsNullOrEmpty(task.SelectedInterpretationId) ||
                     !string.IsNullOrEmpty(StakeholderAssignmentBlockReason(task.Id,
                         task.PlannedCharacter))) return false;
             }
-            return taskCount == 3;
+            StakeholderRequestDefinition definition = StakeholderDefinition(requestId);
+            return catalogPlanning
+                ? definition != null && taskCount >= definition.MinimumSelectedTasks
+                : taskCount == 3;
         }
 
         public int StakeholderPlanProjectedFit(string requestId)
         {
+            if (UsesCatalogPlanning(requestId)) return CatalogPlanFit(requestId);
             int taskCount = 0;
             float weightedFit = 0f;
             foreach (WorkTask task in Tasks)
@@ -831,6 +911,31 @@ namespace ProjectW.MilestonePrototype
                 : 0;
         }
 
+        private int CatalogPlanFit(string requestId)
+        {
+            StakeholderRequestDefinition request = StakeholderDefinition(requestId);
+            if (request?.Tasks == null || request.Tasks.Length == 0) return 0;
+            int decisions = 0;
+            int matches = 0;
+            foreach (StakeholderTaskDefinition definition in request.Tasks)
+            {
+                WorkTask task = Tasks.FirstOrDefault(candidate =>
+                    candidate.StakeholderRequestId == requestId &&
+                    candidate.Id.EndsWith("-" + definition.Id));
+                bool included = task?.ScopeIncluded == true;
+                decisions++;
+                if (included == definition.TargetIncluded) matches++;
+                if (definition.Options == null) continue;
+                foreach (StakeholderOptionDefinition option in definition.Options)
+                {
+                    decisions++;
+                    bool selected = included && IsStakeholderOptionSelected(task, option.Id);
+                    if (selected == option.TargetIncluded) matches++;
+                }
+            }
+            return decisions == 0 ? 0 : (int)(matches * 100f / decisions + .5f);
+        }
+
         public int StakeholderPlanProjectedCompletionDay(string requestId)
         {
             StakeholderRequestState state = StakeholderState(requestId);
@@ -841,11 +946,13 @@ namespace ProjectW.MilestonePrototype
 
         private int StakeholderPlanProjectedCompletionDay(string requestId, int startDay)
         {
+            bool catalogPlanning = UsesCatalogPlanning(requestId);
             int completionDay = 0;
             int taskCount = 0;
             foreach (WorkTask task in Tasks)
             {
                 if (task.StakeholderRequestId != requestId) continue;
+                if (catalogPlanning && !task.ScopeIncluded) continue;
                 int worker = task.PlannedCharacter >= 0
                     ? task.PlannedCharacter : task.AssignedCharacter;
                 if (worker < 0 || worker >= Crew.Count) return 0;
@@ -854,7 +961,10 @@ namespace ProjectW.MilestonePrototype
                 completionDay = Math.Max(completionDay, startDay + Math.Max(0, duration - 1));
                 taskCount++;
             }
-            return taskCount == 3 ? completionDay : 0;
+            StakeholderRequestDefinition definition = StakeholderDefinition(requestId);
+            return catalogPlanning
+                ? definition != null && taskCount >= definition.MinimumSelectedTasks ? completionDay : 0
+                : taskCount == 3 ? completionDay : 0;
         }
 
         private void ActivateStakeholderPlan(string requestId)
@@ -862,6 +972,12 @@ namespace ProjectW.MilestonePrototype
             foreach (WorkTask task in Tasks.Where(candidate =>
                          candidate.StakeholderRequestId == requestId))
             {
+                if (UsesCatalogPlanning(requestId) && !task.ScopeIncluded)
+                {
+                    task.Required = false;
+                    task.State = TaskState.Complete;
+                    continue;
+                }
                 int worker = task.PlannedCharacter;
                 task.PlannedCharacter = -1;
                 bool hasPrimary = Tasks.Any(candidate => candidate != task &&
@@ -2683,6 +2799,18 @@ namespace ProjectW.MilestonePrototype
                 !string.IsNullOrEmpty(state.PendingClarificationId)) return;
             WorkGroup group = Groups.FirstOrDefault(candidate => candidate.Id == state.WorkId);
             if (group == null || Day > group.HardDeadline) return;
+            if (UsesCatalogPlanning(requestId))
+            {
+                foreach (WorkTask catalogTask in Tasks)
+                    if (catalogTask.StakeholderRequestId == requestId && catalogTask.ScopeIncluded &&
+                        catalogTask.State != TaskState.Complete) return;
+                float catalogFit = CatalogPlanFit(requestId);
+                if (Day > group.SoftDeadline) catalogFit *= definition.LateScoreMultiplier;
+                CompleteStakeholderScore(state, definition, group,
+                    Math.Max(0, Math.Min(100, (int)(catalogFit + .5f))),
+                    "선택한 작업 범위와 확장 사양의 결과가 합산되었습니다.", report);
+                return;
+            }
             int taskCount = 0;
             float weightedFit = 0f;
             foreach (WorkTask task in Tasks)
@@ -2697,21 +2825,30 @@ namespace ProjectW.MilestonePrototype
             }
             if (taskCount != 3) return;
             if (Day > group.SoftDeadline) weightedFit *= definition.LateScoreMultiplier;
-            state.FitScore = Math.Max(0, Math.Min(100, (int)(weightedFit + .5f)));
+            CompleteStakeholderScore(state, definition, group,
+                Math.Max(0, Math.Min(100, (int)(weightedFit + .5f))),
+                "가중치 60/30/10의 결과가 합산되었습니다.", report);
+        }
+
+        private void CompleteStakeholderScore(
+            StakeholderRequestState state, StakeholderRequestDefinition definition,
+            WorkGroup group, int score, string explanation, DayReport report)
+        {
+            state.FitScore = score;
             state.ScoredDay = Day;
             MailEvent source = Mail.FirstOrDefault(item => item.Id == state.MailId);
             if (source != null) source.Resolved = true;
             Mail.Add(new MailEvent
             {
-                Id = "stakeholder-result-" + requestId + "-" + Day,
+                Id = "stakeholder-result-" + state.Id + "-" + Day,
                 ArrivalDay = Day,
                 From = definition.Stakeholder,
                 Subject = $"납품 평가: {state.FitScore}점",
-                Body = $"요청 산출물의 부합도는 {state.FitScore}/100입니다. 가중치 60/30/10의 결과가 합산되었습니다.",
+                Body = $"요청 산출물의 부합도는 {state.FitScore}/100입니다. {explanation}",
                 Instruction = Day > group.SoftDeadline ? "소프트 마감 지연 감점 적용" : "기한 내 납품",
                 Resolved = true,
                 Read = false,
-                StakeholderRequestId = requestId
+                StakeholderRequestId = state.Id
             });
             report?.Lines.Add($"스테이크홀더 부합도: {definition.Stakeholder} {state.FitScore}점");
             Log($"요청 납품 평가: {definition.Stakeholder} {state.FitScore}점");
@@ -3824,6 +3961,23 @@ namespace ProjectW.MilestonePrototype
             if (task == null || string.IsNullOrEmpty(task.StakeholderRequestId)) return;
             StakeholderTaskDefinition target = StakeholderTargetTaskDefinition(task);
             if (target == null) return;
+            if (UsesCatalogPlanning(task.StakeholderRequestId))
+            {
+                task.SelectedOptionIds = task.SelectedOptionIds ?? new string[0];
+                task.Name = target.Name;
+                task.Required = task.ScopeIncluded;
+                task.RequiredRole = target.RequiredRole;
+                task.RequiredCompetencies = Copy(target.RequiredCompetencies);
+                task.MinimumCompetencies = Copy(target.MinimumCompetencies);
+                task.RequiredWork = task.ScopeIncluded ? target.RequiredWork : 0f;
+                if (target.Options != null)
+                    foreach (StakeholderOptionDefinition option in target.Options)
+                        if (task.SelectedOptionIds.Contains(option.Id))
+                            task.RequiredWork += option.AdditionalWork;
+                task.SelectedTaskBlockId = task.ScopeIncluded ? target.Id : string.Empty;
+                task.SelectedInterpretationId = task.ScopeIncluded ? "base" : string.Empty;
+                return;
+            }
             if (string.IsNullOrEmpty(task.SelectedTaskBlockId) &&
                 !string.IsNullOrEmpty(task.SelectedInterpretationId))
                 task.SelectedTaskBlockId = target.Id;

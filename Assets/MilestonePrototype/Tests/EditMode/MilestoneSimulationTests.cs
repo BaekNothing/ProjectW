@@ -18,7 +18,7 @@ namespace ProjectW.MilestonePrototype.Tests
         private const string FollowupTaskId = "test-followup";
 
         [Test]
-        public void StakeholderMailCreatesWeightedTasksWithoutAutomaticStaffing()
+        public void StakeholderMailCreatesCatalogTasksWithoutAutomaticStaffing()
         {
             TaskSystemData data = TaskSystemDataLoader.Load();
             var game = new MilestoneSimulation(data, 1);
@@ -27,10 +27,10 @@ namespace ProjectW.MilestonePrototype.Tests
             List<WorkTask> tasks = game.Tasks.FindAll(task => task.StakeholderRequestId == "landing-brief");
 
             Assert.That(tasks.Count, Is.EqualTo(3));
-            Assert.That(tasks.ConvertAll(task => task.ContributionWeight),
-                Is.EquivalentTo(new[] { 60, 30, 10 }));
-            Assert.That(tasks, Has.All.Matches<WorkTask>(task =>
-                string.IsNullOrEmpty(task.SelectedTaskBlockId) && task.RequiredWork == 0f));
+            Assert.That(tasks.ConvertAll(task => task.Name),
+                Is.EquivalentTo(new[] { "상품과 주문", "결제와 환불", "관리자와 운영" }));
+            Assert.That(tasks.FindAll(task => task.ScopeIncluded).Count, Is.EqualTo(2));
+            Assert.That(game.StakeholderPlanTotalWork("landing-brief"), Is.EqualTo(9f));
             game.AdvanceDay();
             Assert.That(tasks, Has.All.Matches<WorkTask>(task => task.AssignedCharacter < 0));
         }
@@ -47,7 +47,7 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(request.PlanningStarted, Is.False);
             Assert.That(game.IsWorkVisible(work), Is.False);
             Assert.That(game.AssignStakeholderTask(
-                "stakeholder-landing-brief-analysis", 1), Is.False);
+                "stakeholder-landing-brief-order-refund", 1), Is.False);
 
             Assert.That(game.StartStakeholderPlanning(request.Id), Is.True);
             Assert.That(request.PlanningStarted, Is.True);
@@ -61,11 +61,8 @@ namespace ProjectW.MilestonePrototype.Tests
             var game = new MilestoneSimulation(TaskSystemDataLoader.Load(), 1);
             game.OpenStakeholderRequest("mail-stakeholder-landing");
             game.StartStakeholderPlanning("landing-brief");
-            WorkTask analysis = game.Tasks.Find(task => task.Id == "stakeholder-landing-brief-analysis");
-            WorkTask operations = game.Tasks.Find(task => task.Id == "stakeholder-landing-brief-operations");
-
-            Assert.That(game.ChooseStakeholderInterpretation(analysis.Id, "field-evidence"), Is.True);
-            Assert.That(game.ChooseStakeholderInterpretation(operations.Id, "continuity-budget"), Is.True);
+            WorkTask analysis = game.Tasks.Find(task => task.Id == "stakeholder-landing-brief-order-refund");
+            WorkTask operations = game.Tasks.Find(task => task.Id == "stakeholder-landing-brief-payment-refund");
 
             Assert.That(game.AssignStakeholderTask(analysis.Id, 0), Is.True,
                 "A mismatched worker remains assignable at an efficiency and dissatisfaction cost.");
@@ -175,28 +172,24 @@ namespace ProjectW.MilestonePrototype.Tests
         }
 
         [Test]
-        public void PlayerPlacesUniqueTaskBlocksIntoEmptyWeightedSlots()
+        public void CatalogScopeAndOptionsRecalculateEffortAndClearOnDisable()
         {
             var game = new MilestoneSimulation(TaskSystemDataLoader.Load(), 1);
             game.OpenStakeholderRequest("mail-stakeholder-landing");
             game.StartStakeholderPlanning("landing-brief");
-            WorkTask first = game.Tasks.Find(task =>
-                task.Id == "stakeholder-landing-brief-analysis");
-            WorkTask second = game.Tasks.Find(task =>
-                task.Id == "stakeholder-landing-brief-operations");
+            WorkTask admin = game.Tasks.Find(task =>
+                task.Id == "stakeholder-landing-brief-admin-operation");
 
-            Assert.That(game.SelectStakeholderTaskBlock(
-                first.Id, "operations", "continuity-budget"), Is.True);
-            Assert.That(first.SelectedTaskBlockId, Is.EqualTo("operations"));
-            Assert.That(first.SelectedInterpretationId, Is.EqualTo("continuity-budget"));
-            Assert.That(first.Name, Is.EqualTo("연속 운영·예산 균형"));
-            Assert.That(first.RequiredRole, Is.EqualTo(WorkRole.Management));
-            Assert.That(first.RequiredWork, Is.EqualTo(6f));
-            Assert.That(game.StakeholderTargetTaskDefinition(first).Id, Is.EqualTo("analysis"),
-                "The slot's hidden target remains separate from the block placed into it.");
-            Assert.That(game.SelectStakeholderTaskBlock(
-                second.Id, "operations", "continuity-budget"), Is.False,
-                "One task block cannot occupy two slots.");
+            Assert.That(admin.ScopeIncluded, Is.False);
+            Assert.That(game.SetStakeholderTaskIncluded(admin.Id, true), Is.True);
+            Assert.That(game.SetStakeholderOption(admin.Id, "audit-log", true), Is.True);
+            Assert.That(admin.RequiredWork, Is.EqualTo(7f));
+            Assert.That(admin.SelectedOptionIds, Does.Contain("audit-log"));
+
+            Assert.That(game.SetStakeholderTaskIncluded(admin.Id, false), Is.True);
+            Assert.That(admin.RequiredWork, Is.Zero);
+            Assert.That(admin.SelectedOptionIds, Is.Empty);
+            Assert.That(admin.PlannedCharacter, Is.EqualTo(-1));
         }
 
         [TestCase(2, "F")]
@@ -245,10 +238,10 @@ namespace ProjectW.MilestonePrototype.Tests
 
             Assert.That(game.RequestStakeholderClarification(request.Id, "call"), Is.True);
             game.AdvanceDay();
-            Assert.That(request.Clarity, Is.EqualTo(20));
+            Assert.That(request.Clarity, Is.EqualTo(25));
             game.AdvanceDay();
 
-            Assert.That(request.Clarity, Is.EqualTo(45));
+            Assert.That(request.Clarity, Is.EqualTo(50));
             Assert.That(request.PendingClarificationId, Is.Empty);
             Assert.That(work.HardDeadline, Is.EqualTo(hardDeadline));
         }
@@ -267,7 +260,7 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(game.AdvanceToNextEvent(), Is.EqualTo(2));
             Assert.That(game.Day, Is.EqualTo(3));
             Assert.That(request.PendingClarificationId, Is.Empty);
-            Assert.That(request.Clarity, Is.EqualTo(45));
+            Assert.That(request.Clarity, Is.EqualTo(50));
         }
 
         [Test]
@@ -278,15 +271,7 @@ namespace ProjectW.MilestonePrototype.Tests
             var game = new MilestoneSimulation(data, 1);
             game.OpenStakeholderRequest("mail-stakeholder-landing");
             game.StartStakeholderPlanning("landing-brief");
-            Assert.That(game.ChooseStakeholderInterpretation(
-                "stakeholder-landing-brief-analysis", "field-evidence"), Is.True);
-            Assert.That(game.ChooseStakeholderInterpretation(
-                "stakeholder-landing-brief-operations", "continuity-budget"), Is.True);
-            Assert.That(game.ChooseStakeholderInterpretation(
-                "stakeholder-landing-brief-handoff", "maintainable-guide"), Is.True);
-            Assert.That(game.AssignStakeholderTask("stakeholder-landing-brief-analysis", 1), Is.True);
-            Assert.That(game.AssignStakeholderTask("stakeholder-landing-brief-operations", 2), Is.True);
-            Assert.That(game.AssignStakeholderTask("stakeholder-landing-brief-handoff", 0), Is.True);
+            FillStakeholderPlan(game, true);
             Assert.That(game.ConfirmStakeholderPlan("landing-brief"), Is.True);
             AdvanceUntilStakeholderPlanReviewed(game, game.StakeholderState("landing-brief"));
             game.Crew[0].DailyOutput = 100f;
@@ -312,9 +297,8 @@ namespace ProjectW.MilestonePrototype.Tests
             var game = new MilestoneSimulation(data, 1);
             game.OpenStakeholderRequest("mail-stakeholder-landing");
             game.StartStakeholderPlanning("landing-brief");
-            game.ChooseStakeholderInterpretation(
-                "stakeholder-landing-brief-analysis", "field-evidence");
-            game.AssignStakeholderTask("stakeholder-landing-brief-analysis", 1);
+            game.SetStakeholderOption("stakeholder-landing-brief-order-refund", "partial-cancel", true);
+            game.AssignStakeholderTask("stakeholder-landing-brief-order-refund", 1);
             game.RequestStakeholderClarification("landing-brief", "meeting");
 
             CampaignSnapshot snapshot = game.CreateSnapshot();
@@ -323,12 +307,12 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(restored.Restore(snapshot), Is.True);
             StakeholderRequestState state = restored.StakeholderState("landing-brief");
             WorkTask task = restored.Tasks.Find(candidate =>
-                candidate.Id == "stakeholder-landing-brief-analysis");
+                candidate.Id == "stakeholder-landing-brief-order-refund");
 
             Assert.That(state, Is.Not.Null);
             Assert.That(state.PendingClarificationId, Is.EqualTo("meeting"));
-            Assert.That(task.SelectedInterpretationId, Is.EqualTo("field-evidence"));
-            Assert.That(task.SelectedTaskBlockId, Is.EqualTo("analysis"));
+            Assert.That(task.SelectedOptionIds, Does.Contain("partial-cancel"));
+            Assert.That(task.SelectedTaskBlockId, Is.EqualTo("order-refund"));
             Assert.That(task.PlannedCharacter, Is.EqualTo(1));
             Assert.That(task.AssignedCharacter, Is.EqualTo(-1));
             Assert.That(restored.Mail.Exists(mail => mail.Id == "mail-stakeholder-landing"), Is.True,
@@ -2794,18 +2778,21 @@ namespace ProjectW.MilestonePrototype.Tests
 
         private static void FillStakeholderPlan(MilestoneSimulation game, bool matchingIntent)
         {
-            string analysis = "stakeholder-landing-brief-analysis";
-            string operations = "stakeholder-landing-brief-operations";
-            string handoff = "stakeholder-landing-brief-handoff";
-            Assert.That(game.ChooseStakeholderInterpretation(analysis,
-                matchingIntent ? "field-evidence" : "fast-outline"), Is.True);
-            Assert.That(game.ChooseStakeholderInterpretation(operations,
-                matchingIntent ? "continuity-budget" : "maximum-output"), Is.True);
-            Assert.That(game.ChooseStakeholderInterpretation(handoff,
-                matchingIntent ? "maintainable-guide" : "executive-summary"), Is.True);
-            Assert.That(game.AssignStakeholderTask(analysis, 1), Is.True);
-            Assert.That(game.AssignStakeholderTask(operations, 2), Is.True);
-            Assert.That(game.AssignStakeholderTask(handoff, 0), Is.True);
+            string order = "stakeholder-landing-brief-order-refund";
+            string payment = "stakeholder-landing-brief-payment-refund";
+            string admin = "stakeholder-landing-brief-admin-operation";
+            if (matchingIntent)
+            {
+                Assert.That(game.SetStakeholderOption(order, "partial-cancel", true), Is.True);
+                Assert.That(game.SetStakeholderOption(payment, "partial-refund", true), Is.True);
+                Assert.That(game.SetStakeholderOption(payment, "mixed-payment", true), Is.True);
+                Assert.That(game.SetStakeholderOption(payment, "duplicate-guard", true), Is.True);
+                Assert.That(game.SetStakeholderTaskIncluded(admin, true), Is.True);
+                Assert.That(game.SetStakeholderOption(admin, "audit-log", true), Is.True);
+            }
+            Assert.That(game.AssignStakeholderTask(order, 1), Is.True);
+            Assert.That(game.AssignStakeholderTask(payment, 2), Is.True);
+            if (matchingIntent) Assert.That(game.AssignStakeholderTask(admin, 0), Is.True);
         }
 
         private static void AdvanceUntilStakeholderPlanReviewed(

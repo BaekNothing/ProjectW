@@ -765,6 +765,11 @@ namespace ProjectW.MilestonePrototype
             StakeholderRequestDefinition definition = game.StakeholderDefinition(request.Id);
             WorkGroup work = game.Groups.FirstOrDefault(group => group.Id == request.WorkId);
             if (definition == null || work == null) return;
+            if (game.UsesCatalogPlanning(request.Id))
+            {
+                BuildCatalogPlanBoard(request, definition, work);
+                return;
+            }
 
             string status = request.FitScore >= 0
                 ? $"납품 완료 · {request.FitScore}점"
@@ -834,6 +839,176 @@ namespace ProjectW.MilestonePrototype
                     "caption"));
             }
             pageContent.Add(board);
+        }
+
+        private void BuildCatalogPlanBoard(
+            StakeholderRequestState request, StakeholderRequestDefinition definition, WorkGroup work)
+        {
+            string status = request.FitScore >= 0 ? $"납품 완료 · {request.FitScore}점" :
+                request.PlanFailed ? "요청 실패" : request.PlanConfirmed ? "승인·실행 중" :
+                request.PendingPlanReviewDay > 0 ? $"검토 대기 · D{request.PendingPlanReviewDay:00}" :
+                request.PlanRejectionCount > 0 ? "반려 후 수정 중" : "범위 설계 중";
+            var board = Section(string.IsNullOrEmpty(definition.ProjectName)
+                    ? definition.Stakeholder + " 프로젝트" : definition.ProjectName, status);
+            board.AddToClassList("catalog-plan-board");
+            List<WorkTask> tasks = game.Tasks.Where(item =>
+                    item.StakeholderRequestId == request.Id).ToList();
+            int selectedTasks = tasks.Count(item => item.ScopeIncluded);
+            int selectedOptions = tasks.Sum(item => item.SelectedOptionIds?.Length ?? 0);
+            int totalOptions = definition.Tasks.Sum(item => item.Options?.Length ?? 0);
+            int projectedCompletion = game.StakeholderPlanProjectedCompletionDay(request.Id);
+
+            var summary = Box("catalog-plan-summary");
+            summary.Add(Text(definition.ProjectName ?? definition.Stakeholder, "summary-title"));
+            summary.Add(Text($"선택 작업 {selectedTasks}/{tasks.Count}  ·  확장 {selectedOptions}/{totalOptions}", "body"));
+            summary.Add(Text($"총공수 {game.StakeholderPlanTotalWork(request.Id):0.#}인일", "metric-value"));
+            summary.Add(Text(projectedCompletion > 0
+                ? $"예상 완료 D{projectedCompletion:00}  ·  고객 마감 D{work.SoftDeadline:00}"
+                : $"담당자 배정 필요  ·  고객 마감 D{work.SoftDeadline:00}", "muted"));
+            if (projectedCompletion > work.SoftDeadline)
+                summary.Add(Badge($"{projectedCompletion - work.SoftDeadline}일 초과", "error"));
+            else if (projectedCompletion > 0)
+                summary.Add(Badge($"{work.SoftDeadline - projectedCompletion}일 여유", "success"));
+            summary.Add(Text($"명확도 {request.Clarity}% · 미확인 정보가 실제 환경과 충돌하면 버그와 검수 반려로 이어집니다.", "caption"));
+            board.Add(summary);
+
+            var grid = Box("catalog-task-grid");
+            foreach (WorkTask task in tasks)
+                grid.Add(BuildCatalogTaskCard(request, task));
+            board.Add(grid);
+
+            var risks = Box("summary-row");
+            risks.Add(Text("현재 계획 위험", "summary-title"));
+            bool hasVisibleRisk = false;
+            if (selectedTasks < definition.MinimumSelectedTasks)
+            {
+                risks.Add(Text($"• 최소 {definition.MinimumSelectedTasks}개 작업을 범위에 포함해야 합니다.", "error-text"));
+                hasVisibleRisk = true;
+            }
+            foreach (WorkTask task in tasks.Where(item => item.ScopeIncluded))
+            {
+                if (task.PlannedCharacter < 0 && !request.PlanConfirmed)
+                {
+                    risks.Add(Text("• " + task.Name + ": 담당자 미배정", "warning-text"));
+                    hasVisibleRisk = true;
+                }
+                StakeholderTaskDefinition taskDefinition = game.StakeholderTargetTaskDefinition(task);
+                if (taskDefinition?.Options == null) continue;
+                foreach (StakeholderOptionDefinition option in taskDefinition.Options)
+                {
+                    if (!game.IsStakeholderOptionSelected(task, option.Id) || option.ConflictingOptionIds == null) continue;
+                    foreach (string conflictId in option.ConflictingOptionIds)
+                        if (game.IsStakeholderOptionSelected(task, conflictId))
+                        {
+                            risks.Add(Text($"• {task.Name}: {option.Name} 확장 사양 충돌", "error-text"));
+                            hasVisibleRisk = true;
+                        }
+                }
+            }
+            if (!hasVisibleRisk)
+                risks.Add(Text("현재 드러난 치명적 위험이 없습니다. 미확인 가정은 별도로 확인하세요.", "muted"));
+            board.Add(risks);
+
+            if (!request.PlanConfirmed && !request.PlanFailed && request.FitScore < 0)
+            {
+                Button submit = ActionButton(request.PendingPlanReviewDay > 0
+                    ? $"검토 대기 · D{request.PendingPlanReviewDay:00}" : "고객에게 계획서 보내기", "primary");
+                submit.SetEnabled(game.CanSubmitStakeholderPlan(request.Id));
+                submit.clicked += () =>
+                {
+                    game.SubmitStakeholderPlan(request.Id);
+                    SaveAndRefresh("plan");
+                };
+                board.Add(submit);
+                board.Add(Text(request.PendingPlanReviewDay > 0
+                    ? "검토 중에는 범위, 확장 사양, 담당자를 변경할 수 없습니다."
+                    : "포함한 모든 작업에 담당자를 지정하고 진행 중인 확인 요청이 없어야 제출할 수 있습니다.", "caption"));
+            }
+            pageContent.Add(board);
+        }
+
+        private VisualElement BuildCatalogTaskCard(StakeholderRequestState request, WorkTask task)
+        {
+            StakeholderTaskDefinition definition = game.StakeholderTargetTaskDefinition(task);
+            bool editable = !request.PlanConfirmed && !request.PlanFailed &&
+                            request.PendingPlanReviewDay <= 0 && request.FitScore < 0;
+            var card = Box("catalog-task-card");
+            card.AddToClassList(task.ScopeIncluded ? "is-on" : "is-off");
+            var heading = Box("button-row");
+            Button toggle = ActionButton(task.ScopeIncluded ? "ON" : "OFF",
+                task.ScopeIncluded ? "primary" : "secondary");
+            toggle.SetEnabled(editable);
+            toggle.clicked += () =>
+            {
+                game.SetStakeholderTaskIncluded(task.Id, !task.ScopeIncluded);
+                SaveAndRefresh("plan");
+            };
+            heading.Add(toggle);
+            Button detail = ActionButton(definition?.Name ?? task.Name, "secondary");
+            detail.clicked += () => ShowCatalogTaskDetail(task, null);
+            heading.Add(detail);
+            card.Add(heading);
+            card.Add(Text(task.ScopeIncluded
+                ? $"기본 {definition?.RequiredWork ?? 0f:0.#}인일 · 확장 +{Math.Max(0f, task.RequiredWork - (definition?.RequiredWork ?? 0f)):0.#}인일"
+                : "공수·담당자·일정에서 제외", task.ScopeIncluded ? "body" : "muted"));
+
+            if (definition?.Options != null)
+                foreach (StakeholderOptionDefinition option in definition.Options)
+                {
+                    bool selected = game.IsStakeholderOptionSelected(task, option.Id);
+                    var optionRow = Box("button-row");
+                    Button optionToggle = ActionButton((selected ? "☑ " : "☐ ") + option.Name,
+                        selected ? "primary" : "secondary");
+                    optionToggle.SetEnabled(editable && task.ScopeIncluded);
+                    optionToggle.clicked += () =>
+                    {
+                        game.SetStakeholderOption(task.Id, option.Id, !selected);
+                        SaveAndRefresh("plan");
+                    };
+                    optionRow.Add(optionToggle);
+                    Button optionDetail = ActionButton("상세", "secondary");
+                    optionDetail.clicked += () => ShowCatalogTaskDetail(task, option);
+                    optionRow.Add(optionDetail);
+                    card.Add(optionRow);
+                }
+
+            int worker = StakeholderWorkerIndex(request, task);
+            Button picker = ActionButton(worker >= 0 && worker < game.Crew.Count
+                ? "담당 · " + game.Crew[worker].Name : "담당자 선택", worker >= 0 ? "primary" : "secondary");
+            picker.SetEnabled(editable && task.ScopeIncluded);
+            picker.clicked += () => ShowWorkerPicker(task);
+            card.Add(picker);
+            if (worker >= 0 && worker < game.Crew.Count)
+                card.Add(Text(WorkerAssignmentSummary(task, worker), "caption"));
+            return card;
+        }
+
+        private void ShowCatalogTaskDetail(WorkTask task, StakeholderOptionDefinition option)
+        {
+            StakeholderTaskDefinition definition = game.StakeholderTargetTaskDefinition(task);
+            if (definition == null) return;
+            modalHost.Clear();
+            var overlay = Box("modal-overlay");
+            var dialog = Section(option == null ? definition.Name : option.Name,
+                option == null ? definition.Description : option.Description);
+            dialog.Add(Text(option == null
+                ? $"기본 공수 {definition.RequiredWork:0.#}인일 · 주요 능력 {RoleLabel(definition.RequiredRole)}"
+                : $"추가 공수 {option.AdditionalWork:0.#}인일", "body"));
+            string[] information = option == null ? definition.RequiredInformation : option.RequiredInformation;
+            if (information != null && information.Length > 0)
+            {
+                dialog.Add(Text("필요 정보", "summary-title"));
+                foreach (string item in information) dialog.Add(Text("• " + item, "muted"));
+            }
+            if (option?.RiskNotes != null && option.RiskNotes.Length > 0)
+            {
+                dialog.Add(Text("새로운 위험", "summary-title"));
+                foreach (string risk in option.RiskNotes) dialog.Add(Text("• " + risk, "warning-text"));
+            }
+            Button close = ActionButton("닫기", "secondary");
+            close.clicked += () => modalHost.Clear();
+            dialog.Add(close);
+            ShowModal(overlay, dialog);
         }
 
         private VisualElement BuildStakeholderTaskCard(StakeholderRequestState request, WorkTask task)
