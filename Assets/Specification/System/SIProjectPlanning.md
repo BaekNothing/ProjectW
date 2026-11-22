@@ -2,13 +2,13 @@
 
 ## Document Control
 
-- Version: 1.3
+- Version: 1.4
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
 - Source: `Docs/Design/SIProjectManagementConcept.md`
-- Rationale: Replace the hard-to-use segmented ring with a readable vertical card presentation while
-  preserving scope and option toggles, detail dialogs, staffing previews, and review locks.
+- Rationale: Replace the central effort ring and full-width card stack with a top summary-card row
+  and an aligned responsive Task-card grid while preserving all planning interactions.
 
 ## Scope
 
@@ -60,9 +60,13 @@ another.
 
 ## Planning Board
 
-The planning board presents a compact summary followed by one full-width card per catalog Task.
-The summary shows selected Task and option counts, total person-days, forecast completion, customer
-deadline, and schedule slack or overrun. Every Task card shows:
+The planning board has no central circular effort control. It presents total person-days first in a
+top summary-card row, followed by selected Task and option counts, forecast completion, customer
+deadline, and schedule slack or overrun. The catalog Tasks appear in an aligned responsive card
+grid: the normal landscape layout uses three equal-width columns and two rows for the initial six
+Tasks, while narrower layouts wrap to fewer columns without changing card order. Cards in the same
+row stretch to a common height so headings, controls, and following rows remain aligned. Every Task
+card shows:
 
 - ON/OFF state;
 - base and extension person-days;

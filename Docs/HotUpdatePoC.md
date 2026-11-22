@@ -45,7 +45,8 @@ native plugins, Android settings, Unity, or HybridCLR change.
   and motion system (including focus and reduced motion), the unified remote Addressables
   catalog/content pipeline, all fixed Bootstrap operations, and the worker-assignment preview's
   pointer and keyboard dismissal surfaces. The APK also contains the retired SI annular sprite and
-  ring styles; the active HotUpdate planner now reuses the embedded generic card controls.
+  ring styles; the active HotUpdate planner now reuses the embedded generic card and responsive
+  grid controls for its top summary and aligned Task-card matrix.
 
 Older base APKs reject manifests whose `minBaseVersion` is `18`. Install base APK v18 once before
 consuming the current SI catalog-planning patches.

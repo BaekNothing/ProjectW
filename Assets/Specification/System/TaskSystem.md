@@ -2,12 +2,12 @@
 
 ## Document Control
 
-- Version: 8.1
+- Version: 8.2
 - Status: Approved for implementation
 - Action: Update
 - SSOT Change: Yes
-- Rationale: Present new finite-catalog stakeholder plans as readable Task cards with explicit scope
-  and option toggles, while retaining detail popups, staffing previews, and legacy save compatibility.
+- Rationale: Present finite-catalog plans as an aligned responsive Task-card grid beneath a
+  non-circular top summary while retaining toggles, detail popups, and staffing previews.
 - Idea references: `IDEA.md` items 1, 2, 4, and 8
 
 ## Scope

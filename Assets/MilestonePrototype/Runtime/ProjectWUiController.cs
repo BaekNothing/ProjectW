@@ -858,9 +858,9 @@ namespace ProjectW.MilestonePrototype
             int projectedCompletion = game.StakeholderPlanProjectedCompletionDay(request.Id);
 
             var summary = Box("metric-grid");
+            summary.Add(Metric("총 공수", $"{game.StakeholderPlanTotalWork(request.Id):0.#}인일", "EFFORT"));
             summary.Add(Metric("포함 작업", $"{selectedTasks}/{tasks.Count}", "SCOPE"));
             summary.Add(Metric("확장 사양", $"{selectedOptions}/{totalOptions}", "OPTIONS"));
-            summary.Add(Metric("총 공수", $"{game.StakeholderPlanTotalWork(request.Id):0.#}인일", "EFFORT"));
             summary.Add(Metric("예상 완료", projectedCompletion > 0
                 ? $"D{projectedCompletion:00}" : "미정", $"마감 D{work.SoftDeadline:00}"));
             board.Add(summary);
@@ -876,8 +876,10 @@ namespace ProjectW.MilestonePrototype
                 "caption"));
             board.Add(schedule);
 
+            var taskGrid = Box("card-grid");
             foreach (WorkTask task in tasks)
-                board.Add(BuildCatalogTaskCard(request, task));
+                taskGrid.Add(BuildCatalogTaskCard(request, task));
+            board.Add(taskGrid);
 
             var risks = Box("catalog-risk-panel");
             risks.Add(Text("현재 계획 위험", "summary-title"));
@@ -935,11 +937,19 @@ namespace ProjectW.MilestonePrototype
             StakeholderTaskDefinition definition = game.StakeholderTargetTaskDefinition(task);
             bool editable = !request.PlanConfirmed && !request.PlanFailed &&
                             request.PendingPlanReviewDay <= 0 && request.FitScore < 0;
-            var card = Box("task-slot-card");
+            var card = Box("metric-card");
+            card.AddToClassList("catalog-task-card");
+            card.style.width = Length.Percent(30f);
             int worker = StakeholderWorkerIndex(request, task);
             bool conflict = CatalogTaskHasConflict(task, definition);
 
             var heading = Box("summary-row");
+            heading.Add(Text(definition?.Name ?? task.Name, "summary-title"));
+            heading.Add(Badge(task.ScopeIncluded ? "범위 포함" : "범위 제외",
+                task.ScopeIncluded ? "success" : "neutral"));
+            card.Add(heading);
+
+            var scopeActions = Box("button-row");
             Button toggle = ActionButton(task.ScopeIncluded ? "ON" : "OFF",
                 task.ScopeIncluded ? "primary" : "secondary");
             toggle.SetEnabled(editable);
@@ -948,14 +958,11 @@ namespace ProjectW.MilestonePrototype
                 game.SetStakeholderTaskIncluded(task.Id, !task.ScopeIncluded);
                 SaveAndRefresh("plan");
             };
-            heading.Add(toggle);
-            heading.Add(Text(definition?.Name ?? task.Name, "summary-title"));
-            heading.Add(Badge(task.ScopeIncluded ? "범위 포함" : "범위 제외",
-                task.ScopeIncluded ? "success" : "neutral"));
+            scopeActions.Add(toggle);
             Button detail = ActionButton("상세", "secondary");
             detail.clicked += () => ShowCatalogTaskDetail(task, null);
-            heading.Add(detail);
-            card.Add(heading);
+            scopeActions.Add(detail);
+            card.Add(scopeActions);
             card.Add(Text(task.ScopeIncluded
                 ? $"기본 {definition?.RequiredWork ?? 0f:0.#}인일 · 확장 +{Math.Max(0f, task.RequiredWork - (definition?.RequiredWork ?? 0f)):0.#}인일"
                 : "공수·담당자·일정에서 제외", task.ScopeIncluded ? "body" : "muted"));
