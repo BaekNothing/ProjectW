@@ -2,12 +2,13 @@
 
 ## Document Control
 
-- Version: 1.2
+- Version: 1.3
 - Status: Approved for implementation
 - Action: Create
 - SSOT Change: Yes
 - Source: `Docs/Design/SIProjectManagementConcept.md`
-- Rationale: Promote the decided SI project-management planning loop from concept to an implementable system specification.
+- Rationale: Replace the hard-to-use segmented ring with a readable vertical card presentation while
+  preserving scope and option toggles, detail dialogs, staffing previews, and review locks.
 
 ## Scope
 
@@ -59,27 +60,25 @@ another.
 
 ## Planning Board
 
-The planning board presents one circular summary hub inside a ring divided into six equal 60-degree
-Task segments. Each segment is rendered from the same transparent annular-sector sprite and rotated
-around the hub. A normal catalog request must not fall back to a hub-above-card-grid layout or to
-rounded rectangular cards placed around a circle. The hub
-shows selected Task and option counts, total person-days, forecast completion, customer deadline,
-and schedule slack or overrun. Every segment shows:
+The planning board presents a compact summary followed by one full-width card per catalog Task.
+The summary shows selected Task and option counts, total person-days, forecast completion, customer
+deadline, and schedule slack or overrun. Every Task card shows:
 
 - ON/OFF state;
 - base and extension person-days;
-- extension check controls and detail actions;
+- explicit extension ON/OFF controls and detail actions;
 - provisional worker and compact fit summary.
 
-The segment surface itself is the scope toggle. Included, excluded, unstaffed, and conflicting
-states are conveyed by segment fill and opacity rather than a separate `ON/OFF` button. Pointer
-selection must resolve the ring radius and segment angle so transparent rectangular sprite bounds
-cannot activate an adjacent segment. Extension check controls and their detail actions sit along
-the outer edge of their segment.
+Each card has an explicit `ON/OFF` scope toggle. Excluded cards remain readable but state that their
+work, worker, and schedule contribution are disabled. Included cards expose extension toggles and
+worker selection. Missing staffing and option conflicts are written directly in the card as well as
+in the board-level risk summary; presentation must not depend on color alone.
 
-The detail dialog shows purpose, work, required information, and new risks. The board also lists
-blocking risks such as missing workers, insufficient scope, deadline overrun, and authored option
-conflicts.
+The existing detail-dialog rules remain unchanged: the Task detail action shows purpose, base work,
+required information, and role; each option detail action shows added work, required information,
+and new risks. The selected worker summary opens the existing worker-detail popup with its normal
+dismissal rules. The board also lists blocking risks such as missing workers, insufficient scope,
+deadline overrun, and authored option conflicts.
 
 ## Estimation and Schedule
 
@@ -110,10 +109,10 @@ normalize to empty arrays. Legacy weighted-slot requests continue through their 
 
 ## AOT and Delivery Boundary
 
-Catalog rules, data, and runtime controller logic belong to `ProjectW.HotUpdate`. The radial visual
-styles are APK-embedded UI Toolkit USS resources and therefore require a reviewed base APK rebuild.
-The implementation may use only the UI Toolkit and time surface authorized by the base v15 safety
-baseline unless a later baseline explicitly expands it.
+Catalog rules, data, and runtime controller logic belong to `ProjectW.HotUpdate`. The card
+presentation reuses the generic card, button, assignment-summary, and modal styles already embedded
+in base APK v18, so this presentation change is patch-only. The previously embedded annular sprite
+and ring styles may remain inert in the base APK; active HotUpdate code must not depend on them.
 
 ## Deferred Decisions
 

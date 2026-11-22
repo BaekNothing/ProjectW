@@ -2,12 +2,12 @@
 
 ## Document Control
 
-- Version: 8.0
+- Version: 8.1
 - Status: Approved for implementation
 - Action: Update
 - SSOT Change: Yes
-- Rationale: Route new stakeholder requests to the finite catalog, extension-option, effort, staffing,
-  and schedule workflow defined by `SIProjectPlanning.md`, while preserving legacy save compatibility.
+- Rationale: Present new finite-catalog stakeholder plans as readable Task cards with explicit scope
+  and option toggles, while retaining detail popups, staffing previews, and legacy save compatibility.
 - Idea references: `IDEA.md` items 1, 2, 4, and 8
 
 ## Scope

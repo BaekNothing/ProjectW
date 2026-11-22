@@ -2017,18 +2017,6 @@ namespace ProjectW.MilestonePrototype.Tests
             Assert.That(PatchBootstrapper.BaseVersion, Is.EqualTo(18));
         }
 
-        [TestCase(0f, -250f, 0)]
-        [TestCase(220f, -120f, 1)]
-        [TestCase(220f, 120f, 2)]
-        [TestCase(0f, 250f, 3)]
-        [TestCase(-220f, 120f, 4)]
-        [TestCase(-220f, -120f, 5)]
-        public void CatalogSegmentHitTestingMapsEverySixthOfTheRing(
-            float dx, float dy, int expected)
-        {
-            Assert.That(ProjectWUiProjection.CatalogSegmentIndex(dx, dy), Is.EqualTo(expected));
-        }
-
         [Test]
         public void GameplayDataOverrideRoundTripsAndCanBeRemoved()
         {

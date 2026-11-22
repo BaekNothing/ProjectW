@@ -24,17 +24,6 @@ namespace ProjectW.MilestonePrototype
         public static int TimelineStartDay(int today, int planningHorizon, int pastDays = 3) =>
             Math.Max(1, Math.Min(Math.Max(1, planningHorizon), today) - Math.Max(0, pastDays));
 
-        public static int CatalogSegmentIndex(float dx, float dy)
-        {
-            float absoluteX = Math.Abs(dx);
-            float absoluteY = Math.Abs(dy);
-            if (absoluteY >= absoluteX * 1.732051f)
-                return dy < 0f ? 0 : 3;
-            if (dx >= 0f)
-                return dy < 0f ? 1 : 2;
-            return dy >= 0f ? 4 : 5;
-        }
-
         public static GanttBarProjection Project(WorkTask task, TaskScheduleEstimate estimate, int today)
         {
             if (task == null) throw new ArgumentNullException(nameof(task));

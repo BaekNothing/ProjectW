@@ -44,12 +44,11 @@ native plugins, Android settings, Unity, or HybridCLR change.
 - Required for: the StudioUI UI Toolkit title and operations workspace, the reviewed interaction
   and motion system (including focus and reduced motion), the unified remote Addressables
   catalog/content pipeline, all fixed Bootstrap operations, and the worker-assignment preview's
-  pointer and keyboard dismissal surfaces, and the six-part SI catalog planning ring with an
-  embedded 60-degree annular sprite, angle-accurate scope selection, compact edge options, and
-  visible staffing and risk states
+  pointer and keyboard dismissal surfaces. The APK also contains the retired SI annular sprite and
+  ring styles; the active HotUpdate planner now reuses the embedded generic card controls.
 
 Older base APKs reject manifests whose `minBaseVersion` is `18`. Install base APK v18 once before
-consuming the segmented-ring SI catalog-planning patches.
+consuming the current SI catalog-planning patches.
 
 ## Routine code patch workflow
 

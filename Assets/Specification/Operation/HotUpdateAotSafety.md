@@ -446,3 +446,8 @@ The regenerated AOT report adds `PointerEventBase<object>` and preserves `EventB
 `IEventHandler`, `PointerEventBase<T>`, `VisualElementExtensions`, `Vector2`, and `Vector3`. These
 are the reviewed shapes reached by the fixed v18 pointer-position and world-to-local calls; they do
 not authorize unrelated event types or coordinate APIs.
+
+The active card-based SI planner no longer calls the v18 pointer-position, world-to-local, or
+managed ring-sector path. It reuses the generic `VisualElement`, `Label`, `Button`, class-list,
+callback, and modal surface already exercised by the installed base, so switching from the ring to
+cards is a HotUpdate-only presentation change and does not require another base rebuild.
